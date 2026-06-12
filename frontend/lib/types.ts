@@ -1,5 +1,9 @@
 export type Sport = "badminton" | "football" | "futsal" | "tennis";
 
+export type DayHours = { day: string; open: string; close: string };
+
+export type CourtSpec = { sport: string; floor: string; aircon: string; height: string; lighting: string; standard: string; players: string };
+
 export type Venue = {
   id: string;
   name: string;
@@ -13,6 +17,11 @@ export type Venue = {
   facilities: string[];  // e.g. ["parking","shower","cafe"]
   pricePerHour: number;  // THB, "from" price shown on cards
   distanceKm: number;    // distance from user, for list display
+  phone?: string;
+  travelHint?: string;   // e.g. "15 นาทีจาก MRT ..."
+  peakNote?: string;     // peak-hours advisory
+  description?: string;
+  weekHours?: DayHours[];
 };
 
 export type Court = {
@@ -21,6 +30,7 @@ export type Court = {
   name: string;          // "Court 1"
   sport: Sport;
   pricePerHour: number;  // THB
+  spec?: CourtSpec;
 };
 
 export type Slot = {
@@ -61,3 +71,36 @@ export type Payment = {
 };
 
 export type User = { id: string; displayName: string; lineId: string; avatarUrl?: string };
+
+export type Review = { id: string; author: string; rating: number; date: string; text: string };
+
+export type ReviewSummary = {
+  average: number;
+  total: number;
+  breakdown: Record<1 | 2 | 3 | 4 | 5, number>;
+  reviews: Review[];
+};
+
+export type VenuePackage = { id: string; name: string; hours: number; price: number; validDays: number; savePercent: number };
+
+export type Membership = {
+  tier: "Silver" | "Gold" | "Platinum";
+  memberId: string;
+  points: number;
+  expiresAt: string;
+  benefits: string[];
+};
+
+export type WalletTxn = { id: string; date: string; label: string; amount: number };
+
+export type Wallet = { balance: number; transactions: WalletTxn[] };
+
+export type Promotion = { id: string; title: string; subtitle: string; tag: "ส่วนลด" | "แพ็กเกจ" };
+
+export type AppNotification = {
+  id: string;
+  kind: "booking" | "reminder" | "promo" | "points";
+  title: string;
+  body: string;
+  timeAgo: string;
+};

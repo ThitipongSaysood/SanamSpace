@@ -1,5 +1,12 @@
-import type { Booking, Court, CourtSchedule, Payment, Slot, Venue } from "@/lib/types";
-import { courts as courtsFx, venues as venuesFx } from "./fixtures";
+import type {
+  AppNotification, Booking, Court, CourtSchedule, Membership, Payment,
+  Promotion, ReviewSummary, Slot, Venue, VenuePackage, Wallet,
+} from "@/lib/types";
+import {
+  courts as courtsFx, venues as venuesFx,
+  reviewSummary as reviewSummaryFx, packages as packagesFx, membership as membershipFx,
+  wallet as walletFx, promotions as promotionsFx, notifications as notificationsFx,
+} from "./fixtures";
 
 const delay = (ms = 250) => new Promise((r) => setTimeout(r, ms));
 const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
@@ -63,5 +70,11 @@ export const api = {
   async checkinBooking(id: string): Promise<Booking> {
     await delay(); const b = db.bookings.get(id)!; b.status = "completed"; return { ...b };
   },
+  async getReviews(venueId: string): Promise<ReviewSummary> { await delay(); return reviewSummaryFx; },
+  async getPackages(): Promise<VenuePackage[]> { await delay(); return packagesFx; },
+  async getMembership(): Promise<Membership> { await delay(); return membershipFx; },
+  async getWallet(): Promise<Wallet> { await delay(); return walletFx; },
+  async getPromotions(): Promise<Promotion[]> { await delay(); return promotionsFx; },
+  async getNotifications(): Promise<AppNotification[]> { await delay(); return notificationsFx; },
 };
 export type Api = typeof api;
