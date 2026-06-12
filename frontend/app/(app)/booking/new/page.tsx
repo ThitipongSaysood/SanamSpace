@@ -1,8 +1,10 @@
 "use client";
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { CalendarDays } from "lucide-react";
 import { useCourts, useSchedule, useCreateBooking } from "@/lib/api/queries";
 import { CourtSlotGrid } from "@/components/court-slot-grid";
+import { AppHeader } from "@/components/app-header";
 import { canSelect, calcPrice } from "@/lib/booking/slots";
 import type { Slot } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -41,30 +43,51 @@ function NewBookingInner() {
   if (!courts) return <Loading />;
   if (courts.length === 0) return <EmptyState message="สนามนี้ยังไม่มีคอร์ทให้จอง" />;
   return (
-    <main className="p-4">
-      <h1 className="text-lg font-bold">เลือกคอร์ทและเวลา</h1>
-      <p className="text-sm text-muted-foreground">วันที่ {DATE}</p>
+    <main className="pb-24">
+      <AppHeader title="เลือกคอร์ทและเวลา" />
+      <div className="space-y-5 p-4">
+        <div className="inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-sm font-medium shadow-sm ring-1 ring-black/5">
+          <CalendarDays className="size-4 text-brand" />
+          {DATE}
+        </div>
 
-      <h2 className="mt-4 mb-1 text-sm font-semibold">คอร์ท</h2>
-      <div className="flex flex-wrap gap-2">
-        {courts.map((c) => (
-          <button key={c.id} aria-pressed={courtId === c.id} onClick={() => { setCourtId(c.id); setSelected([]); }}
-            className={`rounded-lg border px-3 py-2 text-sm ${courtId === c.id ? "border-brand bg-brand text-white" : "border-input"}`}>
-            {c.name}
-          </button>
-        ))}
+        <section>
+          <h2 className="mb-2 font-semibold">เลือกคอร์ท</h2>
+          <div className="flex flex-wrap gap-2">
+            {courts.map((c) => (
+              <button
+                key={c.id}
+                aria-pressed={courtId === c.id}
+                onClick={() => { setCourtId(c.id); setSelected([]); }}
+                className={`rounded-xl px-4 py-2.5 text-sm font-medium shadow-sm transition ${
+                  courtId === c.id
+                    ? "bg-brand text-white"
+                    : "bg-white text-foreground ring-1 ring-black/5 hover:ring-brand/30"
+                }`}
+              >
+                {c.name}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {courtId && schedule && (
+          <section>
+            <h2 className="mb-2 font-semibold">เลือกเวลา</h2>
+            <CourtSlotGrid slots={schedule.slots} selected={selected} onToggle={toggle} />
+          </section>
+        )}
       </div>
 
-      {courtId && schedule && (
-        <>
-          <h2 className="mt-4 mb-1 text-sm font-semibold">เวลา</h2>
-          <CourtSlotGrid slots={schedule.slots} selected={selected} onToggle={toggle} />
-        </>
-      )}
-
-      <div className="fixed inset-x-0 bottom-16 mx-auto flex max-w-md items-center justify-between border-t bg-background p-3">
-        <div className="text-sm">รวม <span className="font-bold text-brand">฿{price}</span></div>
-        <Button disabled={selected.length === 0 || create.isPending} onClick={confirm} className="bg-brand hover:bg-brand/90">
+      <div className="fixed inset-x-0 bottom-0 z-20 mx-auto flex max-w-md items-center justify-between gap-3 border-t border-black/5 bg-white/95 p-3 backdrop-blur">
+        <div className="text-sm text-muted-foreground">
+          รวม <span className="text-lg font-bold text-brand">฿{price}</span>
+        </div>
+        <Button
+          disabled={selected.length === 0 || create.isPending}
+          onClick={confirm}
+          className="h-12 flex-1 rounded-xl bg-brand text-base font-semibold hover:bg-brand/90"
+        >
           {create.isPending ? "กำลังจอง..." : "ดำเนินการต่อ"}
         </Button>
       </div>
