@@ -1,27 +1,27 @@
 # Active Task
 
-_Last updated: 2026-06-12_
+_Last updated: 2026-06-13_
 
 ## Project type (auto-detected)
 
-Unknown (docs/spec repo — no app code yet)
+Next.js 16 (frontend/) + docs/spec repo. Backend (PHP/MySQL) ยังไม่เริ่ม
 
 ## Current goal
 
-เขียนเอกสาร UX ของ SanamSpace ให้ครบทุกจอ (`docs/ux/`) เป็น draft spec
-อ้างอิง PRD / API spec / Permission & Feature Matrix / mockups
+สร้าง Customer Booking Web (Next.js PWA, mock data) — **Milestone 1 เสร็จและ merge เข้า main แล้ว**
 
 ## What just happened
 
-เติมเนื้อหา UX จริงครบ **116 spec files** — customer 42, owner 37, super-admin 14,
-shared 11, flows 7 (มี Mermaid diagram), research 5 — ผ่าน subagent ขนาน 13 ตัว (2 waves)
-ทุกไฟล์ status: draft, มีครบ 9 sections, API Dependencies อ้าง endpoint จริง
-(หมายเหตุ: ระหว่างทางมี subagent เผลอลบ structure/SanamSpace_PRD_Master_v2.md — กู้คืนจาก git แล้ว)
+ทำ Milestone 1 ครบตามแผน: scaffold Next.js 16 + Tailwind v4 + shadcn(base-ui) + TanStack Query,
+mock data layer (swap point เดียว), mock auth+guard, จอ booking happy-path
+(Login→Home→Venue→Booking→Payment+slip→Confirmation+QR→History) + slot/slip logic (TDD).
+Final review เจอ bug 5 ตัว (ราคาหลายชม.ผิด, cache เก่า, สลิปไม่บังคับ, venue ตัน, header ไม่ตามสถานะ) → แก้ครบ.
+22 เทสต์เขียว, build ผ่าน, e2e ผ่าน. Merge feat/customer-booking-web → main (498e354) + push แล้ว
 
 ## Blockers
 
-ยังไม่มี — รอ commit/push (ดู Next step) และรอ user รีวิวเนื้อหา draft
+ไม่มี
 
 ## Next step
-commit + push docs/ux/ ขึ้น GitHub; งานถัดไปที่ทำได้: (ก) เติม wireframes/prototypes images,
-(ข) ยกระดับ draft → reviewed ทีละจอ, (ค) รีวิว usability จอ customer ด้วย skill figma-usability-review
+เลือกได้: (ก) ต่อจอ customer ที่เหลือ (membership/wallet/profile/...), (ข) เริ่ม Owner Admin Portal,
+(ค) เริ่ม PHP backend จริงแล้วสลับ mock→/api/v1, (ง) เติม wireframe/รูปจริง + ขัด UI ให้ตรง mockup
