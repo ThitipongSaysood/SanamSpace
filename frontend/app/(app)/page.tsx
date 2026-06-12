@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { CalendarPlus, Crown, Package, User, Tag, type LucideIcon } from "lucide-react";
+import { CalendarPlus, Crown, Package, User, Tag, Search, type LucideIcon } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useVenues } from "@/lib/api/queries";
 import { VenueCard } from "@/components/venue-card";
@@ -9,9 +9,9 @@ import { Loading, ErrorState } from "@/components/states";
 type QuickAction = { label: string; icon: LucideIcon; href?: string };
 
 const quickActions: QuickAction[] = [
-  { label: "จองสนาม", icon: CalendarPlus },
-  { label: "สมาชิก", icon: Crown },
-  { label: "แพ็กเกจ", icon: Package },
+  { label: "จองสนาม", icon: CalendarPlus, href: "/sports" },
+  { label: "สมาชิก", icon: Crown, href: "/membership" },
+  { label: "แพ็กเกจ", icon: Package, href: "/packages" },
   { label: "โปรไฟล์", icon: User, href: "/profile" },
 ];
 
@@ -35,7 +35,15 @@ export default function HomePage() {
         <p className="text-sm text-white/85">สวัสดี, {user?.displayName} 👋</p>
         <h1 className="text-xl font-bold">วันนี้จะเล่นสนามที่ไหน?</h1>
 
-        <div className="mt-4 flex items-center gap-3 rounded-2xl bg-white/15 p-3 ring-1 ring-white/15">
+        <Link
+          href="/search"
+          className="mt-4 flex h-11 items-center gap-2.5 rounded-2xl bg-white/15 px-3.5 text-sm text-white/85 ring-1 ring-white/15"
+        >
+          <Search className="size-4 shrink-0" />
+          ค้นหาสนาม, โซน, สถานที่
+        </Link>
+
+        <div className="mt-3 flex items-center gap-3 rounded-2xl bg-white/15 p-3 ring-1 ring-white/15">
           <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-white/20">
             <Tag className="size-5" />
           </div>
@@ -67,7 +75,9 @@ export default function HomePage() {
         <section>
           <div className="mb-2 flex items-center justify-between">
             <h2 className="font-semibold">สนามแนะนำ</h2>
-            <span className="text-xs font-medium text-brand">ดูทั้งหมด</span>
+            <Link href="/search" className="text-xs font-medium text-brand">
+              ดูทั้งหมด
+            </Link>
           </div>
           {isLoading && <Loading />}
           {isError && <ErrorState onRetry={() => refetch()} />}

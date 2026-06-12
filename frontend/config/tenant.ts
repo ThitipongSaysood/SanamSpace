@@ -5,6 +5,11 @@ export type Tenant = {
   name: string;
   logoText: string;
   lineOaUrl: string;
+  phone: string;
+  lineId: string;
+  facebook: string;
+  email: string;
+  addressNote: string;
   theme: TenantTheme;
 };
 
@@ -14,5 +19,10 @@ export const tenant: Tenant = {
   name: "Everyday Badminton",
   logoText: "EVERYDAY BADMINTON",
   lineOaUrl: "https://line.me/",
+  phone: "081-234-5678",
+  lineId: "@everyday.badminton",
+  facebook: "Everyday Badminton",
+  email: "info@everydaybadminton.com",
+  addressNote: "ถ.งามวงศ์วาน จ.นนทบุรี",
   theme: { primary: "#16A34A", warning: "#F59E0B", danger: "#EF4444" },
 };

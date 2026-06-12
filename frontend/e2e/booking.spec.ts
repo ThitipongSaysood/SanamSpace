@@ -13,15 +13,34 @@ test("customer can book a court end-to-end", async ({ page }) => {
   await page.goto("/login");
   await page.getByRole("button", { name: "เข้าสู่ระบบด้วย LINE" }).click();
   await expect(page.getByText(/สวัสดี/)).toBeVisible();
-  await page.getByText("Everyday Badminton").first().click();
-  await page.getByRole("button", { name: "จองเลย" }).click();
-  await page.getByRole("button", { name: "Court 1" }).click();
-  await page.getByRole("button", { name: "18:00" }).click();
-  await page.getByRole("button", { name: "ดำเนินการต่อ" }).click();
-  await page.getByRole("button", { name: /โอนผ่านธนาคาร/ }).click();
-  await expect(page.getByText("ชำระเงิน")).toBeVisible();
 
-  // Continue past payment: attach a slip, submit, and confirm.
+  // Home -> venue -> booking wizard.
+  await page.getByText("Everyday Badminton").first().click();
+  await page.getByRole("button", { name: "จองสนาม" }).click();
+
+  // Step 1: เลือกคอร์ท
+  await expect(page.getByText("เลือกคอร์ท")).toBeVisible();
+  await page.getByRole("button", { name: /Court 1/ }).click();
+  await page.getByRole("button", { name: "ต่อไป" }).click();
+
+  // Step 2: เลือกวันที่ (default 20 มิ.ย. 2569 already selected)
+  await expect(page.getByText("มิถุนายน 2569")).toBeVisible();
+  await page.getByRole("button", { name: "ต่อไป" }).click();
+
+  // Step 3: เลือกเวลา
+  await page.getByRole("button", { name: "18:00" }).click();
+  await page.getByRole("button", { name: "ต่อไป" }).click();
+
+  // Step 4: สรุปการจอง -> ชำระเงิน
+  await expect(page.getByText("รวมทั้งหมด")).toBeVisible();
+  await page.getByRole("button", { name: "ดำเนินการชำระเงิน" }).click();
+
+  // Payment: โอนเงิน (อัปโหลดสลิป) is preselected; confirm to get bank details.
+  await expect(page.getByText("เลือกวิธีชำระเงิน")).toBeVisible();
+  await page.getByRole("button", { name: /ยืนยันการชำระเงิน/ }).click();
+  await expect(page.getByText("ยอดที่ต้องชำระ")).toBeVisible();
+
+  // Attach a slip, submit, and confirm.
   const slipPath = path.join(os.tmpdir(), `slip-${Date.now()}.png`);
   fs.writeFileSync(slipPath, PNG_1x1);
   const submit = page.getByRole("button", { name: "ส่งสลิป" });
