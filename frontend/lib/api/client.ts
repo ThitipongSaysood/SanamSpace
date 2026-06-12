@@ -2,6 +2,7 @@ import type { Booking, Court, CourtSchedule, Payment, Slot, Venue } from "@/lib/
 import { courts as courtsFx, venues as venuesFx } from "./fixtures";
 
 const delay = (ms = 250) => new Promise((r) => setTimeout(r, ms));
+const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
 const db = { bookings: new Map<string, Booking>(), payments: new Map<string, Payment>() };
 let seq = 1;
 
@@ -30,9 +31,10 @@ export const api = {
     const court = courtsFx.find((c) => c.id === input.courtId)!;
     const id = `bk-${seq}`;
     const code = `BK${240}S${String(250000 + seq)}`;
+    const hours = (toMin(input.end) - toMin(input.start)) / 60;
     const booking: Booking = {
       id, code, venueId: venue.id, venueName: venue.name, courtId: court.id, courtName: court.name,
-      date: input.date, start: input.start, end: input.end, amount: court.pricePerHour,
+      date: input.date, start: input.start, end: input.end, amount: hours * court.pricePerHour,
       status: "pending_payment", createdAt: new Date(2026, 5, 13).toISOString(),
     };
     seq++; db.bookings.set(id, booking); return booking;

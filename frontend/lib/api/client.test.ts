@@ -24,4 +24,14 @@ describe("mock api client", () => {
     expect(b.status).toBe("pending_payment");
     expect(b.code).toMatch(/^BK/);
   });
+
+  it("stores amount from duration for a multi-hour booking", async () => {
+    const courts = await api.getCourts("everyday-badminton");
+    const b = await api.createBooking({
+      venueId: "everyday-badminton", courtId: courts[0].id,
+      date: "2026-06-20", start: "18:00", end: "21:00", // 3 hours
+    });
+    expect(courts[0].pricePerHour).toBe(200);
+    expect(b.amount).toBe(600); // 3h × 200
+  });
 });
