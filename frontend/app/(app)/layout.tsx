@@ -1,18 +1,25 @@
 "use client";
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
 import { BottomNav } from "@/components/bottom-nav";
+
+// Tab routes show the bottom nav; pushed flow screens (venue/booking/payment) are full-bleed.
+const TAB_ROUTES = ["/", "/bookings"];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const router = useRouter();
-  useEffect(() => { if (!user) router.replace("/login"); }, [user, router]);
+  const path = usePathname();
+  useEffect(() => {
+    if (!user) router.replace("/login");
+  }, [user, router]);
   if (!user) return null;
+  const showNav = TAB_ROUTES.includes(path);
   return (
-    <div className="mx-auto min-h-dvh max-w-md pb-16">
+    <div className={`mx-auto min-h-dvh max-w-md bg-app text-foreground ${showNav ? "pb-16" : ""}`}>
       {children}
-      <BottomNav />
+      {showNav && <BottomNav />}
     </div>
   );
 }

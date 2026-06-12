@@ -1,22 +1,30 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Home, Ticket } from "lucide-react";
 
 const items = [
-  { href: "/", label: "หน้าหลัก" },
-  { href: "/bookings", label: "การจอง" },
+  { href: "/", label: "หน้าหลัก", icon: Home },
+  { href: "/bookings", label: "การจอง", icon: Ticket },
 ];
 
 export function BottomNav() {
   const path = usePathname();
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-10 mx-auto flex max-w-md border-t bg-background">
-      {items.map((it) => {
-        const active = path === it.href;
+    <nav className="fixed inset-x-0 bottom-0 z-20 mx-auto flex max-w-md border-t border-black/5 bg-white/95 backdrop-blur">
+      {items.map(({ href, label, icon: Icon }) => {
+        const active = path === href;
         return (
-          <Link key={it.href} href={it.href}
-            className={`flex-1 py-3 text-center text-sm ${active ? "font-semibold text-brand" : "text-muted-foreground"}`}>
-            {it.label}
+          <Link
+            key={href}
+            href={href}
+            aria-current={active ? "page" : undefined}
+            className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium transition-colors ${
+              active ? "text-brand" : "text-muted-foreground"
+            }`}
+          >
+            <Icon className={`size-5 ${active ? "fill-brand/15" : ""}`} />
+            {label}
           </Link>
         );
       })}

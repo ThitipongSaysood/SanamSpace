@@ -1,8 +1,11 @@
 "use client";
 import { use } from "react";
 import Link from "next/link";
+import { ChevronLeft, Star, MapPin, Clock } from "lucide-react";
 import { useVenue } from "@/lib/api/queries";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
+import { SportMedia, sportMeta } from "@/components/media";
+import { FacilityChip } from "@/components/chip";
 import { Button } from "@/components/ui/button";
 
 export default function VenueDetailPage({ params }: { params: Promise<{ venueId: string }> }) {
@@ -12,19 +15,58 @@ export default function VenueDetailPage({ params }: { params: Promise<{ venueId:
   if (isError) return <ErrorState onRetry={() => refetch()} />;
   if (!venue) return <EmptyState message="ไม่พบสนามนี้" />;
   return (
-    <main className="p-4">
-      <div className="h-40 rounded-xl bg-muted" />
-      <h1 className="mt-3 text-xl font-bold">{venue.name}</h1>
-      <div className="text-sm text-brand">★ {venue.rating.toFixed(1)} ({venue.reviewCount} รีวิว)</div>
-      <div className="text-sm text-muted-foreground">{venue.address}</div>
-      <div className="mt-1 text-sm">เปิด {venue.openTime}–{venue.closeTime} น.</div>
+    <main className="pb-24">
+      <div className="relative">
+        <SportMedia sport={venue.sports[0]} className="h-56 w-full" />
+        <Link
+          href="/"
+          aria-label="ย้อนกลับ"
+          className="absolute left-3 top-3 grid size-9 place-items-center rounded-full bg-white/90 shadow-sm"
+        >
+          <ChevronLeft className="size-5" />
+        </Link>
+      </div>
 
-      <h2 className="mt-4 mb-1 font-semibold">สิ่งอำนวยความสะดวก</h2>
-      <div className="flex flex-wrap gap-2">{venue.facilities.map((f) => <span key={f} className="rounded-full bg-muted px-3 py-1 text-xs">{f}</span>)}</div>
+      <div className="relative -mt-6 rounded-t-3xl bg-app px-4 pt-5">
+        <div className="flex items-start justify-between gap-2">
+          <h1 className="text-xl font-bold">{venue.name}</h1>
+          <span className="mt-1 shrink-0 rounded-full bg-brand/10 px-2.5 py-0.5 text-xs font-medium text-brand">
+            {venue.sports.map((s) => sportMeta[s].label).join(" · ")}
+          </span>
+        </div>
+        <div className="mt-1.5 flex items-center gap-2 text-sm">
+          <span className="inline-flex items-center gap-1 font-semibold text-amber-500">
+            <Star className="size-4 fill-amber-400 text-amber-400" />
+            {venue.rating.toFixed(1)}
+          </span>
+          <span className="text-muted-foreground">({venue.reviewCount} รีวิว)</span>
+        </div>
+        <div className="mt-3 space-y-1.5 text-sm text-muted-foreground">
+          <div className="flex items-center gap-1.5">
+            <MapPin className="size-4 shrink-0" />
+            {venue.address}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Clock className="size-4 shrink-0" />
+            เปิดทุกวัน {venue.openTime}–{venue.closeTime} น.
+          </div>
+        </div>
 
-      <Link href={`/booking/new?venueId=${venue.id}`} className="mt-6 block">
-        <Button className="w-full bg-brand hover:bg-brand/90">จองเลย</Button>
-      </Link>
+        <h2 className="mt-6 mb-2 font-semibold">สิ่งอำนวยความสะดวก</h2>
+        <div className="flex flex-wrap gap-2">
+          {venue.facilities.map((f) => (
+            <FacilityChip key={f} name={f} />
+          ))}
+        </div>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-md border-t border-black/5 bg-white/95 p-3 backdrop-blur">
+        <Link href={`/booking/new?venueId=${venue.id}`}>
+          <Button className="h-12 w-full rounded-xl bg-brand text-base font-semibold hover:bg-brand/90">
+            จองเลย
+          </Button>
+        </Link>
+      </div>
     </main>
   );
 }
