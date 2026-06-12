@@ -16,7 +16,16 @@ export const venues: Venue[] = [
   },
 ];
 
-export const courts: Court[] = Array.from({ length: 6 }, (_, i) => ({
-  id: `court-${i + 1}`, venueId: "everyday-badminton",
-  name: `Court ${i + 1}`, sport: "badminton", pricePerHour: 200,
-}));
+export const courts: Court[] = [
+  ...Array.from({ length: 6 }, (_, i) => ({
+    id: `court-${i + 1}`, venueId: "everyday-badminton",
+    name: `Court ${i + 1}`, sport: "badminton" as const, pricePerHour: 200,
+  })),
+  // TSR Arena offers badminton + futsal courts.
+  ...Array.from({ length: 4 }, (_, i) => ({
+    id: `tsr-court-${i + 1}`, venueId: "tsr-arena",
+    name: `Court ${i + 1}`,
+    sport: (i < 2 ? "badminton" : "futsal") as const,
+    pricePerHour: i < 2 ? 220 : 600,
+  })),
+];

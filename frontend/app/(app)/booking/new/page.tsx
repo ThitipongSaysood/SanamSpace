@@ -6,7 +6,7 @@ import { CourtSlotGrid } from "@/components/court-slot-grid";
 import { canSelect, calcPrice } from "@/lib/booking/slots";
 import type { Slot } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Loading } from "@/components/states";
+import { Loading, EmptyState } from "@/components/states";
 
 const DATE = "2026-06-20";
 
@@ -39,6 +39,7 @@ function NewBookingInner() {
   }
 
   if (!courts) return <Loading />;
+  if (courts.length === 0) return <EmptyState message="สนามนี้ยังไม่มีคอร์ทให้จอง" />;
   return (
     <main className="p-4">
       <h1 className="text-lg font-bold">เลือกคอร์ทและเวลา</h1>
@@ -47,7 +48,7 @@ function NewBookingInner() {
       <h2 className="mt-4 mb-1 text-sm font-semibold">คอร์ท</h2>
       <div className="flex flex-wrap gap-2">
         {courts.map((c) => (
-          <button key={c.id} onClick={() => { setCourtId(c.id); setSelected([]); }}
+          <button key={c.id} aria-pressed={courtId === c.id} onClick={() => { setCourtId(c.id); setSelected([]); }}
             className={`rounded-lg border px-3 py-2 text-sm ${courtId === c.id ? "border-brand bg-brand text-white" : "border-input"}`}>
             {c.name}
           </button>

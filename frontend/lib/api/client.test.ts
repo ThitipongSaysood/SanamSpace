@@ -15,6 +15,15 @@ describe("mock api client", () => {
     expect(["available", "booked", "closed"]).toContain(sched.slots[0].status);
   });
 
+  it("returns courts for the tsr-arena venue (no dead-end)", async () => {
+    const courts = await api.getCourts("tsr-arena");
+    expect(courts.length).toBeGreaterThan(0);
+    for (const c of courts) {
+      expect(c.venueId).toBe("tsr-arena");
+      expect(["badminton", "futsal"]).toContain(c.sport);
+    }
+  });
+
   it("creates a booking in pending_payment", async () => {
     const courts = await api.getCourts("everyday-badminton");
     const b = await api.createBooking({

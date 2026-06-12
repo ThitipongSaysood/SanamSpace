@@ -11,7 +11,7 @@ export function CourtSlotGrid({ slots, selected, onToggle }: {
         const disabled = s.status !== "available";
         const sel = isSel(s);
         return (
-          <button key={s.start} disabled={disabled} onClick={() => onToggle(s)}
+          <button key={s.start} disabled={disabled} aria-pressed={sel} onClick={() => onToggle(s)}
             className={`rounded-lg border py-2 text-sm ${disabled ? "cursor-not-allowed bg-muted text-muted-foreground line-through" : sel ? "border-brand bg-brand text-white" : "border-input"}`}>
             {s.start}
           </button>
