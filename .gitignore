@@ -1,1 +1,5 @@
 /.agents/private/
+
+# Next.js app
+frontend/node_modules/
+frontend/.next/
