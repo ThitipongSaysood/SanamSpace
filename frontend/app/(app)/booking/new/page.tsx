@@ -1,7 +1,7 @@
 "use client";
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, CheckCircle2, Circle } from "lucide-react";
 import { useCourts, useSchedule, useCreateBooking } from "@/lib/api/queries";
 import { CourtSlotGrid } from "@/components/court-slot-grid";
 import { AppHeader } from "@/components/app-header";
@@ -43,38 +43,62 @@ function NewBookingInner() {
   if (!courts) return <Loading />;
   if (courts.length === 0) return <EmptyState message="สนามนี้ยังไม่มีคอร์ทให้จอง" />;
   return (
-    <main className="pb-24">
+    <main className="pb-28">
       <AppHeader title="เลือกคอร์ทและเวลา" />
-      <div className="space-y-5 p-4">
-        <div className="inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-sm font-medium shadow-sm ring-1 ring-black/5">
+      <div className="space-y-6 p-4">
+        <div className="inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-2 text-sm font-medium shadow-sm ring-1 ring-black/5">
           <CalendarDays className="size-4 text-brand" />
           {DATE}
         </div>
 
         <section>
-          <h2 className="mb-2 font-semibold">เลือกคอร์ท</h2>
-          <div className="flex flex-wrap gap-2">
-            {courts.map((c) => (
-              <button
-                key={c.id}
-                aria-pressed={courtId === c.id}
-                onClick={() => { setCourtId(c.id); setSelected([]); }}
-                className={`rounded-xl px-4 py-2.5 text-sm font-medium shadow-sm transition ${
-                  courtId === c.id
-                    ? "bg-brand text-white"
-                    : "bg-white text-foreground ring-1 ring-black/5 hover:ring-brand/30"
-                }`}
-              >
-                {c.name}
-              </button>
-            ))}
+          <h2 className="mb-2.5 font-semibold">เลือกคอร์ท</h2>
+          <div className="space-y-2.5">
+            {courts.map((c) => {
+              const active = courtId === c.id;
+              return (
+                <button
+                  key={c.id}
+                  aria-pressed={active}
+                  onClick={() => { setCourtId(c.id); setSelected([]); }}
+                  className={`flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3.5 text-left shadow-sm ring-1 transition ${
+                    active
+                      ? "bg-brand/10 ring-brand"
+                      : "bg-white ring-black/5 hover:ring-brand/30"
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <div className="font-semibold">{c.name}</div>
+                    <div className="mt-0.5 text-sm text-muted-foreground">
+                      ฿{c.pricePerHour}/ชั่วโมง
+                    </div>
+                  </div>
+                  {active ? (
+                    <CheckCircle2 className="size-6 shrink-0 text-brand" />
+                  ) : (
+                    <Circle className="size-6 shrink-0 text-black/15" />
+                  )}
+                </button>
+              );
+            })}
           </div>
         </section>
 
         {courtId && schedule && (
           <section>
-            <h2 className="mb-2 font-semibold">เลือกเวลา</h2>
+            <h2 className="mb-2.5 font-semibold">เลือกเวลา</h2>
             <CourtSlotGrid slots={schedule.slots} selected={selected} onToggle={toggle} />
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="size-2.5 rounded-full bg-brand" /> ว่าง
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="size-2.5 rounded-full bg-amber-400" /> ใกล้เต็ม
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="size-2.5 rounded-full bg-red-400" /> เต็ม
+              </span>
+            </div>
           </section>
         )}
       </div>

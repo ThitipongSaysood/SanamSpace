@@ -6,7 +6,7 @@ export function CourtSlotGrid({ slots, selected, onToggle }: {
 }) {
   const isSel = (s: Slot) => selected.some((x) => x.start === s.start);
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className="grid grid-cols-3 gap-2.5">
       {slots.map((s) => {
         const disabled = s.status !== "available";
         const sel = isSel(s);
@@ -16,9 +16,9 @@ export function CourtSlotGrid({ slots, selected, onToggle }: {
             disabled={disabled}
             aria-pressed={sel}
             onClick={() => onToggle(s)}
-            className={`rounded-xl py-2.5 text-sm font-medium transition ${
+            className={`rounded-xl py-3 text-center text-sm font-semibold tabular-nums transition ${
               disabled
-                ? "cursor-not-allowed bg-slate-100 text-muted-foreground line-through"
+                ? "cursor-not-allowed bg-slate-100 text-muted-foreground line-through ring-1 ring-black/5"
                 : sel
                   ? "border border-brand bg-brand text-white shadow-sm"
                   : "border border-black/10 bg-white text-foreground shadow-sm hover:border-brand/40"
