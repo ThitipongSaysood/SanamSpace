@@ -1,7 +1,7 @@
 "use client";
 import { use, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, Clock, XCircle, CalendarDays } from "lucide-react";
+import { CheckCircle2, Clock, XCircle, CalendarDays, Ticket } from "lucide-react";
 import { api } from "@/lib/api/client";
 import { useBooking } from "@/lib/api/queries";
 import { QRTicket } from "@/components/qr-ticket";
@@ -38,15 +38,25 @@ export default function BookingDetailPage({ params }: { params: Promise<{ bookin
           <Icon className="size-11" />
         </div>
         <h1 className="mt-4 text-xl font-bold">{head.title}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          หมายเลขการจอง <span className="font-mono font-semibold text-foreground">{booking.code}</span>
+        </p>
         <div className="mt-2">
           <StatusBadge status={booking.status} />
         </div>
 
         <div className="mt-5 w-full rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-black/5">
-          <div className="font-semibold">{booking.venueName} · {booking.courtName}</div>
-          <div className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-            <CalendarDays className="size-3.5" />
-            {booking.date} {booking.start}–{booking.end}
+          <div className="flex items-center gap-3">
+            <div className="grid size-12 shrink-0 place-items-center rounded-xl bg-brand/10 text-brand">
+              <Ticket className="size-6" />
+            </div>
+            <div className="min-w-0">
+              <div className="truncate font-semibold">{booking.venueName} · {booking.courtName}</div>
+              <div className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground">
+                <CalendarDays className="size-3.5" />
+                {booking.date} {booking.start}–{booking.end}
+              </div>
+            </div>
           </div>
           <div className="mt-3 flex items-baseline justify-between border-t border-black/5 pt-3">
             <span className="text-sm text-muted-foreground">ยอดรวม</span>
