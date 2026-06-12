@@ -12,16 +12,15 @@ Next.js 16 (frontend/) + docs/spec repo. Backend (PHP/MySQL) ยังไม่�
 
 ## What just happened
 
-ทำ Milestone 1 ครบตามแผน: scaffold Next.js 16 + Tailwind v4 + shadcn(base-ui) + TanStack Query,
-mock data layer (swap point เดียว), mock auth+guard, จอ booking happy-path
-(Login→Home→Venue→Booking→Payment+slip→Confirmation+QR→History) + slot/slip logic (TDD).
-Final review เจอ bug 5 ตัว (ราคาหลายชม.ผิด, cache เก่า, สลิปไม่บังคับ, venue ตัน, header ไม่ตามสถานะ) → แก้ครบ.
-22 เทสต์เขียว, build ผ่าน, e2e ผ่าน. Merge feat/customer-booking-web → main (498e354) + push แล้ว
+Milestone 1 (booking happy-path) เสร็จ + **ยกระดับ UI ทุกจอให้ตรง mockup** (Everyday Badminton โทนเขียว):
+UI kit (SportMedia/FacilityChip/StatusBadge/AppHeader), bottom nav 4 แท็บ + /notifications,/profile,
+Login ขาว 3 ปุ่ม, Home green header+quick-actions, การ์ดสนามมีราคา/ระยะทาง, payment methods, QR countdown.
+22 เทสต์เขียว, build ผ่าน. Merge → main (3e2fd5d) + push
 
 ## Blockers
 
-ไม่มี
+⚠️ disk เครื่องเกือบเต็ม (184/228Gi, ~240Mi free) — operations หนักอาจ ENOSPC; ยังไม่ได้ screenshot ตรวจ UI ด้วยตา
 
 ## Next step
-เลือกได้: (ก) ต่อจอ customer ที่เหลือ (membership/wallet/profile/...), (ข) เริ่ม Owner Admin Portal,
-(ค) เริ่ม PHP backend จริงแล้วสลับ mock→/api/v1, (ง) เติม wireframe/รูปจริง + ขัด UI ให้ตรง mockup
+ดู UI จริง `cd frontend && npm run dev`; ต่อได้: แยก booking เป็น 3 จอ (คอร์ท/วัน/เวลา) ตาม mockup,
+ทำจอ membership/wallet/package/profile จริง, เริ่ม Owner Portal, หรือเริ่ม PHP backend (สลับ mock→/api/v1)
