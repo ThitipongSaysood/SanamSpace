@@ -1,4 +1,4 @@
-import type { Venue, Court } from "@/lib/types";
+import type { Venue, Court, Sport } from "@/lib/types";
 
 export const venues: Venue[] = [
   {
@@ -22,10 +22,10 @@ export const courts: Court[] = [
     name: `Court ${i + 1}`, sport: "badminton" as const, pricePerHour: 200,
   })),
   // TSR Arena offers badminton + futsal courts.
-  ...Array.from({ length: 4 }, (_, i) => ({
+  ...Array.from({ length: 4 }, (_, i): Court => ({
     id: `tsr-court-${i + 1}`, venueId: "tsr-arena",
     name: `Court ${i + 1}`,
-    sport: (i < 2 ? "badminton" : "futsal") as const,
+    sport: (i < 2 ? "badminton" : "futsal") as Sport,
     pricePerHour: i < 2 ? 220 : 600,
   })),
 ];
