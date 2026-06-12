@@ -2,7 +2,10 @@
 import { use, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, Landmark, CheckCircle2, Ticket } from "lucide-react";
+import {
+  CalendarDays, CheckCircle2, Ticket, ChevronRight, QrCode, CreditCard, Wallet, Smartphone,
+} from "lucide-react";
+import type { ComponentType } from "react";
 import { api } from "@/lib/api/client";
 import { useBooking } from "@/lib/api/queries";
 import { SlipUploader } from "@/components/slip-uploader";
@@ -11,6 +14,14 @@ import { Loading, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import type { Payment } from "@/lib/types";
 
+type Method = { id: string; label: string; Icon: ComponentType<{ className?: string }>; iconCls: string };
+const METHODS: Method[] = [
+  { id: "promptpay", label: "PromptPay", Icon: QrCode, iconCls: "bg-brand/10 text-brand" },
+  { id: "card", label: "บัตรเครดิต / เดบิต", Icon: CreditCard, iconCls: "bg-blue-50 text-blue-600" },
+  { id: "linepay", label: "LINE Pay", Icon: Smartphone, iconCls: "bg-emerald-50 text-emerald-600" },
+  { id: "wallet", label: "TrueMoney Wallet", Icon: Wallet, iconCls: "bg-orange-50 text-orange-600" },
+];
+
 export default function PaymentPage({ params }: { params: Promise<{ bookingId: string }> }) {
   const { bookingId } = use(params);
   const router = useRouter();
@@ -18,6 +29,7 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
   const { data: booking, isLoading } = useBooking(bookingId);
   const [payment, setPayment] = useState<Payment | null>(null);
   const [slipFile, setSlipFile] = useState<File | null>(null);
+  const [method, setMethod] = useState<string>("promptpay");
   const [busy, setBusy] = useState(false);
 
   if (isLoading) return <Loading />;
@@ -64,18 +76,46 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
         </div>
 
         {!payment && (
-          <div className="rounded-2xl bg-white p-2 shadow-sm ring-1 ring-black/5">
+          <>
+            <h2 className="px-1 font-semibold">เลือกวิธีชำระเงิน</h2>
+            <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
+              {METHODS.map((m, i) => {
+                const active = method === m.id;
+                const Icon = m.Icon;
+                return (
+                  <button
+                    key={m.id}
+                    aria-pressed={active}
+                    onClick={() => setMethod(m.id)}
+                    className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition ${
+                      i > 0 ? "border-t border-black/5" : ""
+                    } ${active ? "bg-brand/5" : "hover:bg-black/[0.02]"}`}
+                  >
+                    <span className={`grid size-10 shrink-0 place-items-center rounded-lg ${m.iconCls}`}>
+                      <Icon className="size-5" />
+                    </span>
+                    <span className="flex-1 font-medium">{m.label}</span>
+                    {active ? (
+                      <CheckCircle2 className="size-5 shrink-0 text-brand" />
+                    ) : (
+                      <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center justify-between px-1 pt-1">
+              <span className="text-sm text-muted-foreground">ยอดชำระ ฿{booking.amount}</span>
+            </div>
             <Button
-              className="flex h-auto w-full items-center justify-start gap-3 rounded-xl bg-transparent px-3 py-3 text-left text-base font-medium text-foreground hover:bg-brand/5"
+              className="h-12 w-full rounded-xl bg-brand text-base font-semibold hover:bg-brand/90"
               disabled={busy}
               onClick={startTransfer}
             >
-              <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-brand/10 text-brand">
-                <Landmark className="size-5" />
-              </span>
-              โอนผ่านธนาคาร / PromptPay
+              {busy ? "กำลังเริ่ม..." : "ชำระเงิน (โอนผ่านธนาคาร / PromptPay)"}
             </Button>
-          </div>
+          </>
         )}
 
         {payment?.status === "awaiting_slip" && (

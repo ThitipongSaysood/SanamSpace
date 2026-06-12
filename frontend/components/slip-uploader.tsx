@@ -8,16 +8,26 @@ export function SlipUploader({ onValid }: { onValid: (file: File) => void }) {
   const [fileName, setFileName] = useState<string | null>(null);
   return (
     <div>
-      <label className="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-brand/30 bg-brand/5 px-4 py-8 text-center transition hover:border-brand/50">
+      <label
+        className={`flex cursor-pointer flex-col items-center gap-2 rounded-2xl border-2 border-dashed px-4 py-8 text-center transition ${
+          fileName
+            ? "border-brand bg-brand/5"
+            : "border-black/15 bg-app hover:border-brand/50 hover:bg-brand/5"
+        }`}
+      >
         {fileName ? (
           <>
-            <CheckCircle2 className="size-8 text-brand" />
+            <span className="grid size-12 place-items-center rounded-full bg-brand/10">
+              <CheckCircle2 className="size-7 text-brand" />
+            </span>
             <span className="text-sm font-medium text-brand">{fileName}</span>
             <span className="text-xs text-muted-foreground">แตะเพื่อเปลี่ยนสลิป</span>
           </>
         ) : (
           <>
-            <Upload className="size-8 text-brand/70" />
+            <span className="grid size-12 place-items-center rounded-full bg-brand/10">
+              <Upload className="size-6 text-brand" />
+            </span>
             <span className="text-sm font-medium">แตะเพื่อแนบสลิป</span>
             <span className="text-xs text-muted-foreground">รองรับไฟล์ JPG หรือ PNG</span>
           </>
