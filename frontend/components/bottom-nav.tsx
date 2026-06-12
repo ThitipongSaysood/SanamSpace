@@ -1,11 +1,13 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Ticket } from "lucide-react";
+import { Home, CalendarCheck, Bell, User } from "lucide-react";
 
 const items = [
   { href: "/", label: "หน้าหลัก", icon: Home },
-  { href: "/bookings", label: "การจอง", icon: Ticket },
+  { href: "/bookings", label: "การจอง", icon: CalendarCheck },
+  { href: "/notifications", label: "แจ้งเตือน", icon: Bell },
+  { href: "/profile", label: "โปรไฟล์", icon: User },
 ];
 
 export function BottomNav() {

@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { BottomNav } from "@/components/bottom-nav";
 
 // Tab routes show the bottom nav; pushed flow screens (venue/booking/payment) are full-bleed.
-const TAB_ROUTES = ["/", "/bookings"];
+const TAB_ROUTES = ["/", "/bookings", "/notifications", "/profile"];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();

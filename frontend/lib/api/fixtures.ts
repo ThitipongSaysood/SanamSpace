@@ -7,12 +7,14 @@ export const venues: Venue[] = [
     openTime: "10:00", closeTime: "22:00", address: "ถนนงามวงศ์วาน นนทบุรี",
     imageUrl: "/venues/everyday.jpg",
     facilities: ["parking", "shower", "cafe", "wifi", "aircon"],
+    pricePerHour: 250, distanceKm: 1.2,
   },
   {
     id: "tsr-arena", name: "TSR Arena",
     sports: ["badminton", "futsal"], rating: 4.6, reviewCount: 88,
     openTime: "09:00", closeTime: "23:00", address: "ปทุมธานี",
     imageUrl: "/venues/tsr.jpg", facilities: ["parking", "cafe"],
+    pricePerHour: 220, distanceKm: 2.1,
   },
 ];
 

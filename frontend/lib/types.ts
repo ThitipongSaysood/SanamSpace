@@ -11,6 +11,8 @@ export type Venue = {
   address: string;
   imageUrl: string;
   facilities: string[];  // e.g. ["parking","shower","cafe"]
+  pricePerHour: number;  // THB, "from" price shown on cards
+  distanceKm: number;    // distance from user, for list display
 };
 
 export type Court = {
