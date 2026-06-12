@@ -4,6 +4,7 @@ import { CalendarPlus, Crown, Package, User, Tag, Search, type LucideIcon } from
 import { useAuth } from "@/lib/auth/auth-context";
 import { useVenues } from "@/lib/api/queries";
 import { VenueCard } from "@/components/venue-card";
+import { BrandLogo } from "@/components/brand-logo";
 import { Loading, ErrorState } from "@/components/states";
 
 type QuickAction = { label: string; icon: LucideIcon; href?: string };
@@ -29,21 +30,37 @@ function QuickActionItem({ label, icon: Icon }: QuickAction) {
 export default function HomePage() {
   const { user } = useAuth();
   const { data: venues, isLoading, isError, refetch } = useVenues();
+  const initial = user?.displayName?.replace(/^คุณ/, "").trim().charAt(0) || "ผ";
   return (
     <main>
-      <header className="rounded-b-3xl bg-gradient-to-b from-brand to-emerald-700 px-4 pb-6 pt-7 text-white">
-        <p className="text-sm text-white/85">สวัสดี, {user?.displayName} 👋</p>
-        <h1 className="text-xl font-bold">วันนี้จะเล่นสนามที่ไหน?</h1>
+      <header className="bg-white px-4 pb-4 pt-3">
+        <div className="flex items-center justify-between">
+          <BrandLogo />
+          <Link
+            href="/profile"
+            aria-label="โปรไฟล์"
+            className="grid size-9 place-items-center rounded-full bg-brand/10 font-semibold text-brand ring-1 ring-brand/15"
+          >
+            {initial}
+          </Link>
+        </div>
+
+        <div className="mt-4">
+          <h1 className="text-2xl font-bold">สวัสดี!</h1>
+          <p className="text-muted-foreground">พร้อมจองสนามแล้วหรือยัง?</p>
+        </div>
 
         <Link
           href="/search"
-          className="mt-4 flex h-11 items-center gap-2.5 rounded-2xl bg-white/15 px-3.5 text-sm text-white/85 ring-1 ring-white/15"
+          className="mt-4 flex h-11 items-center gap-2.5 rounded-2xl bg-muted px-3.5 text-sm text-muted-foreground"
         >
           <Search className="size-4 shrink-0" />
           ค้นหาสนาม, โซน, สถานที่
         </Link>
+      </header>
 
-        <div className="mt-3 flex items-center gap-3 rounded-2xl bg-white/15 p-3 ring-1 ring-white/15">
+      <div className="space-y-5 p-4 pt-1">
+        <div className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-brand to-emerald-700 p-4 text-white shadow-sm">
           <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-white/20">
             <Tag className="size-5" />
           </div>
@@ -55,9 +72,7 @@ export default function HomePage() {
             จอง 10%
           </span>
         </div>
-      </header>
 
-      <div className="space-y-5 p-4">
         <nav aria-label="ทางลัด" className="flex items-start justify-between px-1">
           {quickActions.map((a) =>
             a.href ? (
