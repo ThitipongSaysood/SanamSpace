@@ -6,7 +6,7 @@ export function SlipUploader({ onValid }: { onValid: (file: File) => void }) {
   const [error, setError] = useState<string | null>(null);
   return (
     <div>
-      <input type="file" accept="image/jpeg,image/png" onChange={(e) => {
+      <input type="file" aria-label="แนบสลิปการโอนเงิน" accept="image/jpeg,image/png" onChange={(e) => {
         const f = e.target.files?.[0] ?? null;
         const res = validateSlip(f);
         if (!res.ok) { setError(res.error); return; }

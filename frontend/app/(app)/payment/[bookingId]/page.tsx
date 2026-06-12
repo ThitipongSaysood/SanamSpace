@@ -1,6 +1,7 @@
 "use client";
 import { use, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
 import { useBooking } from "@/lib/api/queries";
 import { SlipUploader } from "@/components/slip-uploader";
@@ -11,8 +12,10 @@ import type { Payment } from "@/lib/types";
 export default function PaymentPage({ params }: { params: Promise<{ bookingId: string }> }) {
   const { bookingId } = use(params);
   const router = useRouter();
+  const qc = useQueryClient();
   const { data: booking, isLoading } = useBooking(bookingId);
   const [payment, setPayment] = useState<Payment | null>(null);
+  const [slipFile, setSlipFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
 
   if (isLoading) return <Loading />;
@@ -24,10 +27,14 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
     setPayment(p); setBusy(false);
   }
   async function submitSlip() {
-    if (!payment) return;
+    if (!payment || !slipFile) return;
     setBusy(true);
     const reviewed = await api.uploadSlip(payment.id);
     const approved = await api.approvePayment(reviewed.id); // demo auto-approve
+    // The approve call bypasses TanStack Query, so refresh the booking caches
+    // before navigating, otherwise Confirmation hits stale pending_payment data.
+    await qc.invalidateQueries({ queryKey: ["booking", bookingId] });
+    await qc.invalidateQueries({ queryKey: ["bookings"] });
     setPayment(approved); setBusy(false);
   }
 
@@ -49,8 +56,8 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
       {payment?.status === "awaiting_slip" && (
         <div className="mt-4 space-y-3">
           <p className="text-sm">โอนแล้วแนบสลิปเพื่อยืนยัน</p>
-          <SlipUploader onValid={() => {}} />
-          <Button className="w-full bg-brand hover:bg-brand/90" disabled={busy} onClick={submitSlip}>
+          <SlipUploader onValid={setSlipFile} />
+          <Button className="w-full bg-brand hover:bg-brand/90" disabled={busy || !slipFile} onClick={submitSlip}>
             {busy ? "กำลังตรวจสอบ..." : "ส่งสลิป"}
           </Button>
         </div>
