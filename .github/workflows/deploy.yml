@@ -1,61 +1,50 @@
-name: Deploy to server
-
-# Deploys on every push to main (and on manual dispatch).
-# Transport is rsync from the runner -> server, so the SERVER never needs
-# GitHub access. Safe for a private repo. Build happens on the server.
-#
-# Required repository secrets (Settings -> Secrets and variables -> Actions):
-#   DEPLOY_SSH_KEY  - the PRIVATE key whose public half is in the server's authorized_keys
-#   SSH_HOST        - e.g. ssh.semitennis.com
-#   SSH_USER        - e.g. root
-#   DEPLOY_PATH     - absolute path on server, e.g. /var/www/sanamspace
-# Optional:
-#   SSH_PORT        - defaults to 22
+name: Deploy to Production
 
 on:
   push:
-    branches: [main]
-  workflow_dispatch: {}
-
-concurrency:
-  group: deploy-production
-  cancel-in-progress: false
+    branches: [ main ]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    env:
-      SSH_HOST: ${{ secrets.SSH_HOST }}
-      SSH_USER: ${{ secrets.SSH_USER }}
-      SSH_PORT: ${{ secrets.SSH_PORT }}
-      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+    if: github.ref == 'refs/heads/main'
+    
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+    
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+        extensions: mbstring, xml, curl, zip
+        coverage: none
+    
+    - name: Sync Files to Server
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        # ระบุไฟล์และโฟลเดอร์ที่ต้องการส่งไปตรงๆ
+        source: "api,public,src,database,uploads,index2.html,.env.example"
+        # ปลายทางคือชื่อโปรเจกต์ของคุณ
+        target: "/var/www/html/sanamspace"
 
-      - name: Set up SSH
-        run: |
-          set -euo pipefail
-          mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p "${SSH_PORT:-22}" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
-
-      - name: Rsync source to server
-        run: |
-          set -euo pipefail
-          rsync -az --delete \
-            -e "ssh -i ~/.ssh/deploy_key -p ${SSH_PORT:-22} -o StrictHostKeyChecking=accept-new" \
-            --exclude '.git' \
-            --exclude 'node_modules' \
-            --exclude 'frontend/.next' \
-            --exclude 'backend/vendor' \
-            --exclude 'backend/.env' \
-            --exclude 'frontend/.env.production' \
-            --exclude 'backend/storage' \
-            ./ "${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/"
-
-      - name: Remote build & restart
-        run: |
-          set -euo pipefail
-          ssh -i ~/.ssh/deploy_key -p "${SSH_PORT:-22}" -o StrictHostKeyChecking=accept-new \
-            "${SSH_USER}@${SSH_HOST}" "cd '${DEPLOY_PATH}' && bash infra/deploy/remote-build.sh"
+    - name: Post Deployment Script
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          # เข้าไปยังโฟลเดอร์โปรเจกต์
+          cd /var/www/html/sanamspace
+          
+          # จัดการไฟล์ .htaccess (ก๊อปปี้จาก api มาไว้ที่ root ของโปรเจกต์)
+          if [ -f "api/.htaccess" ]; then
+            cp api/.htaccess .
+          fi
+          
+          # ปรับ Permission ให้เป็นของ Web Server (www-data)
+          sudo chown -R www-data:www-data /var/www/html/sanamspace
+          sudo chmod -R 755 /var/www/html/sanamspace
