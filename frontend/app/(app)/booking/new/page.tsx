@@ -1,9 +1,10 @@
 "use client";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle2, Circle } from "lucide-react";
 import { useCourts, useSchedule, useCreateBooking } from "@/lib/api/queries";
 import { AppHeader } from "@/components/app-header";
+import { SportMedia } from "@/components/media";
 import { CourtSlotGrid } from "@/components/court-slot-grid";
 import { canSelect, calcPrice, totalHours } from "@/lib/booking/slots";
 import type { Slot } from "@/lib/types";
@@ -51,6 +52,11 @@ function NewBookingInner() {
   const [selected, setSelected] = useState<Slot[]>([]);
   const create = useCreateBooking();
 
+  const dateRef = useRef<HTMLElement>(null);
+  const timeRef = useRef<HTMLElement>(null);
+  const scrollTo = (ref: React.RefObject<HTMLElement | null>) =>
+    requestAnimationFrame(() => ref.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+
   const toggle = (s: Slot) => {
     const exists = selected.some((x) => x.start === s.start);
     if (exists) setSelected(selected.filter((x) => x.start !== s.start));
@@ -94,14 +100,24 @@ function NewBookingInner() {
                   onClick={() => {
                     setCourtId(c.id);
                     setSelected([]);
+                    scrollTo(dateRef);
                   }}
-                  className={`flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3.5 text-left shadow-sm ring-1 transition ${
+                  className={`flex w-full items-center gap-3 rounded-2xl p-2.5 text-left shadow-sm ring-1 transition ${
                     active ? "bg-brand/10 ring-brand" : "bg-white ring-black/5 hover:ring-brand/30"
                   }`}
                 >
-                  <div className="min-w-0">
+                  <SportMedia sport={c.sport} className="size-16 shrink-0 rounded-xl" />
+                  <div className="min-w-0 flex-1">
                     <div className="font-semibold">{c.name}</div>
-                    <div className="mt-0.5 text-sm text-muted-foreground">฿{c.pricePerHour}/ชั่วโมง</div>
+                    <div className="mt-0.5 text-sm font-medium text-brand">
+                      ฿{c.pricePerHour}
+                      <span className="text-xs font-normal text-muted-foreground">/ชั่วโมง</span>
+                    </div>
+                    {c.spec && (
+                      <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                        {c.spec.floor} · สูง {c.spec.height} · {c.spec.standard}
+                      </div>
+                    )}
                   </div>
                   {active ? (
                     <CheckCircle2 className="size-6 shrink-0 text-brand" />
@@ -115,7 +131,7 @@ function NewBookingInner() {
         </section>
 
         {/* 2. date — horizontal strip */}
-        <section>
+        <section ref={dateRef} className="scroll-mt-20">
           <SectionTitle n={2}>เลือกวันที่</SectionTitle>
           <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
             {dates.map((d) => {
@@ -127,6 +143,7 @@ function NewBookingInner() {
                   onClick={() => {
                     setDate(d.iso);
                     setSelected([]);
+                    if (court) scrollTo(timeRef);
                   }}
                   className={`flex w-14 shrink-0 flex-col items-center gap-0.5 rounded-2xl py-2.5 shadow-sm ring-1 transition ${
                     active ? "bg-brand text-white ring-brand" : "bg-white text-foreground ring-black/5"
@@ -142,7 +159,7 @@ function NewBookingInner() {
         </section>
 
         {/* 3. time */}
-        <section>
+        <section ref={timeRef} className="scroll-mt-20">
           <SectionTitle n={3}>เลือกเวลา</SectionTitle>
           {!court ? (
             <div className="rounded-2xl bg-white p-6 text-center text-sm text-muted-foreground shadow-sm ring-1 ring-black/5">
