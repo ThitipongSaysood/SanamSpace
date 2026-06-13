@@ -1,0 +1,181 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Court;
+use App\Models\Organization;
+use Database\Seeders\SanamSpaceSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Tests\TestCase;
+
+class BookingPaymentApiTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->seed(SanamSpaceSeeder::class);
+    }
+
+    /** Authenticate as a LINE customer and return the bearer token. */
+    private function customerToken(): string
+    {
+        return $this->postJson('/api/v1/auth/line/login', [
+            'lineUserId' => 'Ubookingtest',
+            'displayName' => 'Booking Tester',
+        ])->json('token');
+    }
+
+    private function everydayCourtId(): string
+    {
+        return $this->getJson('/api/v1/courts?venueId=everyday-badminton')->json('data.0.id');
+    }
+
+    public function test_full_flow_create_pay_upload_verify_confirms_booking(): void
+    {
+        Storage::fake('public');
+
+        $token = $this->customerToken();
+        $courtId = $this->everydayCourtId();
+
+        // 1. Create a booking.
+        $booking = $this->withToken($token)->postJson('/api/v1/bookings', [
+            'venueId' => 'everyday-badminton',
+            'courtId' => $courtId,
+            'date' => '2026-06-20',
+            'start' => '18:00',
+            'end' => '19:00',
+        ]);
+
+        $booking->assertCreated()
+            ->assertJsonPath('data.amount', 250)
+            ->assertJsonPath('data.status', 'pending_payment')
+            ->assertJsonPath('data.venueId', 'everyday-badminton')
+            ->assertJsonPath('data.courtId', $courtId);
+
+        $bookingId = $booking->json('data.id');
+        $this->assertStringStartsWith('BK', $booking->json('data.code'));
+
+        // 2. Create a payment.
+        $payment = $this->withToken($token)->postJson('/api/v1/payments', [
+            'bookingId' => $bookingId,
+            'method' => 'transfer',
+        ]);
+
+        $payment->assertCreated()
+            ->assertJsonPath('data.status', 'awaiting_slip')
+            ->assertJsonPath('data.amount', 250)
+            ->assertJsonPath('data.bookingId', $bookingId);
+
+        $paymentId = $payment->json('data.id');
+
+        // 3. Upload a slip -> pending_review with an absolute slipUrl.
+        $upload = $this->withToken($token)->postJson("/api/v1/payments/{$paymentId}/upload-slip", [
+            'slip' => UploadedFile::fake()->image('slip.png', 600, 800),
+        ]);
+
+        $upload->assertOk()
+            ->assertJsonPath('data.status', 'pending_review');
+
+        $this->assertStringStartsWith('http', $upload->json('data.slipUrl'));
+
+        // 4. Verify -> approved + booking confirmed.
+        $this->withToken($token)->postJson("/api/v1/payments/{$paymentId}/verify")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'approved');
+
+        $this->withToken($token)->getJson("/api/v1/bookings/{$bookingId}")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'confirmed');
+
+        // 5. Check-in -> completed.
+        $this->withToken($token)->postJson("/api/v1/bookings/{$bookingId}/checkin")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'completed');
+    }
+
+    public function test_double_booking_same_slot_returns_422(): void
+    {
+        $token = $this->customerToken();
+        $courtId = $this->everydayCourtId();
+
+        $payload = [
+            'venueId' => 'everyday-badminton',
+            'courtId' => $courtId,
+            'date' => '2026-06-21',
+            'start' => '18:00',
+            'end' => '19:00',
+        ];
+
+        $this->withToken($token)->postJson('/api/v1/bookings', $payload)->assertCreated();
+
+        $this->withToken($token)->postJson('/api/v1/bookings', $payload)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('start');
+    }
+
+    public function test_cancelled_booking_frees_the_slot(): void
+    {
+        $token = $this->customerToken();
+        $courtId = $this->everydayCourtId();
+
+        $payload = [
+            'venueId' => 'everyday-badminton',
+            'courtId' => $courtId,
+            'date' => '2026-06-22',
+            'start' => '18:00',
+            'end' => '19:00',
+        ];
+
+        $first = $this->withToken($token)->postJson('/api/v1/bookings', $payload)->assertCreated();
+
+        $this->withToken($token)
+            ->postJson("/api/v1/bookings/{$first->json('data.id')}/cancel")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'cancelled');
+
+        // Same slot is bookable again after cancellation.
+        $this->withToken($token)->postJson('/api/v1/bookings', $payload)->assertCreated();
+    }
+
+    public function test_bookings_are_scoped_to_the_current_customer(): void
+    {
+        $tokenA = $this->postJson('/api/v1/auth/line/login', [
+            'lineUserId' => 'UcustomerA',
+            'displayName' => 'A',
+        ])->json('token');
+
+        $tokenB = $this->postJson('/api/v1/auth/line/login', [
+            'lineUserId' => 'UcustomerB',
+            'displayName' => 'B',
+        ])->json('token');
+
+        $courtId = $this->everydayCourtId();
+
+        $booking = $this->withToken($tokenA)->postJson('/api/v1/bookings', [
+            'venueId' => 'everyday-badminton',
+            'courtId' => $courtId,
+            'date' => '2026-06-23',
+            'start' => '18:00',
+            'end' => '19:00',
+        ])->assertCreated();
+
+        // The Sanctum guard caches the resolved user within a single test
+        // process; forget it so the next request authenticates as B.
+        $this->app['auth']->forgetGuards();
+
+        // Customer B cannot read customer A's booking.
+        $this->withToken($tokenB)
+            ->getJson("/api/v1/bookings/{$booking->json('data.id')}")
+            ->assertNotFound();
+
+        $this->app['auth']->forgetGuards();
+
+        $this->withToken($tokenB)->getJson('/api/v1/bookings')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    }
+}
