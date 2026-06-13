@@ -133,7 +133,7 @@ function NewBookingInner() {
         {/* 2. date — horizontal strip */}
         <section ref={dateRef} className="scroll-mt-20">
           <SectionTitle n={2}>เลือกวันที่</SectionTitle>
-          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {dates.map((d) => {
               const active = date === d.iso;
               return (
