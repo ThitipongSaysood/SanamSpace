@@ -1,9 +1,13 @@
 "use client";
-import { useQuery } from "@tanstack/react-query";
-import { ShieldCheck } from "lucide-react";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ShieldCheck, UserPlus, X } from "lucide-react";
 import type { OwnerRole, OwnerStaffMember } from "@/lib/types";
-import { ownerApi } from "@/lib/api/owner";
+import { ownerApi, OwnerApiError } from "@/lib/api/owner";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 // Map free-form staff status strings to a badge style + Thai label.
 const STATUS_META: Record<string, { label: string; cls: string }> = {
@@ -40,13 +44,23 @@ function fmtDate(s: string) {
 export default function OwnerStaffPage() {
   const staff = useQuery({ queryKey: ["owner", "staff"], queryFn: ownerApi.getStaff });
   const roles = useQuery({ queryKey: ["owner", "roles"], queryFn: ownerApi.getRoles });
+  const [inviting, setInviting] = useState(false);
 
   return (
     <div className="space-y-5">
-      <header>
-        <h1 className="text-2xl font-bold tracking-tight">Staff</h1>
-        <p className="text-sm text-muted-foreground">จัดการพนักงาน</p>
+      <header className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Staff</h1>
+          <p className="text-sm text-muted-foreground">จัดการพนักงาน</p>
+        </div>
+        {!inviting && (
+          <Button type="button" onClick={() => setInviting(true)}>
+            <UserPlus className="size-4" /> เชิญพนักงาน
+          </Button>
+        )}
       </header>
+
+      {inviting && <InviteStaffForm roles={roles.data ?? []} onClose={() => setInviting(false)} />}
 
       {staff.isLoading && <Loading />}
       {staff.isError && <ErrorState onRetry={() => staff.refetch()} />}
@@ -86,6 +100,110 @@ export default function OwnerStaffPage() {
         )}
       </section>
     </div>
+  );
+}
+
+function InviteStaffForm({ roles, onClose }: { roles: OwnerRole[]; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [form, setForm] = useState({ email: "", displayName: "", roleId: "" });
+
+  const mutation = useMutation({
+    mutationFn: () => ownerApi.inviteStaff(form),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["owner", "staff"] });
+      onClose();
+    },
+  });
+
+  // 422 from a duplicate email gets a friendly Thai message; anything else is generic.
+  const errorMessage = mutation.isError
+    ? mutation.error instanceof OwnerApiError && mutation.error.status === 422
+      ? "อีเมลนี้เป็นสมาชิกอยู่แล้ว"
+      : "เชิญไม่สำเร็จ ลองอีกครั้ง"
+    : null;
+
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.email.trim() || !form.displayName.trim() || !form.roleId) return;
+    mutation.mutate();
+  }
+
+  return (
+    <form
+      onSubmit={onSubmit}
+      className="space-y-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5"
+    >
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold">เชิญพนักงาน</h2>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="ปิด"
+          className="grid size-7 place-items-center rounded-lg text-muted-foreground hover:bg-app"
+        >
+          <X className="size-4" />
+        </button>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="staff-email">อีเมล</Label>
+          <Input
+            id="staff-email"
+            type="email"
+            value={form.email}
+            onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+            placeholder="staff@example.com"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="staff-name">ชื่อที่แสดง</Label>
+          <Input
+            id="staff-name"
+            value={form.displayName}
+            onChange={(e) => setForm((f) => ({ ...f, displayName: e.target.value }))}
+            placeholder="ชื่อพนักงาน"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="staff-role">บทบาท</Label>
+        <select
+          id="staff-role"
+          value={form.roleId}
+          onChange={(e) => setForm((f) => ({ ...f, roleId: e.target.value }))}
+          className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <option value="">— เลือกบทบาท —</option>
+          {roles.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {errorMessage && <p className="text-sm text-brand-danger">{errorMessage}</p>}
+
+      <div className="flex items-center gap-2">
+        <Button
+          type="submit"
+          disabled={
+            mutation.isPending ||
+            !form.email.trim() ||
+            !form.displayName.trim() ||
+            !form.roleId
+          }
+        >
+          {mutation.isPending ? "กำลังเชิญ..." : "เชิญพนักงาน"}
+        </Button>
+        <Button type="button" variant="outline" onClick={onClose}>
+          ยกเลิก
+        </Button>
+      </div>
+    </form>
   );
 }
 

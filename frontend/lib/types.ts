@@ -235,6 +235,45 @@ export type OwnerWalletRow = {
   transactionCount: number;
 };
 
+// --- Owner CRM ---
+export type OwnerCrmSegmentSlice = { name: string; count: number };
+
+export type OwnerCrmOverview = {
+  totalCustomers: number;
+  newCustomers30d: number;
+  inactive30d: number;
+  vipCount: number;
+  segmentDistribution: OwnerCrmSegmentSlice[];
+};
+
+export type OwnerSegment = {
+  id: string;
+  name: string;
+  description: string;
+  memberCount: number;
+};
+
+export type OwnerTimelineEntry = {
+  id: string;
+  type: string;
+  title: string;
+  description: string;
+  occurredAt: string;
+};
+
+export type OwnerBroadcastChannel = "line" | "email" | "sms" | "push";
+
+export type OwnerBroadcast = {
+  id: string;
+  title: string;
+  message: string;
+  channel: OwnerBroadcastChannel;
+  status: "draft" | "sent";
+  recipientCount: number;
+  sentAt: string | null;
+  segmentName: string | null;
+};
+
 // --- Super Admin (Platform) Portal ---
 export type PlatformDashboard = {
   totalOrganizations: number;

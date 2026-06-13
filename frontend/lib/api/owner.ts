@@ -1,14 +1,19 @@
 import type {
   Court,
   OwnerBooking,
+  OwnerBroadcast,
+  OwnerBroadcastChannel,
+  OwnerCrmOverview,
   OwnerCustomer,
   OwnerDashboard,
   OwnerMembershipRow,
   OwnerPayment,
   OwnerPromotion,
   OwnerRole,
+  OwnerSegment,
   OwnerSettings,
   OwnerStaffMember,
+  OwnerTimelineEntry,
   OwnerWalletRow,
   User,
 } from "@/lib/types";
@@ -172,4 +177,46 @@ export const ownerApi = {
   getMemberships: () => req<OwnerMembershipRow[]>("/owner/memberships"),
 
   getWallets: () => req<OwnerWalletRow[]>("/owner/wallets"),
+
+  // --- CRM ---
+  getCrmOverview: () => req<OwnerCrmOverview>("/owner/crm/overview"),
+
+  getSegments: () => req<OwnerSegment[]>("/owner/segments"),
+
+  createSegment: (body: { name: string; description: string }) =>
+    req<OwnerSegment>("/owner/segments", { method: "POST", body }),
+
+  deleteSegment: (id: string) =>
+    req<void>(`/owner/segments/${id}`, { method: "DELETE" }),
+
+  getTimeline: (customerId: string) =>
+    req<OwnerTimelineEntry[]>(`/owner/timeline/${customerId}`),
+
+  getBroadcasts: () => req<OwnerBroadcast[]>("/owner/broadcasts"),
+
+  createBroadcast: (body: {
+    title: string;
+    message: string;
+    channel: OwnerBroadcastChannel;
+    segmentId?: string;
+  }) => req<OwnerBroadcast>("/owner/broadcasts", { method: "POST", body }),
+
+  sendBroadcast: (id: string) =>
+    req<OwnerBroadcast>(`/owner/broadcasts/${id}/send`, { method: "POST" }),
+
+  // --- Staff / Membership / Wallet mutations ---
+  inviteStaff: (body: { email: string; displayName: string; roleId: string }) =>
+    req<OwnerStaffMember>("/owner/staff", { method: "POST", body }),
+
+  adjustPoints: (membershipId: string, body: { delta: number; note?: string }) =>
+    req<OwnerMembershipRow>(`/owner/memberships/${membershipId}/points`, {
+      method: "POST",
+      body,
+    }),
+
+  topupWallet: (walletId: string, body: { amount: number; label?: string }) =>
+    req<OwnerWalletRow>(`/owner/wallets/${walletId}/topup`, {
+      method: "POST",
+      body,
+    }),
 };
