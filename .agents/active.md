@@ -4,23 +4,22 @@ _Last updated: 2026-06-13_
 
 ## Project type (auto-detected)
 
-Next.js 16 (frontend/) + docs/spec repo. Backend (PHP/MySQL) ยังไม่เริ่ม
+Next.js 16 (frontend/, customer web) + Laravel 13 (backend/, /api/v1) + docs/spec
 
 ## Current goal
 
-Customer Web ครบทุกจอแล้ว (24 routes) — รอตรวจตา + รัน e2e แล้วเลือกเฟสถัดไป
+Backend Phase 1 (Core API) เสร็จ — ถัดไป Phase 2: สลับ frontend mock → /api/v1
 
 ## What just happened
 
-ทำครบทุกจอตาม structure/mockups: booking 4-step wizard, payment+slip (บัญชีโอน/QR/countdown),
-venue sub-pages 6 จอ (facilities/map/gallery/reviews/hours/courts), discovery (sports/search),
-account 7 จอ (profile/membership/wallet/packages/promotions/notifications/contact), bookings tabs จริง.
-Merge → main b51d7ca + push. build ผ่าน, 22 tests เขียว, e2e ยังไม่ได้รัน
+สร้าง backend Laravel 13 (PHP 8.4, SQLite dev / MySQL prod) /api/v1 ครบโดเมนหลัก:
+auth(LINE+admin/Sanctum), venue/court+schedules, booking(slot guard+pricing), payment+slip(upload/verify),
+multi-tenant+RBAC, seeder ตรง frontend fixtures. 14 tests เขียว, 21 endpoints. commit 3dd40f2 pushed.
 
 ## Blockers
 
-ไม่มี (disk กลับมาว่าง ~3.9Gi แล้ว)
+ไม่มี (LINE login ยัง stub, payment verify ยังไม่จำกัด role — ตั้งใจ รอ Phase ต่อ)
 
 ## Next step
-รัน e2e (`cd frontend && npx playwright test`) + เปิด dev ดู UI จริง;
-จากนั้น: Owner Portal / PHP backend (สลับ mock ที่ lib/api/client.ts) / LINE LIFF จริง
+Phase 2: แก้ frontend/lib/api/client.ts mock → fetch /api/v1 (จุดเดียว), unwrap .data, ส่ง Bearer token,
+ตั้ง NEXT_PUBLIC_API_URL, รัน backend คู่ frontend. จากนั้น Owner Portal / Super Admin / LINE LIFF จริง
