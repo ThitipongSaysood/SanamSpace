@@ -19,7 +19,12 @@ use App\Http\Controllers\Api\Owner\BookingController as OwnerBookingController;
 use App\Http\Controllers\Api\Owner\CourtController as OwnerCourtController;
 use App\Http\Controllers\Api\Owner\CustomerController as OwnerCustomerController;
 use App\Http\Controllers\Api\Owner\DashboardController as OwnerDashboardController;
+use App\Http\Controllers\Api\Owner\MembershipController as OwnerMembershipController;
 use App\Http\Controllers\Api\Owner\PaymentController as OwnerPaymentController;
+use App\Http\Controllers\Api\Owner\PromotionController as OwnerPromotionController;
+use App\Http\Controllers\Api\Owner\SettingController as OwnerSettingController;
+use App\Http\Controllers\Api\Owner\StaffController as OwnerStaffController;
+use App\Http\Controllers\Api\Owner\WalletController as OwnerWalletController;
 use App\Http\Controllers\Api\PaymentController;
 use Illuminate\Support\Facades\Route;
 
@@ -83,6 +88,26 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/courts', [OwnerCourtController::class, 'index']);
 
         Route::get('/customers', [OwnerCustomerController::class, 'index']);
+
+        // --- Settings (org settings + org name) ---
+        Route::get('/settings', [OwnerSettingController::class, 'show']);
+        Route::put('/settings', [OwnerSettingController::class, 'update']);
+
+        // --- Promotions (management CRUD, org-scoped) ---
+        Route::get('/promotions', [OwnerPromotionController::class, 'index']);
+        Route::post('/promotions', [OwnerPromotionController::class, 'store']);
+        Route::put('/promotions/{id}', [OwnerPromotionController::class, 'update']);
+        Route::delete('/promotions/{id}', [OwnerPromotionController::class, 'destroy']);
+
+        // --- Staff & roles (read) ---
+        Route::get('/staff', [OwnerStaffController::class, 'index']);
+        Route::get('/roles', [OwnerStaffController::class, 'roles']);
+
+        // --- Memberships (read list) ---
+        Route::get('/memberships', [OwnerMembershipController::class, 'index']);
+
+        // --- Wallets (read list) ---
+        Route::get('/wallets', [OwnerWalletController::class, 'index']);
     });
 
     // --- Super Admin / Platform (super.admin middleware, NOT org-scoped) ---
