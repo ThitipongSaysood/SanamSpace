@@ -40,11 +40,16 @@ test("customer can book a court end-to-end", async ({ page }) => {
   await expect(submit).toBeEnabled();
   await submit.click();
 
-  await expect(page.getByText(/ชำระเงินสำเร็จ/)).toBeVisible();
-  await page.getByRole("button", { name: "ดูการจอง" }).click();
+  // #13 success screen.
+  await expect(page.getByRole("heading", { name: "จองสำเร็จ!" })).toBeVisible();
+  await page.getByRole("button", { name: "ดูรายละเอียดการจอง" }).click();
 
-  // Confirmation now reflects the confirmed status and offers check-in.
+  // #14 booking detail.
   await expect(page.getByText("ยืนยันแล้ว")).toBeVisible();
+  await page.getByRole("link", { name: /QR Check-in/ }).click();
+
+  // #15 QR check-in screen.
+  await expect(page.getByRole("img", { name: /QR/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /เช็คอิน/ })).toBeVisible();
 
   fs.unlinkSync(slipPath);

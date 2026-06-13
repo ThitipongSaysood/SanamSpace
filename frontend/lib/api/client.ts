@@ -70,6 +70,9 @@ export const api = {
   async checkinBooking(id: string): Promise<Booking> {
     await delay(); const b = db.bookings.get(id)!; b.status = "completed"; return { ...b };
   },
+  async cancelBooking(id: string): Promise<Booking> {
+    await delay(); const b = db.bookings.get(id)!; b.status = "cancelled"; return { ...b };
+  },
   async getReviews(venueId: string): Promise<ReviewSummary> { await delay(); return reviewSummaryFx; },
   async getPackages(): Promise<VenuePackage[]> { await delay(); return packagesFx; },
   async getMembership(): Promise<Membership> { await delay(); return membershipFx; },

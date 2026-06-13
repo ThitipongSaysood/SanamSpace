@@ -70,8 +70,8 @@ describe("PaymentPage flow (C2 + C3)", () => {
 
     await user.click(submit);
 
-    // Reaches the success state.
-    expect(await screen.findByText(/ชำระเงินสำเร็จ/)).toBeInTheDocument();
+    // Reaches the #13 success screen.
+    expect(await screen.findByRole("heading", { name: "จองสำเร็จ!" })).toBeInTheDocument();
 
     // C2: the booking cache no longer holds the stale pending_payment object;
     // re-reading it now yields the confirmed booking (invalidated before nav).

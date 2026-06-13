@@ -41,26 +41,28 @@ function renderDetail(booking: Booking) {
   );
 }
 
-describe("BookingDetailPage status-aware UI (I2)", () => {
-  it("pending_payment: shows รอชำระเงิน, a pay link, no QR ticket, no check-in", async () => {
+describe("BookingDetailPage status-aware UI (#14)", () => {
+  it("pending_payment: shows รอชำระเงิน + pay link, no QR check-in", async () => {
     renderDetail(makeBooking("pending_payment"));
-    expect(await screen.findByRole("heading", { name: "รอชำระเงิน" })).toBeInTheDocument();
+    expect(await screen.findByText("รอชำระเงิน")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "ไปชำระเงิน" })).toBeInTheDocument();
-    expect(screen.queryByRole("img", { name: /QR/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /เช็คอิน/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /QR Check-in/ })).not.toBeInTheDocument();
   });
 
-  it("confirmed: shows จองสำเร็จ, the QR ticket, and the check-in button", async () => {
+  it("confirmed: shows ยืนยันแล้ว + QR Check-in link + cancel, and is not the success screen", async () => {
     renderDetail(makeBooking("confirmed"));
-    expect(await screen.findByRole("heading", { name: "จองสำเร็จ!" })).toBeInTheDocument();
-    expect(screen.getByText("ยืนยันแล้ว")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: /QR/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /เช็คอิน/ })).toBeInTheDocument();
+    expect(await screen.findByText("ยืนยันแล้ว")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /QR Check-in/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /ยกเลิกการจอง/ })).toBeInTheDocument();
+    // The "จองสำเร็จ!" celebration now lives on the payment-success screen, not here.
+    expect(screen.queryByText("จองสำเร็จ!")).not.toBeInTheDocument();
+    // QR itself moved to the dedicated /qr screen.
+    expect(screen.queryByRole("img", { name: /QR/ })).not.toBeInTheDocument();
   });
 
-  it("cancelled: shows การจองถูกยกเลิก and renders no QR ticket", async () => {
+  it("cancelled: shows ยกเลิก badge and no QR check-in", async () => {
     renderDetail(makeBooking("cancelled"));
-    expect(await screen.findByRole("heading", { name: "การจองถูกยกเลิก" })).toBeInTheDocument();
-    expect(screen.queryByRole("img", { name: /QR/ })).not.toBeInTheDocument();
+    expect(await screen.findByText("ยกเลิก")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /QR Check-in/ })).not.toBeInTheDocument();
   });
 });

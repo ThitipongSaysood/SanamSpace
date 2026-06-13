@@ -58,8 +58,9 @@ export function SlipUploader({ onValid }: { onValid: (file: File) => void }) {
             if (!res.ok) { setError(res.error); setFileName(null); setPreview(null); return; }
             setError(null);
             setFileName(f!.name);
-            setPreview(URL.createObjectURL(f!));
             onValid(f!);
+            // Preview is best-effort: jsdom (tests) has no createObjectURL.
+            if (typeof URL.createObjectURL === "function") setPreview(URL.createObjectURL(f!));
           }}
         />
       </label>

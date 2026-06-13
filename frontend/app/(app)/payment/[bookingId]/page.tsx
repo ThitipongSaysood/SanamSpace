@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays, CheckCircle2, Ticket, ChevronRight, QrCode, CreditCard, Wallet, Smartphone,
-  Landmark, Clock,
+  Landmark, Clock, Check,
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { api } from "@/lib/api/client";
@@ -48,11 +48,44 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
     setBusy(true);
     const reviewed = await api.uploadSlip(payment.id);
     const approved = await api.approvePayment(reviewed.id); // demo auto-approve
-    // The approve call bypasses TanStack Query, so refresh the booking caches
-    // before navigating, otherwise Confirmation hits stale pending_payment data.
+    // approve bypasses TanStack Query, so refresh caches before navigating.
     await qc.invalidateQueries({ queryKey: ["booking", bookingId] });
     await qc.invalidateQueries({ queryKey: ["bookings"] });
     setPayment(approved); setBusy(false);
+  }
+
+  // #13 — full-screen success
+  if (payment?.status === "approved") {
+    return (
+      <main className="flex min-h-dvh flex-col items-center justify-center px-6 text-center">
+        <div className="grid size-24 place-items-center rounded-full bg-brand text-white shadow-lg shadow-brand/30">
+          <Check className="size-12" strokeWidth={3} />
+        </div>
+        <h1 className="mt-6 text-2xl font-bold">จองสำเร็จ!</h1>
+        <p className="mt-4 text-sm text-muted-foreground">หมายเลขการจอง</p>
+        <p className="font-mono text-lg font-bold tracking-wider">{booking.code}</p>
+        <p className="mt-4 text-sm text-muted-foreground">
+          ส่งข้อมูลการจองไปที่
+          <br />
+          example@email.com
+        </p>
+        <div className="mt-8 w-full max-w-xs space-y-3">
+          <Button
+            className="h-12 w-full rounded-xl bg-brand text-base font-semibold hover:bg-brand/90"
+            onClick={() => router.push(`/booking/${bookingId}`)}
+          >
+            ดูรายละเอียดการจอง
+          </Button>
+          <Button
+            variant="outline"
+            className="h-12 w-full rounded-xl border-black/10 text-base font-semibold"
+            onClick={() => router.push("/")}
+          >
+            กลับหน้าหลัก
+          </Button>
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -175,21 +208,6 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
               </Button>
             </div>
           </>
-        )}
-
-        {payment?.status === "approved" && (
-          <div className="flex flex-col items-center gap-4 rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-black/5">
-            <div className="grid size-16 place-items-center rounded-full bg-brand/10">
-              <CheckCircle2 className="size-9 text-brand" />
-            </div>
-            <p className="text-lg font-semibold text-brand">✓ ชำระเงินสำเร็จ</p>
-            <Button
-              className="h-12 w-full rounded-xl bg-brand text-base font-semibold hover:bg-brand/90"
-              onClick={() => router.push(`/booking/${bookingId}`)}
-            >
-              ดูการจอง
-            </Button>
-          </div>
         )}
       </div>
     </main>
