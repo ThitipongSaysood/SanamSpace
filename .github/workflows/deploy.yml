@@ -1,0 +1,61 @@
+name: Deploy to server
+
+# Deploys on every push to main (and on manual dispatch).
+# Transport is rsync from the runner -> server, so the SERVER never needs
+# GitHub access. Safe for a private repo. Build happens on the server.
+#
+# Required repository secrets (Settings -> Secrets and variables -> Actions):
+#   DEPLOY_SSH_KEY  - the PRIVATE key whose public half is in the server's authorized_keys
+#   SSH_HOST        - e.g. ssh.semitennis.com
+#   SSH_USER        - e.g. root
+#   DEPLOY_PATH     - absolute path on server, e.g. /var/www/sanamspace
+# Optional:
+#   SSH_PORT        - defaults to 22
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      SSH_PORT: ${{ secrets.SSH_PORT }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up SSH
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${SSH_PORT:-22}" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Rsync source to server
+        run: |
+          set -euo pipefail
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/deploy_key -p ${SSH_PORT:-22} -o StrictHostKeyChecking=accept-new" \
+            --exclude '.git' \
+            --exclude 'node_modules' \
+            --exclude 'frontend/.next' \
+            --exclude 'backend/vendor' \
+            --exclude 'backend/.env' \
+            --exclude 'frontend/.env.production' \
+            --exclude 'backend/storage' \
+            ./ "${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/"
+
+      - name: Remote build & restart
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -p "${SSH_PORT:-22}" -o StrictHostKeyChecking=accept-new \
+            "${SSH_USER}@${SSH_HOST}" "cd '${DEPLOY_PATH}' && bash infra/deploy/remote-build.sh"

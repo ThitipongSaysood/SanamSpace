@@ -95,6 +95,43 @@ sudo certbot --nginx -d example.com          # TLS
 
 ---
 
+## Path C — Auto-deploy on push (GitHub Actions)
+
+`.github/workflows/deploy.yml` deploys on every push to `main`. The runner **rsyncs the
+source to the server** (so the server never needs GitHub access — safe for a private repo),
+then runs `infra/deploy/remote-build.sh` over SSH (composer + migrate + npm build + restart
+systemd services).
+
+**Prerequisite:** the server must already be provisioned once via **Path B** (PHP/Node/MySQL/
+Nginx/systemd installed, repo cloned to `DEPLOY_PATH`, `backend/.env` set, services running).
+CI only updates code + rebuilds — it does not bootstrap a bare box.
+
+**One-time setup**
+
+1. Add the CI public key to the server (run on your machine — needs your normal server login):
+   ```bash
+   ssh-copy-id -i ~/.ssh/sanamspace_deploy.pub root@ssh.semitennis.com
+   # or paste ~/.ssh/sanamspace_deploy.pub into /root/.ssh/authorized_keys manually
+   ```
+2. Let the deploy user restart services without a TTY password. Logging in as `root` already
+   works; for a non-root deploy user add a sudoers rule:
+   ```
+   deployuser ALL=(root) NOPASSWD: /bin/systemctl restart php8.4-fpm sanamspace-frontend sanamspace-queue
+   ```
+3. Add repository secrets (GitHub → Settings → Secrets and variables → Actions):
+   - `DEPLOY_SSH_KEY` — contents of the **private** key `~/.ssh/sanamspace_deploy`
+   - `SSH_HOST` — `ssh.semitennis.com`
+   - `SSH_USER` — `root`
+   - `DEPLOY_PATH` — e.g. `/var/www/sanamspace`
+   - `SSH_PORT` — optional, defaults to `22`
+4. Push to `main` (or run the workflow manually from the **Actions** tab → *Deploy to server* →
+   *Run workflow*). Watch the run; first deploy validates SSH + build.
+
+> Building the Next app on the server needs ~1–2 GB free RAM. If the box is small, add swap
+> or switch to building on the runner.
+
+---
+
 ## Post-deploy
 
 - **Create a real platform admin** (instead of the demo seed):
