@@ -9,7 +9,7 @@ name: Deploy to Production
 #   SERVER_HOST       e.g. ssh.semitennis.com  (or the server IP)
 #   SERVER_USER       e.g. root
 #   SERVER_PASSWORD   the SSH password           (or use SSH_PRIVATE_KEY instead)
-#   DEPLOY_PATH       e.g. /var/www/sanamspace
+#   DEPLOY_PATH       e.g. /var/www/html/sanamspace
 # Optional:
 #   SERVER_PORT          SSH port (default 22)
 #   NEXT_PUBLIC_API_URL  build-time API base (default /api/v1 for same-origin;
@@ -53,7 +53,7 @@ jobs:
       # ---------- backend: Laravel deps (on the runner) ----------
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
+          php-version: '8.4'   # Laravel 13 requires php ^8.3
           extensions: mbstring, xml, curl, zip, bcmath, intl, pdo_mysql
           coverage: none
       - name: Install backend deps
@@ -93,18 +93,19 @@ jobs:
             APP="${{ secrets.DEPLOY_PATH }}"
             SUDO=""; [ "$(id -u)" -ne 0 ] && SUDO="sudo"
             cd "$APP/backend"
+            PHP="$(command -v php8.4 || command -v php)"   # Laravel 13 needs php >= 8.3
             if [ ! -f .env ]; then
               echo "ERROR: $APP/backend/.env is missing. Do the one-time server setup first."
               exit 1
             fi
-            php artisan migrate --force
-            php artisan storage:link 2>/dev/null || true
-            php artisan config:cache
-            php artisan route:cache
-            php artisan view:cache
+            "$PHP" artisan migrate --force
+            "$PHP" artisan storage:link 2>/dev/null || true
+            "$PHP" artisan config:cache
+            "$PHP" artisan route:cache
+            "$PHP" artisan view:cache
             # writable dirs (files arrive owned by the SSH user; web/Node run as www-data)
             $SUDO chown -R www-data:www-data "$APP/backend/storage" "$APP/backend/bootstrap/cache" "$APP/frontend" 2>/dev/null || true
             # restart the Next.js service + queue (created once during server setup); reload PHP
             $SUDO systemctl restart sanamspace-frontend 2>/dev/null || true
             $SUDO systemctl restart sanamspace-queue 2>/dev/null || true
-            $SUDO systemctl reload php8.2-fpm 2>/dev/null || $SUDO systemctl reload php-fpm 2>/dev/null || true
+            $SUDO systemctl reload php8.4-fpm 2>/dev/null || $SUDO systemctl reload php-fpm 2>/dev/null || true
