@@ -1,0 +1,14 @@
+.git
+/vendor
+/node_modules
+.env
+.env.*
+!.env.production.example
+/database/*.sqlite*
+/storage/logs/*
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/public/storage
+.phpunit.cache
+.phpunit.result.cache

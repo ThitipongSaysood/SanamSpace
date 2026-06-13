@@ -1,0 +1,14 @@
+[Unit]
+Description=SanamSpace queue worker (Laravel)
+After=network.target mysql.service
+
+[Service]
+Type=simple
+WorkingDirectory=/var/www/sanamspace/backend
+ExecStart=/usr/bin/php artisan queue:work --sleep=3 --tries=3 --max-time=3600
+Restart=always
+RestartSec=3
+User=www-data
+
+[Install]
+WantedBy=multi-user.target

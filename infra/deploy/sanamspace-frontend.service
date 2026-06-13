@@ -1,0 +1,16 @@
+[Unit]
+Description=SanamSpace Next.js (customer/owner/admin web)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/var/www/sanamspace/frontend
+Environment=NODE_ENV=production
+Environment=PORT=3000
+ExecStart=/usr/bin/npm run start
+Restart=always
+RestartSec=3
+User=www-data
+
+[Install]
+WantedBy=multi-user.target
