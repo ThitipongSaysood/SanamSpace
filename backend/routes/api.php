@@ -4,6 +4,12 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\BranchController;
 use App\Http\Controllers\Api\CourtController;
+use App\Http\Controllers\Api\MembershipController;
+use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\PackageController;
+use App\Http\Controllers\Api\PromotionController;
+use App\Http\Controllers\Api\ReviewController;
+use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\Owner\BookingController as OwnerBookingController;
 use App\Http\Controllers\Api\Owner\CourtController as OwnerCourtController;
 use App\Http\Controllers\Api\Owner\CustomerController as OwnerCustomerController;
@@ -27,10 +33,21 @@ Route::get('/courts', [CourtController::class, 'index']);
 Route::get('/courts/{id}', [CourtController::class, 'show']);
 Route::get('/courts/{id}/schedules', [CourtController::class, 'schedules']);
 
+// --- Public catalogue reads (org resolved from authed customer / ?venueId / default) ---
+Route::get('/reviews', [ReviewController::class, 'index']);
+Route::get('/packages', [PackageController::class, 'index']);
+Route::get('/promotions', [PromotionController::class, 'index']);
+
 // --- Protected ---
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/auth/me', [AuthController::class, 'me']);
+    Route::put('/auth/me', [AuthController::class, 'updateMe']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
+
+    // --- Customer account (scoped to the authenticated Customer) ---
+    Route::get('/membership', [MembershipController::class, 'show']);
+    Route::get('/wallet', [WalletController::class, 'show']);
+    Route::get('/notifications', [NotificationController::class, 'index']);
 
     // --- Bookings (scoped to the authenticated Customer) ---
     Route::get('/bookings', [BookingController::class, 'index']);

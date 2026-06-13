@@ -5,12 +5,19 @@ namespace Database\Seeders;
 use App\Models\Branch;
 use App\Models\Court;
 use App\Models\Customer;
+use App\Models\Membership;
+use App\Models\Notification;
 use App\Models\Organization;
 use App\Models\OrganizationSetting;
 use App\Models\OrganizationUser;
 use App\Models\Permission;
+use App\Models\Promotion;
+use App\Models\Review;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\VenuePackage;
+use App\Models\Wallet;
+use App\Models\WalletTransaction;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -59,8 +66,10 @@ class SanamSpaceSeeder extends Seeder
             'open_time' => '10:00',
             'close_time' => '22:00',
             'distance_km' => 1.2,
+            // ReviewSummary.average / total (fixtures: 4.8 / 236).
             'rating' => 4.8,
-            'review_count' => 124,
+            'review_count' => 236,
+            'rating_breakdown' => [5 => 198, 4 => 28, 3 => 6, 2 => 3, 1 => 1],
             'image_url' => '/venues/everyday.jpg',
             'sports' => ['badminton'],
             'facilities' => ['parking', 'shower', 'cafe', 'wifi', 'aircon'],
@@ -153,7 +162,7 @@ class SanamSpaceSeeder extends Seeder
         ]);
 
         // --- Demo customer ---
-        Customer::create([
+        $customer = Customer::create([
             'organization_id' => $everyday->id,
             'line_user_id' => 'U1234567890abcdef1234567890abcdef',
             'display_name' => 'คุณสมชาย',
@@ -162,6 +171,103 @@ class SanamSpaceSeeder extends Seeder
             'total_spending' => 0,
             'visits' => 0,
         ]);
+
+        $this->seedEverydayExtras($everyday, $everydayBranch, $customer);
+    }
+
+    /**
+     * Seed the customer-app extras (reviews, packages, promotions, membership,
+     * wallet, notifications) for Everyday Badminton, matching the frontend
+     * fixtures (lib/api/fixtures.ts) exactly.
+     */
+    private function seedEverydayExtras(Organization $org, Branch $branch, Customer $customer): void
+    {
+        // --- Sample reviews (ReviewSummary.reviews) ---
+        $reviews = [
+            ['author' => 'ทานต์', 'rating' => 5, 'review_date' => '25 เม.ย. 2567', 'text' => 'สนามดีมาก แอร์เย็น สะอาด ห้องน้ำสะอาด เดินทางสะดวกครับ'],
+            ['author' => 'บอล', 'rating' => 5, 'review_date' => '18 เม.ย. 2567', 'text' => 'ไฟสว่างดี พื้นสนามดีมากครับ'],
+        ];
+        foreach ($reviews as $i => $review) {
+            Review::create(array_merge($review, [
+                'organization_id' => $org->id,
+                'branch_id' => $branch->id,
+                'sort_order' => $i,
+            ]));
+        }
+
+        // --- Packages (VenuePackage[]) ---
+        $packages = [
+            ['name' => 'แพ็กเกจ 10 ชม.', 'hours' => 10, 'price' => 2500, 'valid_days' => 90, 'save_percent' => 15],
+            ['name' => 'แพ็กเกจ 20 ชม.', 'hours' => 20, 'price' => 4500, 'valid_days' => 120, 'save_percent' => 20],
+            ['name' => 'แพ็กเกจ 50 ชม.', 'hours' => 50, 'price' => 10000, 'valid_days' => 180, 'save_percent' => 25],
+        ];
+        foreach ($packages as $i => $package) {
+            VenuePackage::create(array_merge($package, [
+                'organization_id' => $org->id,
+                'sort_order' => $i,
+            ]));
+        }
+
+        // --- Promotions (Promotion[]) ---
+        $promotions = [
+            ['title' => 'จองก่อน 16:00 น. ลด 10%', 'subtitle' => 'ทุกวัน จันทร์–ศุกร์', 'tag' => 'ส่วนลด'],
+            ['title' => 'Happy Hour', 'subtitle' => '18:00–20:00', 'tag' => 'แพ็กเกจ'],
+            ['title' => 'สมาชิก Gold ลดเพิ่ม 5%', 'subtitle' => 'ทุกการจอง', 'tag' => 'ส่วนลด'],
+        ];
+        foreach ($promotions as $i => $promotion) {
+            Promotion::create(array_merge($promotion, [
+                'organization_id' => $org->id,
+                'sort_order' => $i,
+            ]));
+        }
+
+        // --- Membership (Membership) ---
+        Membership::create([
+            'organization_id' => $org->id,
+            'customer_id' => $customer->id,
+            'tier' => 'Gold',
+            'member_id' => 'ED-0001234',
+            'points' => 820,
+            'expires_at' => '31 ธ.ค. 2567',
+            'benefits' => [
+                'ส่วนลด 10% ทุกการจอง',
+                'สะสมแต้ม 1 บาท = 1 คะแนน',
+                'สิทธิ์จองล่วงหน้าก่อนใคร 1 วัน',
+            ],
+        ]);
+
+        // --- Wallet + transactions (Wallet) ---
+        $wallet = Wallet::create([
+            'organization_id' => $org->id,
+            'customer_id' => $customer->id,
+            'balance' => 580,
+        ]);
+        $transactions = [
+            ['txn_date' => '20 พ.ค.', 'label' => 'เติมเงิน', 'amount' => 500],
+            ['txn_date' => '18 พ.ค.', 'label' => 'จอง Court 1', 'amount' => -225],
+            ['txn_date' => '15 พ.ค.', 'label' => 'จอง Court 2', 'amount' => -225],
+        ];
+        foreach ($transactions as $i => $transaction) {
+            WalletTransaction::create(array_merge($transaction, [
+                'wallet_id' => $wallet->id,
+                'sort_order' => $i,
+            ]));
+        }
+
+        // --- Notifications (AppNotification[]) ---
+        $notifications = [
+            ['kind' => 'booking', 'title' => 'การจองสำเร็จ', 'body' => 'Court 1 วันที่ 25 พ.ค. 18:00', 'time_ago' => 'เมื่อสักครู่'],
+            ['kind' => 'reminder', 'title' => 'เตือนความจำการจอง', 'body' => 'อย่าลืมการจองของคุณ Court 1 วันที่ 25 พ.ค. 18:00', 'time_ago' => '1 ชั่วโมงที่แล้ว'],
+            ['kind' => 'promo', 'title' => 'โปรโมชั่นพิเศษ', 'body' => 'ลด 10% จองก่อน 16:00', 'time_ago' => '2 ชั่วโมงที่แล้ว'],
+            ['kind' => 'points', 'title' => 'คะแนนเข้าแล้ว', 'body' => 'คุณได้รับ 225 คะแนน', 'time_ago' => '1 วันที่แล้ว'],
+        ];
+        foreach ($notifications as $i => $notification) {
+            Notification::create(array_merge($notification, [
+                'organization_id' => $org->id,
+                'customer_id' => $customer->id,
+                'sort_order' => $i,
+            ]));
+        }
     }
 
     private function seedRolesAndPermissions(): void

@@ -114,6 +114,36 @@ class AuthController extends Controller
     }
 
     /**
+     * PUT /auth/me — update the current customer's profile.
+     *
+     * Accepts camelCase displayName plus email/phone; returns the updated User.
+     */
+    public function updateMe(Request $request): UserResource
+    {
+        $data = $request->validate([
+            'displayName' => ['sometimes', 'string', 'max:255'],
+            'email' => ['sometimes', 'nullable', 'email', 'max:255'],
+            'phone' => ['sometimes', 'nullable', 'string', 'max:50'],
+        ]);
+
+        $user = $request->user();
+
+        if (array_key_exists('displayName', $data)) {
+            $user->display_name = $data['displayName'];
+        }
+        if (array_key_exists('email', $data)) {
+            $user->email = $data['email'];
+        }
+        if (array_key_exists('phone', $data)) {
+            $user->phone = $data['phone'];
+        }
+
+        $user->save();
+
+        return new UserResource($user);
+    }
+
+    /**
      * POST /auth/logout — revoke the current access token.
      */
     public function logout(Request $request): JsonResponse

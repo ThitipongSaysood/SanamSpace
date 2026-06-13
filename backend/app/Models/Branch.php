@@ -20,6 +20,7 @@ class Branch extends Model
             'sports' => 'array',
             'facilities' => 'array',
             'week_hours' => 'array',
+            'rating_breakdown' => 'array',
             'rating' => 'float',
             'distance_km' => 'float',
             'latitude' => 'float',
@@ -30,5 +31,10 @@ class Branch extends Model
     public function courts(): HasMany
     {
         return $this->hasMany(Court::class);
+    }
+
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class);
     }
 }
