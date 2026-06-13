@@ -54,12 +54,24 @@ class OwnerApiTest extends TestCase
         $this->withToken($token)->getJson('/api/v1/owner/dashboard')
             ->assertOk()
             ->assertJsonStructure([
+                // existing
                 'todayBookings', 'todayRevenue', 'pendingSlips',
                 'confirmedToday', 'totalCustomers', 'courtCount',
+                // enriched dashboard payload
+                'newCustomersToday', 'utilizationRate', 'walletBalance',
+                'revenueSeries' => [['date', 'revenue']],
+                'statusBreakdown' => ['total', 'confirmed', 'pending', 'cancelled', 'completed'],
+                'sportSales',
+                'bookingChannels' => [['channel', 'count']],
+                'actionItems' => ['pendingSlips', 'nearTime', 'todayBookings', 'cancelledToday'],
+                'recentBookings',
             ])
             // 6 Everyday courts (NOT 10 across both orgs) + the seeded customer.
             ->assertJsonPath('courtCount', 6)
-            ->assertJsonPath('totalCustomers', 1);
+            ->assertJsonPath('totalCustomers', 1)
+            // revenueSeries is always the last 7 days, zero-filled.
+            ->assertJsonCount(7, 'revenueSeries')
+            ->assertJsonPath('revenueSeries.6.date', now()->toDateString());
     }
 
     public function test_owner_can_list_bookings_with_customer_name(): void
