@@ -137,3 +137,60 @@ export type OwnerCustomer = {
   visits: number;
   bookingsCount: number;
 };
+
+// --- Super Admin (Platform) Portal ---
+export type PlatformDashboard = {
+  totalOrganizations: number;
+  activeSubscriptions: number;
+  totalBookings: number;
+  totalRevenue: number;
+  totalCustomers: number;
+  mrr: number;
+};
+
+export type AdminOrganization = {
+  id: string;
+  name: string;
+  status: string;
+  planName: string | null;
+  subscriptionStatus: string | null;
+  branchCount: number;
+  courtCount: number;
+  customerCount: number;
+  createdAt: string;
+  // Detail-only fields (GET /admin/organizations/{id})
+  settings?: Record<string, unknown> | null;
+  featureCodes?: string[];
+};
+
+export type AdminSubscription = {
+  id: string;
+  organizationName: string;
+  planName: string | null;
+  price: number;
+  status: string;
+  startedAt: string | null;
+  endsAt: string | null;
+};
+
+export type Plan = {
+  id: string;
+  code: string;
+  name: string;
+  price: number;
+  interval: string;
+  branchLimit: number | null;
+  courtLimit: number | null;
+  staffLimit: number | null;
+  monthlyBookingLimit: number | null;
+  storageGb: number | null;
+  isActive: boolean;
+  featureCodes: string[];
+};
+
+export type PlatformFeature = {
+  id: string;
+  code: string;
+  name: string;
+  planCodes: string[];
+};
