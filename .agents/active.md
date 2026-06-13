@@ -8,25 +8,25 @@ Next.js 16 (frontend/: customer + owner + super-admin portals) + Laravel 13 (bac
 
 ## Current goal
 
-3 portals ทำงานจริงบน backend แล้ว — เหลือ owner section backends + integrations จริง
+Owner Portal ครบ 13/13 เมนูเป็นของจริงแล้ว (CRM + mutations เสร็จ). เหลือ integrations: LINE LIFF จริง, payment gateway, deploy MySQL.
+
+## (prev goal)
+
+Owner backend feature-complete. CRM domain (segments/timeline/broadcasts) + owner mutations (staff invite, membership points adjust, wallet topup) DONE and verified. No owner placeholders left on backend.
 
 ## What just happened
 
-Owner Portal sections เสร็จ: Settings/Promotions(CRUD)/Staff/Membership/Wallet เป็นจอจริง + restyle 4 จอเดิม เข้า shell (commit fb17260). เหลือ CRM เป็น placeholder (ต้องสร้าง model segments/timeline/broadcast). 3 portals ใช้งานจริงครบ.
+Built CRM: migration 2026_06_13_160000_create_crm_tables, models (CustomerSegment, CustomerSegmentMember pivot, CustomerTimelineEntry, Broadcast), resources (OwnerSegment/Timeline/Broadcast), controllers (Crm/Segment/Timeline/Broadcast), routes, seeder (3 segments + VIP membership + 4 timeline + 2 broadcasts). Added mutations to Staff/Membership/Wallet controllers. Tests: 65 pass (+17). Live curl on :8011 all green (incl. customer→403). See sessions/2026-06-13-2210-owner-crm-and-mutations.md.
 
-## (prev)
-
-(1) Customer endpoints ที่เหลือ → real ทั้งหมด (reviews/packages/membership/wallet/promotions/notifications + PUT profile), เลิก mock fallback.
-(2) Super Admin portal (backend Subscription domain + /admin/* 38 tests; frontend app/admin/*).
-(3) Owner Portal redesign ตาม mockup: shell 13 เมนู + dashboard เต็ม (recharts) + operations/reports จริง + 6 placeholder.
-Verify: backend 38 tests, frontend 22 vitest + build, REAL e2e (customer/owner/admin) ผ่าน. commits ...18125b6
+## Assumptions (CRM overview, commented in CrmController)
+- vipCount = members of segment named "VIP".
+- inactive30d = customers with no booking dated in last 30 days (real bookings.date check).
 
 ## Blockers
-ไม่มี (real mode = รัน backend คู่ frontend + .env.local)
+none
 
 ## Next step
-(ก) owner section backends: CRM/membership/wallet/promotions/staff/settings + restyle owner bookings/courts/customers/payments ให้เข้า shell
-(ข) LINE LIFF จริง + payment verify จำกัด role + payment gateway (ค) court CRUD/reports เชิงลึก
+Optional: frontend CRM page consuming the new endpoints; LINE LIFF real; payment gateway; payment-verify role restriction.
 
 ## Run (real)
 backend: cd backend && php artisan serve  (:8000)
