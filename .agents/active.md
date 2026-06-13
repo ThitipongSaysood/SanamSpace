@@ -12,6 +12,10 @@ Next.js 16 (frontend/: customer + owner + super-admin portals) + Laravel 13 (bac
 
 ## What just happened
 
+Owner Portal sections เสร็จ: Settings/Promotions(CRUD)/Staff/Membership/Wallet เป็นจอจริง + restyle 4 จอเดิม เข้า shell (commit fb17260). เหลือ CRM เป็น placeholder (ต้องสร้าง model segments/timeline/broadcast). 3 portals ใช้งานจริงครบ.
+
+## (prev)
+
 (1) Customer endpoints ที่เหลือ → real ทั้งหมด (reviews/packages/membership/wallet/promotions/notifications + PUT profile), เลิก mock fallback.
 (2) Super Admin portal (backend Subscription domain + /admin/* 38 tests; frontend app/admin/*).
 (3) Owner Portal redesign ตาม mockup: shell 13 เมนู + dashboard เต็ม (recharts) + operations/reports จริง + 6 placeholder.
