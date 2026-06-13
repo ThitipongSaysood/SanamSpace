@@ -60,7 +60,10 @@ export default function HomePage() {
       </header>
 
       <div className="space-y-5 p-4 pt-1">
-        <div className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-brand to-emerald-700 p-4 text-white shadow-sm">
+        <Link
+          href="/promotions"
+          className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-brand to-emerald-700 p-4 text-white shadow-sm transition active:scale-[0.99]"
+        >
           <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-white/20">
             <Tag className="size-5" />
           </div>
@@ -71,7 +74,7 @@ export default function HomePage() {
           <span className="shrink-0 rounded-full bg-amber-400 px-3 py-1 text-xs font-bold text-amber-950">
             จอง 10%
           </span>
-        </div>
+        </Link>
 
         <nav aria-label="ทางลัด" className="flex items-start justify-between px-1">
           {quickActions.map((a) =>

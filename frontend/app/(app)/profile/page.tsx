@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import {
-  CalendarCheck, ChevronRight, LogOut, Package, Settings, Star, UserRound, Wallet,
+  CalendarCheck, ChevronRight, Headphones, LogOut, Package, Settings, Star, UserRound, Wallet,
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -14,12 +14,13 @@ type Item = {
 };
 
 const MENU: Item[] = [
-  { icon: UserRound, label: "ข้อมูลส่วนตัว" },
+  { icon: UserRound, label: "ข้อมูลส่วนตัว", href: "/profile/info" },
   { icon: CalendarCheck, label: "การจองของฉัน", href: "/bookings" },
   { icon: Package, label: "แพ็กเกจของฉัน", href: "/packages" },
   { icon: Wallet, label: "วอลเล็ต", href: "/wallet" },
   { icon: Star, label: "คะแนนของฉัน", href: "/membership" },
-  { icon: Settings, label: "การตั้งค่า" },
+  { icon: Headphones, label: "ติดต่อเรา", href: "/contact" },
+  { icon: Settings, label: "การตั้งค่า", href: "/settings" },
 ];
 
 export default function ProfilePage() {
