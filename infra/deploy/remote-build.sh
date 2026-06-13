@@ -17,10 +17,13 @@ php artisan config:cache
 php artisan route:cache
 php artisan view:cache
 
-echo "==> frontend"
+echo "==> frontend (build + assemble Next standalone into frontend/)"
 cd "$APP_DIR/frontend"
 npm ci
 npm run build
+cp -r .next/static .next/standalone/.next/static
+[ -d public ] && cp -r public .next/standalone/public || true
+cp -a .next/standalone/. ./   # server.js + bundled node_modules at frontend/ root
 
 echo "==> permissions (rsync runs as root; services run as ${RUN_USER})"
 $SUDO chown -R "${RUN_USER}:${RUN_USER}" \

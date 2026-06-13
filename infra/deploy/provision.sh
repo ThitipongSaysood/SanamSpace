@@ -184,7 +184,8 @@ Type=simple
 WorkingDirectory=${DEPLOY_PATH}/frontend
 Environment=NODE_ENV=production
 Environment=PORT=3000
-ExecStart=/usr/bin/npm run start
+Environment=HOSTNAME=127.0.0.1
+ExecStart=/usr/bin/node server.js
 Restart=always
 RestartSec=3
 User=${RUN_USER}

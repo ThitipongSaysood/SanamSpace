@@ -1,50 +1,110 @@
 name: Deploy to Production
 
+# Builds SanamSpace and ships it to the server on every push to main.
+# Next.js is built as a self-contained "standalone" bundle on the runner, and
+# Laravel's vendor/ is installed on the runner too — so the server only needs
+# to run migrations + restart the Node service (no build step on the server).
+#
+# Repository secrets (Settings -> Secrets and variables -> Actions):
+#   SERVER_HOST       e.g. ssh.semitennis.com  (or the server IP)
+#   SERVER_USER       e.g. root
+#   SERVER_PASSWORD   the SSH password           (or use SSH_PRIVATE_KEY instead)
+#   DEPLOY_PATH       e.g. /var/www/sanamspace
+# Optional:
+#   SERVER_PORT          SSH port (default 22)
+#   NEXT_PUBLIC_API_URL  build-time API base (default /api/v1 for same-origin;
+#                        for a separate API host use e.g. https://api.semitennis.com/api/v1)
+#   SSH_PRIVATE_KEY      use instead of SERVER_PASSWORD (swap the two `password:`
+#                        lines below for `key:`)
+
 on:
   push:
     branches: [ main ]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup PHP
-      uses: shivammathur/setup-php@v2
-      with:
-        php-version: '8.2'
-        extensions: mbstring, xml, curl, zip
-        coverage: none
-    
-    - name: Sync Files to Server
-      uses: appleboy/scp-action@v0.1.7
-      with:
-        host: ${{ secrets.SERVER_HOST }}
-        username: ${{ secrets.SERVER_USER }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        # ระบุไฟล์และโฟลเดอร์ที่ต้องการส่งไปตรงๆ
-        source: "api,public,src,database,uploads,index2.html,.env.example"
-        # ปลายทางคือชื่อโปรเจกต์ของคุณ
-        target: "/var/www/html/sanamspace"
+      - uses: actions/checkout@v4
 
-    - name: Post Deployment Script
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.SERVER_HOST }}
-        username: ${{ secrets.SERVER_USER }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        script: |
-          # เข้าไปยังโฟลเดอร์โปรเจกต์
-          cd /var/www/html/sanamspace
-          
-          # จัดการไฟล์ .htaccess (ก๊อปปี้จาก api มาไว้ที่ root ของโปรเจกต์)
-          if [ -f "api/.htaccess" ]; then
-            cp api/.htaccess .
-          fi
-          
-          # ปรับ Permission ให้เป็นของ Web Server (www-data)
-          sudo chown -R www-data:www-data /var/www/html/sanamspace
-          sudo chmod -R 755 /var/www/html/sanamspace
+      # ---------- frontend: Next.js standalone build (on the runner) ----------
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Build frontend (standalone)
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || '/api/v1' }}
+        run: |
+          npm ci
+          npm run build
+          # assemble a self-contained run dir: server.js + bundled node_modules + static + public
+          mkdir -p ../_stage/frontend
+          cp -r .next/standalone/. ../_stage/frontend/
+          mkdir -p ../_stage/frontend/.next
+          cp -r .next/static ../_stage/frontend/.next/static
+          [ -d public ] && cp -r public ../_stage/frontend/public || true
+
+      # ---------- backend: Laravel deps (on the runner) ----------
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, xml, curl, zip, bcmath, intl, pdo_mysql
+          coverage: none
+      - name: Install backend deps
+        working-directory: backend
+        run: composer install --no-dev --optimize-autoloader --no-interaction
+      - name: Stage backend
+        run: |
+          mkdir -p _stage/backend
+          rsync -a --exclude '.env' --exclude 'storage' --exclude '.git' \
+                   --exclude 'tests' --exclude 'node_modules' \
+                   backend/ _stage/backend/
+
+      # ---------- ship to server (password auth; swap to key if preferred) ----------
+      - name: Sync files to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          # key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          source: "_stage/backend,_stage/frontend"
+          strip_components: 1
+          target: ${{ secrets.DEPLOY_PATH }}
+
+      # ---------- post-deploy: migrate, cache, restart ----------
+      - name: Post-deploy (migrate + restart)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          # key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          script: |
+            set -e
+            APP="${{ secrets.DEPLOY_PATH }}"
+            SUDO=""; [ "$(id -u)" -ne 0 ] && SUDO="sudo"
+            cd "$APP/backend"
+            if [ ! -f .env ]; then
+              echo "ERROR: $APP/backend/.env is missing. Do the one-time server setup first."
+              exit 1
+            fi
+            php artisan migrate --force
+            php artisan storage:link 2>/dev/null || true
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+            # writable dirs (files arrive owned by the SSH user; web/Node run as www-data)
+            $SUDO chown -R www-data:www-data "$APP/backend/storage" "$APP/backend/bootstrap/cache" "$APP/frontend" 2>/dev/null || true
+            # restart the Next.js service + queue (created once during server setup); reload PHP
+            $SUDO systemctl restart sanamspace-frontend 2>/dev/null || true
+            $SUDO systemctl restart sanamspace-queue 2>/dev/null || true
+            $SUDO systemctl reload php8.2-fpm 2>/dev/null || $SUDO systemctl reload php-fpm 2>/dev/null || true
