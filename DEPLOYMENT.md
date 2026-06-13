@@ -102,9 +102,19 @@ source to the server** (so the server never needs GitHub access — safe for a p
 then runs `infra/deploy/remote-build.sh` over SSH (composer + migrate + npm build + restart
 systemd services).
 
-**Prerequisite:** the server must already be provisioned once via **Path B** (PHP/Node/MySQL/
-Nginx/systemd installed, repo cloned to `DEPLOY_PATH`, `backend/.env` set, services running).
-CI only updates code + rebuilds — it does not bootstrap a bare box.
+**Prerequisite — provision the box once.** Easiest is the self-contained provisioner (no repo
+needed on the server first; CI delivers the code):
+
+```bash
+scp infra/deploy/provision.sh root@ssh.semitennis.com:/root/
+ssh root@ssh.semitennis.com 'APP_DOMAIN=semitennis.com bash /root/provision.sh'
+# installs PHP-FPM/Composer/Node/MySQL/Nginx/rsync + systemd units + nginx site,
+# creates the DB and backend/.env (with APP_KEY). Prints the generated DB password.
+# Optional: ENABLE_TLS=yes TLS_EMAIL=you@x.com  (DNS must already point here)
+#           DEPLOY_PUBKEY="$(cat ~/.ssh/sanamspace_deploy.pub)"  (authorize CI key)
+```
+
+(Or do it manually via **Path B**.) CI then only updates code + rebuilds — it does not bootstrap a bare box.
 
 **One-time setup**
 
