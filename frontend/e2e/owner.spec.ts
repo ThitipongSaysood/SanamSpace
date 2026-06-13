@@ -9,8 +9,7 @@ test("owner can log in and reach the dashboard", async ({ page }) => {
   await page.locator('input[type="password"]').fill("password");
   await page.getByRole("button", { name: "เข้าสู่ระบบ" }).click();
 
-  // Lands on the owner shell (sidebar nav + a dashboard stat).
+  // Lands on the redesigned owner dashboard (stat cards + sidebar).
   await expect(page).toHaveURL(/\/owner$/);
-  await expect(page.getByText("ภาพรวม").first()).toBeVisible();
-  await expect(page.getByText("จำนวนคอร์ท")).toBeVisible();
+  await expect(page.getByText("รายได้วันนี้").first()).toBeVisible();
 });

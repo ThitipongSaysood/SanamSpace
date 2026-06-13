@@ -106,6 +106,39 @@ export type AppNotification = {
 };
 
 // --- Owner Admin Portal ---
+export type OwnerRevenuePoint = { date: string; revenue: number };
+
+export type OwnerStatusBreakdown = {
+  total: number;
+  confirmed: number;
+  pending: number;
+  cancelled: number;
+  completed: number;
+};
+
+export type OwnerSportSales = { sport: string; revenue: number; count: number };
+
+export type OwnerBookingChannel = { channel: string; count: number };
+
+export type OwnerActionItems = {
+  pendingSlips: number;
+  nearTime: number;
+  todayBookings: number;
+  cancelledToday: number;
+};
+
+export type OwnerRecentBooking = {
+  id: string;
+  code: string;
+  customerName: string;
+  courtName: string;
+  date: string;
+  start: string;
+  end: string;
+  amount: number;
+  status: string;
+};
+
 export type OwnerDashboard = {
   todayBookings: number;
   todayRevenue: number;
@@ -113,6 +146,15 @@ export type OwnerDashboard = {
   confirmedToday: number;
   totalCustomers: number;
   courtCount: number;
+  newCustomersToday: number;
+  utilizationRate: number;
+  walletBalance: number;
+  revenueSeries: OwnerRevenuePoint[];
+  statusBreakdown: OwnerStatusBreakdown;
+  sportSales: OwnerSportSales[];
+  bookingChannels: OwnerBookingChannel[];
+  actionItems: OwnerActionItems;
+  recentBookings: OwnerRecentBooking[];
 };
 
 export type OwnerBooking = Booking & { customerName?: string };
