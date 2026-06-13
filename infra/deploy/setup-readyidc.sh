@@ -24,7 +24,7 @@
 set -euo pipefail
 
 ### -------- config (override via env) --------
-APP_DOMAIN="${APP_DOMAIN:?Set APP_DOMAIN=... e.g. APP_DOMAIN=sanam.semitennis.com (must NOT be an existing project's domain)}"
+APP_DOMAIN="${APP_DOMAIN:?Set APP_DOMAIN=... e.g. APP_DOMAIN=sanam.semitennis.com — must NOT be a domain another project already uses}"
 DEPLOY_PATH="${DEPLOY_PATH:-/var/www/html/sanamspace}"
 DB_NAME="${DB_NAME:-sanamspace}"
 DB_USER="${DB_USER:-sanamspace}"
