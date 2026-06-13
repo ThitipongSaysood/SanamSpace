@@ -52,6 +52,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         /* ignore */
       }
     }
+    // Persist to the backend when in real mode (no-op on mock); keep local override for instant UI.
+    void api.updateProfile(patch).catch(() => {});
   }
 
   return <Ctx.Provider value={{ user, login, logout, updateUser }}>{children}</Ctx.Provider>;

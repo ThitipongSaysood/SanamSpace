@@ -95,6 +95,7 @@ export const mockApi = {
   async getWallet(): Promise<Wallet> { await delay(); return walletFx; },
   async getPromotions(): Promise<Promotion[]> { await delay(); return promotionsFx; },
   async getNotifications(): Promise<AppNotification[]> { await delay(); return notificationsFx; },
+  async updateProfile(patch: Partial<User>): Promise<User> { await delay(); return { ...MOCK_USER, ...patch }; },
 };
 
 export type Api = typeof mockApi;

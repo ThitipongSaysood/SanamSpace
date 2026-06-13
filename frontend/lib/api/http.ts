@@ -1,8 +1,9 @@
 import type {
-  Booking, Court, CourtSchedule, Payment, User, Venue,
+  AppNotification, Booking, Court, CourtSchedule, Membership, Payment,
+  Promotion, ReviewSummary, User, Venue, VenuePackage, Wallet,
 } from "@/lib/types";
 import { getToken, setToken } from "./token";
-import { mockApi, type Api, type LinePayload } from "./mock";
+import type { Api, LinePayload } from "./mock";
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 
@@ -83,11 +84,11 @@ export const httpApi: Api = {
   approvePayment: (paymentId) => req<Payment>(`/payments/${paymentId}/verify`, { method: "POST" }),
   getPayment: (id) => getOrUndefined<Payment>(`/payments/${id}`),
 
-  // --- Not yet implemented in the backend → fall back to mock fixtures (TODO: build endpoints) ---
-  getReviews: (venueId) => mockApi.getReviews(venueId),
-  getPackages: () => mockApi.getPackages(),
-  getMembership: () => mockApi.getMembership(),
-  getWallet: () => mockApi.getWallet(),
-  getPromotions: () => mockApi.getPromotions(),
-  getNotifications: () => mockApi.getNotifications(),
+  getReviews: (venueId) => req<ReviewSummary>(`/reviews?venueId=${encodeURIComponent(venueId)}`),
+  getPackages: () => req<VenuePackage[]>("/packages"),
+  getMembership: () => req<Membership>("/membership"),
+  getWallet: () => req<Wallet>("/wallet"),
+  getPromotions: () => req<Promotion[]>("/promotions"),
+  getNotifications: () => req<AppNotification[]>("/notifications"),
+  updateProfile: (patch) => req<User>("/auth/me", { method: "PUT", body: patch }),
 };
