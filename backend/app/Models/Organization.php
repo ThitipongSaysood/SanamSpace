@@ -41,4 +41,17 @@ class Organization extends Model
     {
         return $this->hasMany(Customer::class);
     }
+
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(Subscription::class);
+    }
+
+    /** The current/active subscription (latest active one, else latest). */
+    public function activeSubscription(): HasOne
+    {
+        return $this->hasOne(Subscription::class)
+            ->where('status', 'active')
+            ->latestOfMany();
+    }
 }

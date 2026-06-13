@@ -5,15 +5,18 @@ namespace Database\Seeders;
 use App\Models\Branch;
 use App\Models\Court;
 use App\Models\Customer;
+use App\Models\Feature;
 use App\Models\Membership;
 use App\Models\Notification;
 use App\Models\Organization;
 use App\Models\OrganizationSetting;
 use App\Models\OrganizationUser;
 use App\Models\Permission;
+use App\Models\Plan;
 use App\Models\Promotion;
 use App\Models\Review;
 use App\Models\Role;
+use App\Models\Subscription;
 use App\Models\User;
 use App\Models\VenuePackage;
 use App\Models\Wallet;
@@ -36,6 +39,18 @@ class SanamSpaceSeeder extends Seeder
     public function run(): void
     {
         $this->seedRolesAndPermissions();
+
+        // Platform-level subscription catalogue (plans, features, mapping).
+        $plans = $this->seedPlansAndFeatures();
+
+        // Platform super admin (NOT tied to any organization).
+        User::create([
+            'name' => 'Platform Admin',
+            'display_name' => 'Platform Admin',
+            'email' => 'super@sanamspace.test',
+            'password' => Hash::make('password'),
+            'is_super_admin' => true,
+        ]);
 
         // --- Org 1: Everyday Badminton ---
         $everyday = Organization::create([
@@ -141,6 +156,23 @@ class SanamSpaceSeeder extends Seeder
                 'sort_order' => $i,
             ]);
         }
+
+        // --- Subscriptions: Everyday -> Pro (active), TSR -> Business (active) ---
+        Subscription::create([
+            'organization_id' => $everyday->id,
+            'plan_id' => $plans['pro']->id,
+            'status' => 'active',
+            'started_at' => now()->subMonths(3),
+            'ends_at' => null,
+        ]);
+
+        Subscription::create([
+            'organization_id' => $tsr->id,
+            'plan_id' => $plans['business']->id,
+            'status' => 'active',
+            'started_at' => now()->subMonth(),
+            'ends_at' => null,
+        ]);
 
         // --- Demo owner user for Everyday Badminton ---
         $ownerRole = Role::where('code', 'owner')->first();
@@ -268,6 +300,81 @@ class SanamSpaceSeeder extends Seeder
                 'sort_order' => $i,
             ]));
         }
+    }
+
+    /**
+     * Seed the platform subscription catalogue from the Feature Matrix:
+     * 4 plans (Starter/Business/Pro/Enterprise) with limits (∞ -> null),
+     * a feature set, and the plan_features mapping.
+     *
+     * @return array<string,\App\Models\Plan> keyed by plan code
+     */
+    private function seedPlansAndFeatures(): array
+    {
+        // Limits per Feature Matrix; null = Unlimited (∞).
+        $planDefs = [
+            ['code' => 'starter', 'name' => 'Starter', 'price' => 990,
+                'branch_limit' => 1, 'court_limit' => 10, 'staff_limit' => 5,
+                'monthly_booking_limit' => 1000, 'storage_gb' => 5],
+            ['code' => 'business', 'name' => 'Business', 'price' => 1990,
+                'branch_limit' => 3, 'court_limit' => 30, 'staff_limit' => 15,
+                'monthly_booking_limit' => 5000, 'storage_gb' => 20],
+            ['code' => 'pro', 'name' => 'Pro', 'price' => 3990,
+                'branch_limit' => null, 'court_limit' => null, 'staff_limit' => null,
+                'monthly_booking_limit' => null, 'storage_gb' => 100],
+            ['code' => 'enterprise', 'name' => 'Enterprise', 'price' => 0,
+                'branch_limit' => null, 'court_limit' => null, 'staff_limit' => null,
+                'monthly_booking_limit' => null, 'storage_gb' => null],
+        ];
+
+        $plans = [];
+        foreach ($planDefs as $def) {
+            $plans[$def['code']] = Plan::create(array_merge($def, [
+                'interval' => 'month',
+                'is_active' => true,
+            ]));
+        }
+
+        // Feature catalogue (code => display name).
+        $featureDefs = [
+            'crm' => 'CRM',
+            'membership' => 'Membership & Loyalty',
+            'wallet' => 'Wallet',
+            'package' => 'Package System',
+            'broadcast' => 'Broadcast LINE',
+            'payment_gateway' => 'Payment Gateway',
+            'public_api' => 'Public API',
+            'custom_domain' => 'Custom Domain',
+            'tournament' => 'Tournament',
+        ];
+
+        $features = [];
+        foreach ($featureDefs as $code => $name) {
+            $features[$code] = Feature::create(['code' => $code, 'name' => $name]);
+        }
+
+        // plan_features mapping per the Feature Matrix (enabled by plan only;
+        // Add-on entries are NOT enabled at the plan level).
+        //   Starter   -> minimal (none of the gated features)
+        //   Business  -> membership, wallet, package
+        //   Pro       -> all
+        //   Enterprise-> all
+        $matrix = [
+            'starter' => [],
+            'business' => ['membership', 'wallet', 'package'],
+            'pro' => ['crm', 'membership', 'wallet', 'package', 'broadcast', 'payment_gateway', 'public_api', 'custom_domain', 'tournament'],
+            'enterprise' => ['crm', 'membership', 'wallet', 'package', 'broadcast', 'payment_gateway', 'public_api', 'custom_domain', 'tournament'],
+        ];
+
+        foreach ($matrix as $planCode => $featureCodes) {
+            $sync = [];
+            foreach ($featureCodes as $featureCode) {
+                $sync[$features[$featureCode]->id] = ['enabled' => 1];
+            }
+            $plans[$planCode]->features()->sync($sync);
+        }
+
+        return $plans;
     }
 
     private function seedRolesAndPermissions(): void

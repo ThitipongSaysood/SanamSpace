@@ -10,6 +10,11 @@ use App\Http\Controllers\Api\PackageController;
 use App\Http\Controllers\Api\PromotionController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\WalletController;
+use App\Http\Controllers\Api\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Api\Admin\FeatureController as AdminFeatureController;
+use App\Http\Controllers\Api\Admin\OrganizationController as AdminOrganizationController;
+use App\Http\Controllers\Api\Admin\PlanController as AdminPlanController;
+use App\Http\Controllers\Api\Admin\SubscriptionController as AdminSubscriptionController;
 use App\Http\Controllers\Api\Owner\BookingController as OwnerBookingController;
 use App\Http\Controllers\Api\Owner\CourtController as OwnerCourtController;
 use App\Http\Controllers\Api\Owner\CustomerController as OwnerCustomerController;
@@ -78,5 +83,21 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/courts', [OwnerCourtController::class, 'index']);
 
         Route::get('/customers', [OwnerCustomerController::class, 'index']);
+    });
+
+    // --- Super Admin / Platform (super.admin middleware, NOT org-scoped) ---
+    Route::prefix('admin')->middleware('super.admin')->group(function () {
+        Route::get('/dashboard', [AdminDashboardController::class, 'index']);
+
+        Route::get('/organizations', [AdminOrganizationController::class, 'index']);
+        Route::get('/organizations/{id}', [AdminOrganizationController::class, 'show']);
+
+        Route::get('/subscriptions', [AdminSubscriptionController::class, 'index']);
+
+        Route::get('/plans', [AdminPlanController::class, 'index']);
+        Route::post('/plans', [AdminPlanController::class, 'store']);
+        Route::put('/plans/{id}', [AdminPlanController::class, 'update']);
+
+        Route::get('/features', [AdminFeatureController::class, 'index']);
     });
 });
