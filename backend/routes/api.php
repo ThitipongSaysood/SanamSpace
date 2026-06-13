@@ -4,6 +4,11 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\BranchController;
 use App\Http\Controllers\Api\CourtController;
+use App\Http\Controllers\Api\Owner\BookingController as OwnerBookingController;
+use App\Http\Controllers\Api\Owner\CourtController as OwnerCourtController;
+use App\Http\Controllers\Api\Owner\CustomerController as OwnerCustomerController;
+use App\Http\Controllers\Api\Owner\DashboardController as OwnerDashboardController;
+use App\Http\Controllers\Api\Owner\PaymentController as OwnerPaymentController;
 use App\Http\Controllers\Api\PaymentController;
 use Illuminate\Support\Facades\Route;
 
@@ -41,4 +46,20 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/payments/{id}/upload-slip', [PaymentController::class, 'uploadSlip']);
     Route::post('/payments/{id}/verify', [PaymentController::class, 'verify']);
     Route::post('/payments/{id}/reject', [PaymentController::class, 'reject']);
+
+    // --- Owner Portal (staff/admin, org-scoped via owner.org middleware) ---
+    Route::prefix('owner')->middleware('owner.org')->group(function () {
+        Route::get('/dashboard', [OwnerDashboardController::class, 'index']);
+
+        Route::get('/bookings', [OwnerBookingController::class, 'index']);
+        Route::get('/bookings/{id}', [OwnerBookingController::class, 'show']);
+
+        Route::get('/payments', [OwnerPaymentController::class, 'index']);
+        Route::post('/payments/{id}/verify', [OwnerPaymentController::class, 'verify']);
+        Route::post('/payments/{id}/reject', [OwnerPaymentController::class, 'reject']);
+
+        Route::get('/courts', [OwnerCourtController::class, 'index']);
+
+        Route::get('/customers', [OwnerCustomerController::class, 'index']);
+    });
 });

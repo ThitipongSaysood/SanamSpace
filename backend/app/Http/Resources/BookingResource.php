@@ -10,6 +10,9 @@ use Illuminate\Http\Resources\Json\JsonResource;
  * { id, code, venueId, venueName, courtId, courtName, date, start, end, amount, status, createdAt }
  *
  * venueId is the organization slug (matching the Venue id used elsewhere).
+ *
+ * `customerName` is emitted only when the `customer` relation is loaded (e.g.
+ * owner-portal listings); it is omitted for customer-facing responses.
  */
 class BookingResource extends JsonResource
 {
@@ -28,6 +31,9 @@ class BookingResource extends JsonResource
             'amount' => (float) $this->amount,
             'status' => $this->status,
             'createdAt' => $this->created_at?->toIso8601String(),
+            $this->mergeWhen($this->relationLoaded('customer'), fn () => [
+                'customerName' => $this->customer?->display_name,
+            ]),
         ];
     }
 }

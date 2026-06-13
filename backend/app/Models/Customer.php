@@ -11,7 +11,7 @@ use Laravel\Sanctum\HasApiTokens;
 
 class Customer extends Authenticatable
 {
-    use HasUuids, HasApiTokens, SoftDeletes, BelongsToOrganization;
+    use BelongsToOrganization, HasApiTokens, HasUuids, SoftDeletes;
 
     protected $guarded = [];
 
@@ -28,5 +28,10 @@ class Customer extends Authenticatable
     public function lineProfiles(): HasMany
     {
         return $this->hasMany(LineProfile::class);
+    }
+
+    public function bookings(): HasMany
+    {
+        return $this->hasMany(Booking::class);
     }
 }
