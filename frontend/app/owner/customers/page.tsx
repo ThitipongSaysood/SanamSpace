@@ -13,8 +13,11 @@ export default function OwnerCustomersPage() {
   });
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-bold">ลูกค้า</h1>
+    <div className="space-y-5">
+      <header>
+        <h1 className="text-2xl font-bold tracking-tight">ลูกค้า</h1>
+        <p className="text-sm text-muted-foreground">จัดการข้อมูลลูกค้า</p>
+      </header>
 
       {isLoading && <Loading />}
       {isError && <ErrorState onRetry={() => refetch()} />}

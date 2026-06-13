@@ -1,13 +1,221 @@
-import { Tag } from "lucide-react";
-import { ComingSoon } from "../_components/coming-soon";
+"use client";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Pencil, Plus, Tag as TagIcon, Trash2, X } from "lucide-react";
+import type { OwnerPromotion } from "@/lib/types";
+import { ownerApi } from "@/lib/api/owner";
+import { Loading, ErrorState, EmptyState } from "@/components/states";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+const PROMO_KEY = ["owner", "promotions"];
+const TAGS: OwnerPromotion["tag"][] = ["ส่วนลด", "แพ็กเกจ"];
+
+type FormState = { title: string; subtitle: string; tag: OwnerPromotion["tag"] };
+const EMPTY: FormState = { title: "", subtitle: "", tag: "ส่วนลด" };
+
+function tagClass(tag: string) {
+  return tag === "แพ็กเกจ" ? "bg-violet-100 text-violet-700" : "bg-brand/10 text-brand";
+}
 
 export default function OwnerPromotionsPage() {
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: PROMO_KEY,
+    queryFn: ownerApi.getOwnerPromotions,
+  });
+
+  const [adding, setAdding] = useState(false);
+
   return (
-    <ComingSoon
-      title="Promotions"
-      subtitle="จัดการโปรโมชั่น"
-      description="สร้างและจัดการโปรโมชั่น คูปอง ส่วนลด และ Happy Hour ของสนาม — กำลังพัฒนา"
-      Icon={Tag}
-    />
+    <div className="space-y-5">
+      <header className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Promotions</h1>
+          <p className="text-sm text-muted-foreground">จัดการโปรโมชั่น</p>
+        </div>
+        {!adding && (
+          <Button type="button" onClick={() => setAdding(true)}>
+            <Plus className="size-4" /> เพิ่มโปรโมชั่น
+          </Button>
+        )}
+      </header>
+
+      {adding && <PromotionForm onClose={() => setAdding(false)} />}
+
+      {isLoading && <Loading />}
+      {isError && <ErrorState onRetry={() => refetch()} />}
+      {data && data.length === 0 && !adding && <EmptyState message="ยังไม่มีโปรโมชั่น" />}
+
+      {data && data.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {data.map((p) => (
+            <PromotionCard key={p.id} promo={p} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Inline create form (also reused for editing when `promo` is provided).
+function PromotionForm({
+  promo,
+  onClose,
+}: {
+  promo?: OwnerPromotion;
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const [form, setForm] = useState<FormState>(
+    promo ? { title: promo.title, subtitle: promo.subtitle, tag: promo.tag } : EMPTY,
+  );
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      promo
+        ? ownerApi.updatePromotion(promo.id, form)
+        : ownerApi.createPromotion(form),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: PROMO_KEY });
+      onClose();
+    },
+  });
+
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.title.trim()) return;
+    mutation.mutate();
+  }
+
+  return (
+    <form
+      onSubmit={onSubmit}
+      className="space-y-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5"
+    >
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold">
+          {promo ? "แก้ไขโปรโมชั่น" : "เพิ่มโปรโมชั่น"}
+        </h2>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="ปิด"
+          className="grid size-7 place-items-center rounded-lg text-muted-foreground hover:bg-app"
+        >
+          <X className="size-4" />
+        </button>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="promo-title">หัวข้อ</Label>
+        <Input
+          id="promo-title"
+          value={form.title}
+          onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+          placeholder="เช่น ลด 20% ช่วง Happy Hour"
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="promo-subtitle">รายละเอียด</Label>
+        <Input
+          id="promo-subtitle"
+          value={form.subtitle}
+          onChange={(e) => setForm((f) => ({ ...f, subtitle: e.target.value }))}
+          placeholder="เช่น ทุกวันจันทร์–ศุกร์ 14:00–17:00"
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="promo-tag">ประเภท</Label>
+        <select
+          id="promo-tag"
+          value={form.tag}
+          onChange={(e) =>
+            setForm((f) => ({ ...f, tag: e.target.value as OwnerPromotion["tag"] }))
+          }
+          className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          {TAGS.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {mutation.isError && (
+        <p className="text-sm text-brand-danger">บันทึกไม่สำเร็จ ลองอีกครั้ง</p>
+      )}
+
+      <div className="flex items-center gap-2">
+        <Button type="submit" disabled={mutation.isPending || !form.title.trim()}>
+          {mutation.isPending ? "กำลังบันทึก..." : "บันทึก"}
+        </Button>
+        <Button type="button" variant="outline" onClick={onClose}>
+          ยกเลิก
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function PromotionCard({ promo }: { promo: OwnerPromotion }) {
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState(false);
+
+  const del = useMutation({
+    mutationFn: () => ownerApi.deletePromotion(promo.id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: PROMO_KEY }),
+  });
+
+  function onDelete() {
+    if (window.confirm(`ลบโปรโมชั่น "${promo.title}" ?`)) del.mutate();
+  }
+
+  if (editing) {
+    return <PromotionForm promo={promo} onClose={() => setEditing(false)} />;
+  }
+
+  return (
+    <div className="flex flex-col rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
+      <div className="flex items-start justify-between gap-2">
+        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand/10 text-brand">
+          <TagIcon className="size-5" />
+        </span>
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${tagClass(promo.tag)}`}
+        >
+          {promo.tag}
+        </span>
+      </div>
+
+      <div className="mt-3 flex-1">
+        <div className="font-semibold">{promo.title}</div>
+        {promo.subtitle && (
+          <p className="mt-0.5 text-sm text-muted-foreground">{promo.subtitle}</p>
+        )}
+      </div>
+
+      {del.isError && (
+        <p className="mt-2 text-sm text-brand-danger">ลบไม่สำเร็จ ลองอีกครั้ง</p>
+      )}
+
+      <div className="mt-3 flex items-center gap-2 border-t border-black/5 pt-3">
+        <Button type="button" variant="outline" size="sm" onClick={() => setEditing(true)}>
+          <Pencil className="size-3.5" /> แก้ไข
+        </Button>
+        <Button
+          type="button"
+          variant="destructive"
+          size="sm"
+          disabled={del.isPending}
+          onClick={onDelete}
+        >
+          <Trash2 className="size-3.5" /> {del.isPending ? "กำลังลบ..." : "ลบ"}
+        </Button>
+      </div>
+    </div>
   );
 }

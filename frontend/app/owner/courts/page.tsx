@@ -20,8 +20,11 @@ export default function OwnerCourtsPage() {
   });
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-bold">คอร์ท</h1>
+    <div className="space-y-5">
+      <header>
+        <h1 className="text-2xl font-bold tracking-tight">คอร์ท</h1>
+        <p className="text-sm text-muted-foreground">จัดการสนาม</p>
+      </header>
 
       {isLoading && <Loading />}
       {isError && <ErrorState onRetry={() => refetch()} />}

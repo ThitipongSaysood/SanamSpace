@@ -3,7 +3,13 @@ import type {
   OwnerBooking,
   OwnerCustomer,
   OwnerDashboard,
+  OwnerMembershipRow,
   OwnerPayment,
+  OwnerPromotion,
+  OwnerRole,
+  OwnerSettings,
+  OwnerStaffMember,
+  OwnerWalletRow,
   User,
 } from "@/lib/types";
 
@@ -140,4 +146,30 @@ export const ownerApi = {
   getCourts: () => req<Court[]>("/owner/courts"),
 
   getCustomers: () => req<OwnerCustomer[]>("/owner/customers"),
+
+  getSettings: () => req<OwnerSettings>("/owner/settings"),
+
+  updateSettings: (patch: Partial<OwnerSettings>) =>
+    req<OwnerSettings>("/owner/settings", { method: "PUT", body: patch }),
+
+  getOwnerPromotions: () => req<OwnerPromotion[]>("/owner/promotions"),
+
+  createPromotion: (body: { title: string; subtitle: string; tag: string }) =>
+    req<OwnerPromotion>("/owner/promotions", { method: "POST", body }),
+
+  updatePromotion: (
+    id: string,
+    body: Partial<{ title: string; subtitle: string; tag: string }>,
+  ) => req<OwnerPromotion>(`/owner/promotions/${id}`, { method: "PUT", body }),
+
+  deletePromotion: (id: string) =>
+    req<void>(`/owner/promotions/${id}`, { method: "DELETE" }),
+
+  getStaff: () => req<OwnerStaffMember[]>("/owner/staff"),
+
+  getRoles: () => req<OwnerRole[]>("/owner/roles"),
+
+  getMemberships: () => req<OwnerMembershipRow[]>("/owner/memberships"),
+
+  getWallets: () => req<OwnerWalletRow[]>("/owner/wallets"),
 };

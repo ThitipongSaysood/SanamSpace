@@ -180,6 +180,61 @@ export type OwnerCustomer = {
   bookingsCount: number;
 };
 
+// Owner-side org settings (GET/PUT /owner/settings).
+export type OwnerSettings = {
+  orgName: string;
+  logoText: string;
+  phone: string;
+  email: string;
+  address: string;
+  googleMapUrl: string;
+  lineOaUrl: string;
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  fontFamily: string;
+  timezone: string;
+};
+
+export type OwnerPromotion = {
+  id: string;
+  title: string;
+  subtitle: string;
+  tag: "ส่วนลด" | "แพ็กเกจ";
+  sortOrder: number;
+};
+
+export type OwnerStaffMember = {
+  id: string;
+  displayName: string;
+  email: string;
+  roleName: string;
+  status: string;
+  joinedAt: string;
+};
+
+export type OwnerRole = {
+  id: string;
+  name: string;
+  isSystemRole: boolean;
+};
+
+export type OwnerMembershipRow = {
+  id: string;
+  customerName: string;
+  tier: string;
+  memberId: string;
+  points: number;
+  expiresAt: string;
+};
+
+export type OwnerWalletRow = {
+  id: string;
+  customerName: string;
+  balance: number;
+  transactionCount: number;
+};
+
 // --- Super Admin (Platform) Portal ---
 export type PlatformDashboard = {
   totalOrganizations: number;

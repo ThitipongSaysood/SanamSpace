@@ -27,8 +27,11 @@ export default function OwnerBookingsPage() {
   });
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-bold">การจอง</h1>
+    <div className="space-y-5">
+      <header>
+        <h1 className="text-2xl font-bold tracking-tight">การจอง</h1>
+        <p className="text-sm text-muted-foreground">จัดการการจองทั้งหมด</p>
+      </header>
 
       <div className="flex flex-wrap gap-2" role="tablist" aria-label="กรองสถานะการจอง">
         {FILTERS.map((f) => {
