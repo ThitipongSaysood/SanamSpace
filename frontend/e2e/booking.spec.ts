@@ -14,25 +14,16 @@ test("customer can book a court end-to-end", async ({ page }) => {
   await page.getByRole("button", { name: "เข้าสู่ระบบด้วย LINE" }).click();
   await expect(page.getByText(/สวัสดี/)).toBeVisible();
 
-  // Home -> venue -> booking wizard.
+  // Home -> venue -> single-page booking.
   await page.getByText("Everyday Badminton").first().click();
   await page.getByRole("button", { name: "จองสนาม" }).click();
 
-  // Step 1: เลือกคอร์ท
-  await expect(page.getByText("เลือกคอร์ท")).toBeVisible();
+  // Everything on one page: pick court, keep default date, pick a time.
+  await expect(page.getByRole("heading", { name: "เลือกคอร์ท" })).toBeVisible();
   await page.getByRole("button", { name: /Court 1/ }).click();
-  await page.getByRole("button", { name: "ต่อไป" }).click();
-
-  // Step 2: เลือกวันที่ (default 20 มิ.ย. 2569 already selected)
-  await expect(page.getByText("มิถุนายน 2569")).toBeVisible();
-  await page.getByRole("button", { name: "ต่อไป" }).click();
-
-  // Step 3: เลือกเวลา
   await page.getByRole("button", { name: "18:00" }).click();
-  await page.getByRole("button", { name: "ต่อไป" }).click();
 
-  // Step 4: สรุปการจอง -> ชำระเงิน
-  await expect(page.getByText("รวมทั้งหมด")).toBeVisible();
+  // Single CTA -> payment (no more step-by-step "ต่อไป").
   await page.getByRole("button", { name: "ดำเนินการชำระเงิน" }).click();
 
   // Payment: โอนเงิน (อัปโหลดสลิป) is preselected; confirm to get bank details.
