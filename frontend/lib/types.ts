@@ -70,7 +70,7 @@ export type Payment = {
   slipUrl?: string;
 };
 
-export type User = { id: string; displayName: string; lineId: string; avatarUrl?: string };
+export type User = { id: string; displayName: string; lineId: string; avatarUrl?: string; email?: string; phone?: string };
 
 export type Review = { id: string; author: string; rating: number; date: string; text: string };
 
