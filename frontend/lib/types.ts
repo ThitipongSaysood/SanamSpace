@@ -104,3 +104,36 @@ export type AppNotification = {
   body: string;
   timeAgo: string;
 };
+
+// --- Owner Admin Portal ---
+export type OwnerDashboard = {
+  todayBookings: number;
+  todayRevenue: number;
+  pendingSlips: number;
+  confirmedToday: number;
+  totalCustomers: number;
+  courtCount: number;
+};
+
+export type OwnerBooking = Booking & { customerName?: string };
+
+export type OwnerPayment = {
+  id: string;
+  bookingId: string;
+  method: PaymentMethod;
+  amount: number;
+  status: PaymentStatus;
+  slipUrl?: string;
+  customerName?: string;
+  booking?: { code: string; courtName: string; date: string; start: string; end: string };
+};
+
+export type OwnerCustomer = {
+  id: string;
+  displayName: string;
+  phone?: string;
+  email?: string;
+  totalSpending: number;
+  visits: number;
+  bookingsCount: number;
+};
