@@ -4,25 +4,27 @@ _Last updated: 2026-06-13_
 
 ## Project type (auto-detected)
 
-Next.js 16 (frontend/ customer web + owner portal) + Laravel 13 (backend/ /api/v1) + database/schema.sql (123 ตาราง) + docs
+Next.js 16 (frontend/: customer + owner + super-admin portals) + Laravel 13 (backend/ /api/v1) + database/schema.sql (123 ตาราง) + docs
 
 ## Current goal
 
-Owner Portal MVP เสร็จ (backend + frontend) — ถัดไปเติม endpoint ลูกค้าที่เหลือ / Super Admin / integrations จริง
+3 portals ทำงานจริงบน backend แล้ว — เหลือ owner section backends + integrations จริง
 
 ## What just happened
 
-(1) database/README.md อธิบาย ER. (2) Owner Portal: backend /api/v1/owner/* (org-scoped, dashboard/bookings/
-verify-slip/courts/customers, 19 tests) + frontend app/owner/* (login/dashboard/bookings/ตรวจสลิป/courts/customers,
-owner token แยก). Verify: backend 19 + frontend 22 + owner e2e (E2E_OWNER=1) ผ่าน. commits 45eee0e/415ec0e/c52d498.
+(1) Customer endpoints ที่เหลือ → real ทั้งหมด (reviews/packages/membership/wallet/promotions/notifications + PUT profile), เลิก mock fallback.
+(2) Super Admin portal (backend Subscription domain + /admin/* 38 tests; frontend app/admin/*).
+(3) Owner Portal redesign ตาม mockup: shell 13 เมนู + dashboard เต็ม (recharts) + operations/reports จริง + 6 placeholder.
+Verify: backend 38 tests, frontend 22 vitest + build, REAL e2e (customer/owner/admin) ผ่าน. commits ...18125b6
 
 ## Blockers
-ไม่มี (owner = real-backend-only; รัน backend คู่ frontend + .env.local)
+ไม่มี (real mode = รัน backend คู่ frontend + .env.local)
 
 ## Next step
-(ก) backend customer endpoints ที่เหลือ: reviews/packages/membership/wallet/promotions/notifications + PUT /customers
-(ข) Owner: court CRUD, reports, CRM/promotion/membership mgmt (ค) Super Admin portal (ง) LINE LIFF + payment gateway
+(ก) owner section backends: CRM/membership/wallet/promotions/staff/settings + restyle owner bookings/courts/customers/payments ให้เข้า shell
+(ข) LINE LIFF จริง + payment verify จำกัด role + payment gateway (ค) court CRUD/reports เชิงลึก
 
-## How to run (real)
-backend: cd backend && php artisan serve  (:8000; reset: migrate:fresh --seed; owner: owner@everyday.test/password)
-frontend: cd frontend && npm run dev  (มี .env.local) → /owner/login สำหรับฝั่งเจ้าของสนาม
+## Run (real)
+backend: cd backend && php artisan serve  (:8000)
+frontend: cd frontend && npm run dev  (.env.local) →  / (ลูกค้า) · /owner (owner@everyday.test/password) · /admin (super@sanamspace.test/password)
+real e2e: E2E_OWNER=1 npx playwright test
