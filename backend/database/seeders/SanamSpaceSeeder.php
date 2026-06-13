@@ -3,8 +3,11 @@
 namespace Database\Seeders;
 
 use App\Models\Branch;
+use App\Models\Broadcast;
 use App\Models\Court;
 use App\Models\Customer;
+use App\Models\CustomerSegment;
+use App\Models\CustomerTimelineEntry;
 use App\Models\Feature;
 use App\Models\Membership;
 use App\Models\Notification;
@@ -300,6 +303,70 @@ class SanamSpaceSeeder extends Seeder
                 'sort_order' => $i,
             ]));
         }
+
+        $this->seedEverydayCrm($org, $customer);
+    }
+
+    /**
+     * Seed the CRM domain (segments, segment membership, customer timeline,
+     * broadcasts) for Everyday Badminton.
+     */
+    private function seedEverydayCrm(Organization $org, Customer $customer): void
+    {
+        // --- Segments: VIP, inactive-30d, new-members ---
+        $vip = CustomerSegment::create([
+            'organization_id' => $org->id,
+            'name' => 'VIP',
+            'description' => 'ลูกค้าที่ใช้จ่ายสูงและมาประจำ',
+        ]);
+        $inactive = CustomerSegment::create([
+            'organization_id' => $org->id,
+            'name' => 'ไม่เคลื่อนไหว 30 วัน',
+            'description' => 'ลูกค้าที่ไม่มีการจองในรอบ 30 วัน',
+        ]);
+        CustomerSegment::create([
+            'organization_id' => $org->id,
+            'name' => 'สมาชิกใหม่',
+            'description' => 'ลูกค้าที่สมัครภายใน 30 วันล่าสุด',
+        ]);
+
+        // The demo customer is a VIP.
+        $vip->members()->attach($customer->id);
+
+        // --- Timeline for the demo customer (newest occurred_at last in list) ---
+        $timeline = [
+            ['type' => 'signup', 'title' => 'สมัครสมาชิก', 'description' => 'เข้าร่วมผ่าน LINE', 'occurred_at' => now()->subDays(40)],
+            ['type' => 'booking', 'title' => 'จอง Court 1', 'description' => '18:00–19:00', 'occurred_at' => now()->subDays(20)],
+            ['type' => 'payment', 'title' => 'ชำระเงิน 225 บาท', 'description' => 'โอนผ่าน PromptPay', 'occurred_at' => now()->subDays(20)],
+            ['type' => 'points', 'title' => 'ได้รับ 225 คะแนน', 'description' => 'จากการจอง Court 1', 'occurred_at' => now()->subDays(19)],
+        ];
+        foreach ($timeline as $entry) {
+            CustomerTimelineEntry::create(array_merge($entry, [
+                'organization_id' => $org->id,
+                'customer_id' => $customer->id,
+            ]));
+        }
+
+        // --- Broadcasts: 1 sent, 1 draft ---
+        Broadcast::create([
+            'organization_id' => $org->id,
+            'title' => 'โปรโมชั่น Happy Hour',
+            'message' => 'ลด 10% สำหรับการจองช่วง 18:00–20:00 ทุกวันจันทร์–ศุกร์',
+            'channel' => 'line',
+            'segment_id' => $vip->id,
+            'status' => 'sent',
+            'recipient_count' => 1,
+            'sent_at' => now()->subDays(5),
+        ]);
+        Broadcast::create([
+            'organization_id' => $org->id,
+            'title' => 'แจ้งเตือนสมาชิกที่หายไป',
+            'message' => 'คิดถึงคุณ! กลับมาเล่นกับเรารับส่วนลดพิเศษ',
+            'channel' => 'email',
+            'segment_id' => $inactive->id,
+            'status' => 'draft',
+            'recipient_count' => 0,
+        ]);
     }
 
     /**

@@ -16,10 +16,14 @@ use App\Http\Controllers\Api\Admin\OrganizationController as AdminOrganizationCo
 use App\Http\Controllers\Api\Admin\PlanController as AdminPlanController;
 use App\Http\Controllers\Api\Admin\SubscriptionController as AdminSubscriptionController;
 use App\Http\Controllers\Api\Owner\BookingController as OwnerBookingController;
+use App\Http\Controllers\Api\Owner\BroadcastController as OwnerBroadcastController;
 use App\Http\Controllers\Api\Owner\CourtController as OwnerCourtController;
+use App\Http\Controllers\Api\Owner\CrmController as OwnerCrmController;
 use App\Http\Controllers\Api\Owner\CustomerController as OwnerCustomerController;
 use App\Http\Controllers\Api\Owner\DashboardController as OwnerDashboardController;
 use App\Http\Controllers\Api\Owner\MembershipController as OwnerMembershipController;
+use App\Http\Controllers\Api\Owner\SegmentController as OwnerSegmentController;
+use App\Http\Controllers\Api\Owner\TimelineController as OwnerTimelineController;
 use App\Http\Controllers\Api\Owner\PaymentController as OwnerPaymentController;
 use App\Http\Controllers\Api\Owner\PromotionController as OwnerPromotionController;
 use App\Http\Controllers\Api\Owner\SettingController as OwnerSettingController;
@@ -99,15 +103,31 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/promotions/{id}', [OwnerPromotionController::class, 'update']);
         Route::delete('/promotions/{id}', [OwnerPromotionController::class, 'destroy']);
 
-        // --- Staff & roles (read) ---
+        // --- Staff & roles (read + invite) ---
         Route::get('/staff', [OwnerStaffController::class, 'index']);
+        Route::post('/staff', [OwnerStaffController::class, 'store']);
         Route::get('/roles', [OwnerStaffController::class, 'roles']);
 
-        // --- Memberships (read list) ---
+        // --- Memberships (read list + points adjust) ---
         Route::get('/memberships', [OwnerMembershipController::class, 'index']);
+        Route::post('/memberships/{id}/points', [OwnerMembershipController::class, 'adjustPoints']);
 
-        // --- Wallets (read list) ---
+        // --- Wallets (read list + topup) ---
         Route::get('/wallets', [OwnerWalletController::class, 'index']);
+        Route::post('/wallets/{id}/topup', [OwnerWalletController::class, 'topup']);
+
+        // --- CRM (overview + segments + timeline + broadcasts) ---
+        Route::get('/crm/overview', [OwnerCrmController::class, 'overview']);
+
+        Route::get('/segments', [OwnerSegmentController::class, 'index']);
+        Route::post('/segments', [OwnerSegmentController::class, 'store']);
+        Route::delete('/segments/{id}', [OwnerSegmentController::class, 'destroy']);
+
+        Route::get('/timeline/{customerId}', [OwnerTimelineController::class, 'show']);
+
+        Route::get('/broadcasts', [OwnerBroadcastController::class, 'index']);
+        Route::post('/broadcasts', [OwnerBroadcastController::class, 'store']);
+        Route::post('/broadcasts/{id}/send', [OwnerBroadcastController::class, 'send']);
     });
 
     // --- Super Admin / Platform (super.admin middleware, NOT org-scoped) ---
