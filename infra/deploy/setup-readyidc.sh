@@ -1,33 +1,34 @@
 #!/usr/bin/env bash
 # =============================================================================
 # SanamSpace — one-time setup for THIS server (readyidc: Debian 12, nginx +
-# php-fpm + MariaDB, with other live sites). Run as root.
+# php-fpm + MariaDB, with OTHER live projects). Run as root.
 # -----------------------------------------------------------------------------
-# Designed to COEXIST with existing sites — it only ADDS things:
-#   * php8.4-fpm via Sury (keeps php8.2 for your other sites; Laravel 13 needs >=8.3)
+# SAFE BY DESIGN — it only ADDS a brand-new vhost for ONE new domain and never
+# touches existing sites (backend.semitennis.com, admin, mysql, default belong
+# to other projects). Same-origin: one domain serves both the API and the web.
+#   * php8.4-fpm via Sury (keeps php8.2 for other sites; Laravel 13 needs >=8.3)
 #   * a MariaDB database + user for SanamSpace
 #   * the app dir + backend/.env (with APP_KEY)
 #   * a systemd Next.js service (node) + queue worker
-#   * repoints the backend.semitennis.com nginx vhost to the Laravel public dir
-#   * adds an nginx vhost for the frontend domain (HTTP; add TLS with certbot after)
-# It backs up nginx configs and runs `nginx -t` before reloading (auto-rollback on error).
+#   * a NEW nginx vhost for APP_DOMAIN:  /api,/up,/sanctum -> Laravel (php-fpm),
+#     everything else -> Next.js on 127.0.0.1:3000   (HTTP; add TLS via certbot)
+# Runs `nginx -t` before reload (auto-rollback of the new file on error).
 #
 # Usage (copy this one file to the server, then run):
 #   scp infra/deploy/setup-readyidc.sh root@ssh.semitennis.com:/root/
 #   ssh root@ssh.semitennis.com
-#   DB_PASS='choose-a-strong-password' FRONTEND_DOMAIN='app.semitennis.com' bash /root/setup-readyidc.sh
+#   APP_DOMAIN='sanam.semitennis.com' DB_PASS='choose-a-strong-password' bash /root/setup-readyidc.sh
 #
-# Re-runnable (idempotent-ish). After it finishes: set GitHub secrets + push to deploy.
+# Re-runnable. After it finishes: point DNS + certbot, set GitHub secrets, push.
 # =============================================================================
 set -euo pipefail
 
 ### -------- config (override via env) --------
+APP_DOMAIN="${APP_DOMAIN:?Set APP_DOMAIN=... e.g. APP_DOMAIN=sanam.semitennis.com (must NOT be an existing project's domain)}"
 DEPLOY_PATH="${DEPLOY_PATH:-/var/www/html/sanamspace}"
-BACKEND_DOMAIN="${BACKEND_DOMAIN:-backend.semitennis.com}"   # already has nginx vhost + TLS
-FRONTEND_DOMAIN="${FRONTEND_DOMAIN:-app.semitennis.com}"
 DB_NAME="${DB_NAME:-sanamspace}"
 DB_USER="${DB_USER:-sanamspace}"
-DB_PASS="${DB_PASS:?Set DB_PASS=... when running (e.g. DB_PASS='secret' bash setup-readyidc.sh)}"
+DB_PASS="${DB_PASS:?Set DB_PASS=... when running}"
 PHP_VER="8.4"
 PHP_SOCK="/var/run/php/php${PHP_VER}-fpm.sock"
 RUN_USER="www-data"
@@ -35,7 +36,13 @@ RUN_USER="www-data"
 [ "$(id -u)" -eq 0 ] || { echo "ERROR: run as root"; exit 1; }
 . /etc/os-release 2>/dev/null || true
 export DEBIAN_FRONTEND=noninteractive
-echo "==> SanamSpace setup  backend=${BACKEND_DOMAIN}  frontend=${FRONTEND_DOMAIN}  path=${DEPLOY_PATH}"
+echo "==> SanamSpace setup  domain=${APP_DOMAIN} (same-origin)  path=${DEPLOY_PATH}"
+
+# guard: refuse to clobber an existing vhost (protects other projects)
+if [ -e "/etc/nginx/sites-available/${APP_DOMAIN}" ] || [ -e "/etc/nginx/sites-enabled/${APP_DOMAIN}" ]; then
+  echo "REFUSING: an nginx vhost named '${APP_DOMAIN}' already exists. Pick a different APP_DOMAIN."
+  exit 1
+fi
 
 ### -------- 1) PHP 8.4-fpm via Sury (coexists with 8.2) --------
 echo "==> PHP ${PHP_VER}-fpm (Sury)"
@@ -77,7 +84,7 @@ APP_NAME=SanamSpace
 APP_ENV=production
 APP_KEY=base64:$(openssl rand -base64 32)
 APP_DEBUG=false
-APP_URL=https://${BACKEND_DOMAIN}
+APP_URL=https://${APP_DOMAIN}
 
 LOG_CHANNEL=stack
 LOG_LEVEL=error
@@ -94,7 +101,8 @@ CACHE_STORE=database
 QUEUE_CONNECTION=database
 
 FILESYSTEM_DISK=local
-CORS_ALLOWED_ORIGINS=https://${FRONTEND_DOMAIN}
+# same-origin -> CORS not needed, but harmless to scope it to the app domain
+CORS_ALLOWED_ORIGINS=https://${APP_DOMAIN}
 
 LINE_CHANNEL_ID=
 LINE_CHANNEL_SECRET=
@@ -152,23 +160,27 @@ systemctl daemon-reload
 systemctl enable sanamspace-frontend sanamspace-queue >/dev/null 2>&1 || true
 # (services start after the first CI deploy ships + builds the code)
 
-### -------- 5) nginx: repoint backend vhost + add frontend vhost --------
-echo "==> nginx vhosts (backup + test before reload)"
-BK_NGINX="/etc/nginx/sites-available/${BACKEND_DOMAIN}"
-FE_NGINX="/etc/nginx/sites-available/${FRONTEND_DOMAIN}"
-TS="$(date +%Y%m%d-%H%M%S)"
-[ -f "$BK_NGINX" ] && cp -a "$BK_NGINX" "${BK_NGINX}.bak.${TS}"
-
-# backend.* -> Laravel public dir, served by php8.4-fpm (TLS already managed by Certbot)
-cat > "$BK_NGINX" <<'NGINX'
+### -------- 5) nginx: NEW same-origin vhost (does not touch other sites) --------
+echo "==> nginx vhost for ${APP_DOMAIN} (new file only)"
+FE_NGINX="/etc/nginx/sites-available/${APP_DOMAIN}"
+cat > "$FE_NGINX" <<'NGINX'
 server {
-    server_name __BDOMAIN__;
+    listen 80;
+    server_name __DOMAIN__;
     root __ROOT__;
-    index index.php index.html;
+    index index.php;
     client_max_body_size 20m;
 
-    location / {
-        try_files $uri $uri/ /index.php?$query_string;
+    # Laravel API / sanctum -> PHP front controller
+    location ~ ^/(api|sanctum)(/|$) {
+        try_files $uri /index.php?$query_string;
+    }
+    location = /up { try_files $uri /index.php?$query_string; }
+
+    # Uploaded files (public disk) via the storage symlink under root
+    location /storage/ {
+        access_log off;
+        expires 7d;
     }
 
     location ~ \.php$ {
@@ -176,37 +188,7 @@ server {
         fastcgi_pass unix:__PHPSOCK__;
     }
 
-    location /storage/ {
-        access_log off;
-        expires 7d;
-    }
-
-    listen 443 ssl; # managed by Certbot
-    ssl_certificate /etc/letsencrypt/live/__BDOMAIN__/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/__BDOMAIN__/privkey.pem;
-    include /etc/letsencrypt/options-ssl-nginx.conf;
-    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
-}
-
-server {
-    if ($host = __BDOMAIN__) {
-        return 301 https://$host$request_uri;
-    }
-    listen 80;
-    server_name __BDOMAIN__;
-    return 404;
-}
-NGINX
-sed -i "s#__BDOMAIN__#${BACKEND_DOMAIN}#g; s#__ROOT__#${DEPLOY_PATH}/backend/public#g; s#__PHPSOCK__#${PHP_SOCK}#g" "$BK_NGINX"
-ln -sf "$BK_NGINX" "/etc/nginx/sites-enabled/${BACKEND_DOMAIN}"
-
-# frontend.* -> Next.js on 127.0.0.1:3000 (HTTP only; run certbot afterwards for TLS)
-cat > "$FE_NGINX" <<'NGINX'
-server {
-    listen 80;
-    server_name __FDOMAIN__;
-    client_max_body_size 20m;
-
+    # Everything else -> Next.js (systemd, 127.0.0.1:3000)
     location / {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
@@ -219,15 +201,12 @@ server {
     }
 }
 NGINX
-sed -i "s#__FDOMAIN__#${FRONTEND_DOMAIN}#g" "$FE_NGINX"
-ln -sf "$FE_NGINX" "/etc/nginx/sites-enabled/${FRONTEND_DOMAIN}"
+sed -i "s#__DOMAIN__#${APP_DOMAIN}#g; s#__ROOT__#${DEPLOY_PATH}/backend/public#g; s#__PHPSOCK__#${PHP_SOCK}#g" "$FE_NGINX"
+ln -sf "$FE_NGINX" "/etc/nginx/sites-enabled/${APP_DOMAIN}"
 
-# test; roll back the backend change if the whole config is now invalid
 if ! nginx -t; then
-  echo "!! nginx -t FAILED — rolling back changes"
-  [ -f "${BK_NGINX}.bak.${TS}" ] && cp -a "${BK_NGINX}.bak.${TS}" "$BK_NGINX"
-  rm -f "/etc/nginx/sites-enabled/${FRONTEND_DOMAIN}" "$FE_NGINX"
-  nginx -t && systemctl reload nginx || true
+  echo "!! nginx -t FAILED — removing the new vhost and aborting"
+  rm -f "/etc/nginx/sites-enabled/${APP_DOMAIN}" "$FE_NGINX"
   exit 1
 fi
 systemctl reload nginx
@@ -235,21 +214,22 @@ systemctl reload nginx
 cat <<DONE
 
 ============================================================
- SanamSpace base setup done ✔  (existing sites untouched)
+ SanamSpace base setup done ✔  (other projects untouched)
 ------------------------------------------------------------
- Backend (API)  : https://${BACKEND_DOMAIN}   -> ${DEPLOY_PATH}/backend/public  (php${PHP_VER}-fpm)
- Frontend       : http://${FRONTEND_DOMAIN}    -> Next.js 127.0.0.1:3000 (systemd)
- DB             : ${DB_NAME} / ${DB_USER}  (MariaDB)
+ App (same-origin) : http://${APP_DOMAIN}
+     /api /up /sanctum -> Laravel (php${PHP_VER}-fpm, ${DEPLOY_PATH}/backend/public)
+     everything else   -> Next.js 127.0.0.1:3000 (systemd)
+ DB                : ${DB_NAME} / ${DB_USER}  (MariaDB)
 ------------------------------------------------------------
  Next:
- 1) Point DNS A record for ${FRONTEND_DOMAIN} -> this server, then:
-       certbot --nginx -d ${FRONTEND_DOMAIN}
+ 1) Point DNS A record for ${APP_DOMAIN} -> this server, then:
+       certbot --nginx -d ${APP_DOMAIN}
  2) GitHub repo secrets:
        SERVER_HOST=ssh.semitennis.com  SERVER_USER=root  SERVER_PASSWORD=********
        DEPLOY_PATH=${DEPLOY_PATH}
-       NEXT_PUBLIC_API_URL=https://${BACKEND_DOMAIN}/api/v1
+       NEXT_PUBLIC_API_URL=/api/v1          (same-origin)
  3) Push to main (or Actions -> Run workflow). First deploy ships code,
     runs migrate, and starts sanamspace-frontend.
- 4) Verify:  curl https://${BACKEND_DOMAIN}/up   then open https://${FRONTEND_DOMAIN}/
+ 4) Verify:  curl https://${APP_DOMAIN}/up   then open https://${APP_DOMAIN}/
 ============================================================
 DONE
