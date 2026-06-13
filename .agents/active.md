@@ -8,6 +8,10 @@ Next.js 16 (frontend/: customer + owner + super-admin portals) + Laravel 13 (bac
 
 ## Current goal
 
+Production deploy setup เสร็จ (Docker Compose + VPS guide; MySQL-verified; Next standalone). พร้อม deploy บนเซิร์ฟเวอร์จริง (ดู DEPLOYMENT.md). ก่อน launch จริง: APP_KEY/DB_PASSWORD จริง, ลบ demo users, R2 storage, LINE LIFF, payment gateway, TLS.
+
+## (prev goal)
+
 Owner Portal ครบ 13/13 เมนูเป็นของจริงแล้ว (CRM + mutations เสร็จ). เหลือ integrations: LINE LIFF จริง, payment gateway, deploy MySQL.
 
 ## (prev goal)
