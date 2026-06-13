@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# SanamSpace — one-time server provisioner (fresh Ubuntu 22.04 / 24.04, run as root)
+# SanamSpace — one-time server provisioner (fresh Debian 12 / Ubuntu 22.04+, run as root)
 # -----------------------------------------------------------------------------
 # Self-contained: copy THIS ONE FILE to the server and run it. No repo needed —
 # the GitHub Actions workflow (rsync) delivers the app code afterward.
@@ -36,8 +36,13 @@ ENABLE_UFW="${ENABLE_UFW:-no}"                # 'yes' -> open 22/80/443 with ufw
 ### ---------------- preflight ----------------
 [ "$(id -u)" -eq 0 ] || { echo "ERROR: run as root (sudo bash provision.sh)"; exit 1; }
 . /etc/os-release 2>/dev/null || true
+OS_ID="${ID:-debian}"
+CODENAME="${VERSION_CODENAME:-bookworm}"
+# DB engine: Debian ships MariaDB (mysql driver-compatible); Ubuntu has MySQL.
+if [ "$OS_ID" = "ubuntu" ]; then DB_PKG="mysql-server"; DB_SERVICE="mysql"; DB_ENGINE="MySQL";
+else DB_PKG="mariadb-server"; DB_SERVICE="mariadb"; DB_ENGINE="MariaDB"; fi
 echo "==> Provisioning SanamSpace on ${PRETTY_NAME:-this server}"
-echo "    domain=${APP_DOMAIN}  path=${DEPLOY_PATH}  php=${PHP_VER}  node=${NODE_MAJOR}  run_as=${RUN_USER}"
+echo "    domain=${APP_DOMAIN}  path=${DEPLOY_PATH}  php=${PHP_VER}  node=${NODE_MAJOR}  run_as=${RUN_USER}  db=${DB_ENGINE}"
 export DEBIAN_FRONTEND=noninteractive
 
 ### ---------------- base packages ----------------
@@ -56,8 +61,19 @@ if [ "${MEM_MB:-0}" -lt 2048 ] && [ ! -f /swapfile ]; then
 fi
 
 ### ---------------- PHP ----------------
-echo "==> PHP ${PHP_VER} + extensions"
-add-apt-repository -y ppa:ondrej/php
+echo "==> PHP ${PHP_VER} + extensions (repo for ${OS_ID})"
+if [ "$OS_ID" = "ubuntu" ]; then
+  add-apt-repository -y ppa:ondrej/php
+else
+  # Debian (and derivatives): Sury repo — PPAs do not exist on Debian
+  apt-get install -y apt-transport-https
+  if [ ! -f /usr/share/keyrings/deb.sury.org-php.gpg ]; then
+    curl -sSLo /tmp/debsuryorg-archive-keyring.deb https://packages.sury.org/debsuryorg-archive-keyring.deb
+    dpkg -i /tmp/debsuryorg-archive-keyring.deb
+  fi
+  echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ ${CODENAME} main" \
+    > /etc/apt/sources.list.d/php.list
+fi
 apt-get update -y
 apt-get install -y \
   php${PHP_VER}-fpm php${PHP_VER}-cli php${PHP_VER}-mysql php${PHP_VER}-mbstring \
@@ -77,11 +93,11 @@ if ! command -v node >/dev/null 2>&1 || [ "$(node -v | cut -c2- | cut -d. -f1)" 
   apt-get install -y nodejs
 fi
 
-### ---------------- MySQL ----------------
-echo "==> MySQL"
-apt-get install -y mysql-server
-systemctl enable --now mysql
-mysql --protocol=socket -uroot <<SQL
+### ---------------- database (MySQL on Ubuntu / MariaDB on Debian) ----------------
+echo "==> ${DB_ENGINE} (${DB_PKG})"
+apt-get install -y "$DB_PKG"
+systemctl enable --now "$DB_SERVICE"
+mysql -uroot <<SQL
 CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';
 ALTER USER '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';
@@ -180,7 +196,7 @@ UNIT
 cat > /etc/systemd/system/sanamspace-queue.service <<UNIT
 [Unit]
 Description=SanamSpace queue worker (Laravel)
-After=network.target mysql.service
+After=network.target ${DB_SERVICE}.service
 
 [Service]
 Type=simple
