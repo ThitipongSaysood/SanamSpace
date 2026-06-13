@@ -1,12 +1,15 @@
 "use client";
 import { createContext, useContext, useState } from "react";
 import type { User } from "@/lib/types";
+import { api } from "@/lib/api/client";
+import { clearToken } from "@/lib/api/token";
 
 const STORAGE_KEY = "sanamspace.profile";
-const BASE_USER: User = {
-  id: "u1",
+
+// Demo identity sent to the (stubbed) LINE login so the same customer is resolved each time.
+const LINE_PAYLOAD = {
+  lineUserId: "Uxxxx",
   displayName: "คุณสมชาย",
-  lineId: "Uxxxx",
   email: "example@email.com",
   phone: "081-234-5678",
 };
@@ -22,7 +25,7 @@ function loadOverrides(): Partial<User> {
 
 type AuthValue = {
   user: User | null;
-  login: () => void;
+  login: () => Promise<void>;
   logout: () => void;
   updateUser: (patch: Partial<User>) => void;
 };
@@ -31,10 +34,13 @@ const Ctx = createContext<AuthValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
-  function login() {
-    setUser({ ...BASE_USER, ...loadOverrides() });
+  async function login() {
+    const { user: authed } = await api.lineLogin(LINE_PAYLOAD);
+    // Apply any locally-saved profile edits on top (backend has no customer-update endpoint yet).
+    setUser({ ...authed, ...loadOverrides() });
   }
   function logout() {
+    clearToken();
     setUser(null);
   }
   function updateUser(patch: Partial<User>) {
@@ -43,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...loadOverrides(), ...patch }));
       } catch {
-        /* ignore quota/serialization errors in this mock */
+        /* ignore */
       }
     }
   }

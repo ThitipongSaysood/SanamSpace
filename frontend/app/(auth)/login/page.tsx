@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Feather, MessageCircle, Phone, Mail } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -8,6 +9,21 @@ import { Button } from "@/components/ui/button";
 export default function LoginPage() {
   const { login } = useAuth();
   const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleLogin() {
+    setBusy(true);
+    setError(null);
+    try {
+      await login();
+      router.replace("/");
+    } catch {
+      setError("เข้าสู่ระบบไม่สำเร็จ ลองใหม่อีกครั้ง");
+      setBusy(false);
+    }
+  }
+
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center bg-app px-6 py-12 text-center">
       <div className="flex flex-col items-center gap-3">
@@ -22,15 +38,14 @@ export default function LoginPage() {
         <h1 className="mb-5 text-lg font-semibold">เข้าสู่ระบบ</h1>
         <div className="space-y-3">
           <Button
+            disabled={busy}
             className="h-12 w-full gap-2 rounded-xl bg-brand text-base font-semibold text-brand-foreground hover:bg-brand/90"
-            onClick={() => {
-              login();
-              router.replace("/");
-            }}
+            onClick={handleLogin}
           >
             <MessageCircle className="size-5" />
-            เข้าสู่ระบบด้วย LINE
+            {busy ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบด้วย LINE"}
           </Button>
+          {error && <p className="text-sm text-brand-danger">{error}</p>}
           <Button
             variant="outline"
             disabled

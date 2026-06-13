@@ -46,7 +46,7 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
   async function submitSlip() {
     if (!payment || !slipFile) return;
     setBusy(true);
-    const reviewed = await api.uploadSlip(payment.id);
+    const reviewed = await api.uploadSlip(payment.id, slipFile);
     const approved = await api.approvePayment(reviewed.id); // demo auto-approve
     // approve bypasses TanStack Query, so refresh caches before navigating.
     await qc.invalidateQueries({ queryKey: ["booking", bookingId] });
