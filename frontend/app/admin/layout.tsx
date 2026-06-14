@@ -81,14 +81,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="min-h-dvh bg-app text-foreground md:grid md:grid-cols-[240px_1fr]">
       {/* Desktop sidebar */}
       <aside className="hidden border-r border-black/5 bg-white md:flex md:flex-col">
-        {/* Indigo/slate accent distinguishes the platform shell from the owner portal. */}
-        <div className="flex items-center gap-2 bg-indigo-950 px-5 py-5 text-white">
+        {/* Same light/brand look as the owner portal. */}
+        <div className="flex items-center gap-2.5 px-5 py-5">
           <div className="grid size-9 place-items-center rounded-xl bg-brand text-brand-foreground">
             <Building2 className="size-5" />
           </div>
           <div className="text-sm font-bold leading-tight">
             SanamSpace
-            <span className="block text-xs font-medium text-indigo-200">Platform</span>
+            <span className="block text-xs font-medium text-muted-foreground">Platform Admin</span>
           </div>
         </div>
         <nav className="flex-1 space-y-1 px-3 pt-3" aria-label="เมนูหลัก">

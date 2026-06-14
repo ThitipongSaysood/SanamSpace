@@ -1,6 +1,9 @@
 import type {
   AdminOrganization,
+  AdminPayment,
+  AdminRole,
   AdminSubscription,
+  AdminUser,
   PlatformDashboard,
   PlatformFeature,
   Plan,
@@ -130,4 +133,10 @@ export const superAdminApi = {
   getPlans: () => req<Plan[]>("/admin/plans"),
 
   getFeatures: () => req<PlatformFeature[]>("/admin/features"),
+
+  getPayments: () => req<AdminPayment[]>("/admin/payments"),
+
+  getUsers: () => req<AdminUser[]>("/admin/users"),
+
+  getRoles: () => req<AdminRole[]>("/admin/roles"),
 };

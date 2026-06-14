@@ -355,6 +355,37 @@ export type AdminSubscription = {
 // Current org's subscription (owner portal). Same shape as AdminSubscription.
 export type OwnerSubscription = AdminSubscription;
 
+export type AdminPayment = {
+  id: string;
+  organizationName: string | null;
+  customerName: string | null;
+  bookingCode: string | null;
+  method: string;
+  amount: number;
+  status: string;
+  createdAt: string | null;
+};
+
+export type AdminUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  isSuperAdmin: boolean;
+  status: string;
+  createdAt: string | null;
+};
+
+export type AdminRole = {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  isSystemRole: boolean;
+  scope: string;
+  permissionCount: number;
+};
+
 export type Plan = {
   id: string;
   code: string;

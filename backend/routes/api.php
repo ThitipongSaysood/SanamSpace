@@ -13,8 +13,11 @@ use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Api\Admin\FeatureController as AdminFeatureController;
 use App\Http\Controllers\Api\Admin\OrganizationController as AdminOrganizationController;
+use App\Http\Controllers\Api\Admin\PaymentController as AdminPaymentController;
 use App\Http\Controllers\Api\Admin\PlanController as AdminPlanController;
+use App\Http\Controllers\Api\Admin\RoleController as AdminRoleController;
 use App\Http\Controllers\Api\Admin\SubscriptionController as AdminSubscriptionController;
+use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\Owner\BookingController as OwnerBookingController;
 use App\Http\Controllers\Api\Owner\BranchController as OwnerBranchController;
 use App\Http\Controllers\Api\Owner\BroadcastController as OwnerBroadcastController;
@@ -166,5 +169,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/plans/{id}', [AdminPlanController::class, 'update']);
 
         Route::get('/features', [AdminFeatureController::class, 'index']);
+
+        Route::get('/payments', [AdminPaymentController::class, 'index']);
+        Route::get('/users', [AdminUserController::class, 'index']);
+        Route::get('/roles', [AdminRoleController::class, 'index']);
     });
 });
