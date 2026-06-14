@@ -156,6 +156,12 @@ export const superAdminApi = {
 
   getPlans: () => req<Plan[]>("/admin/plans"),
 
+  createOrg: (body: { name: string; ownerName: string; email: string; phone?: string; planId?: string }) =>
+    req<AdminOrganizationDetail>("/admin/organizations", { method: "POST", body }),
+
+  createPlan: (body: { name: string; code: string; price: number; interval: string; isActive?: boolean }) =>
+    req<Plan>("/admin/plans", { method: "POST", body }),
+
   getFeatures: () => req<PlatformFeature[]>("/admin/features"),
 
   getPayments: () => req<AdminPayment[]>("/admin/payments"),

@@ -6,6 +6,7 @@ import { superAdminApi } from "@/lib/api/superadmin";
 import { setOwnerToken } from "@/lib/api/owner";
 import { Loading, ErrorState } from "@/components/states";
 import { Button } from "@/components/ui/button";
+import { Modal } from "../_components/modal";
 
 const fmt = new Intl.NumberFormat("th-TH");
 const TABS = ["ข้อมูลทั่วไป", "การสมัครใช้งาน", "ผู้ใช้งาน", "การใช้งาน", "ประวัติ"] as const;
@@ -24,11 +25,31 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
+function Bar({ label, used, limit }: { label: string; used: number; limit: number | null }) {
+  const pct = limit && limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : null;
+  return (
+    <div>
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="font-medium">
+          {used}
+          {limit != null ? ` / ${limit}` : ""}
+          {pct != null && <span className="ml-1 text-xs text-muted-foreground">({pct}%)</span>}
+        </span>
+      </div>
+      <div className="mt-1 h-2 overflow-hidden rounded-full bg-app">
+        <div className={`h-2 rounded-full ${pct != null && pct >= 90 ? "bg-rose-500" : "bg-brand"}`} style={{ width: pct != null ? `${pct}%` : "10%" }} />
+      </div>
+    </div>
+  );
+}
+
 export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) {
   const qc = useQueryClient();
   const [tab, setTab] = useState<(typeof TABS)[number]>("ข้อมูลทั่วไป");
   const [showPlans, setShowPlans] = useState(false);
   const [planId, setPlanId] = useState("");
+  const [confirmImp, setConfirmImp] = useState(false);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["admin", "organization", id],
@@ -83,6 +104,7 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
   const active = data ? !suspended && data.subscriptionStatus === "active" : false;
 
   return (
+    <>
     <aside
       role="dialog"
       aria-label="รายละเอียดสนาม"
@@ -207,7 +229,7 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
                 <section className="space-y-2">
                   <h3 className="text-sm font-semibold">การดำเนินการ</h3>
                   <div className="grid grid-cols-2 gap-2">
-                    <button type="button" onClick={impersonate} className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-black/10 hover:bg-app">
+                    <button type="button" onClick={() => setConfirmImp(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-black/10 hover:bg-app">
                       <UserCog className="size-4" /> Impersonate
                     </button>
                     <button
@@ -236,6 +258,13 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
                   </button>
                 </section>
               </>
+            ) : tab === "การใช้งาน" ? (
+              <section className="space-y-4">
+                <h3 className="text-sm font-semibold">การใช้งานเทียบโควต้าแพ็กเกจ</h3>
+                <Bar label="สาขา" used={data.counts.branches} limit={data.plan?.branchLimit ?? null} />
+                <Bar label="คอร์ท" used={data.counts.courts} limit={data.plan?.courtLimit ?? null} />
+                <Bar label="ลูกค้า" used={data.counts.customers} limit={null} />
+              </section>
             ) : (
               <div className="grid place-items-center rounded-xl bg-app/50 py-12 text-center text-sm text-muted-foreground">
                 ส่วน “{tab}” กำลังพัฒนา
@@ -244,5 +273,32 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
           </div>
         )}
     </aside>
+    {confirmImp && data && (
+      <Modal
+        title="ยืนยัน Impersonate"
+        onClose={() => setConfirmImp(false)}
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => setConfirmImp(false)}>
+              ยกเลิก
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setConfirmImp(false);
+                impersonate();
+              }}
+            >
+              เข้าใช้งาน
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm">
+          คุณกำลังจะเข้าใช้งานในฐานะ <b>{data.name}</b> — จะเข้าถึงข้อมูลทั้งหมดขององค์กรนี้ในหน้า Owner Portal
+        </p>
+      </Modal>
+    )}
+    </>
   );
 }

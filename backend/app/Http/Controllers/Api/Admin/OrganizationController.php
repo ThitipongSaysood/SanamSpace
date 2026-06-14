@@ -7,11 +7,15 @@ use App\Http\Resources\AdminOrganizationDetailResource;
 use App\Http\Resources\AdminOrganizationResource;
 use App\Http\Resources\UserResource;
 use App\Models\Organization;
+use App\Models\OrganizationUser;
 use App\Models\Plan;
+use App\Models\Role;
 use App\Models\Subscription;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -33,11 +37,70 @@ class OrganizationController extends Controller
     }
 
     /**
+     * POST /admin/organizations — create a new tenant (org + settings + owner +
+     * optional subscription).
+     */
+    public function store(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'ownerName' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:50'],
+            'planId' => ['nullable', 'string', Rule::exists('plans', 'id')],
+        ]);
+
+        $org = Organization::create([
+            'name' => $data['name'],
+            'slug' => $this->uniqueSlug($data['name']),
+            'status' => 'active',
+        ]);
+
+        $org->settings()->create(['email' => $data['email'], 'phone' => $data['phone'] ?? null]);
+
+        if (! empty($data['planId'])) {
+            Subscription::create([
+                'organization_id' => $org->id,
+                'plan_id' => $data['planId'],
+                'status' => 'active',
+                'started_at' => now(),
+                'ends_at' => now()->addDays(30),
+            ]);
+        }
+
+        // Owner user (reuse if the email already exists) + org membership.
+        $user = User::firstOrCreate(
+            ['email' => $data['email']],
+            ['name' => $data['ownerName'], 'display_name' => $data['ownerName'], 'password' => Str::random(24)],
+        );
+        OrganizationUser::firstOrCreate(
+            ['organization_id' => $org->id, 'user_id' => $user->id],
+            ['role_id' => Role::where('code', 'owner')->value('id'), 'display_name' => $data['ownerName'], 'status' => 'active', 'joined_at' => now()],
+        );
+
+        return (new AdminOrganizationDetailResource($this->load($org->fresh())))
+            ->response()
+            ->setStatusCode(201);
+    }
+
+    /**
      * GET /admin/organizations/{id} — single org detail (id = slug or uuid).
      */
     public function show(string $id): AdminOrganizationDetailResource
     {
         return new AdminOrganizationDetailResource($this->load($this->find($id)));
+    }
+
+    private function uniqueSlug(string $name): string
+    {
+        $base = Str::slug($name) ?: 'org';
+        $slug = $base;
+        $i = 1;
+        while (Organization::withTrashed()->where('slug', $slug)->exists()) {
+            $slug = $base.'-'.(++$i);
+        }
+
+        return $slug;
     }
 
     /** POST /admin/organizations/{id}/suspend — block the org from using the system. */

@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertOctagon,
   Building2,
@@ -15,6 +15,9 @@ import type { AdminOrganization } from "@/lib/types";
 import { superAdminApi } from "@/lib/api/superadmin";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Modal } from "../_components/modal";
 import { OrgDrawer } from "./_drawer";
 
 const fmt = new Intl.NumberFormat("th-TH");
@@ -82,6 +85,7 @@ export default function AdminOrganizationsPage() {
   const [status, setStatus] = useState("all");
   const [plan, setPlan] = useState("all");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
 
   const all = data ?? [];
   const plans = useMemo(() => [...new Set(all.map((o) => o.planName).filter(Boolean))] as string[], [all]);
@@ -169,7 +173,7 @@ export default function AdminOrganizationsPage() {
           <Button type="button" variant="outline" onClick={exportCsv}>
             <Download className="size-4" /> ส่งออกข้อมูล
           </Button>
-          <Button type="button" disabled title="เร็วๆ นี้">
+          <Button type="button" onClick={() => setAdding(true)}>
             <Plus className="size-4" /> เพิ่มสนามใหม่
           </Button>
         </div>
@@ -262,6 +266,86 @@ export default function AdminOrganizationsPage() {
         </div>
         {openId && <OrgDrawer id={openId} onClose={() => setOpenId(null)} />}
       </div>
+
+      {adding && <AddOrgModal onClose={() => setAdding(false)} />}
     </div>
+  );
+}
+
+function AddOrgModal({ onClose }: { onClose: () => void }) {
+  const qc = useQueryClient();
+  const plansQ = useQuery({ queryKey: ["admin", "plans"], queryFn: superAdminApi.getPlans });
+  const [form, setForm] = useState({ name: "", ownerName: "", email: "", phone: "", planId: "" });
+  const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      superAdminApi.createOrg({
+        name: form.name.trim(),
+        ownerName: form.ownerName.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim() || undefined,
+        planId: form.planId || undefined,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "organizations"] });
+      onClose();
+    },
+    onError: (e: Error) => window.alert(e.message),
+  });
+
+  const valid = form.name.trim() && form.ownerName.trim() && form.email.trim();
+
+  return (
+    <Modal
+      title="เพิ่มสนามใหม่"
+      onClose={onClose}
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose}>
+            ยกเลิก
+          </Button>
+          <Button type="button" onClick={() => mutation.mutate()} disabled={!valid || mutation.isPending}>
+            {mutation.isPending ? "กำลังสร้าง..." : "สร้างสนาม"}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="ao-name">ชื่อสนาม</Label>
+          <Input id="ao-name" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="เช่น Everyday Badminton" />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="ao-owner">ชื่อเจ้าของ</Label>
+          <Input id="ao-owner" value={form.ownerName} onChange={(e) => set("ownerName", e.target.value)} placeholder="ชื่อ-นามสกุล" />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="ao-email">อีเมล</Label>
+          <Input id="ao-email" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="owner@example.com" />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="ao-phone">เบอร์โทร</Label>
+          <Input id="ao-phone" value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="081-234-5678" />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="ao-plan">แพ็กเกจ</Label>
+          <select
+            id="ao-plan"
+            value={form.planId}
+            onChange={(e) => set("planId", e.target.value)}
+            className="h-9 w-full rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
+          >
+            <option value="">— ไม่กำหนด —</option>
+            {(plansQ.data ?? []).map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {mutation.isError && <p className="text-sm text-brand-danger">สร้างไม่สำเร็จ ลองอีกครั้ง</p>}
+      </div>
+    </Modal>
   );
 }

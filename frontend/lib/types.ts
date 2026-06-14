@@ -357,6 +357,7 @@ export type AdminOrganizationDetail = {
   } | null;
   subscriptionStatus: string | null;
   counts: { branches: number; courts: number; customers: number };
+  plan?: Plan | null;
 };
 
 export type AdminOrganization = {

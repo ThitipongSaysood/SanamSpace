@@ -1,7 +1,10 @@
 "use client";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import type { AdminPayment } from "@/lib/types";
 import { superAdminApi } from "@/lib/api/superadmin";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
+import { Modal } from "../_components/modal";
 
 const fmt = new Intl.NumberFormat("th-TH");
 
@@ -35,6 +38,7 @@ export default function AdminPaymentsPage() {
     queryKey: ["admin", "payments"],
     queryFn: superAdminApi.getPayments,
   });
+  const [sel, setSel] = useState<AdminPayment | null>(null);
 
   return (
     <div className="space-y-4">
@@ -63,7 +67,7 @@ export default function AdminPaymentsPage() {
               </thead>
               <tbody className="divide-y divide-black/5">
                 {data.map((p) => (
-                  <tr key={p.id} className="hover:bg-app/60">
+                  <tr key={p.id} onClick={() => setSel(p)} className="cursor-pointer hover:bg-app/60">
                     <td className="px-4 py-3 text-muted-foreground">{fmtDate(p.createdAt)}</td>
                     <td className="px-4 py-3 font-medium">{p.organizationName ?? "—"}</td>
                     <td className="px-4 py-3 text-muted-foreground">{p.customerName ?? "—"}</td>
@@ -78,6 +82,23 @@ export default function AdminPaymentsPage() {
             </table>
           </div>
         </div>
+      )}
+
+      {sel && (
+        <Modal title="รายละเอียดการชำระเงิน" onClose={() => setSel(null)}>
+          <div className="space-y-2.5 text-sm">
+            <div className="flex justify-between"><span className="text-muted-foreground">องค์กร</span><span className="font-medium">{sel.organizationName ?? "—"}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">ลูกค้า</span><span className="font-medium">{sel.customerName ?? "—"}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">การจอง</span><span className="font-medium">{sel.bookingCode ?? "—"}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">ช่องทาง</span><span className="font-medium">{METHOD_LABEL[sel.method] ?? sel.method}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">สถานะ</span><StatusPill status={sel.status} /></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">วันที่</span><span className="font-medium">{fmtDate(sel.createdAt)}</span></div>
+            <div className="flex items-center justify-between border-t border-black/5 pt-3 text-base">
+              <span className="text-muted-foreground">ยอดชำระ</span>
+              <span className="font-bold text-brand">฿{fmt.format(sel.amount)}</span>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

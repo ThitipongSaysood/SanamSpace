@@ -166,6 +166,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/dashboard', [AdminDashboardController::class, 'index']);
 
         Route::get('/organizations', [AdminOrganizationController::class, 'index']);
+        Route::post('/organizations', [AdminOrganizationController::class, 'store']);
         Route::get('/organizations/{id}', [AdminOrganizationController::class, 'show']);
         Route::post('/organizations/{id}/suspend', [AdminOrganizationController::class, 'suspend']);
         Route::post('/organizations/{id}/activate', [AdminOrganizationController::class, 'activate']);
