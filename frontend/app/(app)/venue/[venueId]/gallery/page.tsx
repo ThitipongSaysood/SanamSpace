@@ -23,26 +23,44 @@ export default function VenueGalleryPage({ params }: { params: Promise<{ venueId
   if (!venue) return <EmptyState message="ไม่พบสนามนี้" />;
 
   const mainSport = venue.sports[0];
+  // Owner-managed gallery: cover + uploaded photos. Falls back to sport
+  // placeholders when the venue has no real photos yet.
+  const photos = venue.photos ?? [];
+  const cover = venue.imageUrl || photos[0];
+
   return (
     <main className="pb-8">
       <AppHeader title="รูปภาพสนาม" />
       <div className="px-4 pt-1">
         <div className="relative overflow-hidden rounded-2xl shadow-sm ring-1 ring-black/5">
-          <SportMedia sport={mainSport} className="h-48 w-full" />
-          <span className="absolute bottom-2 left-3 rounded-full bg-black/40 px-2.5 py-0.5 text-xs font-medium text-white">
-            C1
-          </span>
+          {cover ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={cover} alt={venue.name} className="h-48 w-full object-cover" />
+          ) : (
+            <SportMedia sport={mainSport} className="h-48 w-full" />
+          )}
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          {TILES.map(({ label, sport }) => (
-            <div key={label} className="relative overflow-hidden rounded-2xl shadow-sm ring-1 ring-black/5">
-              <SportMedia sport={sport ?? mainSport} className="h-32 w-full" />
-              <span className="absolute bottom-2 left-2.5 rounded-full bg-black/40 px-2.5 py-0.5 text-[11px] font-medium text-white">
-                {label}
-              </span>
-            </div>
-          ))}
-        </div>
+        {photos.length > 0 ? (
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            {photos.map((url, i) => (
+              <div key={`${url}-${i}`} className="overflow-hidden rounded-2xl shadow-sm ring-1 ring-black/5">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt={`${venue.name} ${i + 1}`} className="h-32 w-full object-cover" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            {TILES.map(({ label, sport }) => (
+              <div key={label} className="relative overflow-hidden rounded-2xl shadow-sm ring-1 ring-black/5">
+                <SportMedia sport={sport ?? mainSport} className="h-32 w-full" />
+                <span className="absolute bottom-2 left-2.5 rounded-full bg-black/40 px-2.5 py-0.5 text-[11px] font-medium text-white">
+                  {label}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </main>
   );

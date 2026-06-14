@@ -29,6 +29,7 @@ use App\Http\Controllers\Api\Owner\PaymentController as OwnerPaymentController;
 use App\Http\Controllers\Api\Owner\PromotionController as OwnerPromotionController;
 use App\Http\Controllers\Api\Owner\SettingController as OwnerSettingController;
 use App\Http\Controllers\Api\Owner\StaffController as OwnerStaffController;
+use App\Http\Controllers\Api\Owner\UploadController as OwnerUploadController;
 use App\Http\Controllers\Api\Owner\WalletController as OwnerWalletController;
 use App\Http\Controllers\Api\PaymentController;
 use Illuminate\Support\Facades\Route;
@@ -89,6 +90,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/payments', [OwnerPaymentController::class, 'index']);
         Route::post('/payments/{id}/verify', [OwnerPaymentController::class, 'verify']);
         Route::post('/payments/{id}/reject', [OwnerPaymentController::class, 'reject']);
+
+        // --- Image upload (venue cover / gallery / floor-plan) ---
+        Route::post('/uploads', [OwnerUploadController::class, 'store']);
 
         // --- Branches (สนาม/สาขา) management CRUD ---
         Route::get('/branches', [OwnerBranchController::class, 'index']);

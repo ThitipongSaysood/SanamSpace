@@ -31,6 +31,8 @@ class VenueResource extends JsonResource
             'closeTime' => $this->formatTime($this->close_time),
             'address' => $this->address,
             'imageUrl' => $this->image_url,
+            'photos' => $this->photos ?? [],
+            'planImageUrl' => $this->plan_image_url,
             'facilities' => $this->facilities ?? [],
             'pricePerHour' => $minPrice !== null ? (float) $minPrice : 0,
             'distanceKm' => (float) ($this->distance_km ?? 0),

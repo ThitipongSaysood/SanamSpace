@@ -117,25 +117,39 @@ class BranchController extends Controller
             'facilities.*' => ['string', 'max:100'],
             'imageUrl' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'description' => ['sometimes', 'nullable', 'string', 'max:5000'],
+            'travelHint' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'peakNote' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'weekHours' => ['sometimes', 'nullable', 'array'],
+            'weekHours.*.day' => ['required_with:weekHours', 'string', 'max:20'],
+            'weekHours.*.open' => ['nullable', 'string', 'max:5'],
+            'weekHours.*.close' => ['nullable', 'string', 'max:5'],
+            'photos' => ['sometimes', 'array'],
+            'photos.*' => ['string', 'max:2000'],
+            'planImageUrl' => ['sometimes', 'nullable', 'string', 'max:2000'],
         ]);
     }
 
     private function mapFields(array $validated): array
     {
         $out = [];
-        foreach (['name', 'address', 'phone', 'sports', 'facilities', 'description'] as $f) {
+        foreach (['name', 'address', 'phone', 'sports', 'facilities', 'photos', 'description'] as $f) {
             if (array_key_exists($f, $validated)) {
                 $out[$f] = $validated[$f];
             }
         }
-        if (array_key_exists('openTime', $validated)) {
-            $out['open_time'] = $validated['openTime'];
-        }
-        if (array_key_exists('closeTime', $validated)) {
-            $out['close_time'] = $validated['closeTime'];
-        }
-        if (array_key_exists('imageUrl', $validated)) {
-            $out['image_url'] = $validated['imageUrl'];
+        $camelToSnake = [
+            'openTime' => 'open_time',
+            'closeTime' => 'close_time',
+            'imageUrl' => 'image_url',
+            'travelHint' => 'travel_hint',
+            'peakNote' => 'peak_note',
+            'weekHours' => 'week_hours',
+            'planImageUrl' => 'plan_image_url',
+        ];
+        foreach ($camelToSnake as $camel => $snake) {
+            if (array_key_exists($camel, $validated)) {
+                $out[$snake] = $validated[$camel];
+            }
         }
 
         return $out;

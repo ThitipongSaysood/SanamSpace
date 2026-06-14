@@ -6,6 +6,8 @@ use App\Models\Branch;
 use App\Models\Organization;
 use Database\Seeders\SanamSpaceSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -144,5 +146,42 @@ class OwnerCourtBranchApiTest extends TestCase
 
         $this->withToken($token)->getJson('/api/v1/owner/branches')->assertForbidden();
         $this->withToken($token)->postJson('/api/v1/owner/courts', [])->assertForbidden();
+    }
+
+    public function test_owner_can_set_full_venue_content(): void
+    {
+        $token = $this->ownerToken();
+        $id = Branch::where('organization_id', $this->org()->id)->firstOrFail()->id;
+
+        $this->withToken($token)->putJson("/api/v1/owner/branches/$id", [
+            'description' => 'สนามมาตรฐาน',
+            'travelHint' => '15 นาทีจาก MRT',
+            'peakNote' => 'พีค 18:00-21:00',
+            'facilities' => ['parking', 'wifi', 'cafe'],
+            'photos' => ['/storage/venues/a.jpg', '/storage/venues/b.jpg'],
+            'planImageUrl' => '/storage/venues/plan.jpg',
+            'weekHours' => [['day' => 'จันทร์', 'open' => '10:00', 'close' => '22:00']],
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.travelHint', '15 นาทีจาก MRT')
+            ->assertJsonPath('data.peakNote', 'พีค 18:00-21:00')
+            ->assertJsonPath('data.planImageUrl', '/storage/venues/plan.jpg')
+            ->assertJsonCount(2, 'data.photos')
+            ->assertJsonCount(3, 'data.facilities')
+            ->assertJsonCount(1, 'data.weekHours');
+    }
+
+    public function test_owner_can_upload_an_image(): void
+    {
+        Storage::fake('public');
+
+        $this->withToken($this->ownerToken())
+            ->post(
+                '/api/v1/owner/uploads',
+                ['file' => UploadedFile::fake()->image('court.jpg', 400, 300)],
+                ['Accept' => 'application/json'],
+            )
+            ->assertOk()
+            ->assertJsonStructure(['url', 'path']);
     }
 }

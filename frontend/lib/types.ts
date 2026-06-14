@@ -14,6 +14,8 @@ export type Venue = {
   closeTime: string;     // "22:00"
   address: string;
   imageUrl: string;
+  photos?: string[];     // gallery images (owner-managed)
+  planImageUrl?: string; // floor-plan image for the venue map page
   facilities: string[];  // e.g. ["parking","shower","cafe"]
   pricePerHour: number;  // THB, "from" price shown on cards
   distanceKm: number;    // distance from user, for list display
@@ -230,7 +232,14 @@ export type OwnerBranch = {
   sports: string[];
   facilities: string[];
   imageUrl?: string | null;
+  photos: string[];
+  planImageUrl?: string | null;
   description?: string | null;
+  travelHint?: string | null;
+  peakNote?: string | null;
+  weekHours?: DayHours[];
+  rating?: number;
+  reviewCount?: number;
   courtCount: number;
 };
 

@@ -25,7 +25,14 @@ class OwnerBranchResource extends JsonResource
             'sports' => $this->sports ?? [],
             'facilities' => $this->facilities ?? [],
             'imageUrl' => $this->image_url,
+            'photos' => $this->photos ?? [],
+            'planImageUrl' => $this->plan_image_url,
             'description' => $this->description,
+            'travelHint' => $this->travel_hint,
+            'peakNote' => $this->peak_note,
+            'weekHours' => $this->week_hours ?? [],
+            'rating' => (float) $this->rating,
+            'reviewCount' => (int) $this->review_count,
             'courtCount' => (int) ($this->courts_count ?? 0),
         ];
     }

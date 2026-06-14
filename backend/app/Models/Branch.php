@@ -19,6 +19,7 @@ class Branch extends Model
         return [
             'sports' => 'array',
             'facilities' => 'array',
+            'photos' => 'array',
             'week_hours' => 'array',
             'rating_breakdown' => 'array',
             'rating' => 'float',

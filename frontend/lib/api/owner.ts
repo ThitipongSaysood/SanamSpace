@@ -30,7 +30,12 @@ export type BranchInput = {
   sports?: string[];
   facilities?: string[];
   imageUrl?: string | null;
+  photos?: string[];
+  planImageUrl?: string | null;
   description?: string | null;
+  travelHint?: string | null;
+  peakNote?: string | null;
+  weekHours?: { day: string; open: string; close: string }[];
   status?: "active" | "inactive";
 };
 
@@ -207,6 +212,26 @@ export const ownerApi = {
 
   deleteBranch: (id: string) =>
     req<void>(`/owner/branches/${id}`, { method: "DELETE" }),
+
+  // Upload an image (cover / gallery / floor-plan) -> returns the absolute URL.
+  async uploadImage(file: File): Promise<string> {
+    const fd = new FormData();
+    fd.append("file", file);
+    const token = getOwnerToken();
+    const res = await fetch(`${BASE}/owner/uploads`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: fd, // browser sets multipart boundary; do NOT set Content-Type
+    });
+    const json = (await res.json().catch(() => null)) as { url?: string; message?: string } | null;
+    if (!res.ok || !json?.url) {
+      throw new OwnerApiError(res.status, json?.message ?? res.statusText);
+    }
+    return json.url;
+  },
 
   getCustomers: () => req<OwnerCustomer[]>("/owner/customers"),
 

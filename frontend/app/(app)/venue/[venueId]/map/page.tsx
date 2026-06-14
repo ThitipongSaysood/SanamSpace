@@ -40,6 +40,12 @@ export default function VenueMapPage({ params }: { params: Promise<{ venueId: st
         </div>
 
         {tab === "plan" ? (
+          venue.planImageUrl ? (
+            <div className="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={venue.planImageUrl} alt="แผนผังสนาม" className="w-full" />
+            </div>
+          ) : (
           <div className="mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
             {/* Entrance */}
             <div className="mb-3 flex justify-center">
@@ -97,6 +103,7 @@ export default function VenueMapPage({ params }: { params: Promise<{ venueId: st
               </span>
             </div>
           </div>
+          )
         ) : (
           <div className="mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
             <div className="grid h-56 place-items-center rounded-xl bg-muted">
