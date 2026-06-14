@@ -16,8 +16,9 @@ class OrganizationController extends Controller
     public function index(): AnonymousResourceCollection
     {
         $organizations = Organization::query()
-            ->with('activeSubscription.plan')
+            ->with(['activeSubscription.plan', 'settings', 'organizationUsers.user', 'organizationUsers.role'])
             ->withCount(['branches', 'courts', 'customers'])
+            ->withSum(['bookings as revenue' => fn ($q) => $q->whereIn('status', ['confirmed', 'completed'])], 'amount')
             ->orderBy('created_at')
             ->get();
 
@@ -30,7 +31,7 @@ class OrganizationController extends Controller
     public function show(string $id): AdminOrganizationDetailResource
     {
         $organization = Organization::query()
-            ->with(['activeSubscription.plan', 'settings'])
+            ->with(['activeSubscription.plan', 'settings', 'organizationUsers.user', 'organizationUsers.role'])
             ->withCount(['branches', 'courts', 'customers'])
             ->where('slug', $id)
             ->orWhere('id', $id)

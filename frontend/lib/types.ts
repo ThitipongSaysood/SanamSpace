@@ -319,26 +319,63 @@ export type OwnerBroadcast = {
 // --- Super Admin (Platform) Portal ---
 export type PlatformDashboard = {
   totalOrganizations: number;
+  activeOrganizations: number;
   activeSubscriptions: number;
   totalBookings: number;
   totalRevenue: number;
   totalCustomers: number;
   mrr: number;
+  revenueByPlan: { plan: string; amount: number }[];
+  revenueSeries: { label: string; revenue: number }[];
+  topOrganizations: { name: string; revenue: number }[];
+};
+
+export type AdminOrganizationDetail = {
+  id: string;
+  name: string;
+  businessType: string | null;
+  status: string;
+  timezone: string | null;
+  createdAt: string | null;
+  owner: { name: string; email: string } | null;
+  settings: {
+    primaryColor?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    address?: string | null;
+    lineOaUrl?: string | null;
+    timezone?: string | null;
+  } | null;
+  subscription: {
+    planName: string | null;
+    status: string;
+    interval: string | null;
+    price: number | null;
+    startedAt: string | null;
+    endsAt: string | null;
+    daysRemaining: number | null;
+  } | null;
+  subscriptionStatus: string | null;
+  counts: { branches: number; courts: number; customers: number };
 };
 
 export type AdminOrganization = {
   id: string;
   name: string;
+  email?: string | null;
+  ownerName?: string | null;
+  ownerPhone?: string | null;
   status: string;
   planName: string | null;
   subscriptionStatus: string | null;
   branchCount: number;
   courtCount: number;
   customerCount: number;
+  userCount: number;
+  revenue: number;
+  expiresAt?: string | null;
+  daysRemaining?: number | null;
   createdAt: string;
-  // Detail-only fields (GET /admin/organizations/{id})
-  settings?: Record<string, unknown> | null;
-  featureCodes?: string[];
 };
 
 export type AdminSubscription = {

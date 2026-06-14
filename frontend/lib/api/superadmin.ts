@@ -3,6 +3,7 @@ import type {
   AdminAuditLog,
   AdminInvoice,
   AdminOrganization,
+  AdminOrganizationDetail,
   AdminPayment,
   AdminRole,
   AdminSubscription,
@@ -132,7 +133,7 @@ export const superAdminApi = {
 
   getOrganizations: () => req<AdminOrganization[]>("/admin/organizations"),
 
-  getOrganization: (id: string) => req<AdminOrganization>(`/admin/organizations/${id}`),
+  getOrganization: (id: string) => req<AdminOrganizationDetail>(`/admin/organizations/${id}`),
 
   getSubscriptions: () => req<AdminSubscription[]>("/admin/subscriptions"),
 

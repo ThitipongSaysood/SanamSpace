@@ -47,6 +47,16 @@ class Organization extends Model
         return $this->hasMany(Subscription::class);
     }
 
+    public function organizationUsers(): HasMany
+    {
+        return $this->hasMany(OrganizationUser::class);
+    }
+
+    public function bookings(): HasMany
+    {
+        return $this->hasMany(Booking::class);
+    }
+
     /** The current/active subscription (latest active one, else latest). */
     public function activeSubscription(): HasOne
     {
