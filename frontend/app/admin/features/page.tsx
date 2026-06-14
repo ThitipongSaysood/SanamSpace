@@ -1,51 +1,67 @@
 "use client";
 import { useQuery } from "@tanstack/react-query";
+import { Check, Minus } from "lucide-react";
 import { superAdminApi } from "@/lib/api/superadmin";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
 
 export default function AdminFeaturesPage() {
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["admin", "features"],
-    queryFn: superAdminApi.getFeatures,
-  });
+  const featuresQ = useQuery({ queryKey: ["admin", "features"], queryFn: superAdminApi.getFeatures });
+  const plansQ = useQuery({ queryKey: ["admin", "plans"], queryFn: superAdminApi.getPlans });
+
+  const features = featuresQ.data ?? [];
+  const plans = (plansQ.data ?? []).filter((p) => p.isActive !== false);
+
+  const isLoading = featuresQ.isLoading || plansQ.isLoading;
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold">ฟีเจอร์</h1>
+      <div>
+        <h1 className="text-xl font-bold">ฟีเจอร์ &amp; โมดูล</h1>
+        <p className="text-sm text-muted-foreground">เปิด/ปิดฟีเจอร์ในแต่ละแพ็กเกจ</p>
+      </div>
 
       {isLoading && <Loading />}
-      {isError && <ErrorState onRetry={() => refetch()} />}
-      {data && data.length === 0 && <EmptyState message="ยังไม่มีฟีเจอร์" />}
+      {featuresQ.isError && <ErrorState onRetry={() => featuresQ.refetch()} />}
+      {features.length === 0 && !isLoading && <EmptyState message="ยังไม่มีฟีเจอร์" />}
 
-      {data && data.length > 0 && (
-        <div className="space-y-3">
-          {data.map((f) => (
-            <div key={f.id} className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-semibold">{f.name}</span>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-600">
-                  {f.code}
-                </span>
-              </div>
-              <div className="mt-3">
-                <div className="mb-1.5 text-xs font-medium text-muted-foreground">เปิดใช้ในแพ็กเกจ</div>
-                {f.planCodes.length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5">
-                    {f.planCodes.map((code) => (
-                      <span
-                        key={code}
-                        className="inline-block rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700"
-                      >
-                        {code}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <span className="text-sm text-muted-foreground">—</span>
-                )}
-              </div>
-            </div>
-          ))}
+      {features.length > 0 && (
+        <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-sm">
+              <thead className="bg-app text-xs font-medium text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-3 text-left">ฟีเจอร์</th>
+                  {plans.map((p) => (
+                    <th key={p.id} className="px-4 py-3 text-center">
+                      {p.name}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-black/5">
+                {features.map((f) => (
+                  <tr key={f.id} className="hover:bg-app/40">
+                    <td className="px-4 py-3">
+                      <div className="font-medium">{f.name}</div>
+                      <div className="font-mono text-[11px] text-muted-foreground">{f.code}</div>
+                    </td>
+                    {plans.map((p) => {
+                      const on = f.planCodes.includes(p.code);
+                      return (
+                        <td key={p.id} className="px-4 py-3 text-center">
+                          {on ? (
+                            <Check className="mx-auto size-4 text-emerald-600" />
+                          ) : (
+                            <Minus className="mx-auto size-4 text-slate-300" />
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { superAdminApi } from "@/lib/api/superadmin";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
@@ -35,25 +36,55 @@ function period(startedAt: string | null, endsAt: string | null) {
   return `${startedAt ?? "—"} – ${endsAt ?? "—"}`;
 }
 
+const TABS = [
+  { key: "all", label: "ทั้งหมด" },
+  { key: "active", label: "ใช้งาน" },
+  { key: "trialing", label: "ทดลอง" },
+  { key: "expired", label: "หมดอายุ" },
+  { key: "cancelled", label: "ยกเลิก" },
+] as const;
+
 export default function AdminSubscriptionsPage() {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["admin", "subscriptions"],
     queryFn: superAdminApi.getSubscriptions,
   });
+  const [tab, setTab] = useState<string>("all");
+  const rows = (data ?? []).filter((s) => tab === "all" || s.status === tab);
 
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-bold">Subscription</h1>
 
+      {data && (
+        <div className="flex flex-wrap gap-1 border-b border-black/5">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition ${
+                tab === t.key
+                  ? "border-brand text-brand"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {isLoading && <Loading />}
       {isError && <ErrorState onRetry={() => refetch()} />}
       {data && data.length === 0 && <EmptyState message="ยังไม่มี Subscription" />}
+      {data && data.length > 0 && rows.length === 0 && <EmptyState message="ไม่มีรายการในหมวดนี้" />}
 
-      {data && data.length > 0 && (
+      {data && rows.length > 0 && (
         <>
           {/* Mobile cards */}
           <div className="space-y-3 md:hidden">
-            {data.map((s) => (
+            {rows.map((s) => (
               <div key={s.id} className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-semibold">{s.organizationName}</span>
@@ -83,7 +114,7 @@ export default function AdminSubscriptionsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5">
-                {data.map((s) => (
+                {rows.map((s) => (
                   <tr key={s.id} className="hover:bg-app/60">
                     <td className="px-4 py-3 font-medium">{s.organizationName}</td>
                     <td className="px-4 py-3 text-muted-foreground">{s.planName ?? "—"}</td>
