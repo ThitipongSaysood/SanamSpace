@@ -24,6 +24,7 @@ class OwnerSettingResource extends JsonResource
         return [
             'orgName' => $this->organization?->name,
             'logoText' => $this->logo,
+            'logoUrl' => $this->logo_url,
             'phone' => $this->phone,
             'email' => $this->email,
             'address' => $this->address,

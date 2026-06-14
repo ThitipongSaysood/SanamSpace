@@ -186,6 +186,7 @@ export type OwnerCustomer = {
 export type OwnerSettings = {
   orgName: string;
   logoText: string;
+  logoUrl?: string | null;
   phone: string;
   email: string;
   address: string;

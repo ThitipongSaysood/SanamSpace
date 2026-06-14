@@ -82,6 +82,23 @@ function InfoTab({ settings }: { settings: OwnerSettings }) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
+  const [logoBusy, setLogoBusy] = useState(false);
+  const [logoErr, setLogoErr] = useState(false);
+  async function onLogoFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setLogoBusy(true);
+    setLogoErr(false);
+    try {
+      set("logoUrl", await ownerApi.uploadImage(file));
+    } catch {
+      setLogoErr(true);
+    } finally {
+      setLogoBusy(false);
+    }
+  }
+
   const initials = (form.orgName || "S").trim().slice(0, 2).toUpperCase();
   const fields: { key: keyof OwnerSettings; label: string; type?: string; full?: boolean }[] = [
     { key: "orgName", label: "ชื่อสนาม", full: true },
@@ -123,21 +140,39 @@ function InfoTab({ settings }: { settings: OwnerSettings }) {
         <div className="space-y-2">
           <Label>โลโก้สนาม</Label>
           <div className="flex items-center gap-3">
-            <span
-              className="grid size-16 shrink-0 place-items-center rounded-2xl text-xl font-bold text-white"
-              style={{ background: form.primaryColor || "#16a34a" }}
-            >
-              {initials}
-            </span>
-            <button
-              type="button"
-              disabled
-              title="เร็วๆ นี้"
-              className="rounded-lg border border-input px-3 py-1.5 text-sm text-muted-foreground"
-            >
-              เปลี่ยนรูป
-            </button>
+            {form.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={form.logoUrl}
+                alt="โลโก้"
+                className="size-16 shrink-0 rounded-2xl object-cover ring-1 ring-black/10"
+              />
+            ) : (
+              <span
+                className="grid size-16 shrink-0 place-items-center rounded-2xl text-xl font-bold text-white"
+                style={{ background: form.primaryColor || "#16a34a" }}
+              >
+                {initials}
+              </span>
+            )}
+            <div className="flex flex-col gap-1.5">
+              <label className="cursor-pointer rounded-lg border border-input px-3 py-1.5 text-center text-sm hover:bg-app">
+                {logoBusy ? "กำลังอัปโหลด..." : "เปลี่ยนรูป"}
+                <input type="file" accept="image/*" className="hidden" onChange={onLogoFile} disabled={logoBusy} />
+              </label>
+              {form.logoUrl && (
+                <button
+                  type="button"
+                  onClick={() => set("logoUrl", null)}
+                  className="text-xs text-muted-foreground hover:text-brand-danger"
+                >
+                  ลบโลโก้
+                </button>
+              )}
+            </div>
           </div>
+          {logoErr && <p className="text-xs text-brand-danger">อัปโหลดไม่สำเร็จ</p>}
+          <p className="text-xs text-muted-foreground">อัปโหลดแล้วกด “บันทึกการเปลี่ยนแปลง” เพื่อยืนยัน</p>
         </div>
 
         <div className="space-y-2">

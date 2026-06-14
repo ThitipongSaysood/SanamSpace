@@ -39,6 +39,7 @@ class SettingController extends Controller
         $validated = $request->validate([
             'orgName' => ['sometimes', 'string', 'max:255'],
             'logoText' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'logoUrl' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'phone' => ['sometimes', 'nullable', 'string', 'max:50'],
             'email' => ['sometimes', 'nullable', 'email', 'max:255'],
             'address' => ['sometimes', 'nullable', 'string'],
@@ -59,6 +60,7 @@ class SettingController extends Controller
         // Map the camelCase API fields onto the settings columns.
         $columnMap = [
             'logoText' => 'logo',
+            'logoUrl' => 'logo_url',
             'phone' => 'phone',
             'email' => 'email',
             'address' => 'address',
