@@ -39,6 +39,16 @@ export type BranchInput = {
   status?: "active" | "inactive";
 };
 
+export type BookingInput = {
+  courtId: string;
+  date: string;
+  start: string;
+  end: string;
+  customerId?: string | null;
+  customerName?: string | null;
+  status?: string;
+};
+
 export type CourtInput = {
   branchId: string;
   name: string;
@@ -175,6 +185,15 @@ export const ownerApi = {
   },
 
   getBooking: (id: string) => req<OwnerBooking>(`/owner/bookings/${id}`),
+
+  createBooking: (body: BookingInput) =>
+    req<OwnerBooking>("/owner/bookings", { method: "POST", body }),
+
+  updateBooking: (id: string, body: Partial<BookingInput>) =>
+    req<OwnerBooking>(`/owner/bookings/${id}`, { method: "PUT", body }),
+
+  cancelBooking: (id: string) =>
+    req<OwnerBooking>(`/owner/bookings/${id}/cancel`, { method: "POST" }),
 
   getPayments: (status = "pending_review") =>
     req<OwnerPayment[]>(`/owner/payments?status=${encodeURIComponent(status)}`),
