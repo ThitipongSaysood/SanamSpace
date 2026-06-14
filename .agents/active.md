@@ -1,6 +1,6 @@
 # Active Task
 
-_Last updated: 2026-06-13_
+_Last updated: 2026-06-13 (deploy pipeline live)_
 
 ## Project type (auto-detected)
 
@@ -8,7 +8,17 @@ Next.js 16 (frontend/: customer + owner + super-admin portals) + Laravel 13 (bac
 
 ## Current goal
 
-Production deploy setup เสร็จ (Docker Compose + VPS guide; MySQL-verified; Next standalone). พร้อม deploy บนเซิร์ฟเวอร์จริง (ดู DEPLOYMENT.md). ก่อน launch จริง: APP_KEY/DB_PASSWORD จริง, ลบ demo users, R2 storage, LINE LIFF, payment gateway, TLS.
+**Deploy pipeline LIVE** — push to `main` → GitHub Actions builds + ships to the real server → migrate + restart. First green run done (workflow commit 1759aa1). App deployed at `/var/www/html/sanamspace`, served same-origin via NEW vhost `sanam.semitennis.com`.
+
+Server = **readyidc**: ssh.semitennis.com = **157.85.97.241**, Debian 12, root (password). **Shared box with OTHER live projects — do NOT touch `backend.semitennis.com`/`admin`/`mysql`/`default` vhosts.** nginx+php8.4-fpm(Sury)+MariaDB+Node24. Secrets set: SERVER_HOST/USER/PASSWORD + DEPLOY_PATH=/var/www/html/sanamspace.
+
+**เหลือทำให้เปิดสาธารณะ:** (1) Cloudflare A record `sanam` → 157.85.97.241 (grey/DNS-only) (2) `certbot --nginx -d sanam.semitennis.com` (3) verify https. Full server state + gotchas: `sessions/2026-06-13-2330-deploy-pipeline-live-readyidc.md`.
+
+Real-integration TODOs (unchanged): LINE LIFF, payment gateway, R2/S3 slips, rotate demo users.
+
+## (prev goal)
+
+Production deploy artifacts (Docker Compose + VPS guide; MySQL-verified; Next standalone) — see DEPLOYMENT.md.
 
 ## (prev goal)
 
