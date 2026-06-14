@@ -132,10 +132,23 @@ class DashboardController extends Controller
         // --- New: latest 6 bookings ---
         $recentBookings = $this->recentBookings($orgId);
 
+        // --- Real day-over-day deltas (% vs yesterday) ---
+        $yesterday = $now->copy()->subDay()->toDateString();
+        $yBookings = Booking::query()->forOrganization($orgId)->where('date', $yesterday)->count();
+        $yRevenue = (float) Booking::query()->forOrganization($orgId)->where('date', $yesterday)
+            ->whereIn('status', self::REVENUE_STATUSES)->sum('amount');
+        $yNewCustomers = Customer::query()->forOrganization($orgId)->whereDate('created_at', $yesterday)->count();
+        $deltas = [
+            'todayRevenue' => $this->pctDelta($todayRevenue, $yRevenue),
+            'todayBookings' => $this->pctDelta($todayBookings, $yBookings),
+            'newCustomersToday' => $this->pctDelta($newCustomersToday, $yNewCustomers),
+        ];
+
         return response()->json([
             // existing
             'todayBookings' => $todayBookings,
             'todayRevenue' => $todayRevenue,
+            'deltas' => $deltas,
             'pendingSlips' => $pendingSlips,
             'confirmedToday' => $confirmedToday,
             'totalCustomers' => $totalCustomers,
@@ -151,6 +164,16 @@ class DashboardController extends Controller
             'actionItems' => $actionItems,
             'recentBookings' => $recentBookings,
         ]);
+    }
+
+    /** Percent change from $prev to $curr, rounded to 1 decimal. */
+    private function pctDelta(float $curr, float $prev): float
+    {
+        if ($prev <= 0) {
+            return $curr > 0 ? 100.0 : 0.0;
+        }
+
+        return round((($curr - $prev) / $prev) * 100, 1);
     }
 
     /**

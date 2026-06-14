@@ -19,7 +19,6 @@ import {
   Menu,
   MessageSquare,
   ReceiptText,
-  Search,
   Settings,
   Store,
   Tag,
@@ -244,19 +243,6 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
             <Menu className="size-5" />
           </button>
 
-          {/* Search */}
-          <div className="relative hidden min-w-0 flex-1 sm:block md:max-w-md">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="search"
-              placeholder="ค้นหาทุกอย่าง..."
-              className="w-full rounded-xl bg-app py-2 pl-9 pr-12 text-sm outline-none ring-1 ring-transparent transition focus:bg-white focus:ring-black/10"
-            />
-            <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md bg-white px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground ring-1 ring-black/10">
-              ⌘K
-            </span>
-          </div>
-
           <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
             {/* Org switcher (static) */}
             <button
@@ -268,17 +254,8 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
               <ChevronDown className="size-4 text-muted-foreground" />
             </button>
 
-            {/* Bell */}
-            <button
-              type="button"
-              aria-label="การแจ้งเตือน"
-              className="relative grid size-9 place-items-center rounded-lg text-muted-foreground transition hover:bg-app"
-            >
-              <Bell className="size-5" />
-              <span className="absolute right-1 top-1 grid size-4 place-items-center rounded-full bg-red-500 text-[9px] font-bold text-white">
-                3
-              </span>
-            </button>
+            {/* Bell — badge shows real platform-announcement count */}
+            <NotifBell />
 
             {/* Chat */}
             <button
@@ -313,5 +290,25 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
         <main className="flex-1 bg-app p-4 md:p-6">{children}</main>
       </div>
     </div>
+  );
+}
+
+// Bell with a live badge of unread platform announcements; links to the dashboard.
+function NotifBell() {
+  const { data } = useQuery({ queryKey: ["owner", "announcements"], queryFn: ownerApi.getAnnouncements });
+  const count = data?.length ?? 0;
+  return (
+    <Link
+      href="/owner"
+      aria-label="ประกาศจากระบบ"
+      className="relative grid size-9 place-items-center rounded-lg text-muted-foreground transition hover:bg-app"
+    >
+      <Bell className="size-5" />
+      {count > 0 && (
+        <span className="absolute right-1 top-1 grid size-4 place-items-center rounded-full bg-red-500 text-[9px] font-bold text-white">
+          {count}
+        </span>
+      )}
+    </Link>
   );
 }

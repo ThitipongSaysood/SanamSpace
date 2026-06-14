@@ -27,7 +27,10 @@ use App\Http\Controllers\Api\Admin\TransactionController as AdminTransactionCont
 use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\Owner\BookingController as OwnerBookingController;
 use App\Http\Controllers\Api\Owner\BranchController as OwnerBranchController;
+use App\Http\Controllers\Api\Owner\AnnouncementController as OwnerAnnouncementController;
 use App\Http\Controllers\Api\Owner\BroadcastController as OwnerBroadcastController;
+use App\Http\Controllers\Api\Owner\CourtBlockController as OwnerCourtBlockController;
+use App\Http\Controllers\Api\Owner\ReportController as OwnerReportController;
 use App\Http\Controllers\Api\Owner\CourtController as OwnerCourtController;
 use App\Http\Controllers\Api\Owner\CrmController as OwnerCrmController;
 use App\Http\Controllers\Api\Owner\CustomerController as OwnerCustomerController;
@@ -106,6 +109,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('owner')->middleware('owner.org')->group(function () {
         Route::get('/dashboard', [OwnerDashboardController::class, 'index']);
         Route::get('/subscription', [OwnerSubscriptionController::class, 'show']);
+        Route::get('/announcements', [OwnerAnnouncementController::class, 'index']);
+        Route::get('/reports/bookings.csv', [OwnerReportController::class, 'exportBookings']);
+
+        Route::get('/court-blocks', [OwnerCourtBlockController::class, 'index']);
+        Route::post('/court-blocks', [OwnerCourtBlockController::class, 'store']);
+        Route::delete('/court-blocks/{id}', [OwnerCourtBlockController::class, 'destroy']);
 
         Route::get('/bookings', [OwnerBookingController::class, 'index']);
         Route::post('/bookings', [OwnerBookingController::class, 'store']);

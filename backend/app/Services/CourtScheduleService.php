@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Booking;
 use App\Models\Court;
+use App\Models\CourtBlock;
 
 /**
  * Builds a court's daily schedule (hourly slots) and marks each hour booked
@@ -56,6 +57,19 @@ class CourtScheduleService
             $startHour = (int) substr($booking->start, 0, 2);
             $endHour = (int) substr($booking->end, 0, 2);
             for ($h = $startHour; $h < $endHour; $h++) {
+                $hours[$h] = true;
+            }
+        }
+
+        // Maintenance / closures also make slots unavailable.
+        $blocks = CourtBlock::query()
+            ->where('court_id', $court->id)
+            ->whereDate('date', $date)
+            ->get();
+        foreach ($blocks as $block) {
+            $from = $block->start ? (int) substr($block->start, 0, 2) : self::START_HOUR;
+            $to = $block->end ? (int) substr($block->end, 0, 2) : self::END_HOUR;
+            for ($h = $from; $h < $to; $h++) {
                 $hours[$h] = true;
             }
         }

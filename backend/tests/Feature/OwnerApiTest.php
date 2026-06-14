@@ -231,4 +231,56 @@ class OwnerApiTest extends TestCase
             ->getJson('/api/v1/owner/dashboard')
             ->assertForbidden();
     }
+
+    public function test_court_block_prevents_booking_and_is_listed(): void
+    {
+        $ownerToken = $this->ownerToken();
+        $courtId = $this->everydayCourtId();
+
+        $this->withToken($ownerToken)->postJson('/api/v1/owner/court-blocks', [
+            'courtId' => $courtId, 'date' => '2026-08-01', 'reason' => 'ปรับปรุงพื้น',
+        ])->assertCreated();
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($ownerToken)->getJson('/api/v1/owner/court-blocks')
+            ->assertOk()->assertJsonPath('data.0.reason', 'ปรับปรุงพื้น');
+
+        // Customer cannot book the blocked court that day.
+        $this->app['auth']->forgetGuards();
+        $this->withToken($this->customerToken('Ublocktest', 'Blocked'))->postJson('/api/v1/bookings', [
+            'venueId' => 'everyday-badminton', 'courtId' => $courtId,
+            'date' => '2026-08-01', 'start' => '18:00', 'end' => '19:00',
+        ])->assertStatus(422)->assertJsonValidationErrors('start');
+    }
+
+    public function test_owner_sees_only_published_platform_announcements(): void
+    {
+        \App\Models\Announcement::create([
+            'title' => 'แจ้งปิดปรับปรุงระบบ', 'body' => 'คืนเสาร์', 'audience' => 'all',
+            'status' => 'published', 'published_at' => now(),
+        ]);
+        \App\Models\Announcement::create([
+            'title' => 'ฉบับร่าง', 'audience' => 'all', 'status' => 'draft',
+        ]);
+
+        $this->withToken($this->ownerToken())->getJson('/api/v1/owner/announcements')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.title', 'แจ้งปิดปรับปรุงระบบ');
+    }
+
+    public function test_owner_can_export_bookings_csv(): void
+    {
+        $res = $this->withToken($this->ownerToken())->get('/api/v1/owner/reports/bookings.csv')
+            ->assertOk();
+        $this->assertStringContainsString('text/csv', $res->headers->get('Content-Type'));
+        $this->assertStringContainsString('วันที่', $res->getContent());
+    }
+
+    public function test_owner_dashboard_includes_real_deltas(): void
+    {
+        $this->withToken($this->ownerToken())->getJson('/api/v1/owner/dashboard')
+            ->assertOk()
+            ->assertJsonStructure(['deltas' => ['todayRevenue', 'todayBookings', 'newCustomersToday']]);
+    }
 }

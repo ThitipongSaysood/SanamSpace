@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, CreditCard, Link2, Store, Wallet } from "lucide-react";
+import { Check, Link2, Store, Wallet } from "lucide-react";
 import type { OwnerSettings } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
 import { Loading, ErrorState } from "@/components/states";
@@ -12,7 +12,6 @@ import { Label } from "@/components/ui/label";
 const TABS = [
   { key: "info", label: "ข้อมูลสนาม", icon: Store },
   { key: "payment", label: "การชำระเงิน", icon: Wallet },
-  { key: "channels", label: "ช่องทางการชำระเงิน", icon: CreditCard },
   { key: "integrations", label: "การเชื่อมต่อ", icon: Link2 },
 ] as const;
 
@@ -56,12 +55,6 @@ export default function OwnerSettingsPage() {
       {data && tab === "info" && <InfoTab settings={data} />}
       {data && tab === "integrations" && <IntegrationsTab settings={data} />}
       {data && tab === "payment" && <PaymentTab settings={data} />}
-      {data && tab === "channels" && (
-        <Placeholder
-          title="ช่องทางการชำระเงิน"
-          note="เกตเวย์ชำระเงินอัตโนมัติ (บัตรเครดิต / Omise / 2C2P) — กำลังพัฒนา"
-        />
-      )}
     </div>
   );
 }
@@ -326,11 +319,3 @@ function IntegrationsTab({ settings }: { settings: OwnerSettings }) {
   );
 }
 
-function Placeholder({ title, note }: { title: string; note: string }) {
-  return (
-    <section className="rounded-2xl bg-white p-8 text-center shadow-sm ring-1 ring-black/5">
-      <h2 className="text-sm font-semibold">{title}</h2>
-      <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">{note}</p>
-    </section>
-  );
-}

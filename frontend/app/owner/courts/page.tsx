@@ -1,8 +1,8 @@
 "use client";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Image as ImageIcon, LayoutGrid, Pencil, Plus, Power, Trash2, X } from "lucide-react";
-import type { OwnerBranch, OwnerCourt, Sport } from "@/lib/types";
+import { Ban, Image as ImageIcon, LayoutGrid, Pencil, Plus, Power, Trash2, X } from "lucide-react";
+import type { OwnerBranch, OwnerCourt, OwnerCourtBlock, Sport } from "@/lib/types";
 import { ownerApi, type CourtInput } from "@/lib/api/owner";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
@@ -312,6 +312,7 @@ function CourtForm({
 
 function CourtCard({ court, onEdit }: { court: OwnerCourt; onEdit: () => void }) {
   const qc = useQueryClient();
+  const [blocksOpen, setBlocksOpen] = useState(false);
 
   const toggle = useMutation({
     mutationFn: () => ownerApi.toggleCourt(court.id),
@@ -373,6 +374,9 @@ function CourtCard({ court, onEdit }: { court: OwnerCourt; onEdit: () => void })
         >
           <Power className="size-4" /> {closed ? "เปิด" : "ปิด"}
         </Button>
+        <Button type="button" size="sm" variant="outline" onClick={() => setBlocksOpen(true)}>
+          <Ban className="size-4" /> ปิดปรับปรุง
+        </Button>
         <button
           type="button"
           onClick={onDelete}
@@ -382,6 +386,99 @@ function CourtCard({ court, onEdit }: { court: OwnerCourt; onEdit: () => void })
         >
           <Trash2 className="size-4" />
         </button>
+      </div>
+
+      {blocksOpen && <CourtBlocksModal court={court} onClose={() => setBlocksOpen(false)} />}
+    </div>
+  );
+}
+
+function CourtBlocksModal({ court, onClose }: { court: OwnerCourt; onClose: () => void }) {
+  const qc = useQueryClient();
+  const key = ["owner", "court-blocks", court.id];
+  const { data: blocks } = useQuery({ queryKey: key, queryFn: () => ownerApi.getCourtBlocks(court.id) });
+
+  const [date, setDate] = useState("");
+  const [allDay, setAllDay] = useState(true);
+  const [start, setStart] = useState("");
+  const [end, setEnd] = useState("");
+  const [reason, setReason] = useState("");
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: key });
+    qc.invalidateQueries({ queryKey: ["owner", "court-blocks"] });
+  };
+
+  const create = useMutation({
+    mutationFn: () =>
+      ownerApi.createCourtBlock({
+        courtId: court.id,
+        date,
+        start: allDay ? undefined : start || undefined,
+        end: allDay ? undefined : end || undefined,
+        reason: reason.trim() || undefined,
+      }),
+    onSuccess: () => {
+      invalidate();
+      setDate(""); setStart(""); setEnd(""); setReason(""); setAllDay(true);
+    },
+    onError: (e: Error) => window.alert(e.message),
+  });
+  const del = useMutation({
+    mutationFn: (id: string) => ownerApi.deleteCourtBlock(id),
+    onSuccess: invalidate,
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4" onClick={onClose}>
+      <div className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold">ปิดปรับปรุง — {court.name}</h2>
+          <button type="button" onClick={onClose} aria-label="ปิด" className="grid size-8 place-items-center rounded-lg hover:bg-app">
+            <X className="size-4" />
+          </button>
+        </div>
+
+        {/* Existing blocks */}
+        <div className="mt-3 space-y-2">
+          {(blocks ?? []).length === 0 && <p className="text-sm text-muted-foreground">ยังไม่มีการปิด</p>}
+          {(blocks ?? []).map((b: OwnerCourtBlock) => (
+            <div key={b.id} className="flex items-center gap-2 rounded-lg bg-app px-3 py-2 text-sm">
+              <div className="min-w-0 flex-1">
+                <div className="font-medium">{b.date}{b.start ? ` · ${b.start}–${b.end}` : " · ทั้งวัน"}</div>
+                {b.reason && <div className="truncate text-xs text-muted-foreground">{b.reason}</div>}
+              </div>
+              <button type="button" onClick={() => del.mutate(b.id)} disabled={del.isPending} aria-label="ลบ" className="grid size-7 place-items-center rounded-lg text-muted-foreground hover:bg-white hover:text-brand-danger">
+                <Trash2 className="size-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* Add block */}
+        <div className="mt-4 space-y-3 border-t border-black/5 pt-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="cb-date">วันที่</Label>
+            <Input id="cb-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} className="size-4 accent-[var(--brand-primary)]" />
+            ปิดทั้งวัน
+          </label>
+          {!allDay && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5"><Label htmlFor="cb-start">ตั้งแต่</Label><Input id="cb-start" type="time" value={start} onChange={(e) => setStart(e.target.value)} /></div>
+              <div className="space-y-1.5"><Label htmlFor="cb-end">ถึง</Label><Input id="cb-end" type="time" value={end} onChange={(e) => setEnd(e.target.value)} /></div>
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <Label htmlFor="cb-reason">เหตุผล (ไม่บังคับ)</Label>
+            <Input id="cb-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เช่น ซ่อมพื้น" />
+          </div>
+          <Button type="button" className="w-full" disabled={!date || create.isPending} onClick={() => create.mutate()}>
+            {create.isPending ? "กำลังบันทึก..." : "เพิ่มการปิด"}
+          </Button>
+        </div>
       </div>
     </div>
   );

@@ -19,6 +19,7 @@ import {
   CalendarCheck,
   CalendarDays,
   Clock,
+  Megaphone,
   ReceiptText,
   TrendingUp,
   Users,
@@ -97,25 +98,29 @@ type StatCardProps = {
   tint: string; // tailwind classes for the icon square
   series: OwnerRevenuePoint[];
   stroke: string;
-  delta: number; // percent vs yesterday (placeholder — backend doesn't send)
+  delta?: number; // real percent vs yesterday (omitted when not applicable)
 };
 
 function StatCard({ label, value, icon: Icon, tint, series, stroke, delta }: StatCardProps) {
+  const hasDelta = typeof delta === "number";
+  const up = (delta ?? 0) >= 0;
   return (
     <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
       <div className="flex items-start justify-between">
         <span className={`grid size-10 place-items-center rounded-xl ${tint}`}>
           <Icon className="size-5" />
         </span>
-        <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-brand">
-          <ArrowUpRight className="size-3.5" />
-          {delta}%
-        </span>
+        {hasDelta && (
+          <span className={`inline-flex items-center gap-0.5 text-xs font-semibold ${up ? "text-brand" : "text-red-500"}`}>
+            <ArrowUpRight className={`size-3.5 ${up ? "" : "rotate-90"}`} />
+            {up ? "+" : ""}{delta}%
+          </span>
+        )}
       </div>
       <div className="mt-3 text-sm text-muted-foreground">{label}</div>
       <div className="mt-0.5 text-2xl font-bold tracking-tight">{value}</div>
       <div className="mt-2 flex items-end justify-between gap-2">
-        <span className="text-[11px] text-muted-foreground">จากเมื่อวาน</span>
+        <span className="text-[11px] text-muted-foreground">{hasDelta ? "จากเมื่อวาน" : ""}</span>
         <div className="h-8 w-20">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={series} margin={{ top: 4, right: 2, bottom: 0, left: 2 }}>
@@ -172,9 +177,30 @@ export default function OwnerDashboardPage() {
         <p className="text-sm text-muted-foreground">ภาพรวมธุรกิจของคุณวันนี้</p>
       </header>
 
+      <PlatformAnnouncements />
+
       {isLoading && <Loading rows={3} />}
       {isError && <ErrorState onRetry={() => refetch()} />}
       {data && <DashboardBody d={data} />}
+    </div>
+  );
+}
+
+// Published announcements from the platform (Super Admin), targeted to this org.
+function PlatformAnnouncements() {
+  const { data } = useQuery({ queryKey: ["owner", "announcements"], queryFn: ownerApi.getAnnouncements });
+  if (!data || data.length === 0) return null;
+  return (
+    <div className="space-y-2">
+      {data.map((a) => (
+        <div key={a.id} className="flex gap-3 rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200">
+          <Megaphone className="mt-0.5 size-5 shrink-0 text-amber-600" />
+          <div className="min-w-0">
+            <div className="font-semibold text-amber-900">{a.title}</div>
+            {a.body && <p className="mt-0.5 text-sm text-amber-800">{a.body}</p>}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -183,7 +209,7 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
   const series = d.revenueSeries ?? [];
   const totalRevenue = series.reduce((sum, p) => sum + p.revenue, 0);
 
-  // TODO: backend does not send day-over-day deltas yet — these are placeholders.
+  // Real day-over-day deltas come from the backend; utilization/wallet have none.
   const stats: StatCardProps[] = [
     {
       label: "รายได้วันนี้",
@@ -192,7 +218,7 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
       tint: "bg-brand/10 text-brand",
       series,
       stroke: BRAND,
-      delta: 12.5,
+      delta: d.deltas?.todayRevenue,
     },
     {
       label: "การจองวันนี้",
@@ -201,7 +227,7 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
       tint: "bg-sky-100 text-sky-600",
       series,
       stroke: "#0EA5E9",
-      delta: 8.7,
+      delta: d.deltas?.todayBookings,
     },
     {
       label: "ลูกค้าใหม่วันนี้",
@@ -210,7 +236,7 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
       tint: "bg-violet-100 text-violet-600",
       series,
       stroke: "#8B5CF6",
-      delta: 25,
+      delta: d.deltas?.newCustomersToday,
     },
     {
       label: "อัตราการใช้งานสนาม",
@@ -219,7 +245,6 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
       tint: "bg-amber-100 text-amber-600",
       series,
       stroke: "#F59E0B",
-      delta: 5,
     },
     {
       label: "ยอดเงินในวอลเล็ต",
@@ -228,7 +253,6 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
       tint: "bg-emerald-100 text-emerald-600",
       series,
       stroke: "#10B981",
-      delta: 3.5,
     },
   ];
 

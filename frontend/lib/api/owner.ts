@@ -16,6 +16,8 @@ import type {
   OwnerStaffMember,
   OwnerSubscription,
   OwnerTimelineEntry,
+  OwnerAnnouncement,
+  OwnerCourtBlock,
   OwnerPackagePurchase,
   OwnerWalletRow,
   OwnerWalletTopup,
@@ -293,6 +295,35 @@ export const ownerApi = {
 
   rejectWalletTopup: (id: string) =>
     req<{ id: string; status: string }>(`/owner/wallet-topups/${id}/reject`, { method: "POST", raw: true }),
+
+  getAnnouncements: () => req<OwnerAnnouncement[]>("/owner/announcements"),
+
+  // Download the bookings CSV with the owner token, then save it via the browser.
+  async exportBookingsCsv(): Promise<void> {
+    const headers: Record<string, string> = { Accept: "text/csv" };
+    const token = getOwnerToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(`${BASE}/owner/reports/bookings.csv`, { headers });
+    if (!res.ok) throw new Error("ดาวน์โหลดไม่สำเร็จ");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "bookings.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
+
+  getCourtBlocks: (courtId?: string) =>
+    req<OwnerCourtBlock[]>(`/owner/court-blocks${courtId ? `?courtId=${encodeURIComponent(courtId)}` : ""}`),
+
+  createCourtBlock: (body: { courtId: string; date: string; start?: string; end?: string; reason?: string }) =>
+    req<{ id: string }>("/owner/court-blocks", { method: "POST", body, raw: true }),
+
+  deleteCourtBlock: (id: string) =>
+    req<void>(`/owner/court-blocks/${id}`, { method: "DELETE" }),
 
   getPackagePurchases: () => req<OwnerPackagePurchase[]>("/owner/package-purchases"),
 

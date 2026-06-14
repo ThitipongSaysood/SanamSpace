@@ -1,11 +1,32 @@
 "use client";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, Download } from "lucide-react";
 import type { OwnerDashboard } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
 import { Loading, ErrorState } from "@/components/states";
+import { Button } from "@/components/ui/button";
 
 const fmt = new Intl.NumberFormat("th-TH");
+
+function ExportButton() {
+  const [busy, setBusy] = useState(false);
+  async function run() {
+    setBusy(true);
+    try {
+      await ownerApi.exportBookingsCsv();
+    } catch {
+      window.alert("ดาวน์โหลดไม่สำเร็จ");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Button type="button" variant="outline" onClick={run} disabled={busy}>
+      <Download className="size-4" /> {busy ? "กำลังส่งออก..." : "ส่งออก CSV"}
+    </Button>
+  );
+}
 
 const STATUS_META: { key: keyof OwnerDashboard["statusBreakdown"]; label: string; cls: string }[] = [
   { key: "completed", label: "เช็คอินแล้ว", cls: "bg-slate-400" },
@@ -21,9 +42,12 @@ export default function OwnerReportsPage() {
   });
   return (
     <div className="space-y-5">
-      <header>
-        <h1 className="text-2xl font-bold tracking-tight">Reports</h1>
-        <p className="text-sm text-muted-foreground">รายงานและสถิติ</p>
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Reports</h1>
+          <p className="text-sm text-muted-foreground">รายงานและสถิติ</p>
+        </div>
+        <ExportButton />
       </header>
       {isLoading && <Loading rows={2} />}
       {isError && <ErrorState onRetry={() => refetch()} />}

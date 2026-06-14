@@ -193,6 +193,24 @@ export type OwnerDashboard = {
   bookingChannels: OwnerBookingChannel[];
   actionItems: OwnerActionItems;
   recentBookings: OwnerRecentBooking[];
+  deltas?: { todayRevenue: number; todayBookings: number; newCustomersToday: number };
+};
+
+export type OwnerCourtBlock = {
+  id: string;
+  courtId: string;
+  courtName: string | null;
+  date: string;
+  start: string | null;
+  end: string | null;
+  reason: string | null;
+};
+
+export type OwnerAnnouncement = {
+  id: string;
+  title: string;
+  body: string | null;
+  publishedAt: string | null;
 };
 
 export type OwnerBooking = Booking & { customerName?: string };

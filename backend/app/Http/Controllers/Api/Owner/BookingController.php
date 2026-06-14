@@ -188,6 +188,16 @@ class BookingController extends Controller
         if ($overlaps) {
             throw ValidationException::withMessages(['start' => 'ช่วงเวลานี้ถูกจองแล้วในคอร์ทนี้']);
         }
+
+        $blocked = \App\Models\CourtBlock::query()
+            ->where('court_id', $courtId)
+            ->whereDate('date', $date)
+            ->get()
+            ->contains(fn ($b) => $b->covers($start, $end));
+
+        if ($blocked) {
+            throw ValidationException::withMessages(['start' => 'คอร์ทนี้ถูกปิด (ปิดปรับปรุง) ในช่วงเวลานี้']);
+        }
     }
 
     private function hoursBetween(string $start, string $end): float

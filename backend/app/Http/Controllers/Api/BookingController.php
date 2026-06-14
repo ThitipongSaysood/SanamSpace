@@ -76,6 +76,19 @@ class BookingController extends Controller
             ]);
         }
 
+        // Reject if the court is blocked (maintenance / closure) for this slot.
+        $blocked = \App\Models\CourtBlock::query()
+            ->where('court_id', $court->id)
+            ->whereDate('date', $data['date'])
+            ->get()
+            ->contains(fn ($b) => $b->covers($data['start'], $data['end']));
+
+        if ($blocked) {
+            throw ValidationException::withMessages([
+                'start' => 'ช่วงเวลานี้ปิดให้บริการ (ปิดปรับปรุง)',
+            ]);
+        }
+
         $hours = $this->hoursBetween($data['start'], $data['end']);
         // Pricing: amount = hours * price_per_hour (matches the frontend mock).
         // TODO: member discount / coupons
