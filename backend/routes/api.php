@@ -179,6 +179,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/plans', [AdminPlanController::class, 'index']);
         Route::post('/plans', [AdminPlanController::class, 'store']);
         Route::put('/plans/{id}', [AdminPlanController::class, 'update']);
+        Route::put('/plans/{id}/features', [AdminPlanController::class, 'updateFeatures']);
 
         Route::get('/features', [AdminFeatureController::class, 'index']);
 

@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Plus } from "lucide-react";
 import type { Plan } from "@/lib/types";
@@ -112,26 +112,45 @@ export default function AdminPlansPage() {
 
 function PlanModal({ plan, onClose }: { plan?: Plan; onClose: () => void }) {
   const qc = useQueryClient();
+  const featuresQ = useQuery({ queryKey: ["admin", "features"], queryFn: superAdminApi.getFeatures });
   const [form, setForm] = useState({
     name: plan?.name ?? "",
     price: plan ? String(plan.price) : "",
     interval: plan?.interval ?? "month",
   });
   const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const [selected, setSelected] = useState<string[]>([]);
+
+  // Seed the checkbox selection from the plan's current features once loaded.
+  useEffect(() => {
+    if (plan && featuresQ.data) {
+      setSelected(featuresQ.data.filter((f) => plan.featureCodes.includes(f.code)).map((f) => f.id));
+    }
+  }, [plan, featuresQ.data]);
+
+  function toggleFeature(id: string) {
+    setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  }
 
   const mutation = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const body = { name: form.name.trim(), price: Number(form.price) || 0, interval: form.interval };
-      return plan
-        ? superAdminApi.updatePlan(plan.id, body)
-        : superAdminApi.createPlan({
-            ...body,
-            code: form.name.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") || `plan-${Date.now()}`,
-            isActive: true,
-          });
+      let pid = plan?.id;
+      if (plan) {
+        await superAdminApi.updatePlan(plan.id, body);
+      } else {
+        const created = await superAdminApi.createPlan({
+          ...body,
+          code: form.name.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") || `plan-${Date.now()}`,
+          isActive: true,
+        });
+        pid = created.id;
+      }
+      if (pid) await superAdminApi.updatePlanFeatures(pid, selected);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: PLANS_KEY });
+      qc.invalidateQueries({ queryKey: ["admin", "features"] });
       onClose();
     },
     onError: (e: Error) => window.alert(e.message),
@@ -157,21 +176,45 @@ function PlanModal({ plan, onClose }: { plan?: Plan; onClose: () => void }) {
           <Label htmlFor="pm-name">ชื่อแพ็กเกจ</Label>
           <Input id="pm-name" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="เช่น Pro" />
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="pm-price">ราคา (บาท)</Label>
-          <Input id="pm-price" type="number" min={0} value={form.price} onChange={(e) => set("price", e.target.value)} placeholder="เช่น 3900" />
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="pm-price">ราคา (บาท)</Label>
+            <Input id="pm-price" type="number" min={0} value={form.price} onChange={(e) => set("price", e.target.value)} placeholder="เช่น 3900" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="pm-interval">รอบชำระเงิน</Label>
+            <select
+              id="pm-interval"
+              value={form.interval}
+              onChange={(e) => set("interval", e.target.value)}
+              className="h-9 w-full rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
+            >
+              <option value="month">รายเดือน</option>
+              <option value="year">รายปี</option>
+            </select>
+          </div>
         </div>
+
         <div className="space-y-1.5">
-          <Label htmlFor="pm-interval">รอบชำระเงิน</Label>
-          <select
-            id="pm-interval"
-            value={form.interval}
-            onChange={(e) => set("interval", e.target.value)}
-            className="h-9 w-full rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
-          >
-            <option value="month">รายเดือน</option>
-            <option value="year">รายปี</option>
-          </select>
+          <Label>ฟีเจอร์ในแพ็กเกจ ({selected.length})</Label>
+          <div className="max-h-56 space-y-1 overflow-y-auto rounded-lg border border-input p-2">
+            {featuresQ.isLoading && <div className="p-2 text-sm text-muted-foreground">กำลังโหลด...</div>}
+            {(featuresQ.data ?? []).map((f) => (
+              <label key={f.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-app">
+                <input
+                  type="checkbox"
+                  checked={selected.includes(f.id)}
+                  onChange={() => toggleFeature(f.id)}
+                  className="size-4 accent-[var(--brand-primary)]"
+                />
+                <span className="flex-1">{f.name}</span>
+                <span className="font-mono text-[11px] text-muted-foreground">{f.code}</span>
+              </label>
+            ))}
+            {!featuresQ.isLoading && (featuresQ.data ?? []).length === 0 && (
+              <div className="p-2 text-sm text-muted-foreground">ยังไม่มีฟีเจอร์</div>
+            )}
+          </div>
         </div>
       </div>
     </Modal>

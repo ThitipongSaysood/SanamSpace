@@ -7,6 +7,7 @@ use App\Http\Resources\PlanResource;
 use App\Models\Plan;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Validation\Rule;
 
 class PlanController extends Controller
 {
@@ -31,6 +32,23 @@ class PlanController extends Controller
         $data = $this->validatePlan($request, creating: true);
 
         $plan = Plan::create($data);
+
+        return new PlanResource($plan->load('enabledFeatures'));
+    }
+
+    /**
+     * PUT /admin/plans/{id}/features — set which features are enabled for a plan.
+     */
+    public function updateFeatures(Request $request, string $id): PlanResource
+    {
+        $data = $request->validate([
+            'featureIds' => ['present', 'array'],
+            'featureIds.*' => ['string', Rule::exists('features', 'id')],
+        ]);
+
+        $plan = Plan::findOrFail($id);
+        $sync = collect($data['featureIds'])->mapWithKeys(fn ($fid) => [$fid => ['enabled' => 1]])->all();
+        $plan->features()->sync($sync);
 
         return new PlanResource($plan->load('enabledFeatures'));
     }
