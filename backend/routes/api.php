@@ -195,6 +195,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/transactions', [AdminTransactionController::class, 'index']);
         Route::get('/support-tickets', [AdminSupportTicketController::class, 'index']);
         Route::get('/announcements', [AdminAnnouncementController::class, 'index']);
+        Route::post('/announcements', [AdminAnnouncementController::class, 'store']);
+        Route::put('/announcements/{id}', [AdminAnnouncementController::class, 'update']);
+        Route::post('/announcements/{id}/toggle', [AdminAnnouncementController::class, 'toggle']);
+        Route::delete('/announcements/{id}', [AdminAnnouncementController::class, 'destroy']);
         Route::get('/audit-logs', [AdminAuditLogController::class, 'index']);
         Route::get('/settings', [AdminSettingController::class, 'show']);
         Route::put('/settings', [AdminSettingController::class, 'update']);

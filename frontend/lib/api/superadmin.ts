@@ -196,6 +196,20 @@ export const superAdminApi = {
 
   getAnnouncements: () => req<AdminAnnouncement[]>("/admin/announcements"),
 
+  createAnnouncement: (body: { title: string; body?: string; audience: string; status: string }) =>
+    req<AdminAnnouncement>("/admin/announcements", { method: "POST", body }),
+
+  updateAnnouncement: (
+    id: string,
+    body: Partial<{ title: string; body: string; audience: string; status: string }>,
+  ) => req<AdminAnnouncement>(`/admin/announcements/${id}`, { method: "PUT", body }),
+
+  toggleAnnouncement: (id: string) =>
+    req<AdminAnnouncement>(`/admin/announcements/${id}/toggle`, { method: "POST" }),
+
+  deleteAnnouncement: (id: string) =>
+    req<void>(`/admin/announcements/${id}`, { method: "DELETE" }),
+
   getAuditLogs: () => req<AdminAuditLog[]>("/admin/audit-logs"),
 
   getSettings: () => req<PlatformSettings>("/admin/settings"),

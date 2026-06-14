@@ -1,26 +1,65 @@
 "use client";
-import { useQuery } from "@tanstack/react-query";
-import { Megaphone } from "lucide-react";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Megaphone, Plus, Pencil, Trash2 } from "lucide-react";
+import type { AdminAnnouncement } from "@/lib/types";
 import { superAdminApi } from "@/lib/api/superadmin";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Modal } from "../_components/modal";
 
+const KEY = ["admin", "announcements"];
 const AUDIENCE: Record<string, string> = { all: "ทุกองค์กร", trial: "ทดลองใช้", paid: "ลูกค้าจ่ายเงิน" };
 
 function fmtDate(iso: string | null) {
   return iso ? new Date(iso).toLocaleDateString("th-TH") : null;
 }
 
+function Toggle({ on, onClick, disabled }: { on: boolean; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      onClick={onClick}
+      disabled={disabled}
+      title={on ? "กดเพื่อปิด (ฉบับร่าง)" : "กดเพื่อเผยแพร่"}
+      className={`relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-50 ${on ? "bg-brand" : "bg-muted"}`}
+    >
+      <span className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-all ${on ? "left-[22px]" : "left-0.5"}`} />
+    </button>
+  );
+}
+
 export default function AdminAnnouncementsPage() {
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["admin", "announcements"],
-    queryFn: superAdminApi.getAnnouncements,
+  const qc = useQueryClient();
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: KEY, queryFn: superAdminApi.getAnnouncements });
+  const [modal, setModal] = useState<AdminAnnouncement | "new" | null>(null);
+
+  const toggleM = useMutation({
+    mutationFn: (a: AdminAnnouncement) => superAdminApi.toggleAnnouncement(a.id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+    onError: (e: Error) => window.alert(e.message),
+  });
+
+  const delM = useMutation({
+    mutationFn: (id: string) => superAdminApi.deleteAnnouncement(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+    onError: (e: Error) => window.alert(e.message),
   });
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold">การแจ้งเตือน / ประกาศ</h1>
-        <p className="text-sm text-muted-foreground">ประกาศและแจ้งเตือนถึงองค์กรในระบบ</p>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold">การแจ้งเตือน / ประกาศ</h1>
+          <p className="text-sm text-muted-foreground">ประกาศและแจ้งเตือนถึงองค์กรในระบบ</p>
+        </div>
+        <Button type="button" onClick={() => setModal("new")}>
+          <Plus className="size-4" /> สร้างประกาศ
+        </Button>
       </div>
 
       {isLoading && <Loading />}
@@ -56,12 +95,121 @@ export default function AdminAnnouncementsPage() {
                       <p className="mt-1 text-xs text-muted-foreground">เผยแพร่ {fmtDate(a.publishedAt)}</p>
                     )}
                   </div>
+
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Toggle on={published} onClick={() => toggleM.mutate(a)} disabled={toggleM.isPending} />
+                    <button
+                      type="button"
+                      aria-label="แก้ไข"
+                      onClick={() => setModal(a)}
+                      className="grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-app hover:text-brand"
+                    >
+                      <Pencil className="size-4" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="ลบ"
+                      onClick={() => {
+                        if (window.confirm(`ลบประกาศ "${a.title}"?`)) delM.mutate(a.id);
+                      }}
+                      className="grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-rose-50 hover:text-rose-600"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             );
           })}
         </div>
       )}
+
+      {modal && <AnnouncementModal item={modal === "new" ? undefined : modal} onClose={() => setModal(null)} />}
     </div>
+  );
+}
+
+function AnnouncementModal({ item, onClose }: { item?: AdminAnnouncement; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [form, setForm] = useState({
+    title: item?.title ?? "",
+    body: item?.body ?? "",
+    audience: item?.audience ?? "all",
+    status: item?.status ?? "draft",
+  });
+  const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  const mutation = useMutation({
+    mutationFn: () => {
+      const payload = { title: form.title.trim(), body: form.body ?? "", audience: form.audience, status: form.status };
+      return item ? superAdminApi.updateAnnouncement(item.id, payload) : superAdminApi.createAnnouncement(payload);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: KEY });
+      onClose();
+    },
+    onError: (e: Error) => window.alert(e.message),
+  });
+
+  return (
+    <Modal
+      title={item ? "แก้ไขประกาศ" : "สร้างประกาศใหม่"}
+      onClose={onClose}
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose}>
+            ยกเลิก
+          </Button>
+          <Button type="button" onClick={() => mutation.mutate()} disabled={!form.title.trim() || mutation.isPending}>
+            {mutation.isPending ? "กำลังบันทึก..." : "บันทึก"}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="an-title">หัวข้อ</Label>
+          <Input id="an-title" value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="เช่น ปิดปรับปรุงระบบ" />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="an-body">เนื้อหา</Label>
+          <textarea
+            id="an-body"
+            value={form.body ?? ""}
+            onChange={(e) => set("body", e.target.value)}
+            rows={4}
+            className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm outline-none focus-visible:border-ring"
+            placeholder="รายละเอียดประกาศ..."
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="an-audience">กลุ่มเป้าหมาย</Label>
+            <select
+              id="an-audience"
+              value={form.audience}
+              onChange={(e) => set("audience", e.target.value)}
+              className="h-9 w-full rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
+            >
+              <option value="all">ทุกองค์กร</option>
+              <option value="trial">ทดลองใช้</option>
+              <option value="paid">ลูกค้าจ่ายเงิน</option>
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="an-status">สถานะ</Label>
+            <select
+              id="an-status"
+              value={form.status}
+              onChange={(e) => set("status", e.target.value)}
+              className="h-9 w-full rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
+            >
+              <option value="draft">ฉบับร่าง</option>
+              <option value="published">เผยแพร่</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </Modal>
   );
 }

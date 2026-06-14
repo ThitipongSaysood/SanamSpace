@@ -201,6 +201,47 @@ class SuperAdminApiTest extends TestCase
         $this->assertStringContainsString('organizations', $res->streamedContent());
     }
 
+    public function test_announcements_can_be_created_edited_toggled_and_deleted(): void
+    {
+        $token = $this->superToken();
+
+        // Create (draft).
+        $id = $this->withToken($token)->postJson('/api/v1/admin/announcements', [
+            'title' => 'ปิดปรับปรุงระบบ',
+            'body' => 'คืนวันเสาร์ 02:00-04:00',
+            'audience' => 'all',
+            'status' => 'draft',
+        ])->assertCreated()
+            ->assertJsonPath('data.status', 'draft')
+            ->assertJsonPath('data.publishedAt', null)
+            ->json('data.id');
+
+        // Edit.
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->putJson("/api/v1/admin/announcements/{$id}", [
+            'title' => 'ปิดปรับปรุงระบบ (แก้ไข)',
+        ])->assertOk()->assertJsonPath('data.title', 'ปิดปรับปรุงระบบ (แก้ไข)');
+
+        // Toggle → published sets publishedAt.
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->postJson("/api/v1/admin/announcements/{$id}/toggle")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'published');
+        $this->assertNotNull(\App\Models\Announcement::find($id)->published_at);
+
+        // Toggle back → draft clears publishedAt.
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->postJson("/api/v1/admin/announcements/{$id}/toggle")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'draft')
+            ->assertJsonPath('data.publishedAt', null);
+
+        // Delete.
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->deleteJson("/api/v1/admin/announcements/{$id}")->assertNoContent();
+        $this->assertNull(\App\Models\Announcement::find($id));
+    }
+
     public function test_unauthenticated_request_is_unauthorized(): void
     {
         $this->getJson('/api/v1/admin/dashboard')->assertUnauthorized();
