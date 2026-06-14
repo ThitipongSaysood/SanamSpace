@@ -180,6 +180,9 @@ export const superAdminApi = {
 
   getInvoices: () => req<AdminInvoice[]>("/admin/invoices"),
 
+  sendInvoice: (id: string) =>
+    req<{ sent: boolean; email?: string }>(`/admin/invoices/${id}/send`, { method: "POST", raw: true }),
+
   getTransactions: () => req<AdminTransaction[]>("/admin/transactions"),
 
   getSupportTickets: () => req<AdminSupportTicket[]>("/admin/support-tickets"),
