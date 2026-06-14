@@ -35,6 +35,12 @@ class OwnerSettingResource extends JsonResource
             'accentColor' => $this->accent_color,
             'fontFamily' => $this->font_family,
             'timezone' => $this->timezone,
+            // Payment (where this venue receives booking money)
+            'promptpayId' => $this->promptpay_id,
+            'promptpayName' => $this->promptpay_name,
+            'bankName' => $this->bank_name,
+            'bankAccountName' => $this->bank_account_name,
+            'bankAccountNumber' => $this->bank_account_number,
         ];
     }
 }

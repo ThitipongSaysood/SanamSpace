@@ -55,10 +55,11 @@ export default function OwnerSettingsPage() {
       {isError && <ErrorState onRetry={() => refetch()} />}
       {data && tab === "info" && <InfoTab settings={data} />}
       {data && tab === "integrations" && <IntegrationsTab settings={data} />}
-      {data && (tab === "payment" || tab === "channels") && (
+      {data && tab === "payment" && <PaymentTab settings={data} />}
+      {data && tab === "channels" && (
         <Placeholder
-          title={tab === "payment" ? "การชำระเงิน" : "ช่องทางการชำระเงิน"}
-          note="ส่วนนี้กำลังพัฒนา — จะใช้ตั้งค่าบัญชีรับเงิน / PromptPay / เกตเวย์ชำระเงิน"
+          title="ช่องทางการชำระเงิน"
+          note="เกตเวย์ชำระเงินอัตโนมัติ (บัตรเครดิต / Omise / 2C2P) — กำลังพัฒนา"
         />
       )}
     </div>
@@ -224,6 +225,72 @@ function InfoTab({ settings }: { settings: OwnerSettings }) {
           {mutation.isError && (
             <span className="text-sm text-brand-danger">บันทึกไม่สำเร็จ ลองอีกครั้ง</span>
           )}
+        </div>
+      </section>
+    </form>
+  );
+}
+
+function PaymentTab({ settings }: { settings: OwnerSettings }) {
+  const qc = useQueryClient();
+  const [form, setForm] = useState<OwnerSettings>(settings);
+  useEffect(() => setForm(settings), [settings]);
+
+  const mutation = useMutation({
+    mutationFn: () => ownerApi.updateSettings(form),
+    onSuccess: (updated) => {
+      qc.setQueryData(["owner", "settings"], updated);
+      qc.invalidateQueries({ queryKey: ["owner", "settings"] });
+    },
+  });
+
+  const set = (key: keyof OwnerSettings, value: string) => setForm((f) => ({ ...f, [key]: value }));
+
+  const fields: { key: keyof OwnerSettings; label: string; placeholder?: string; hint?: string }[] = [
+    { key: "promptpayId", label: "PromptPay (เบอร์ / เลขบัตร ปชช. / e-Wallet)", placeholder: "0812345678", hint: "ใช้สร้าง QR ให้ลูกค้าสแกนจ่าย" },
+    { key: "promptpayName", label: "ชื่อที่แสดงบน QR", placeholder: "ชื่อสนาม" },
+    { key: "bankName", label: "ธนาคาร", placeholder: "กสิกรไทย" },
+    { key: "bankAccountName", label: "ชื่อบัญชี" },
+    { key: "bankAccountNumber", label: "เลขที่บัญชี", placeholder: "123-4-56789-0" },
+  ];
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        mutation.mutate();
+      }}
+      className="max-w-2xl space-y-4"
+    >
+      <section className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+        <div>
+          <h2 className="text-sm font-semibold">บัญชีรับเงินของสนาม</h2>
+          <p className="text-xs text-muted-foreground">เงินค่าจองจากลูกค้าจะเข้าบัญชีนี้ — ระบบสร้าง PromptPay QR ตามยอดให้อัตโนมัติ</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {fields.map((f) => (
+            <div key={f.key} className={`space-y-1.5 ${f.key === "promptpayId" ? "sm:col-span-2" : ""}`}>
+              <Label htmlFor={`pay-${f.key}`}>{f.label}</Label>
+              <Input
+                id={`pay-${f.key}`}
+                value={(form[f.key] as string) ?? ""}
+                placeholder={f.placeholder}
+                onChange={(e) => set(f.key, e.target.value)}
+              />
+              {f.hint && <p className="text-xs text-muted-foreground">{f.hint}</p>}
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center gap-3 border-t border-black/5 pt-4">
+          <Button type="submit" disabled={mutation.isPending}>
+            {mutation.isPending ? "กำลังบันทึก..." : "บันทึก"}
+          </Button>
+          {mutation.isSuccess && !mutation.isPending && (
+            <span className="inline-flex items-center gap-1 text-sm font-medium text-brand">
+              <Check className="size-4" /> บันทึกแล้ว
+            </span>
+          )}
+          {mutation.isError && <span className="text-sm text-brand-danger">บันทึกไม่สำเร็จ</span>}
         </div>
       </section>
     </form>

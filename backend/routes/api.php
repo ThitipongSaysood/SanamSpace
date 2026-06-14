@@ -86,6 +86,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // --- Payments ---
     Route::post('/payments', [PaymentController::class, 'store']);
     Route::get('/payments/{id}', [PaymentController::class, 'show']);
+    Route::get('/payments/{id}/instructions', [PaymentController::class, 'instructions']);
     Route::post('/payments/{id}/upload-slip', [PaymentController::class, 'uploadSlip']);
     Route::post('/payments/{id}/verify', [PaymentController::class, 'verify']);
     Route::post('/payments/{id}/reject', [PaymentController::class, 'reject']);

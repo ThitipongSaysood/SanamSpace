@@ -1,5 +1,5 @@
 import type {
-  AppNotification, Booking, Court, CourtSchedule, Membership, Payment,
+  AppNotification, Booking, Court, CourtSchedule, Membership, Payment, PaymentInstructions,
   Promotion, ReviewSummary, User, Venue, VenuePackage, Wallet,
 } from "@/lib/types";
 import { getToken, setToken } from "./token";
@@ -83,6 +83,7 @@ export const httpApi: Api = {
   },
   approvePayment: (paymentId) => req<Payment>(`/payments/${paymentId}/verify`, { method: "POST" }),
   getPayment: (id) => getOrUndefined<Payment>(`/payments/${id}`),
+  getPaymentInstructions: (id) => req<PaymentInstructions>(`/payments/${id}/instructions`),
 
   getReviews: (venueId) => req<ReviewSummary>(`/reviews?venueId=${encodeURIComponent(venueId)}`),
   getPackages: () => req<VenuePackage[]>("/packages"),

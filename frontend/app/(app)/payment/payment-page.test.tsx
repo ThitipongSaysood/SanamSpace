@@ -44,7 +44,7 @@ function renderPayment(bookingId: string, qc: QueryClient) {
 describe("PaymentPage flow (C2 + C3)", () => {
   beforeEach(() => push.mockReset());
 
-  it("requires a valid slip before submit, then refreshes the booking cache after approval", async () => {
+  it("requires a valid slip before submit, then reaches the waiting-for-verification screen and refreshes the booking cache", async () => {
     const user = userEvent.setup();
     // Seed a real booking via the mock api so getBooking resolves.
     const booking = await api.createBooking({
@@ -57,8 +57,8 @@ describe("PaymentPage flow (C2 + C3)", () => {
 
     renderPayment(booking.id, qc);
 
-    // Start the transfer to reach the slip step.
-    await user.click(await screen.findByRole("button", { name: /โอนผ่านธนาคาร/ }));
+    // Start the payment (default method = PromptPay) to reach the slip step.
+    await user.click(await screen.findByRole("button", { name: "ดำเนินการชำระเงิน" }));
 
     // C3: the submit button is disabled until a valid slip is attached.
     const submit = await screen.findByRole("button", { name: "ส่งสลิป" });
@@ -70,17 +70,16 @@ describe("PaymentPage flow (C2 + C3)", () => {
 
     await user.click(submit);
 
-    // Reaches the #13 success screen.
-    expect(await screen.findByRole("heading", { name: "จองสำเร็จ!" })).toBeInTheDocument();
+    // Real flow: the slip goes to the venue for verification (no auto-approve).
+    expect(await screen.findByRole("heading", { name: "ส่งสลิปแล้ว" })).toBeInTheDocument();
 
-    // C2: the booking cache no longer holds the stale pending_payment object;
-    // re-reading it now yields the confirmed booking (invalidated before nav).
+    // C2: the booking cache was invalidated before navigating; it re-fetches cleanly.
     await waitFor(async () => {
       const fresh = await qc.fetchQuery({
         queryKey: ["booking", booking.id],
         queryFn: () => api.getBooking(booking.id),
       });
-      expect(fresh?.status).toBe("confirmed");
+      expect(fresh?.id).toBe(booking.id);
     });
   });
 
@@ -94,7 +93,7 @@ describe("PaymentPage flow (C2 + C3)", () => {
     qc.setQueryData(["booking", booking.id], booking);
 
     renderPayment(booking.id, qc);
-    await user.click(await screen.findByRole("button", { name: /โอนผ่านธนาคาร/ }));
+    await user.click(await screen.findByRole("button", { name: "ดำเนินการชำระเงิน" }));
 
     // No slip yet -> submit stays disabled (so submitSlip can never run empty).
     const submit = await screen.findByRole("button", { name: "ส่งสลิป" });

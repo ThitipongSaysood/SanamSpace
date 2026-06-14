@@ -97,6 +97,41 @@ class BookingPaymentApiTest extends TestCase
             ->assertJsonPath('data.status', 'completed');
     }
 
+    public function test_promptpay_instructions_return_a_real_qr_payload_and_bank(): void
+    {
+        $token = $this->customerToken();
+        $courtId = $this->everydayCourtId();
+
+        $bookingId = $this->withToken($token)->postJson('/api/v1/bookings', [
+            'venueId' => 'everyday-badminton',
+            'courtId' => $courtId,
+            'date' => '2026-06-25',
+            'start' => '18:00',
+            'end' => '20:00', // 2 hours
+        ])->assertCreated()->json('data.id');
+
+        $paymentId = $this->withToken($token)->postJson('/api/v1/payments', [
+            'bookingId' => $bookingId,
+            'method' => 'promptpay',
+        ])->assertCreated()->json('data.id');
+
+        $res = $this->withToken($token)->getJson("/api/v1/payments/{$paymentId}/instructions")
+            ->assertOk()
+            ->assertJsonPath('method', 'promptpay')
+            ->assertJsonPath('bank.bankName', 'กสิกรไทย');
+
+        $payload = $res->json('promptpay.payload');
+        $amount = $res->json('amount');
+
+        // EMVCo PromptPay shape: format header, AID, dynamic indicator, the THB amount.
+        $this->assertStringStartsWith('000201', $payload);
+        $this->assertStringContainsString('0016A000000677010111', $payload);
+        $this->assertStringContainsString('010212', $payload); // dynamic (amount present)
+        $this->assertStringContainsString('5406'.number_format((float) $amount, 2, '.', ''), $payload);
+        // CRC tag is the last 4 hex chars after "6304".
+        $this->assertMatchesRegularExpression('/6304[0-9A-F]{4}$/', $payload);
+    }
+
     public function test_double_booking_same_slot_returns_422(): void
     {
         $token = $this->customerToken();

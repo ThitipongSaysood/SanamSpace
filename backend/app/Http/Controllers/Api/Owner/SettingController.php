@@ -50,6 +50,13 @@ class SettingController extends Controller
             'accentColor' => ['sometimes', 'nullable', 'string', 'max:20'],
             'fontFamily' => ['sometimes', 'nullable', 'string', 'max:100'],
             'timezone' => ['sometimes', 'string', 'max:100'],
+
+            // --- Payment (where this venue receives booking money) ---
+            'promptpayId' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'promptpayName' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'bankName' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'bankAccountName' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'bankAccountNumber' => ['sometimes', 'nullable', 'string', 'max:50'],
         ]);
 
         // Org name lives on the organization, not the settings row.
@@ -71,6 +78,11 @@ class SettingController extends Controller
             'accentColor' => 'accent_color',
             'fontFamily' => 'font_family',
             'timezone' => 'timezone',
+            'promptpayId' => 'promptpay_id',
+            'promptpayName' => 'promptpay_name',
+            'bankName' => 'bank_name',
+            'bankAccountName' => 'bank_account_name',
+            'bankAccountNumber' => 'bank_account_number',
         ];
 
         $updates = [];

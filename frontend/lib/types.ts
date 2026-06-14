@@ -73,6 +73,15 @@ export type Payment = {
   slipUrl?: string;
 };
 
+// How to pay a specific payment, for the venue that receives the money.
+export type PaymentInstructions = {
+  amount: number;
+  method: string;
+  payTo: string | null;
+  promptpay: { payload: string } | null; // EMVCo PromptPay string → render as QR
+  bank: { bankName: string | null; accountName: string | null; accountNumber: string | null } | null;
+};
+
 export type User = { id: string; displayName: string; lineId: string; avatarUrl?: string; email?: string; phone?: string };
 
 export type Review = { id: string; author: string; rating: number; date: string; text: string };
@@ -198,6 +207,12 @@ export type OwnerSettings = {
   accentColor: string;
   fontFamily: string;
   timezone: string;
+  // Payment — where this venue receives booking money
+  promptpayId?: string | null;
+  promptpayName?: string | null;
+  bankName?: string | null;
+  bankAccountName?: string | null;
+  bankAccountNumber?: string | null;
 };
 
 export type OwnerPromotion = {

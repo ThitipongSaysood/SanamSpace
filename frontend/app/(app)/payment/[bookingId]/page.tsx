@@ -1,28 +1,24 @@
 "use client";
-import { use, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  CalendarDays, CheckCircle2, Ticket, ChevronRight, QrCode, CreditCard, Wallet, Smartphone,
-  Landmark, Clock, Check,
+  CalendarDays, CheckCircle2, Ticket, ChevronRight, QrCode, Landmark, Clock, Check, Hourglass,
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { api } from "@/lib/api/client";
 import { useBooking } from "@/lib/api/queries";
 import { SlipUploader } from "@/components/slip-uploader";
+import { PromptPayQR } from "@/components/promptpay-qr";
 import { AppHeader } from "@/components/app-header";
 import { Loading, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
-import { tenant } from "@/config/tenant";
-import type { Payment } from "@/lib/types";
+import type { Payment, PaymentInstructions } from "@/lib/types";
 
-type Method = { id: string; label: string; Icon: ComponentType<{ className?: string }>; iconCls: string };
+type Method = { id: "promptpay" | "transfer"; label: string; Icon: ComponentType<{ className?: string }>; iconCls: string };
 const METHODS: Method[] = [
-  { id: "promptpay", label: "PromptPay", Icon: QrCode, iconCls: "bg-brand/10 text-brand" },
-  { id: "card", label: "บัตรเครดิต / เดบิต", Icon: CreditCard, iconCls: "bg-blue-50 text-blue-600" },
-  { id: "linepay", label: "LINE Pay", Icon: Smartphone, iconCls: "bg-emerald-50 text-emerald-600" },
-  { id: "wallet", label: "TrueMoney Wallet", Icon: Wallet, iconCls: "bg-orange-50 text-orange-600" },
-  { id: "transfer", label: "โอนเงิน (อัปโหลดสลิป)", Icon: Landmark, iconCls: "bg-brand/10 text-brand" },
+  { id: "promptpay", label: "PromptPay QR", Icon: QrCode, iconCls: "bg-brand/10 text-brand" },
+  { id: "transfer", label: "โอนเงิน (อัปโหลดสลิป)", Icon: Landmark, iconCls: "bg-blue-50 text-blue-600" },
 ];
 
 export default function PaymentPage({ params }: { params: Promise<{ bookingId: string }> }) {
@@ -31,56 +27,85 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
   const qc = useQueryClient();
   const { data: booking, isLoading } = useBooking(bookingId);
   const [payment, setPayment] = useState<Payment | null>(null);
+  const [instructions, setInstructions] = useState<PaymentInstructions | null>(null);
   const [slipFile, setSlipFile] = useState<File | null>(null);
-  const [method, setMethod] = useState<string>("transfer");
+  const [method, setMethod] = useState<"promptpay" | "transfer">("promptpay");
   const [busy, setBusy] = useState(false);
+
+  // Load pay instructions (real PromptPay QR + venue bank details) once a payment exists.
+  useEffect(() => {
+    if (!payment) return;
+    let alive = true;
+    api.getPaymentInstructions(payment.id).then((i) => alive && setInstructions(i)).catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [payment]);
 
   if (isLoading) return <Loading />;
   if (!booking) return <EmptyState message="ไม่พบการจอง" />;
 
-  async function startTransfer() {
+  async function start() {
     setBusy(true);
-    const p = await api.createPayment(bookingId, "transfer");
-    setPayment(p); setBusy(false);
+    try {
+      const p = await api.createPayment(bookingId, method);
+      setPayment(p);
+    } finally {
+      setBusy(false);
+    }
   }
   async function submitSlip() {
     if (!payment || !slipFile) return;
     setBusy(true);
-    const reviewed = await api.uploadSlip(payment.id, slipFile);
-    const approved = await api.approvePayment(reviewed.id); // demo auto-approve
-    // approve bypasses TanStack Query, so refresh caches before navigating.
-    await qc.invalidateQueries({ queryKey: ["booking", bookingId] });
-    await qc.invalidateQueries({ queryKey: ["bookings"] });
-    setPayment(approved); setBusy(false);
+    try {
+      // Real flow: slip goes to the venue for verification (no auto-approve).
+      const reviewed = await api.uploadSlip(payment.id, slipFile);
+      await qc.invalidateQueries({ queryKey: ["booking", bookingId] });
+      await qc.invalidateQueries({ queryKey: ["bookings"] });
+      setPayment(reviewed);
+    } finally {
+      setBusy(false);
+    }
   }
 
-  // #13 — full-screen success
+  // Confirmed by the venue
   if (payment?.status === "approved") {
     return (
       <main className="flex min-h-dvh flex-col items-center justify-center px-6 text-center">
         <div className="grid size-24 place-items-center rounded-full bg-brand text-white shadow-lg shadow-brand/30">
           <Check className="size-12" strokeWidth={3} />
         </div>
-        <h1 className="mt-6 text-2xl font-bold">จองสำเร็จ!</h1>
+        <h1 className="mt-6 text-2xl font-bold">ยืนยันการชำระเงินแล้ว!</h1>
         <p className="mt-4 text-sm text-muted-foreground">หมายเลขการจอง</p>
         <p className="font-mono text-lg font-bold tracking-wider">{booking.code}</p>
-        <p className="mt-4 text-sm text-muted-foreground">
-          ส่งข้อมูลการจองไปที่
-          <br />
-          example@email.com
-        </p>
         <div className="mt-8 w-full max-w-xs space-y-3">
-          <Button
-            className="h-12 w-full rounded-xl bg-brand text-base font-semibold hover:bg-brand/90"
-            onClick={() => router.push(`/booking/${bookingId}`)}
-          >
+          <Button className="h-12 w-full rounded-xl bg-brand text-base font-semibold hover:bg-brand/90" onClick={() => router.push(`/booking/${bookingId}`)}>
             ดูรายละเอียดการจอง
           </Button>
-          <Button
-            variant="outline"
-            className="h-12 w-full rounded-xl border-black/10 text-base font-semibold"
-            onClick={() => router.push("/")}
-          >
+          <Button variant="outline" className="h-12 w-full rounded-xl border-black/10 text-base font-semibold" onClick={() => router.push("/")}>
+            กลับหน้าหลัก
+          </Button>
+        </div>
+      </main>
+    );
+  }
+
+  // Slip submitted → waiting for the venue to verify
+  if (payment?.status === "pending_review") {
+    return (
+      <main className="flex min-h-dvh flex-col items-center justify-center px-6 text-center">
+        <div className="grid size-24 place-items-center rounded-full bg-amber-100 text-amber-600">
+          <Hourglass className="size-12" />
+        </div>
+        <h1 className="mt-6 text-2xl font-bold">ส่งสลิปแล้ว</h1>
+        <p className="mt-3 text-sm text-muted-foreground">รอร้านตรวจสอบการชำระเงิน<br />ระบบจะยืนยันการจองให้เมื่อตรวจสอบเรียบร้อย</p>
+        <p className="mt-4 text-sm text-muted-foreground">หมายเลขการจอง</p>
+        <p className="font-mono text-lg font-bold tracking-wider">{booking.code}</p>
+        <div className="mt-8 w-full max-w-xs space-y-3">
+          <Button className="h-12 w-full rounded-xl bg-brand text-base font-semibold hover:bg-brand/90" onClick={() => router.push(`/booking/${bookingId}`)}>
+            ดูรายละเอียดการจอง
+          </Button>
+          <Button variant="outline" className="h-12 w-full rounded-xl border-black/10 text-base font-semibold" onClick={() => router.push("/")}>
             กลับหน้าหลัก
           </Button>
         </div>
@@ -141,22 +166,12 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
               })}
             </div>
 
-            <div className="flex items-baseline justify-between px-1 pt-1">
-              <span className="font-semibold">ยอดชำระ:</span>
-              <span className="text-xl font-bold text-brand">฿{booking.amount}</span>
-            </div>
-            {method !== "transfer" && (
-              <p className="px-1 text-xs text-muted-foreground">
-                เดโมนี้รองรับเฉพาะ โอนเงิน (อัปโหลดสลิป)
-              </p>
-            )}
             <Button
               className="h-12 w-full rounded-xl bg-brand text-base font-semibold hover:bg-brand/90"
-              disabled={busy || method !== "transfer"}
-              aria-label="ยืนยันการชำระเงิน (โอนผ่านธนาคาร / PromptPay)"
-              onClick={startTransfer}
+              disabled={busy}
+              onClick={start}
             >
-              {busy ? "กำลังเริ่ม..." : "ยืนยันการชำระเงิน"}
+              {busy ? "กำลังเริ่ม..." : "ดำเนินการชำระเงิน"}
             </Button>
           </>
         )}
@@ -166,35 +181,47 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
             <div className="rounded-2xl bg-white p-4 text-center shadow-sm ring-1 ring-black/5">
               <p className="text-sm text-muted-foreground">ยอดที่ต้องชำระ</p>
               <p className="mt-1 text-3xl font-bold text-brand">฿{booking.amount}</p>
-              <p className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-red-500">
-                <Clock className="size-4" /> กรุณาชำระภายใน 14:58
+              <p className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-amber-600">
+                <Clock className="size-4" /> โอนแล้วแนบสลิปเพื่อยืนยัน
               </p>
             </div>
 
-            <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
-              <p className="font-semibold">โอนเงินผ่านบัญชีธนาคาร</p>
-              <dl className="mt-3 space-y-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <dt className="text-muted-foreground">ธนาคาร</dt>
-                  <dd className="font-medium">ธ.กสิกรไทย</dd>
-                </div>
-                <div className="flex items-center justify-between">
-                  <dt className="text-muted-foreground">เลขบัญชี</dt>
-                  <dd className="font-semibold tabular-nums">123-1-23456-7</dd>
-                </div>
-                <div className="flex items-center justify-between">
-                  <dt className="text-muted-foreground">ชื่อบัญชี</dt>
-                  <dd className="font-medium">{tenant.logoText}</dd>
-                </div>
-              </dl>
-              <div className="mt-4 border-t border-black/5 pt-4 text-center">
-                <p className="text-sm font-medium text-muted-foreground">หรือสแกน QR PromptPay</p>
-                <div className="mx-auto mt-3 grid size-36 place-items-center rounded-xl border border-black/10 bg-app">
-                  <QrCode className="size-24 text-foreground/80" aria-hidden />
-                </div>
-                <p className="mt-2 text-xs text-muted-foreground">PromptPay · {tenant.name}</p>
+            {/* PromptPay: real scannable QR */}
+            {payment.method === "promptpay" && (
+              <div className="rounded-2xl bg-white p-4 text-center shadow-sm ring-1 ring-black/5">
+                <p className="font-semibold">สแกนจ่ายด้วย PromptPay</p>
+                {instructions?.promptpay ? (
+                  <>
+                    <div className="mt-3"><PromptPayQR payload={instructions.promptpay.payload} size={208} /></div>
+                    <p className="mt-3 text-sm text-muted-foreground">{instructions.payTo}</p>
+                    <p className="text-2xl font-bold text-brand">฿{instructions.amount.toLocaleString()}</p>
+                  </>
+                ) : (
+                  <p className="mt-3 text-sm text-muted-foreground">ร้านนี้ยังไม่ได้ตั้งค่า PromptPay — กรุณาโอนผ่านบัญชีธนาคารด้านล่าง</p>
+                )}
               </div>
-            </div>
+            )}
+
+            {/* Bank transfer details (always shown when the venue has a bank account) */}
+            {instructions?.bank && (
+              <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
+                <p className="font-semibold">โอนเงินผ่านบัญชีธนาคาร</p>
+                <dl className="mt-3 space-y-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <dt className="text-muted-foreground">ธนาคาร</dt>
+                    <dd className="font-medium">{instructions.bank.bankName ?? "-"}</dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt className="text-muted-foreground">เลขบัญชี</dt>
+                    <dd className="font-semibold tabular-nums">{instructions.bank.accountNumber ?? "-"}</dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt className="text-muted-foreground">ชื่อบัญชี</dt>
+                    <dd className="font-medium">{instructions.bank.accountName ?? instructions.payTo}</dd>
+                  </div>
+                </dl>
+              </div>
+            )}
 
             <div className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
               <p className="text-sm font-medium">โอนแล้วแนบสลิปเพื่อยืนยัน</p>
@@ -204,7 +231,7 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
                 disabled={busy || !slipFile}
                 onClick={submitSlip}
               >
-                {busy ? "กำลังตรวจสอบ..." : "ส่งสลิป"}
+                {busy ? "กำลังส่ง..." : "ส่งสลิป"}
               </Button>
             </div>
           </>

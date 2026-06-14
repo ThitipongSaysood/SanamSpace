@@ -5,7 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PaymentResource;
 use App\Models\Booking;
+use App\Models\Organization;
+use App\Models\OrganizationSetting;
 use App\Models\Payment;
+use App\Services\PromptPayService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -118,6 +121,46 @@ class PaymentController extends Controller
     public function show(Request $request, string $id): PaymentResource
     {
         return new PaymentResource($this->findOwned($request, $id));
+    }
+
+    /**
+     * GET /payments/{id}/instructions -> how to pay THIS payment, for THIS venue.
+     * Returns a real scannable PromptPay payload (when the venue has a PromptPay
+     * id and the method is promptpay) and/or the venue's bank-transfer details.
+     */
+    public function instructions(Request $request, string $id, PromptPayService $promptpay): JsonResponse
+    {
+        $payment = $this->findOwned($request, $id);
+
+        $setting = OrganizationSetting::query()
+            ->where('organization_id', $payment->organization_id)
+            ->first();
+        $payTo = $setting?->promptpay_name
+            ?: Organization::query()->whereKey($payment->organization_id)->value('name');
+
+        $promptpayBlock = null;
+        if ($payment->method === 'promptpay' && filled($setting?->promptpay_id)) {
+            $promptpayBlock = [
+                'payload' => $promptpay->payload($setting->promptpay_id, (float) $payment->amount),
+            ];
+        }
+
+        $bankBlock = null;
+        if (filled($setting?->bank_account_number)) {
+            $bankBlock = [
+                'bankName' => $setting->bank_name,
+                'accountName' => $setting->bank_account_name,
+                'accountNumber' => $setting->bank_account_number,
+            ];
+        }
+
+        return response()->json([
+            'amount' => (float) $payment->amount,
+            'method' => $payment->method,
+            'payTo' => $payTo,
+            'promptpay' => $promptpayBlock,
+            'bank' => $bankBlock,
+        ]);
     }
 
     /**

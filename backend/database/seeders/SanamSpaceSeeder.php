@@ -74,6 +74,11 @@ class SanamSpaceSeeder extends Seeder
             'email' => 'contact@everyday.test',
             'address' => 'ถนนงามวงศ์วาน นนทบุรี',
             'timezone' => 'Asia/Bangkok',
+            'promptpay_id' => '0812345678',
+            'promptpay_name' => 'Everyday Badminton',
+            'bank_name' => 'กสิกรไทย',
+            'bank_account_name' => 'บจก. เอฟเวอรี่เดย์ แบดมินตัน',
+            'bank_account_number' => '123-4-56789-0',
         ]);
 
         $everydayBranch = Branch::create([

@@ -1,5 +1,5 @@
 import type {
-  AppNotification, Booking, Court, CourtSchedule, Membership, Payment,
+  AppNotification, Booking, Court, CourtSchedule, Membership, Payment, PaymentInstructions,
   Promotion, ReviewSummary, Slot, User, Venue, VenuePackage, Wallet,
 } from "@/lib/types";
 import {
@@ -83,6 +83,18 @@ export const mockApi = {
     return { ...p };
   },
   async getPayment(paymentId: string): Promise<Payment | undefined> { await delay(); return db.payments.get(paymentId); },
+  async getPaymentInstructions(paymentId: string): Promise<PaymentInstructions> {
+    await delay();
+    const p = db.payments.get(paymentId);
+    const amount = p?.amount ?? 0;
+    return {
+      amount,
+      method: p?.method ?? "promptpay",
+      payTo: "ร้านตัวอย่าง",
+      promptpay: { payload: "00020101021129370016A000000677010111011300668888888885802TH53037646304ABCD" },
+      bank: { bankName: "กสิกรไทย", accountName: "ร้านตัวอย่าง", accountNumber: "123-4-56789-0" },
+    };
+  },
   async checkinBooking(id: string): Promise<Booking> {
     await delay(); const b = db.bookings.get(id)!; b.status = "completed"; return { ...b };
   },
