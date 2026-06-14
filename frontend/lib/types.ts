@@ -32,6 +32,7 @@ export type Court = {
   name: string;          // "Court 1"
   sport: Sport;
   pricePerHour: number;  // THB
+  imageUrl?: string | null;
   spec?: CourtSpec;
 };
 
@@ -217,6 +218,7 @@ export type OwnerCourt = {
   name: string;
   sport: Sport;
   pricePerHour: number;
+  imageUrl?: string | null;
   status: OwnerStatus;
   sortOrder: number;
   spec?: Partial<Omit<CourtSpec, "sport">>;

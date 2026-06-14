@@ -21,6 +21,7 @@ class OwnerCourtResource extends JsonResource
             'name' => $this->name,
             'sport' => $this->sport,
             'pricePerHour' => (float) $this->price_per_hour,
+            'imageUrl' => $this->image_url,
             'status' => $this->status,
             'sortOrder' => (int) $this->sort_order,
             'spec' => [

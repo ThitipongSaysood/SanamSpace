@@ -121,6 +121,7 @@ class CourtController extends Controller
             'sport' => [$required, 'string', 'max:50'],
             'pricePerHour' => [$creating ? 'required' : 'sometimes', 'numeric', 'min:0'],
             'status' => ['sometimes', Rule::in(['active', 'inactive'])],
+            'imageUrl' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'floor' => ['sometimes', 'nullable', 'string', 'max:255'],
             'aircon' => ['sometimes', 'nullable', 'string', 'max:255'],
             'height' => ['sometimes', 'nullable', 'string', 'max:255'],
@@ -146,6 +147,9 @@ class CourtController extends Controller
         }
         if (array_key_exists('pricePerHour', $validated)) {
             $out['price_per_hour'] = $validated['pricePerHour'];
+        }
+        if (array_key_exists('imageUrl', $validated)) {
+            $out['image_url'] = $validated['imageUrl'];
         }
         foreach (self::SPEC_FIELDS as $f) {
             if (array_key_exists($f, $validated)) {

@@ -55,6 +55,7 @@ export type CourtInput = {
   name: string;
   sport: Sport;
   pricePerHour: number;
+  imageUrl?: string | null;
   floor?: string | null;
   aircon?: string | null;
   height?: string | null;

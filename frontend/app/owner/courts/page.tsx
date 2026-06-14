@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { LayoutGrid, Pencil, Plus, Power, Trash2, X } from "lucide-react";
+import { Image as ImageIcon, LayoutGrid, Pencil, Plus, Power, Trash2, X } from "lucide-react";
 import type { OwnerBranch, OwnerCourt, Sport } from "@/lib/types";
 import { ownerApi, type CourtInput } from "@/lib/api/owner";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
@@ -89,6 +89,7 @@ type FormState = {
   name: string;
   sport: Sport;
   pricePerHour: string;
+  imageUrl: string;
   floor: string;
   aircon: string;
   lighting: string;
@@ -112,6 +113,7 @@ function CourtForm({
           name: court.name,
           sport: court.sport,
           pricePerHour: String(court.pricePerHour),
+          imageUrl: court.imageUrl ?? "",
           floor: court.spec?.floor ?? "",
           aircon: court.spec?.aircon ?? "",
           lighting: court.spec?.lighting ?? "",
@@ -121,11 +123,28 @@ function CourtForm({
           name: "",
           sport: "badminton",
           pricePerHour: "",
+          imageUrl: "",
           floor: "",
           aircon: "",
           lighting: "",
         },
   );
+
+  const [imgBusy, setImgBusy] = useState(false);
+  async function onCourtImage(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setImgBusy(true);
+    try {
+      const url = await ownerApi.uploadImage(file);
+      setForm((f) => ({ ...f, imageUrl: url }));
+    } catch {
+      /* ignore */
+    } finally {
+      setImgBusy(false);
+    }
+  }
 
   const mutation = useMutation({
     mutationFn: () => {
@@ -134,6 +153,7 @@ function CourtForm({
         name: form.name.trim(),
         sport: form.sport,
         pricePerHour: Number(form.pricePerHour) || 0,
+        imageUrl: form.imageUrl || null,
         floor: form.floor.trim() || null,
         aircon: form.aircon.trim() || null,
         lighting: form.lighting.trim() || null,
@@ -171,6 +191,33 @@ function CourtForm({
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label>รูปคอร์ท (ไม่บังคับ)</Label>
+          <div className="flex items-center gap-3">
+            {form.imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={form.imageUrl} alt="" className="size-16 rounded-lg object-cover ring-1 ring-black/10" />
+            ) : (
+              <div className="grid size-16 place-items-center rounded-lg bg-app text-muted-foreground ring-1 ring-black/10">
+                <ImageIcon className="size-5" />
+              </div>
+            )}
+            <label className="cursor-pointer rounded-lg border border-input px-3 py-1.5 text-sm hover:bg-app">
+              {imgBusy ? "กำลังอัปโหลด..." : "อัปโหลด"}
+              <input type="file" accept="image/*" className="hidden" onChange={onCourtImage} disabled={imgBusy} />
+            </label>
+            {form.imageUrl && (
+              <button
+                type="button"
+                onClick={() => setForm((f) => ({ ...f, imageUrl: "" }))}
+                className="text-sm text-muted-foreground hover:text-brand-danger"
+              >
+                ลบ
+              </button>
+            )}
+          </div>
+        </div>
+
         <div className="space-y-1.5">
           <Label htmlFor="court-branch">สนาม (สาขา)</Label>
           <select
@@ -284,9 +331,14 @@ function CourtCard({ court, onEdit }: { court: OwnerCourt; onEdit: () => void })
   return (
     <div className="flex flex-col rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
       <div className="flex items-start justify-between gap-2">
-        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand/10 text-brand">
-          <LayoutGrid className="size-5" />
-        </span>
+        {court.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={court.imageUrl} alt="" className="size-11 shrink-0 rounded-xl object-cover ring-1 ring-black/10" />
+        ) : (
+          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand/10 text-brand">
+            <LayoutGrid className="size-5" />
+          </span>
+        )}
         <span
           className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
             closed ? "bg-muted text-muted-foreground" : "bg-emerald-100 text-emerald-700"
