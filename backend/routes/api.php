@@ -85,7 +85,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/dashboard', [OwnerDashboardController::class, 'index']);
 
         Route::get('/bookings', [OwnerBookingController::class, 'index']);
+        Route::post('/bookings', [OwnerBookingController::class, 'store']);
         Route::get('/bookings/{id}', [OwnerBookingController::class, 'show']);
+        Route::put('/bookings/{id}', [OwnerBookingController::class, 'update']);
+        Route::post('/bookings/{id}/cancel', [OwnerBookingController::class, 'cancel']);
 
         Route::get('/payments', [OwnerPaymentController::class, 'index']);
         Route::post('/payments/{id}/verify', [OwnerPaymentController::class, 'verify']);
