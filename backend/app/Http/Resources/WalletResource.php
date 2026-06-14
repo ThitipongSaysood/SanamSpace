@@ -21,6 +21,7 @@ class WalletResource extends JsonResource
                 'date' => $txn->txn_date,
                 'label' => $txn->label,
                 'amount' => (float) $txn->amount,
+                'status' => $txn->status ?? 'completed',
             ])->values(),
         ];
     }

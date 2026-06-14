@@ -17,6 +17,7 @@ import type {
   OwnerSubscription,
   OwnerTimelineEntry,
   OwnerWalletRow,
+  OwnerWalletTopup,
   Sport,
   User,
 } from "@/lib/types";
@@ -283,6 +284,14 @@ export const ownerApi = {
   getMemberships: () => req<OwnerMembershipRow[]>("/owner/memberships"),
 
   getWallets: () => req<OwnerWalletRow[]>("/owner/wallets"),
+
+  getWalletTopups: () => req<OwnerWalletTopup[]>("/owner/wallet-topups"),
+
+  approveWalletTopup: (id: string) =>
+    req<{ id: string; status: string }>(`/owner/wallet-topups/${id}/approve`, { method: "POST", raw: true }),
+
+  rejectWalletTopup: (id: string) =>
+    req<{ id: string; status: string }>(`/owner/wallet-topups/${id}/reject`, { method: "POST", raw: true }),
 
   // --- CRM ---
   getCrmOverview: () => req<OwnerCrmOverview>("/owner/crm/overview"),

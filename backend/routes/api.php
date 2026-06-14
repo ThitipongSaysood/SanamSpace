@@ -74,6 +74,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // --- Customer account (scoped to the authenticated Customer) ---
     Route::get('/membership', [MembershipController::class, 'show']);
     Route::get('/wallet', [WalletController::class, 'show']);
+    Route::post('/wallet/topup', [WalletController::class, 'topup']);
+    Route::post('/wallet/topup/{id}/slip', [WalletController::class, 'topupSlip']);
+    Route::post('/reviews', [ReviewController::class, 'store']);
     Route::get('/notifications', [NotificationController::class, 'index']);
 
     // --- Bookings (scoped to the authenticated Customer) ---
@@ -148,6 +151,9 @@ Route::middleware('auth:sanctum')->group(function () {
         // --- Wallets (read list + topup) ---
         Route::get('/wallets', [OwnerWalletController::class, 'index']);
         Route::post('/wallets/{id}/topup', [OwnerWalletController::class, 'topup']);
+        Route::get('/wallet-topups', [OwnerWalletController::class, 'topupRequests']);
+        Route::post('/wallet-topups/{id}/approve', [OwnerWalletController::class, 'approveTopup']);
+        Route::post('/wallet-topups/{id}/reject', [OwnerWalletController::class, 'rejectTopup']);
 
         // --- CRM (overview + segments + timeline + broadcasts) ---
         Route::get('/crm/overview', [OwnerCrmController::class, 'overview']);

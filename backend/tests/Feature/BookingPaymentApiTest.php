@@ -132,6 +132,68 @@ class BookingPaymentApiTest extends TestCase
         $this->assertMatchesRegularExpression('/6304[0-9A-F]{4}$/', $payload);
     }
 
+    public function test_customer_can_submit_a_review_and_it_updates_the_summary(): void
+    {
+        $token = $this->customerToken();
+
+        $res = $this->withToken($token)->postJson('/api/v1/reviews', [
+            'venueId' => 'everyday-badminton',
+            'rating' => 5,
+            'text' => 'สนามดีมาก บริการเยี่ยม',
+        ])->assertOk();
+
+        // Newest review appears first, and the summary total matches the real rows.
+        $this->assertSame('สนามดีมาก บริการเยี่ยม', $res->json('data.reviews.0.text'));
+        $this->assertSame(5, $res->json('data.reviews.0.rating'));
+        $this->assertSame(count($res->json('data.reviews')), $res->json('data.total'));
+    }
+
+    public function test_wallet_topup_credits_balance_only_after_owner_approval(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+
+        $token = $this->customerToken();
+        $me = $this->withToken($token)->getJson('/api/v1/auth/me')->json('data');
+        $org = Organization::where('slug', 'everyday-badminton')->firstOrFail();
+        \App\Models\Wallet::create(['organization_id' => $org->id, 'customer_id' => $me['id'], 'balance' => 0]);
+
+        // Request top-up → pending, returns a real PromptPay QR; balance unchanged.
+        $this->app['auth']->forgetGuards();
+        $topup = $this->withToken($token)->postJson('/api/v1/wallet/topup', ['amount' => 500])
+            ->assertOk()
+            ->assertJsonPath('amount', 500);
+        $txnId = $topup->json('transactionId');
+        $this->assertNotNull($topup->json('promptpay.payload'));
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->getJson('/api/v1/wallet')->assertOk()->assertJsonPath('data.balance', 0);
+
+        // Attach slip → pending_review.
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->postJson("/api/v1/wallet/topup/{$txnId}/slip", [
+            'slip' => UploadedFile::fake()->image('slip.png'),
+        ])->assertOk();
+
+        // Owner sees the request and approves it.
+        $ownerToken = $this->postJson('/api/v1/auth/admin/login', [
+            'email' => 'owner@everyday.test', 'password' => 'password',
+        ])->json('token');
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($ownerToken)->getJson('/api/v1/owner/wallet-topups')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $txnId);
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($ownerToken)->postJson("/api/v1/owner/wallet-topups/{$txnId}/approve")
+            ->assertOk()
+            ->assertJsonPath('status', 'completed');
+
+        // Balance now credited.
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->getJson('/api/v1/wallet')->assertOk()->assertJsonPath('data.balance', 500);
+    }
+
     public function test_double_booking_same_slot_returns_422(): void
     {
         $token = $this->customerToken();

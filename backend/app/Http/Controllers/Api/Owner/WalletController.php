@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\OwnerWalletResource;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -81,5 +82,62 @@ class WalletController extends Controller
         $now = now();
 
         return $now->day.' '.(self::THAI_MONTHS[$now->month] ?? (string) $now->month);
+    }
+
+    /**
+     * GET /owner/wallet-topups — customer-initiated top-ups awaiting approval
+     * (status pending_review), org-scoped. Each: { id, customerName, amount, slipUrl, date }.
+     */
+    public function topupRequests(Request $request): JsonResponse
+    {
+        $orgId = $request->attributes->get('currentOrganizationId');
+
+        $rows = WalletTransaction::query()
+            ->where('status', 'pending_review')
+            ->whereHas('wallet', fn ($q) => $q->forOrganization($orgId))
+            ->with('wallet.customer')
+            ->orderBy('created_at')
+            ->get()
+            ->map(fn ($txn) => [
+                'id' => (string) $txn->id,
+                'customerName' => $txn->wallet?->customer?->display_name,
+                'amount' => (float) $txn->amount,
+                'slipUrl' => $txn->slip_url,
+                'date' => $txn->txn_date,
+            ]);
+
+        return response()->json(['data' => $rows]);
+    }
+
+    /** POST /owner/wallet-topups/{id}/approve — credit the wallet and post the txn. */
+    public function approveTopup(Request $request, string $id): JsonResponse
+    {
+        $txn = $this->findPendingTopup($request, $id);
+
+        $txn->update(['status' => 'completed']);
+        $txn->wallet->increment('balance', $txn->amount);
+
+        return response()->json(['id' => (string) $txn->id, 'status' => 'completed']);
+    }
+
+    /** POST /owner/wallet-topups/{id}/reject — decline the top-up (no credit). */
+    public function rejectTopup(Request $request, string $id): JsonResponse
+    {
+        $txn = $this->findPendingTopup($request, $id);
+        $txn->update(['status' => 'rejected']);
+
+        return response()->json(['id' => (string) $txn->id, 'status' => 'rejected']);
+    }
+
+    private function findPendingTopup(Request $request, string $id): WalletTransaction
+    {
+        $orgId = $request->attributes->get('currentOrganizationId');
+
+        return WalletTransaction::query()
+            ->where('id', $id)
+            ->where('status', 'pending_review')
+            ->whereHas('wallet', fn ($q) => $q->forOrganization($orgId))
+            ->with('wallet')
+            ->firstOrFail();
     }
 }

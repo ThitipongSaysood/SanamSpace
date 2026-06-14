@@ -1,10 +1,59 @@
 "use client";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Hourglass } from "lucide-react";
+import { api } from "@/lib/api/client";
 import { AppHeader } from "@/components/app-header";
 import { useWallet } from "@/lib/api/queries";
+import { PromptPayQR } from "@/components/promptpay-qr";
+import { SlipUploader } from "@/components/slip-uploader";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import type { WalletTopupInstructions } from "@/lib/types";
+
+const PRESETS = [100, 300, 500, 1000];
 
 export default function WalletPage() {
+  const qc = useQueryClient();
   const { data: wallet, isLoading, isError, refetch } = useWallet();
+
+  // top-up flow: idle → amount → pay (QR + slip) → done
+  const [step, setStep] = useState<"idle" | "amount" | "pay" | "done">("idle");
+  const [amount, setAmount] = useState("");
+  const [instructions, setInstructions] = useState<WalletTopupInstructions | null>(null);
+  const [slipFile, setSlipFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function startTopup() {
+    const value = Number(amount);
+    if (!value || value <= 0) return;
+    setBusy(true);
+    try {
+      setInstructions(await api.walletTopup(value));
+      setStep("pay");
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function submitSlip() {
+    if (!instructions || !slipFile) return;
+    setBusy(true);
+    try {
+      await api.walletTopupSlip(instructions.transactionId, slipFile);
+      await qc.invalidateQueries({ queryKey: ["wallet"] });
+      setStep("done");
+    } finally {
+      setBusy(false);
+    }
+  }
+  function reset() {
+    setStep("idle");
+    setAmount("");
+    setInstructions(null);
+    setSlipFile(null);
+  }
+
   return (
     <main className="pb-6">
       <AppHeader title="วอลเล็ต" />
@@ -18,46 +67,147 @@ export default function WalletPage() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-xs text-muted-foreground">ยอดเงินคงเหลือ</div>
-                <div className="mt-1 text-3xl font-bold text-brand">
-                  ฿{wallet.balance.toLocaleString()}
-                </div>
+                <div className="mt-1 text-3xl font-bold text-brand">฿{wallet.balance.toLocaleString()}</div>
               </div>
-              <button
-                type="button"
-                className="rounded-full bg-brand px-5 py-2 text-sm font-semibold text-brand-foreground transition active:scale-[0.98]"
-              >
-                เติมเงิน
-              </button>
+              {step === "idle" && (
+                <button
+                  type="button"
+                  onClick={() => setStep("amount")}
+                  className="rounded-full bg-brand px-5 py-2 text-sm font-semibold text-brand-foreground transition active:scale-[0.98]"
+                >
+                  เติมเงิน
+                </button>
+              )}
             </div>
           </div>
 
-          <section>
-            <h2 className="mb-2.5 font-semibold">รายการล่าสุด</h2>
-            {wallet.transactions.length === 0 ? (
-              <EmptyState message="ยังไม่มีรายการ" />
-            ) : (
-              <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
-                {wallet.transactions.map((t, i) => (
-                  <div
-                    key={t.id}
-                    className={`flex items-center gap-3 px-4 py-3 ${
-                      i < wallet.transactions.length - 1 ? "border-b border-black/5" : ""
+          {/* Step: choose amount */}
+          {step === "amount" && (
+            <div className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
+              <p className="font-semibold">เติมเงินเข้าวอลเล็ต</p>
+              <div className="grid grid-cols-4 gap-2">
+                {PRESETS.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setAmount(String(p))}
+                    className={`rounded-lg border py-2 text-sm font-medium transition ${
+                      amount === String(p) ? "border-brand bg-brand/5 text-brand" : "border-input hover:bg-app"
                     }`}
                   >
-                    <span className="w-14 shrink-0 text-xs text-muted-foreground">{t.date}</span>
-                    <span className="flex-1 truncate text-sm">{t.label}</span>
-                    <span
-                      className={`text-sm font-semibold ${
-                        t.amount > 0 ? "text-brand" : "text-foreground"
-                      }`}
-                    >
-                      {t.amount > 0 ? "+" : "−"}฿{Math.abs(t.amount).toLocaleString()}
-                    </span>
-                  </div>
+                    ฿{p}
+                  </button>
                 ))}
               </div>
-            )}
-          </section>
+              <Input
+                type="number"
+                min={1}
+                inputMode="numeric"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="ระบุจำนวนเงิน"
+              />
+              <div className="flex gap-2">
+                <Button variant="outline" className="h-11 flex-1 rounded-xl" onClick={reset}>
+                  ยกเลิก
+                </Button>
+                <Button
+                  className="h-11 flex-1 rounded-xl bg-brand font-semibold hover:bg-brand/90"
+                  disabled={busy || !Number(amount)}
+                  onClick={startTopup}
+                >
+                  {busy ? "กำลังดำเนินการ..." : "ถัดไป"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Step: pay (QR + bank) then upload slip */}
+          {step === "pay" && instructions && (
+            <>
+              <div className="rounded-2xl bg-white p-4 text-center shadow-sm ring-1 ring-black/5">
+                <p className="text-sm text-muted-foreground">ยอดเติมเงิน</p>
+                <p className="mt-1 text-3xl font-bold text-brand">฿{instructions.amount.toLocaleString()}</p>
+                {instructions.promptpay ? (
+                  <div className="mt-3">
+                    <PromptPayQR payload={instructions.promptpay.payload} size={200} />
+                    <p className="mt-2 text-xs text-muted-foreground">สแกนจ่ายด้วยแอปธนาคาร</p>
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-muted-foreground">โอนผ่านบัญชีธนาคารด้านล่าง</p>
+                )}
+              </div>
+
+              {instructions.bank && (
+                <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
+                  <p className="font-semibold">โอนผ่านบัญชีธนาคาร</p>
+                  <dl className="mt-3 space-y-2 text-sm">
+                    <div className="flex justify-between"><dt className="text-muted-foreground">ธนาคาร</dt><dd className="font-medium">{instructions.bank.bankName ?? "-"}</dd></div>
+                    <div className="flex justify-between"><dt className="text-muted-foreground">เลขบัญชี</dt><dd className="font-semibold tabular-nums">{instructions.bank.accountNumber ?? "-"}</dd></div>
+                    <div className="flex justify-between"><dt className="text-muted-foreground">ชื่อบัญชี</dt><dd className="font-medium">{instructions.bank.accountName ?? "-"}</dd></div>
+                  </dl>
+                </div>
+              )}
+
+              <div className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
+                <p className="text-sm font-medium">โอนแล้วแนบสลิปเพื่อยืนยัน</p>
+                <SlipUploader onValid={setSlipFile} />
+                <Button
+                  className="h-11 w-full rounded-xl bg-brand font-semibold hover:bg-brand/90"
+                  disabled={busy || !slipFile}
+                  onClick={submitSlip}
+                >
+                  {busy ? "กำลังส่ง..." : "ส่งสลิป"}
+                </Button>
+              </div>
+            </>
+          )}
+
+          {/* Step: done */}
+          {step === "done" && (
+            <div className="rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-black/5">
+              <div className="mx-auto grid size-16 place-items-center rounded-full bg-amber-100 text-amber-600">
+                <Hourglass className="size-8" />
+              </div>
+              <p className="mt-4 font-semibold">ส่งสลิปแล้ว</p>
+              <p className="mt-1 text-sm text-muted-foreground">รอร้านตรวจสอบ ระบบจะเติมเงินเข้าวอลเล็ตให้เมื่ออนุมัติ</p>
+              <Button className="mt-4 h-11 w-full rounded-xl bg-brand font-semibold hover:bg-brand/90" onClick={reset}>
+                เสร็จสิ้น
+              </Button>
+            </div>
+          )}
+
+          {step === "idle" && (
+            <section>
+              <h2 className="mb-2.5 font-semibold">รายการล่าสุด</h2>
+              {wallet.transactions.length === 0 ? (
+                <EmptyState message="ยังไม่มีรายการ" />
+              ) : (
+                <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
+                  {wallet.transactions.map((t, i) => {
+                    const pending = t.status === "pending" || t.status === "pending_review";
+                    return (
+                      <div
+                        key={t.id}
+                        className={`flex items-center gap-3 px-4 py-3 ${
+                          i < wallet.transactions.length - 1 ? "border-b border-black/5" : ""
+                        }`}
+                      >
+                        <span className="w-14 shrink-0 text-xs text-muted-foreground">{t.date}</span>
+                        <span className="flex-1 truncate text-sm">
+                          {t.label}
+                          {pending && <span className="ml-1.5 text-xs text-amber-600">(รออนุมัติ)</span>}
+                        </span>
+                        <span className={`text-sm font-semibold ${pending ? "text-amber-600" : t.amount > 0 ? "text-brand" : "text-foreground"}`}>
+                          {t.amount > 0 ? "+" : "−"}฿{Math.abs(t.amount).toLocaleString()}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          )}
         </div>
       )}
     </main>

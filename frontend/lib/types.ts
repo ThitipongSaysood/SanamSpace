@@ -103,9 +103,16 @@ export type Membership = {
   benefits: string[];
 };
 
-export type WalletTxn = { id: string; date: string; label: string; amount: number };
+export type WalletTxn = { id: string; date: string; label: string; amount: number; status?: string };
 
 export type Wallet = { balance: number; transactions: WalletTxn[] };
+
+export type WalletTopupInstructions = {
+  transactionId: string;
+  amount: number;
+  promptpay: { payload: string } | null;
+  bank: { bankName: string | null; accountName: string | null; accountNumber: string | null } | null;
+};
 
 export type Promotion = { id: string; title: string; subtitle: string; tag: "ส่วนลด" | "แพ็กเกจ" };
 
@@ -290,6 +297,14 @@ export type OwnerWalletRow = {
   customerName: string;
   balance: number;
   transactionCount: number;
+};
+
+export type OwnerWalletTopup = {
+  id: string;
+  customerName: string | null;
+  amount: number;
+  slipUrl: string | null;
+  date: string;
 };
 
 // --- Owner CRM ---

@@ -1,6 +1,6 @@
 import type {
   AppNotification, Booking, Court, CourtSchedule, Membership, Payment, PaymentInstructions,
-  Promotion, ReviewSummary, User, Venue, VenuePackage, Wallet,
+  Promotion, ReviewSummary, User, Venue, VenuePackage, Wallet, WalletTopupInstructions,
 } from "@/lib/types";
 import { getToken, setToken } from "./token";
 import type { Api, LinePayload } from "./mock";
@@ -86,6 +86,15 @@ export const httpApi: Api = {
   getPaymentInstructions: (id) => req<PaymentInstructions>(`/payments/${id}/instructions`),
 
   getReviews: (venueId) => req<ReviewSummary>(`/reviews?venueId=${encodeURIComponent(venueId)}`),
+  submitReview: (venueId, rating, text) =>
+    req<ReviewSummary>("/reviews", { method: "POST", body: { venueId, rating, text } }),
+  walletTopup: (amount) =>
+    req<WalletTopupInstructions>("/wallet/topup", { method: "POST", body: { amount } }),
+  walletTopupSlip: (id, file) => {
+    const fd = new FormData();
+    if (file) fd.append("slip", file);
+    return req<Wallet>(`/wallet/topup/${id}/slip`, { method: "POST", body: fd });
+  },
   getPackages: () => req<VenuePackage[]>("/packages"),
   getMembership: () => req<Membership>("/membership"),
   getWallet: () => req<Wallet>("/wallet"),

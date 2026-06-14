@@ -24,12 +24,72 @@ export default function OwnerWalletPage() {
         <p className="text-sm text-muted-foreground">ระบบวอลเล็ต</p>
       </header>
 
+      <TopupRequests />
+
       {isLoading && <Loading />}
       {isError && <ErrorState onRetry={() => refetch()} />}
       {data && data.length === 0 && <EmptyState message="ยังไม่มีวอลเล็ต" />}
 
       {data && data.length > 0 && <WalletList rows={data} />}
     </div>
+  );
+}
+
+// Customer-initiated top-ups awaiting the venue's approval (slip review).
+function TopupRequests() {
+  const qc = useQueryClient();
+  const { data } = useQuery({ queryKey: ["owner", "wallet-topups"], queryFn: ownerApi.getWalletTopups });
+
+  const approve = useMutation({
+    mutationFn: (id: string) => ownerApi.approveWalletTopup(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["owner", "wallet-topups"] });
+      qc.invalidateQueries({ queryKey: ["owner", "wallets"] });
+    },
+    onError: (e: Error) => window.alert(e.message),
+  });
+  const reject = useMutation({
+    mutationFn: (id: string) => ownerApi.rejectWalletTopup(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["owner", "wallet-topups"] }),
+    onError: (e: Error) => window.alert(e.message),
+  });
+
+  if (!data || data.length === 0) return null;
+  const pending = approve.isPending || reject.isPending;
+
+  return (
+    <section className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
+      <div className="flex items-center gap-2">
+        <h2 className="font-semibold">คำขอเติมเงินรออนุมัติ</h2>
+        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">{data.length}</span>
+      </div>
+      <div className="divide-y divide-black/5">
+        {data.map((t) => (
+          <div key={t.id} className="flex items-center gap-3 py-3">
+            {t.slipUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <a href={t.slipUrl} target="_blank" rel="noreferrer" className="shrink-0">
+                <img src={t.slipUrl} alt="สลิป" className="size-12 rounded-lg object-cover ring-1 ring-black/10" />
+              </a>
+            ) : (
+              <span className="grid size-12 shrink-0 place-items-center rounded-lg bg-app text-xs text-muted-foreground">ไม่มีสลิป</span>
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-medium">{t.customerName ?? "ลูกค้า"}</div>
+              <div className="text-xs text-muted-foreground">{t.date} · +฿{fmt.format(t.amount)}</div>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <Button size="sm" variant="outline" disabled={pending} onClick={() => reject.mutate(t.id)}>
+                ปฏิเสธ
+              </Button>
+              <Button size="sm" disabled={pending} onClick={() => approve.mutate(t.id)}>
+                อนุมัติ
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
