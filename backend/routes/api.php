@@ -29,6 +29,7 @@ use App\Http\Controllers\Api\Owner\PaymentController as OwnerPaymentController;
 use App\Http\Controllers\Api\Owner\PromotionController as OwnerPromotionController;
 use App\Http\Controllers\Api\Owner\SettingController as OwnerSettingController;
 use App\Http\Controllers\Api\Owner\StaffController as OwnerStaffController;
+use App\Http\Controllers\Api\Owner\SubscriptionController as OwnerSubscriptionController;
 use App\Http\Controllers\Api\Owner\UploadController as OwnerUploadController;
 use App\Http\Controllers\Api\Owner\WalletController as OwnerWalletController;
 use App\Http\Controllers\Api\PaymentController;
@@ -83,6 +84,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // --- Owner Portal (staff/admin, org-scoped via owner.org middleware) ---
     Route::prefix('owner')->middleware('owner.org')->group(function () {
         Route::get('/dashboard', [OwnerDashboardController::class, 'index']);
+        Route::get('/subscription', [OwnerSubscriptionController::class, 'show']);
 
         Route::get('/bookings', [OwnerBookingController::class, 'index']);
         Route::post('/bookings', [OwnerBookingController::class, 'store']);

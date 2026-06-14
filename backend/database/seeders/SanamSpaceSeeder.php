@@ -166,7 +166,7 @@ class SanamSpaceSeeder extends Seeder
             'plan_id' => $plans['pro']->id,
             'status' => 'active',
             'started_at' => now()->subMonths(3),
-            'ends_at' => null,
+            'ends_at' => now()->addDays(18),
         ]);
 
         Subscription::create([
@@ -174,7 +174,7 @@ class SanamSpaceSeeder extends Seeder
             'plan_id' => $plans['business']->id,
             'status' => 'active',
             'started_at' => now()->subMonth(),
-            'ends_at' => null,
+            'ends_at' => now()->addDays(25),
         ]);
 
         // --- Demo owner user for Everyday Badminton ---

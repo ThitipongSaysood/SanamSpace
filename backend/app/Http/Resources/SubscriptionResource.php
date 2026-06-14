@@ -23,6 +23,11 @@ class SubscriptionResource extends JsonResource
             'status' => $this->status,
             'startedAt' => $this->started_at?->toIso8601String(),
             'endsAt' => $this->ends_at?->toIso8601String(),
+            // Whole days until the plan ends (signed: negative = already expired,
+            // null = no end date / unlimited).
+            'daysRemaining' => $this->ends_at
+                ? (int) now()->startOfDay()->diffInDays($this->ends_at->copy()->startOfDay(), false)
+                : null,
         ];
     }
 }

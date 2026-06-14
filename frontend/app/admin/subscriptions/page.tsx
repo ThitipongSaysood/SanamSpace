@@ -19,6 +19,17 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
+function DaysPill({ days }: { days: number | null }) {
+  if (days == null) return <span className="text-xs text-muted-foreground">ไม่จำกัด</span>;
+  const cls =
+    days < 0 ? "bg-rose-100 text-rose-700" : days < 7 ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700";
+  return (
+    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>
+      {days < 0 ? "หมดอายุแล้ว" : `เหลือ ${days} วัน`}
+    </span>
+  );
+}
+
 function period(startedAt: string | null, endsAt: string | null) {
   if (!startedAt && !endsAt) return "—";
   return `${startedAt ?? "—"} – ${endsAt ?? "—"}`;
@@ -51,6 +62,9 @@ export default function AdminSubscriptionsPage() {
                 <div className="mt-1 text-sm text-muted-foreground">{s.planName ?? "—"}</div>
                 <div className="mt-2 font-semibold text-brand">฿{fmt.format(s.price)}/เดือน</div>
                 <div className="mt-1 text-sm text-muted-foreground">{period(s.startedAt, s.endsAt)}</div>
+                <div className="mt-2">
+                  <DaysPill days={s.daysRemaining} />
+                </div>
               </div>
             ))}
           </div>
@@ -64,6 +78,7 @@ export default function AdminSubscriptionsPage() {
                   <th className="px-4 py-3">แพ็กเกจ</th>
                   <th className="px-4 py-3 text-right">ราคา</th>
                   <th className="px-4 py-3">สถานะ</th>
+                  <th className="px-4 py-3">วันคงเหลือ</th>
                   <th className="px-4 py-3">ระยะเวลา</th>
                 </tr>
               </thead>
@@ -77,6 +92,9 @@ export default function AdminSubscriptionsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <StatusPill status={s.status} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <DaysPill days={s.daysRemaining} />
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{period(s.startedAt, s.endsAt)}</td>
                   </tr>

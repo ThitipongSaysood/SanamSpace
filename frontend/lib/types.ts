@@ -347,7 +347,11 @@ export type AdminSubscription = {
   status: string;
   startedAt: string | null;
   endsAt: string | null;
+  daysRemaining: number | null;
 };
+
+// Current org's subscription (owner portal). Same shape as AdminSubscription.
+export type OwnerSubscription = AdminSubscription;
 
 export type Plan = {
   id: string;

@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
   BarChart3,
@@ -61,6 +62,11 @@ function SidebarContent({
   pathname: string;
   onNavigate?: () => void;
 }) {
+  const { data: sub } = useQuery({
+    queryKey: ["owner", "subscription"],
+    queryFn: ownerApi.getSubscription,
+  });
+
   return (
     <div className="flex h-full flex-col">
       {/* Brand */}
@@ -115,12 +121,27 @@ function SidebarContent({
             </div>
             <div className="min-w-0 flex-1 leading-tight">
               <div className="truncate text-sm font-semibold">Everyday Badminton</div>
-              <div className="mt-0.5 flex items-center gap-1.5">
+              <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
                 <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
-                  Pro Plan
+                  {sub?.planName ? `${sub.planName} Plan` : "—"}
                 </span>
                 <span className="text-[10px] text-muted-foreground">Owner</span>
               </div>
+              {sub?.daysRemaining != null && (
+                <div className="mt-1">
+                  <span
+                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                      sub.daysRemaining < 0
+                        ? "bg-rose-100 text-rose-700"
+                        : sub.daysRemaining < 7
+                          ? "bg-amber-100 text-amber-700"
+                          : "bg-emerald-100 text-emerald-700"
+                    }`}
+                  >
+                    {sub.daysRemaining < 0 ? "หมดอายุแล้ว" : `เหลือ ${sub.daysRemaining} วัน`}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>

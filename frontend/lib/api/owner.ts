@@ -14,6 +14,7 @@ import type {
   OwnerSegment,
   OwnerSettings,
   OwnerStaffMember,
+  OwnerSubscription,
   OwnerTimelineEntry,
   OwnerWalletRow,
   Sport,
@@ -175,6 +176,8 @@ export const ownerApi = {
   },
 
   getDashboard: () => req<OwnerDashboard>("/owner/dashboard", { raw: true }),
+
+  getSubscription: () => req<OwnerSubscription | null>("/owner/subscription"),
 
   getBookings: (params?: { status?: string; date?: string }) => {
     const qs = new URLSearchParams();
