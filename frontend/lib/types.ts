@@ -432,6 +432,7 @@ export type AdminInvoice = {
   status: string;
   issueDate: string;
   dueDate: string;
+  paidDate?: string | null;
 };
 
 export type AdminTransaction = {

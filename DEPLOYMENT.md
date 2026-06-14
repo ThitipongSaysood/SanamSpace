@@ -47,6 +47,27 @@ Migrations run automatically on backend start (`docker/entrypoint.sh`).
 - `NEXT_PUBLIC_API_URL` is **build-time** (inlined). It defaults to `/api/v1` (same-origin). To point the web at a separate API host, set the build arg and rebuild `frontend`.
 - Uploaded slips use the local disk volume `backend_storage`. For real prod use **Cloudflare R2 / S3** (set `FILESYSTEM_DISK=s3` + AWS_* in `backend/.env`) so slips are durable, CDN-served absolute URLs.
 
+### Email / SMTP (invoices & receipts)
+
+Sending invoices/receipts (Super Admin → รายการเรียกเก็บเงิน → ส่งอีเมล) needs a real mailer.
+In dev `MAIL_MAILER=log` just writes to `storage/logs/laravel.log`; in prod set SMTP in `backend/.env`:
+
+```bash
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.gmail.com        # or smtp.mailgun.org / email-smtp.<region>.amazonaws.com / smtp-relay.brevo.com
+MAIL_PORT=587                   # 587 STARTTLS, 465 SSL
+MAIL_USERNAME=billing@yourco.com
+MAIL_PASSWORD=<app-password-or-smtp-key>   # Gmail: use an App Password, NOT the account password
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS=billing@yourco.com
+MAIL_FROM_NAME="SanamSpace"
+```
+
+Then on the server: `php artisan config:clear`. Verify without spamming a customer:
+`php artisan tinker` → `Mail::raw('test', fn($m)=>$m->to('you@you.com')->subject('SanamSpace SMTP test'));`
+
+For deliverability set SPF/DKIM for the sending domain (each provider documents this).
+
 ---
 
 ## Path B — Bare Ubuntu VPS

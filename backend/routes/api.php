@@ -188,6 +188,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/roles', [AdminRoleController::class, 'index']);
 
         Route::get('/invoices', [AdminInvoiceController::class, 'index']);
+        Route::post('/invoices/{id}/pay', [AdminInvoiceController::class, 'pay']);
         Route::post('/invoices/{id}/send', [AdminInvoiceController::class, 'send']);
         Route::get('/transactions', [AdminTransactionController::class, 'index']);
         Route::get('/support-tickets', [AdminSupportTicketController::class, 'index']);

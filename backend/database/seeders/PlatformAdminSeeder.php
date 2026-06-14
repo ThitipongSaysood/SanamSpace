@@ -27,6 +27,7 @@ class PlatformAdminSeeder extends Seeder
             Invoice::create([
                 'number' => $no, 'organization_name' => $org, 'amount' => $amt,
                 'status' => $st, 'issue_date' => $issue, 'due_date' => $due,
+                'paid_date' => $st === 'paid' ? $due : null,
             ]);
         }
 

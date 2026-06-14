@@ -14,6 +14,7 @@ class AdminInvoiceResource extends JsonResource
             'status' => $this->status,
             'issueDate' => $this->issue_date,
             'dueDate' => $this->due_date,
+            'paidDate' => $this->paid_date,
         ];
     }
 }
