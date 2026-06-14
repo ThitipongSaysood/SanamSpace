@@ -27,10 +27,29 @@ const selectClass =
 export default function OwnerCourtsPage() {
   const courts = useQuery({ queryKey: COURTS_KEY, queryFn: ownerApi.getCourts });
   const branches = useQuery({ queryKey: BRANCHES_KEY, queryFn: ownerApi.getBranches });
-  const [adding, setAdding] = useState(false);
+  // null = list · "new" = create · OwnerCourt = edit. Form renders full-width.
+  const [editing, setEditing] = useState<OwnerCourt | "new" | null>(null);
 
   const branchList = branches.data ?? [];
   const noBranch = !branches.isLoading && branchList.length === 0;
+
+  if (editing) {
+    return (
+      <div className="space-y-5">
+        <header>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {editing === "new" ? "เพิ่มคอร์ท" : "แก้ไขคอร์ท"}
+          </h1>
+          <p className="text-sm text-muted-foreground">รายละเอียดคอร์ท</p>
+        </header>
+        <CourtForm
+          court={editing === "new" ? undefined : editing}
+          branches={branchList}
+          onClose={() => setEditing(null)}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -39,8 +58,8 @@ export default function OwnerCourtsPage() {
           <h1 className="text-2xl font-bold tracking-tight">คอร์ท</h1>
           <p className="text-sm text-muted-foreground">เพิ่ม / แก้ไข / ลบ / เปิด-ปิด คอร์ท</p>
         </div>
-        {!adding && !noBranch && (
-          <Button type="button" onClick={() => setAdding(true)}>
+        {!noBranch && (
+          <Button type="button" onClick={() => setEditing("new")}>
             <Plus className="size-4" /> เพิ่มคอร์ท
           </Button>
         )}
@@ -48,18 +67,16 @@ export default function OwnerCourtsPage() {
 
       {noBranch && <EmptyState message="ต้องสร้างสนาม (สาขา) ก่อน จึงจะเพิ่มคอร์ทได้" />}
 
-      {adding && <CourtForm branches={branchList} onClose={() => setAdding(false)} />}
-
       {courts.isLoading && <Loading />}
       {courts.isError && <ErrorState onRetry={() => courts.refetch()} />}
-      {courts.data && courts.data.length === 0 && !adding && !noBranch && (
+      {courts.data && courts.data.length === 0 && !noBranch && (
         <EmptyState message="ยังไม่มีคอร์ท" />
       )}
 
       {courts.data && courts.data.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {courts.data.map((c) => (
-            <CourtCard key={c.id} court={c} branches={branchList} />
+            <CourtCard key={c.id} court={c} onEdit={() => setEditing(c)} />
           ))}
         </div>
       )}
@@ -246,9 +263,8 @@ function CourtForm({
   );
 }
 
-function CourtCard({ court, branches }: { court: OwnerCourt; branches: OwnerBranch[] }) {
+function CourtCard({ court, onEdit }: { court: OwnerCourt; onEdit: () => void }) {
   const qc = useQueryClient();
-  const [editing, setEditing] = useState(false);
 
   const toggle = useMutation({
     mutationFn: () => ownerApi.toggleCourt(court.id),
@@ -261,10 +277,6 @@ function CourtCard({ court, branches }: { court: OwnerCourt; branches: OwnerBran
 
   function onDelete() {
     if (window.confirm(`ลบคอร์ท "${court.name}" ?`)) del.mutate();
-  }
-
-  if (editing) {
-    return <CourtForm court={court} branches={branches} onClose={() => setEditing(false)} />;
   }
 
   const closed = court.status !== "active";
@@ -297,7 +309,7 @@ function CourtCard({ court, branches }: { court: OwnerCourt; branches: OwnerBran
       </div>
 
       <div className="mt-3 flex items-center gap-2 border-t border-black/5 pt-3">
-        <Button type="button" size="sm" variant="outline" onClick={() => setEditing(true)}>
+        <Button type="button" size="sm" variant="outline" onClick={onEdit}>
           <Pencil className="size-4" /> แก้ไข
         </Button>
         <Button

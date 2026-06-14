@@ -17,7 +17,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   if (!user) return null;
   const showNav = TAB_ROUTES.includes(path);
   return (
-    <div className={`min-h-dvh w-full bg-app text-foreground ${showNav ? "pb-16" : ""}`}>
+    <div className={`mx-auto min-h-dvh max-w-md bg-app text-foreground ${showNav ? "pb-16" : ""}`}>
       {children}
       {showNav && <BottomNav />}
     </div>

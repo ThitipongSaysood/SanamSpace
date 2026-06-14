@@ -40,7 +40,26 @@ export default function OwnerBranchesPage() {
     queryKey: BRANCHES_KEY,
     queryFn: ownerApi.getBranches,
   });
-  const [adding, setAdding] = useState(false);
+  // null = list · "new" = create · OwnerBranch = edit. The form renders
+  // full-width (outside the card grid) so it never gets cramped in a cell.
+  const [editing, setEditing] = useState<OwnerBranch | "new" | null>(null);
+
+  if (editing) {
+    return (
+      <div className="space-y-5">
+        <header>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {editing === "new" ? "เพิ่มสนาม" : "แก้ไขสนาม"}
+          </h1>
+          <p className="text-sm text-muted-foreground">จัดการเนื้อหาสนามที่แสดงให้ลูกค้า</p>
+        </header>
+        <BranchForm
+          branch={editing === "new" ? undefined : editing}
+          onClose={() => setEditing(null)}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -51,23 +70,19 @@ export default function OwnerBranchesPage() {
             จัดการเนื้อหาสนามที่แสดงให้ลูกค้า — เพิ่ม / แก้ไข / ลบ / เปิด-ปิด
           </p>
         </div>
-        {!adding && (
-          <Button type="button" onClick={() => setAdding(true)}>
-            <Plus className="size-4" /> เพิ่มสนาม
-          </Button>
-        )}
+        <Button type="button" onClick={() => setEditing("new")}>
+          <Plus className="size-4" /> เพิ่มสนาม
+        </Button>
       </header>
-
-      {adding && <BranchForm onClose={() => setAdding(false)} />}
 
       {isLoading && <Loading />}
       {isError && <ErrorState onRetry={() => refetch()} />}
-      {data && data.length === 0 && !adding && <EmptyState message="ยังไม่มีสนาม" />}
+      {data && data.length === 0 && <EmptyState message="ยังไม่มีสนาม" />}
 
       {data && data.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {data.map((b) => (
-            <BranchCard key={b.id} branch={b} />
+            <BranchCard key={b.id} branch={b} onEdit={() => setEditing(b)} />
           ))}
         </div>
       )}
@@ -184,12 +199,12 @@ function BranchForm({ branch, onClose }: { branch?: OwnerBranch; onClose: () => 
       </div>
 
       {/* ---- ข้อมูลทั่วไป ---- */}
-      <section className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1.5 sm:col-span-2">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="space-y-1.5 sm:col-span-2 xl:col-span-3">
           <Label htmlFor="b-name">ชื่อสนาม</Label>
           <Input id="b-name" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="เช่น Everyday Badminton" />
         </div>
-        <div className="space-y-1.5 sm:col-span-2">
+        <div className="space-y-1.5 sm:col-span-2 xl:col-span-3">
           <Label htmlFor="b-address">ที่อยู่</Label>
           <Input id="b-address" value={form.address} onChange={(e) => set("address", e.target.value)} placeholder="123 ถ.สุขุมวิท กรุงเทพฯ" />
         </div>
@@ -217,7 +232,7 @@ function BranchForm({ branch, onClose }: { branch?: OwnerBranch; onClose: () => 
           <Label htmlFor="b-peak">หมายเหตุช่วงพีค</Label>
           <Input id="b-peak" value={form.peakNote} onChange={(e) => set("peakNote", e.target.value)} placeholder="พีค 18:00–21:00" />
         </div>
-        <div className="space-y-1.5 sm:col-span-2">
+        <div className="space-y-1.5 sm:col-span-2 xl:col-span-3">
           <Label htmlFor="b-desc">เกี่ยวกับสนาม</Label>
           <textarea
             id="b-desc"
@@ -433,9 +448,8 @@ function PhotosField({
   );
 }
 
-function BranchCard({ branch }: { branch: OwnerBranch }) {
+function BranchCard({ branch, onEdit }: { branch: OwnerBranch; onEdit: () => void }) {
   const qc = useQueryClient();
-  const [editing, setEditing] = useState(false);
 
   const toggle = useMutation({
     mutationFn: () => ownerApi.toggleBranch(branch.id),
@@ -448,10 +462,6 @@ function BranchCard({ branch }: { branch: OwnerBranch }) {
 
   function onDelete() {
     if (window.confirm(`ลบสนาม "${branch.name}" ?`)) del.mutate();
-  }
-
-  if (editing) {
-    return <BranchForm branch={branch} onClose={() => setEditing(false)} />;
   }
 
   const closed = branch.status !== "active";
@@ -506,7 +516,7 @@ function BranchCard({ branch }: { branch: OwnerBranch }) {
         </div>
 
         <div className="mt-3 flex items-center gap-2 border-t border-black/5 pt-3">
-          <Button type="button" size="sm" variant="outline" onClick={() => setEditing(true)}>
+          <Button type="button" size="sm" variant="outline" onClick={onEdit}>
             <Pencil className="size-4" /> แก้ไข
           </Button>
           <Button
