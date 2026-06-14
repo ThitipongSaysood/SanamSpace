@@ -1,8 +1,9 @@
 import type {
-  Court,
   OwnerBooking,
+  OwnerBranch,
   OwnerBroadcast,
   OwnerBroadcastChannel,
+  OwnerCourt,
   OwnerCrmOverview,
   OwnerCustomer,
   OwnerDashboard,
@@ -15,8 +16,37 @@ import type {
   OwnerStaffMember,
   OwnerTimelineEntry,
   OwnerWalletRow,
+  Sport,
   User,
 } from "@/lib/types";
+
+// Payloads for branch/court management forms.
+export type BranchInput = {
+  name: string;
+  address?: string | null;
+  phone?: string | null;
+  openTime?: string | null;
+  closeTime?: string | null;
+  sports?: string[];
+  facilities?: string[];
+  imageUrl?: string | null;
+  description?: string | null;
+  status?: "active" | "inactive";
+};
+
+export type CourtInput = {
+  branchId: string;
+  name: string;
+  sport: Sport;
+  pricePerHour: number;
+  floor?: string | null;
+  aircon?: string | null;
+  height?: string | null;
+  lighting?: string | null;
+  standard?: string | null;
+  players?: string | null;
+  status?: "active" | "inactive";
+};
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 
@@ -148,7 +178,35 @@ export const ownerApi = {
 
   rejectPayment: (id: string) => req<OwnerPayment>(`/owner/payments/${id}/reject`, { method: "POST" }),
 
-  getCourts: () => req<Court[]>("/owner/courts"),
+  // --- Courts (คอร์ท) management ---
+  getCourts: () => req<OwnerCourt[]>("/owner/courts"),
+
+  createCourt: (body: CourtInput) =>
+    req<OwnerCourt>("/owner/courts", { method: "POST", body }),
+
+  updateCourt: (id: string, body: Partial<CourtInput>) =>
+    req<OwnerCourt>(`/owner/courts/${id}`, { method: "PUT", body }),
+
+  toggleCourt: (id: string) =>
+    req<OwnerCourt>(`/owner/courts/${id}/toggle`, { method: "POST" }),
+
+  deleteCourt: (id: string) =>
+    req<void>(`/owner/courts/${id}`, { method: "DELETE" }),
+
+  // --- Branches (สนาม/สาขา) management ---
+  getBranches: () => req<OwnerBranch[]>("/owner/branches"),
+
+  createBranch: (body: BranchInput) =>
+    req<OwnerBranch>("/owner/branches", { method: "POST", body }),
+
+  updateBranch: (id: string, body: Partial<BranchInput>) =>
+    req<OwnerBranch>(`/owner/branches/${id}`, { method: "PUT", body }),
+
+  toggleBranch: (id: string) =>
+    req<OwnerBranch>(`/owner/branches/${id}/toggle`, { method: "POST" }),
+
+  deleteBranch: (id: string) =>
+    req<void>(`/owner/branches/${id}`, { method: "DELETE" }),
 
   getCustomers: () => req<OwnerCustomer[]>("/owner/customers"),
 

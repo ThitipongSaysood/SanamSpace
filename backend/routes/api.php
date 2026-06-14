@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\Admin\OrganizationController as AdminOrganizationCo
 use App\Http\Controllers\Api\Admin\PlanController as AdminPlanController;
 use App\Http\Controllers\Api\Admin\SubscriptionController as AdminSubscriptionController;
 use App\Http\Controllers\Api\Owner\BookingController as OwnerBookingController;
+use App\Http\Controllers\Api\Owner\BranchController as OwnerBranchController;
 use App\Http\Controllers\Api\Owner\BroadcastController as OwnerBroadcastController;
 use App\Http\Controllers\Api\Owner\CourtController as OwnerCourtController;
 use App\Http\Controllers\Api\Owner\CrmController as OwnerCrmController;
@@ -89,7 +90,19 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/payments/{id}/verify', [OwnerPaymentController::class, 'verify']);
         Route::post('/payments/{id}/reject', [OwnerPaymentController::class, 'reject']);
 
+        // --- Branches (สนาม/สาขา) management CRUD ---
+        Route::get('/branches', [OwnerBranchController::class, 'index']);
+        Route::post('/branches', [OwnerBranchController::class, 'store']);
+        Route::put('/branches/{id}', [OwnerBranchController::class, 'update']);
+        Route::post('/branches/{id}/toggle', [OwnerBranchController::class, 'toggle']);
+        Route::delete('/branches/{id}', [OwnerBranchController::class, 'destroy']);
+
+        // --- Courts (คอร์ท) management CRUD ---
         Route::get('/courts', [OwnerCourtController::class, 'index']);
+        Route::post('/courts', [OwnerCourtController::class, 'store']);
+        Route::put('/courts/{id}', [OwnerCourtController::class, 'update']);
+        Route::post('/courts/{id}/toggle', [OwnerCourtController::class, 'toggle']);
+        Route::delete('/courts/{id}', [OwnerCourtController::class, 'destroy']);
 
         Route::get('/customers', [OwnerCustomerController::class, 'index']);
 

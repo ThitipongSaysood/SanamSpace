@@ -204,6 +204,36 @@ export type OwnerPromotion = {
   sortOrder: number;
 };
 
+// active = เปิด, inactive = ปิด
+export type OwnerStatus = "active" | "inactive";
+
+export type OwnerCourt = {
+  id: string;
+  branchId: string;
+  branchName?: string | null;
+  name: string;
+  sport: Sport;
+  pricePerHour: number;
+  status: OwnerStatus;
+  sortOrder: number;
+  spec?: Partial<Omit<CourtSpec, "sport">>;
+};
+
+export type OwnerBranch = {
+  id: string;
+  name: string;
+  address?: string | null;
+  phone?: string | null;
+  openTime?: string | null; // "HH:MM"
+  closeTime?: string | null;
+  status: OwnerStatus;
+  sports: string[];
+  facilities: string[];
+  imageUrl?: string | null;
+  description?: string | null;
+  courtCount: number;
+};
+
 export type OwnerStaffMember = {
   id: string;
   displayName: string;
