@@ -39,3 +39,32 @@ cd frontend && npm run dev
 
 /owner    เจ้าของสนาม — owner@everyday.test / password
 /admin    แพลตฟอร์ม — super@sanamspace.test / password
+
+
+
+ Customer App — ขาดอะไร
+ปุ่มมีแต่ยังไม่ทำงาน (quick win):
+
+💰 เติมเงิน wallet — ปุ่มมี ไม่มี handler/endpoint
+🎫 ซื้อแพ็กเกจ — ปุ่ม "ซื้อเลย" ยังไม่ทำงาน
+⭐ รีวิว/ให้ดาว — ดูได้ แต่ลูกค้าเขียนรีวิวไม่ได้
+ยังไม่มีเลย:
+
+🔑 LINE Login จริง — ยัง mock (auth-context.tsx hardcode "คุณสมชาย"), backend มี TODO ยังไม่ verify token
+สมัครสมาชิก / login เบอร์-อีเมล (ปุ่ม disabled)
+เลื่อนการจอง (reschedule), โค้ดส่วนลด, รายการโปรด, ตั้งค่าแจ้งเตือน (toggle เป็น local อย่างเดียว)
+⚠️ ป้าย "(เดโม่)" ที่ปุ่มเช็คอิน
+🏢 Owner Portal — ขาดอะไร
+อ่านอย่างเดียว ทั้งที่ควรแก้ได้:
+
+👥 ลูกค้า — ดู list ได้ ไม่มีหน้า detail/แก้ไข/โน้ต
+🧑‍💼 พนักงาน — เชิญได้อย่างเดียว แก้/ลบ/ระงับ/เปลี่ยน role ไม่ได้ (backend ไม่มี endpoint)
+🎟️ สมาชิก — ปรับแต้มได้ แต่จัดการ tier/วันหมดอายุไม่ได้
+ยังไม่มีเลย:
+
+💸 คืนเงิน (refund) — สำคัญมาก
+🔧 ปิดคอร์ทซ่อมบำรุง / บล็อกวันหยุด
+💲 ราคาตามช่วงเวลา (peak pricing), จองแบบ recurring
+📊 export รายงาน (CSV/PDF) — ตอนนี้ดูได้อย่างเดียว
+📢 รับประกาศจาก platform (ที่เพิ่งทำฝั่ง admin ยังไม่มีฝั่ง owner)
+Mock/hardcode ที่เหลือ: ตัวเลข % เทียบเมื่อวานบน dashboard (hardcode), search bar บน topbar, badge แจ้งเตือน "3", แท็บ Settings "ช่องทางการชำระเงิน" (coming soon)

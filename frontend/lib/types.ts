@@ -95,6 +95,25 @@ export type ReviewSummary = {
 
 export type VenuePackage = { id: string; name: string; hours: number; price: number; validDays: number; savePercent: number };
 
+// A package the customer has bought (after the venue approves it, status=active).
+export type CustomerPackage = {
+  id: string;
+  name: string;
+  totalHours: number;
+  remainingHours: number;
+  price: number;
+  validDays: number;
+  status: string; // pending | pending_review | active | rejected | expired
+  expiresAt: string | null;
+};
+
+export type PackagePurchaseInstructions = {
+  purchaseId: string;
+  amount: number;
+  promptpay: { payload: string } | null;
+  bank: { bankName: string | null; accountName: string | null; accountNumber: string | null } | null;
+};
+
 export type Membership = {
   tier: "Silver" | "Gold" | "Platinum";
   memberId: string;
@@ -305,6 +324,15 @@ export type OwnerWalletTopup = {
   amount: number;
   slipUrl: string | null;
   date: string;
+};
+
+export type OwnerPackagePurchase = {
+  id: string;
+  customerName: string | null;
+  packageName: string;
+  hours: number;
+  price: number;
+  slipUrl: string | null;
 };
 
 // --- Owner CRM ---

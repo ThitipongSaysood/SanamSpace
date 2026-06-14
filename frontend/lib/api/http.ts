@@ -1,6 +1,6 @@
 import type {
-  AppNotification, Booking, Court, CourtSchedule, Membership, Payment, PaymentInstructions,
-  Promotion, ReviewSummary, User, Venue, VenuePackage, Wallet, WalletTopupInstructions,
+  AppNotification, Booking, Court, CourtSchedule, CustomerPackage, Membership, Payment, PaymentInstructions,
+  PackagePurchaseInstructions, Promotion, ReviewSummary, User, Venue, VenuePackage, Wallet, WalletTopupInstructions,
 } from "@/lib/types";
 import { getToken, setToken } from "./token";
 import type { Api, LinePayload } from "./mock";
@@ -95,6 +95,15 @@ export const httpApi: Api = {
     if (file) fd.append("slip", file);
     return req<Wallet>(`/wallet/topup/${id}/slip`, { method: "POST", body: fd });
   },
+  getMyPackages: () => req<CustomerPackage[]>("/my-packages"),
+  purchasePackage: (id) => req<PackagePurchaseInstructions>(`/packages/${id}/purchase`, { method: "POST" }),
+  purchasePackageSlip: (id, file) => {
+    const fd = new FormData();
+    if (file) fd.append("slip", file);
+    return req<CustomerPackage>(`/packages/purchases/${id}/slip`, { method: "POST", body: fd });
+  },
+  payWithPackage: (bookingId, customerPackageId) =>
+    req<Booking>(`/bookings/${bookingId}/pay-with-package`, { method: "POST", body: { customerPackageId } }),
   getPackages: () => req<VenuePackage[]>("/packages"),
   getMembership: () => req<Membership>("/membership"),
   getWallet: () => req<Wallet>("/wallet"),

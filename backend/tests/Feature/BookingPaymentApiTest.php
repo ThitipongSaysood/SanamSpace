@@ -194,6 +194,66 @@ class BookingPaymentApiTest extends TestCase
         $this->withToken($token)->getJson('/api/v1/wallet')->assertOk()->assertJsonPath('data.balance', 500);
     }
 
+    public function test_package_purchase_approval_and_redemption_at_booking(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+
+        $token = $this->customerToken();
+        $courtId = $this->everydayCourtId();
+
+        $package = $this->getJson('/api/v1/packages?venueId=everyday-badminton')->json('data.0');
+        $this->assertNotNull($package, 'seeded package required');
+
+        // Buy → pending, returns a real PromptPay QR.
+        $purchase = $this->withToken($token)->postJson("/api/v1/packages/{$package['id']}/purchase")
+            ->assertOk();
+        $purchaseId = $purchase->json('purchaseId');
+        $this->assertNotNull($purchase->json('promptpay.payload'));
+
+        // Attach slip → pending_review.
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->postJson("/api/v1/packages/purchases/{$purchaseId}/slip", [
+            'slip' => UploadedFile::fake()->image('slip.png'),
+        ])->assertOk()->assertJsonPath('data.status', 'pending_review');
+
+        // Not usable yet (still pending_review).
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->getJson('/api/v1/my-packages')
+            ->assertOk()
+            ->assertJsonPath('data.0.status', 'pending_review');
+
+        // Owner approves → active.
+        $ownerToken = $this->postJson('/api/v1/auth/admin/login', [
+            'email' => 'owner@everyday.test', 'password' => 'password',
+        ])->json('token');
+        $this->app['auth']->forgetGuards();
+        $this->withToken($ownerToken)->getJson('/api/v1/owner/package-purchases')
+            ->assertOk()->assertJsonPath('data.0.id', $purchaseId);
+        $this->app['auth']->forgetGuards();
+        $this->withToken($ownerToken)->postJson("/api/v1/owner/package-purchases/{$purchaseId}/approve")
+            ->assertOk()->assertJsonPath('status', 'active');
+
+        // Book then pay with the package (1 hour) → confirmed, amount 0, hours deducted.
+        $this->app['auth']->forgetGuards();
+        $bookingId = $this->withToken($token)->postJson('/api/v1/bookings', [
+            'venueId' => 'everyday-badminton', 'courtId' => $courtId,
+            'date' => '2026-07-01', 'start' => '10:00', 'end' => '11:00',
+        ])->assertCreated()->json('data.id');
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->postJson("/api/v1/bookings/{$bookingId}/pay-with-package", [
+            'customerPackageId' => $purchaseId,
+        ])->assertOk()
+            ->assertJsonPath('data.status', 'confirmed')
+            ->assertJsonPath('data.amount', 0);
+
+        $remaining = $package['hours'] - 1;
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->getJson('/api/v1/my-packages')
+            ->assertOk()
+            ->assertJsonPath('data.0.remainingHours', $remaining);
+    }
+
     public function test_double_booking_same_slot_returns_422(): void
     {
         $token = $this->customerToken();

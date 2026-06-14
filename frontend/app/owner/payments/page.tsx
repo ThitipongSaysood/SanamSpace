@@ -119,6 +119,73 @@ export default function OwnerPaymentsPage() {
           ))}
         </div>
       )}
+
+      <PackagePurchases />
     </div>
+  );
+}
+
+// Customer package purchases awaiting approval (slip review).
+function PackagePurchases() {
+  const qc = useQueryClient();
+  const { data } = useQuery({ queryKey: ["owner", "package-purchases"], queryFn: ownerApi.getPackagePurchases });
+
+  const approve = useMutation({
+    mutationFn: (id: string) => ownerApi.approvePackagePurchase(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["owner", "package-purchases"] }),
+    onError: (e: Error) => window.alert(e.message),
+  });
+  const reject = useMutation({
+    mutationFn: (id: string) => ownerApi.rejectPackagePurchase(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["owner", "package-purchases"] }),
+    onError: (e: Error) => window.alert(e.message),
+  });
+
+  if (!data || data.length === 0) return null;
+  const pending = approve.isPending || reject.isPending;
+
+  return (
+    <section className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
+      <div className="flex items-center gap-2">
+        <h2 className="font-semibold">ซื้อแพ็กเกจรออนุมัติ</h2>
+        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">{data.length}</span>
+      </div>
+      <div className="divide-y divide-black/5">
+        {data.map((p) => (
+          <div key={p.id} className="flex items-center gap-3 py-3">
+            {p.slipUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <a href={p.slipUrl} target="_blank" rel="noreferrer" className="shrink-0">
+                <img src={p.slipUrl} alt="สลิป" className="size-12 rounded-lg object-cover ring-1 ring-black/10" />
+              </a>
+            ) : (
+              <span className="grid size-12 shrink-0 place-items-center rounded-lg bg-app text-xs text-muted-foreground">ไม่มีสลิป</span>
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-medium">{p.customerName ?? "ลูกค้า"}</div>
+              <div className="text-xs text-muted-foreground">{p.packageName} · {p.hours} ชม. · ฿{fmt.format(p.price)}</div>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => reject.mutate(p.id)}
+                className="grid size-9 place-items-center rounded-lg text-muted-foreground hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
+              >
+                <X className="size-4" />
+              </button>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => approve.mutate(p.id)}
+                className="grid size-9 place-items-center rounded-lg bg-brand text-brand-foreground hover:bg-brand/90 disabled:opacity-50"
+              >
+                <Check className="size-4" />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }

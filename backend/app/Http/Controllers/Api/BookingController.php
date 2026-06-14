@@ -124,6 +124,45 @@ class BookingController extends Controller
     }
 
     /**
+     * POST /bookings/{id}/pay-with-package { customerPackageId } -> Booking
+     *
+     * Redeem an active package: deduct the booking's hours and confirm it
+     * (amount becomes 0 — the package purchase was the revenue).
+     */
+    public function payWithPackage(Request $request, string $id): BookingResource
+    {
+        $data = $request->validate([
+            'customerPackageId' => ['required', 'string'],
+        ]);
+
+        $booking = $this->findOwned($request, $id);
+
+        if ($booking->status !== 'pending_payment') {
+            throw ValidationException::withMessages(['booking' => 'รายการจองนี้ชำระเงินแล้ว']);
+        }
+
+        $package = \App\Models\CustomerPackage::query()
+            ->where('id', $data['customerPackageId'])
+            ->where('customer_id', $request->user()->id)
+            ->where('organization_id', $booking->organization_id)
+            ->first();
+
+        if (! $package || ! $package->isUsable()) {
+            throw ValidationException::withMessages(['customerPackageId' => 'แพ็กเกจใช้งานไม่ได้ (หมดอายุหรือถูกระงับ)']);
+        }
+
+        $hours = $this->hoursBetween($booking->start, $booking->end);
+        if ($package->remaining_hours < $hours) {
+            throw ValidationException::withMessages(['customerPackageId' => 'ชั่วโมงในแพ็กเกจไม่พอ']);
+        }
+
+        $package->decrement('remaining_hours', $hours);
+        $booking->update(['amount' => 0, 'status' => 'confirmed']);
+
+        return new BookingResource($booking->fresh(['branch.organization', 'court']));
+    }
+
+    /**
      * POST /bookings/{id}/checkin -> Booking (status completed).
      */
     public function checkin(Request $request, string $id): BookingResource

@@ -16,6 +16,7 @@ import type {
   OwnerStaffMember,
   OwnerSubscription,
   OwnerTimelineEntry,
+  OwnerPackagePurchase,
   OwnerWalletRow,
   OwnerWalletTopup,
   Sport,
@@ -292,6 +293,14 @@ export const ownerApi = {
 
   rejectWalletTopup: (id: string) =>
     req<{ id: string; status: string }>(`/owner/wallet-topups/${id}/reject`, { method: "POST", raw: true }),
+
+  getPackagePurchases: () => req<OwnerPackagePurchase[]>("/owner/package-purchases"),
+
+  approvePackagePurchase: (id: string) =>
+    req<{ id: string; status: string }>(`/owner/package-purchases/${id}/approve`, { method: "POST", raw: true }),
+
+  rejectPackagePurchase: (id: string) =>
+    req<{ id: string; status: string }>(`/owner/package-purchases/${id}/reject`, { method: "POST", raw: true }),
 
   // --- CRM ---
   getCrmOverview: () => req<OwnerCrmOverview>("/owner/crm/overview"),

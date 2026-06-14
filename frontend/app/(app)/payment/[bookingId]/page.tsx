@@ -1,9 +1,9 @@
 "use client";
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  CalendarDays, CheckCircle2, Ticket, ChevronRight, QrCode, Landmark, Clock, Check, Hourglass,
+  CalendarDays, CheckCircle2, Ticket, ChevronRight, QrCode, Landmark, Clock, Check, Hourglass, Package as PackageIcon,
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { api } from "@/lib/api/client";
@@ -15,21 +15,27 @@ import { Loading, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import type { Payment, PaymentInstructions } from "@/lib/types";
 
-type Method = { id: "promptpay" | "transfer"; label: string; Icon: ComponentType<{ className?: string }>; iconCls: string };
-const METHODS: Method[] = [
-  { id: "promptpay", label: "PromptPay QR", Icon: QrCode, iconCls: "bg-brand/10 text-brand" },
-  { id: "transfer", label: "โอนเงิน (อัปโหลดสลิป)", Icon: Landmark, iconCls: "bg-blue-50 text-blue-600" },
-];
+type MethodId = "promptpay" | "transfer" | "package";
+type Method = { id: MethodId; label: string; Icon: ComponentType<{ className?: string }>; iconCls: string };
+
+/** Hours between "HH:MM" strings. */
+function hoursBetween(start: string, end: string): number {
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  return (eh * 60 + em - (sh * 60 + sm)) / 60;
+}
 
 export default function PaymentPage({ params }: { params: Promise<{ bookingId: string }> }) {
   const { bookingId } = use(params);
   const router = useRouter();
   const qc = useQueryClient();
   const { data: booking, isLoading } = useBooking(bookingId);
+  const myPackages = useQuery({ queryKey: ["my-packages"], queryFn: api.getMyPackages });
   const [payment, setPayment] = useState<Payment | null>(null);
   const [instructions, setInstructions] = useState<PaymentInstructions | null>(null);
   const [slipFile, setSlipFile] = useState<File | null>(null);
-  const [method, setMethod] = useState<"promptpay" | "transfer">("promptpay");
+  const [method, setMethod] = useState<MethodId>("promptpay");
+  const [redeemed, setRedeemed] = useState(false);
   const [busy, setBusy] = useState(false);
 
   // Load pay instructions (real PromptPay QR + venue bank details) once a payment exists.
@@ -45,10 +51,31 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
   if (isLoading) return <Loading />;
   if (!booking) return <EmptyState message="ไม่พบการจอง" />;
 
+  const bookingHours = hoursBetween(booking.start, booking.end);
+  const eligiblePackage = (myPackages.data ?? []).find(
+    (p) => p.status === "active" && p.remainingHours >= bookingHours,
+  );
+
+  const methods: Method[] = [
+    { id: "promptpay", label: "PromptPay QR", Icon: QrCode, iconCls: "bg-brand/10 text-brand" },
+    { id: "transfer", label: "โอนเงิน (อัปโหลดสลิป)", Icon: Landmark, iconCls: "bg-blue-50 text-blue-600" },
+    ...(eligiblePackage
+      ? [{ id: "package" as const, label: `ใช้แพ็กเกจ (เหลือ ${eligiblePackage.remainingHours} ชม.)`, Icon: PackageIcon, iconCls: "bg-amber-50 text-amber-600" }]
+      : []),
+  ];
+
   async function start() {
     setBusy(true);
     try {
-      const p = await api.createPayment(bookingId, method);
+      if (method === "package" && eligiblePackage) {
+        await api.payWithPackage(bookingId, eligiblePackage.id);
+        await qc.invalidateQueries({ queryKey: ["booking", bookingId] });
+        await qc.invalidateQueries({ queryKey: ["bookings"] });
+        await qc.invalidateQueries({ queryKey: ["my-packages"] });
+        setRedeemed(true);
+        return;
+      }
+      const p = await api.createPayment(bookingId, method as "promptpay" | "transfer");
       setPayment(p);
     } finally {
       setBusy(false);
@@ -68,8 +95,8 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
     }
   }
 
-  // Confirmed by the venue
-  if (payment?.status === "approved") {
+  // Confirmed by the venue (or paid instantly with a package)
+  if (payment?.status === "approved" || redeemed) {
     return (
       <main className="flex min-h-dvh flex-col items-center justify-center px-6 text-center">
         <div className="grid size-24 place-items-center rounded-full bg-brand text-white shadow-lg shadow-brand/30">
@@ -140,7 +167,7 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
 
             <h2 className="px-1 font-semibold">เลือกวิธีชำระเงิน</h2>
             <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
-              {METHODS.map((m, i) => {
+              {methods.map((m, i) => {
                 const active = method === m.id;
                 const Icon = m.Icon;
                 return (
@@ -171,7 +198,7 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
               disabled={busy}
               onClick={start}
             >
-              {busy ? "กำลังเริ่ม..." : "ดำเนินการชำระเงิน"}
+              {busy ? "กำลังดำเนินการ..." : method === "package" ? "ใช้แพ็กเกจชำระ" : "ดำเนินการชำระเงิน"}
             </Button>
           </>
         )}

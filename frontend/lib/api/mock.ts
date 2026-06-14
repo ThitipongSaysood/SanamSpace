@@ -1,6 +1,6 @@
 import type {
-  AppNotification, Booking, Court, CourtSchedule, Membership, Payment, PaymentInstructions,
-  Promotion, ReviewSummary, Slot, User, Venue, VenuePackage, Wallet, WalletTopupInstructions,
+  AppNotification, Booking, Court, CourtSchedule, CustomerPackage, Membership, Payment, PaymentInstructions,
+  PackagePurchaseInstructions, Promotion, ReviewSummary, Slot, User, Venue, VenuePackage, Wallet, WalletTopupInstructions,
 } from "@/lib/types";
 import {
   courts as courtsFx, venues as venuesFx,
@@ -122,6 +122,26 @@ export const mockApi = {
   async walletTopupSlip(_id: string, _file?: File): Promise<Wallet> {
     await delay();
     return { balance: 0, transactions: [{ id: "txn-mock", date: "วันนี้", label: "เติมเงิน", amount: 0, status: "pending_review" }] };
+  },
+  async getMyPackages(): Promise<CustomerPackage[]> { await delay(); return []; },
+  async purchasePackage(_id: string): Promise<PackagePurchaseInstructions> {
+    await delay();
+    return {
+      purchaseId: "cp-mock",
+      amount: 0,
+      promptpay: { payload: "00020101021129370016A000000677010111011300668888888885802TH53037646304ABCD" },
+      bank: { bankName: "กสิกรไทย", accountName: "ร้านตัวอย่าง", accountNumber: "123-4-56789-0" },
+    };
+  },
+  async purchasePackageSlip(_id: string, _file?: File): Promise<CustomerPackage> {
+    await delay();
+    return { id: "cp-mock", name: "แพ็กเกจ", totalHours: 10, remainingHours: 10, price: 0, validDays: 30, status: "pending_review", expiresAt: null };
+  },
+  async payWithPackage(bookingId: string, _customerPackageId: string): Promise<Booking> {
+    await delay();
+    const b = db.bookings.get(bookingId)!;
+    b.status = "confirmed";
+    return { ...b };
   },
   async getPackages(): Promise<VenuePackage[]> { await delay(); return packagesFx; },
   async getMembership(): Promise<Membership> { await delay(); return membershipFx; },

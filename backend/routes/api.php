@@ -33,6 +33,7 @@ use App\Http\Controllers\Api\Owner\CrmController as OwnerCrmController;
 use App\Http\Controllers\Api\Owner\CustomerController as OwnerCustomerController;
 use App\Http\Controllers\Api\Owner\DashboardController as OwnerDashboardController;
 use App\Http\Controllers\Api\Owner\MembershipController as OwnerMembershipController;
+use App\Http\Controllers\Api\Owner\PackagePurchaseController as OwnerPackagePurchaseController;
 use App\Http\Controllers\Api\Owner\SegmentController as OwnerSegmentController;
 use App\Http\Controllers\Api\Owner\TimelineController as OwnerTimelineController;
 use App\Http\Controllers\Api\Owner\PaymentController as OwnerPaymentController;
@@ -77,6 +78,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/wallet/topup', [WalletController::class, 'topup']);
     Route::post('/wallet/topup/{id}/slip', [WalletController::class, 'topupSlip']);
     Route::post('/reviews', [ReviewController::class, 'store']);
+
+    // --- Packages: browse already public; purchase + redeem here ---
+    Route::get('/my-packages', [PackageController::class, 'myPackages']);
+    Route::post('/packages/{id}/purchase', [PackageController::class, 'purchase']);
+    Route::post('/packages/purchases/{id}/slip', [PackageController::class, 'purchaseSlip']);
+    Route::post('/bookings/{id}/pay-with-package', [BookingController::class, 'payWithPackage']);
     Route::get('/notifications', [NotificationController::class, 'index']);
 
     // --- Bookings (scoped to the authenticated Customer) ---
@@ -154,6 +161,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/wallet-topups', [OwnerWalletController::class, 'topupRequests']);
         Route::post('/wallet-topups/{id}/approve', [OwnerWalletController::class, 'approveTopup']);
         Route::post('/wallet-topups/{id}/reject', [OwnerWalletController::class, 'rejectTopup']);
+
+        Route::get('/package-purchases', [OwnerPackagePurchaseController::class, 'index']);
+        Route::post('/package-purchases/{id}/approve', [OwnerPackagePurchaseController::class, 'approve']);
+        Route::post('/package-purchases/{id}/reject', [OwnerPackagePurchaseController::class, 'reject']);
 
         // --- CRM (overview + segments + timeline + broadcasts) ---
         Route::get('/crm/overview', [OwnerCrmController::class, 'overview']);
