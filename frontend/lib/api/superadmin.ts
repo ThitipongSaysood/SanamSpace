@@ -1,11 +1,17 @@
 import type {
+  AdminAnnouncement,
+  AdminAuditLog,
+  AdminInvoice,
   AdminOrganization,
   AdminPayment,
   AdminRole,
   AdminSubscription,
+  AdminSupportTicket,
+  AdminTransaction,
   AdminUser,
   PlatformDashboard,
   PlatformFeature,
+  PlatformSettings,
   Plan,
   User,
 } from "@/lib/types";
@@ -139,4 +145,19 @@ export const superAdminApi = {
   getUsers: () => req<AdminUser[]>("/admin/users"),
 
   getRoles: () => req<AdminRole[]>("/admin/roles"),
+
+  getInvoices: () => req<AdminInvoice[]>("/admin/invoices"),
+
+  getTransactions: () => req<AdminTransaction[]>("/admin/transactions"),
+
+  getSupportTickets: () => req<AdminSupportTicket[]>("/admin/support-tickets"),
+
+  getAnnouncements: () => req<AdminAnnouncement[]>("/admin/announcements"),
+
+  getAuditLogs: () => req<AdminAuditLog[]>("/admin/audit-logs"),
+
+  getSettings: () => req<PlatformSettings>("/admin/settings"),
+
+  updateSettings: (patch: Partial<PlatformSettings>) =>
+    req<PlatformSettings>("/admin/settings", { method: "PUT", body: patch }),
 };

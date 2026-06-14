@@ -386,6 +386,64 @@ export type AdminRole = {
   permissionCount: number;
 };
 
+export type AdminInvoice = {
+  id: string;
+  number: string;
+  organizationName: string;
+  amount: number;
+  status: string;
+  issueDate: string;
+  dueDate: string;
+};
+
+export type AdminTransaction = {
+  id: string;
+  organizationName: string;
+  type: string;
+  amount: number;
+  method: string;
+  status: string;
+  createdAt: string | null;
+};
+
+export type AdminSupportTicket = {
+  id: string;
+  ticketNo: string;
+  organizationName: string;
+  subject: string;
+  status: string;
+  priority: string;
+  assignedTo: string | null;
+  updatedAt: string | null;
+};
+
+export type AdminAnnouncement = {
+  id: string;
+  title: string;
+  body: string | null;
+  audience: string;
+  status: string;
+  publishedAt: string | null;
+};
+
+export type AdminAuditLog = {
+  id: string;
+  userName: string;
+  action: string;
+  detail: string | null;
+  ipAddress: string | null;
+  createdAt: string | null;
+};
+
+export type PlatformSettings = {
+  platformName: string;
+  supportEmail: string | null;
+  timezone: string;
+  currency: string;
+  dateFormat: string;
+  language: string;
+};
+
 export type Plan = {
   id: string;
   code: string;
