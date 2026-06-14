@@ -181,6 +181,8 @@ function BranchForm({ branch, onClose }: { branch?: OwnerBranch; onClose: () => 
     }));
   }
 
+  const [formTab, setFormTab] = useState<"general" | "media" | "hours">("general");
+
   return (
     <form
       onSubmit={onSubmit}
@@ -198,10 +200,33 @@ function BranchForm({ branch, onClose }: { branch?: OwnerBranch; onClose: () => 
         </button>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* ===== ซ้าย: ข้อมูล / สิ่งอำนวยความสะดวก / เวลารายวัน ===== */}
-        <div className="space-y-6 lg:col-span-2">
-          {/* ข้อมูลทั่วไป */}
+      {/* แท็บ (เหมือนหน้า Settings) */}
+      <div className="flex flex-wrap gap-1 border-b border-black/5">
+        {(
+          [
+            { key: "general", label: "ข้อมูลทั่วไป" },
+            { key: "media", label: "รูปภาพ & แผนผัง" },
+            { key: "hours", label: "เวลาทำการ" },
+          ] as const
+        ).map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setFormTab(t.key)}
+            className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition ${
+              formTab === t.key
+                ? "border-brand text-brand"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ===== แท็บ: ข้อมูลทั่วไป ===== */}
+      {formTab === "general" && (
+        <div className="space-y-6">
           <section className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="b-name">ชื่อสนาม</Label>
@@ -248,7 +273,6 @@ function BranchForm({ branch, onClose }: { branch?: OwnerBranch; onClose: () => 
             </div>
           </section>
 
-          {/* สิ่งอำนวยความสะดวก */}
           <section className="space-y-2">
             <Label>สิ่งอำนวยความสะดวก</Label>
             <div className="flex flex-wrap gap-2">
@@ -272,52 +296,58 @@ function BranchForm({ branch, onClose }: { branch?: OwnerBranch; onClose: () => 
               })}
             </div>
           </section>
-
-          {/* เวลาเปิด-ปิด รายวัน */}
-          <section className="space-y-2">
-            <Label>เวลาเปิด-ปิด รายวัน (ไม่บังคับ)</Label>
-            <div className="space-y-1.5">
-              {form.weekHours.map((h, i) => (
-                <div key={h.day} className="flex items-center gap-2">
-                  <span className="w-20 text-sm text-muted-foreground">{h.day}</span>
-                  <Input
-                    type="time"
-                    value={h.open}
-                    onChange={(e) =>
-                      setForm((f) => {
-                        const wh = [...f.weekHours];
-                        wh[i] = { ...wh[i], open: e.target.value };
-                        return { ...f, weekHours: wh };
-                      })
-                    }
-                    className="max-w-[120px]"
-                  />
-                  <span className="text-muted-foreground">-</span>
-                  <Input
-                    type="time"
-                    value={h.close}
-                    onChange={(e) =>
-                      setForm((f) => {
-                        const wh = [...f.weekHours];
-                        wh[i] = { ...wh[i], close: e.target.value };
-                        return { ...f, weekHours: wh };
-                      })
-                    }
-                    className="max-w-[120px]"
-                  />
-                </div>
-              ))}
-            </div>
-          </section>
         </div>
+      )}
 
-        {/* ===== ขวา: รูปภาพ / แผนผัง / แกลเลอรี ===== */}
-        <div className="space-y-6 rounded-xl bg-app/40 p-4">
-          <ImageField label="รูปปกสนาม" value={form.imageUrl} onChange={(url) => set("imageUrl", url)} />
-          <ImageField label="แผนผังสนาม (floor-plan)" value={form.planImageUrl} onChange={(url) => set("planImageUrl", url)} />
+      {/* ===== แท็บ: รูปภาพ & แผนผัง ===== */}
+      {formTab === "media" && (
+        <div className="space-y-6">
+          <section className="grid gap-4 sm:grid-cols-2">
+            <ImageField label="รูปปกสนาม" value={form.imageUrl} onChange={(url) => set("imageUrl", url)} />
+            <ImageField label="แผนผังสนาม (floor-plan)" value={form.planImageUrl} onChange={(url) => set("planImageUrl", url)} />
+          </section>
           <PhotosField photos={form.photos} onChange={(photos) => set("photos", photos)} />
         </div>
-      </div>
+      )}
+
+      {/* ===== แท็บ: เวลาทำการ ===== */}
+      {formTab === "hours" && (
+        <section className="space-y-2">
+          <Label>เวลาเปิด-ปิด รายวัน (ไม่บังคับ)</Label>
+          <div className="space-y-1.5">
+            {form.weekHours.map((h, i) => (
+              <div key={h.day} className="flex items-center gap-2">
+                <span className="w-20 text-sm text-muted-foreground">{h.day}</span>
+                <Input
+                  type="time"
+                  value={h.open}
+                  onChange={(e) =>
+                    setForm((f) => {
+                      const wh = [...f.weekHours];
+                      wh[i] = { ...wh[i], open: e.target.value };
+                      return { ...f, weekHours: wh };
+                    })
+                  }
+                  className="max-w-[120px]"
+                />
+                <span className="text-muted-foreground">-</span>
+                <Input
+                  type="time"
+                  value={h.close}
+                  onChange={(e) =>
+                    setForm((f) => {
+                      const wh = [...f.weekHours];
+                      wh[i] = { ...wh[i], close: e.target.value };
+                      return { ...f, weekHours: wh };
+                    })
+                  }
+                  className="max-w-[120px]"
+                />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {mutation.isError && <p className="text-sm text-brand-danger">บันทึกไม่สำเร็จ ลองอีกครั้ง</p>}
 
