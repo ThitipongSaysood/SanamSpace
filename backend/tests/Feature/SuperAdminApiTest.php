@@ -152,6 +152,55 @@ class SuperAdminApiTest extends TestCase
             ->assertJsonPath('data.isActive', false);
     }
 
+    public function test_settings_persist_security_notification_and_backup_fields(): void
+    {
+        $token = $this->superToken();
+
+        $this->withToken($token)->putJson('/api/v1/admin/settings', [
+            'sessionTimeoutMinutes' => 120,
+            'passwordMinLength' => 12,
+            'twoFactorRequired' => true,
+            'notifyPayment' => false,
+            'backupFrequency' => 'daily',
+            'backupRetentionDays' => 14,
+        ])->assertOk()
+            ->assertJsonPath('data.sessionTimeoutMinutes', 120)
+            ->assertJsonPath('data.passwordMinLength', 12)
+            ->assertJsonPath('data.twoFactorRequired', true)
+            ->assertJsonPath('data.notifyPayment', false)
+            ->assertJsonPath('data.backupFrequency', 'daily')
+            ->assertJsonPath('data.backupRetentionDays', 14);
+
+        // Reloads from DB on a fresh request.
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->getJson('/api/v1/admin/settings')
+            ->assertOk()
+            ->assertJsonPath('data.backupFrequency', 'daily');
+    }
+
+    public function test_backup_can_be_created_listed_and_downloaded(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('local');
+        $token = $this->superToken();
+
+        $created = $this->withToken($token)->postJson('/api/v1/admin/backups')
+            ->assertCreated()
+            ->json('data');
+
+        $this->assertMatchesRegularExpression('/^backup-\d{8}-\d{6}\.json$/', $created['name']);
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->getJson('/api/v1/admin/backups')
+            ->assertOk()
+            ->assertJsonPath('data.0.name', $created['name']);
+
+        $this->app['auth']->forgetGuards();
+        $res = $this->withToken($token)->get("/api/v1/admin/backups/{$created['name']}/download")
+            ->assertOk();
+        // The dump contains real table data.
+        $this->assertStringContainsString('organizations', $res->streamedContent());
+    }
+
     public function test_unauthenticated_request_is_unauthorized(): void
     {
         $this->getJson('/api/v1/admin/dashboard')->assertUnauthorized();

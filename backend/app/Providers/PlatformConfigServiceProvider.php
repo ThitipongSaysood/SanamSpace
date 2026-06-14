@@ -31,6 +31,11 @@ class PlatformConfigServiceProvider extends ServiceProvider
             }
 
             $this->applyMail($s);
+
+            // Security: token lifetime (minutes). 0/null = never expires.
+            if ((int) $s->session_timeout_minutes > 0) {
+                config(['sanctum.expiration' => (int) $s->session_timeout_minutes]);
+            }
         } catch (\Throwable $e) {
             // Keep booting with .env config; never let settings break the app.
         }

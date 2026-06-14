@@ -2,6 +2,7 @@ import type {
   AdminAnnouncement,
   AdminAuditLog,
   AdminInvoice,
+  Backup,
   AdminOrganization,
   AdminOrganizationDetail,
   AdminPayment,
@@ -201,4 +202,26 @@ export const superAdminApi = {
 
   updateSettings: (patch: Partial<PlatformSettings>) =>
     req<PlatformSettings>("/admin/settings", { method: "PUT", body: patch }),
+
+  getBackups: () => req<Backup[]>("/admin/backups"),
+
+  runBackup: () => req<Backup>("/admin/backups", { method: "POST" }),
+
+  // Download a backup file with the admin token, then save it via the browser.
+  async downloadBackup(name: string): Promise<void> {
+    const headers: Record<string, string> = { Accept: "application/json" };
+    const token = getAdminToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(`${BASE}/admin/backups/${encodeURIComponent(name)}/download`, { headers });
+    if (!res.ok) throw new SuperAdminApiError(res.status, "ดาวน์โหลดไม่สำเร็จ");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
 };

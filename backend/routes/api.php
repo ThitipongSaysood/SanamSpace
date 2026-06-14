@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\Admin\AnnouncementController as AdminAnnouncementController;
 use App\Http\Controllers\Api\Admin\AuditLogController as AdminAuditLogController;
+use App\Http\Controllers\Api\Admin\BackupController as AdminBackupController;
 use App\Http\Controllers\Api\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Api\Admin\FeatureController as AdminFeatureController;
 use App\Http\Controllers\Api\Admin\InvoiceController as AdminInvoiceController;
@@ -197,5 +198,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/audit-logs', [AdminAuditLogController::class, 'index']);
         Route::get('/settings', [AdminSettingController::class, 'show']);
         Route::put('/settings', [AdminSettingController::class, 'update']);
+
+        Route::get('/backups', [AdminBackupController::class, 'index']);
+        Route::post('/backups', [AdminBackupController::class, 'store']);
+        Route::get('/backups/{name}/download', [AdminBackupController::class, 'download']);
     });
 });

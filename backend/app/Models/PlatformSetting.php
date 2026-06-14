@@ -11,8 +11,16 @@ class PlatformSetting extends Model
 
     protected $guarded = [];
 
-    // SMTP password is stored encrypted at rest (Laravel encrypts on write, decrypts on read).
     protected $casts = [
+        // SMTP password is stored encrypted at rest (Laravel encrypts on write, decrypts on read).
         'mail_password' => 'encrypted',
+        'session_timeout_minutes' => 'integer',
+        'password_min_length' => 'integer',
+        'two_factor_required' => 'boolean',
+        'notify_new_org' => 'boolean',
+        'notify_payment' => 'boolean',
+        'notify_subscription_expiring' => 'boolean',
+        'notify_support_ticket' => 'boolean',
+        'backup_retention_days' => 'integer',
     ];
 }

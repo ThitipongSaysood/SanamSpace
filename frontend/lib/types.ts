@@ -511,6 +511,25 @@ export type PlatformSettings = {
   bankName: string | null;
   bankAccountName: string | null;
   bankAccountNumber: string | null;
+  // Security
+  sessionTimeoutMinutes: number;
+  passwordMinLength: number;
+  twoFactorRequired: boolean;
+  // Notifications
+  notifyNewOrg: boolean;
+  notifyPayment: boolean;
+  notifySubscriptionExpiring: boolean;
+  notifySupportTicket: boolean;
+  // Backup
+  backupFrequency: string;
+  backupRetentionDays: number;
+};
+
+export type Backup = {
+  name: string;
+  size: number;
+  sizeLabel: string;
+  createdAt: string;
 };
 
 export type Plan = {

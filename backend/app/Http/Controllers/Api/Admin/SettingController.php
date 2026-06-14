@@ -28,6 +28,15 @@ class SettingController extends Controller
         'bankName' => 'bank_name',
         'bankAccountName' => 'bank_account_name',
         'bankAccountNumber' => 'bank_account_number',
+        'sessionTimeoutMinutes' => 'session_timeout_minutes',
+        'passwordMinLength' => 'password_min_length',
+        'twoFactorRequired' => 'two_factor_required',
+        'notifyNewOrg' => 'notify_new_org',
+        'notifyPayment' => 'notify_payment',
+        'notifySubscriptionExpiring' => 'notify_subscription_expiring',
+        'notifySupportTicket' => 'notify_support_ticket',
+        'backupFrequency' => 'backup_frequency',
+        'backupRetentionDays' => 'backup_retention_days',
     ];
 
     public function show(): PlatformSettingResource
@@ -60,6 +69,21 @@ class SettingController extends Controller
             'bankName' => ['sometimes', 'nullable', 'string', 'max:100'],
             'bankAccountName' => ['sometimes', 'nullable', 'string', 'max:255'],
             'bankAccountNumber' => ['sometimes', 'nullable', 'string', 'max:50'],
+
+            // --- Security ---
+            'sessionTimeoutMinutes' => ['sometimes', 'integer', 'min:0', 'max:43200'],
+            'passwordMinLength' => ['sometimes', 'integer', 'min:6', 'max:64'],
+            'twoFactorRequired' => ['sometimes', 'boolean'],
+
+            // --- Notifications ---
+            'notifyNewOrg' => ['sometimes', 'boolean'],
+            'notifyPayment' => ['sometimes', 'boolean'],
+            'notifySubscriptionExpiring' => ['sometimes', 'boolean'],
+            'notifySupportTicket' => ['sometimes', 'boolean'],
+
+            // --- Backup ---
+            'backupFrequency' => ['sometimes', 'string', 'in:off,daily,weekly'],
+            'backupRetentionDays' => ['sometimes', 'integer', 'min:1', 'max:365'],
         ]);
 
         $setting = PlatformSetting::query()->firstOrCreate([]);

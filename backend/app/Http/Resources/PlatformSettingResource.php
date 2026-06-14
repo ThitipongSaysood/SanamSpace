@@ -29,6 +29,21 @@ class PlatformSettingResource extends JsonResource
             'bankName' => $this->bank_name,
             'bankAccountName' => $this->bank_account_name,
             'bankAccountNumber' => $this->bank_account_number,
+
+            // --- Security ---
+            'sessionTimeoutMinutes' => (int) $this->session_timeout_minutes,
+            'passwordMinLength' => (int) ($this->password_min_length ?? 8),
+            'twoFactorRequired' => (bool) $this->two_factor_required,
+
+            // --- Notifications ---
+            'notifyNewOrg' => (bool) $this->notify_new_org,
+            'notifyPayment' => (bool) $this->notify_payment,
+            'notifySubscriptionExpiring' => (bool) $this->notify_subscription_expiring,
+            'notifySupportTicket' => (bool) $this->notify_support_ticket,
+
+            // --- Backup ---
+            'backupFrequency' => $this->backup_frequency ?? 'off',
+            'backupRetentionDays' => (int) ($this->backup_retention_days ?? 30),
         ];
     }
 }
