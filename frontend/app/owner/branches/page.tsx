@@ -198,123 +198,126 @@ function BranchForm({ branch, onClose }: { branch?: OwnerBranch; onClose: () => 
         </button>
       </div>
 
-      {/* ---- ข้อมูลทั่วไป ---- */}
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        <div className="space-y-1.5 sm:col-span-2 xl:col-span-3">
-          <Label htmlFor="b-name">ชื่อสนาม</Label>
-          <Input id="b-name" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="เช่น Everyday Badminton" />
-        </div>
-        <div className="space-y-1.5 sm:col-span-2 xl:col-span-3">
-          <Label htmlFor="b-address">ที่อยู่</Label>
-          <Input id="b-address" value={form.address} onChange={(e) => set("address", e.target.value)} placeholder="123 ถ.สุขุมวิท กรุงเทพฯ" />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="b-phone">เบอร์โทร</Label>
-          <Input id="b-phone" value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="081-234-5678" />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="b-sports">กีฬา (คั่นด้วย ,)</Label>
-          <Input id="b-sports" value={form.sports} onChange={(e) => set("sports", e.target.value)} placeholder="badminton, futsal" />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="b-open">เวลาเปิด (ทั่วไป)</Label>
-          <Input id="b-open" type="time" value={form.openTime} onChange={(e) => set("openTime", e.target.value)} />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="b-close">เวลาปิด (ทั่วไป)</Label>
-          <Input id="b-close" type="time" value={form.closeTime} onChange={(e) => set("closeTime", e.target.value)} />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="b-travel">การเดินทาง</Label>
-          <Input id="b-travel" value={form.travelHint} onChange={(e) => set("travelHint", e.target.value)} placeholder="15 นาทีจาก MRT บางรักน้อย" />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="b-peak">หมายเหตุช่วงพีค</Label>
-          <Input id="b-peak" value={form.peakNote} onChange={(e) => set("peakNote", e.target.value)} placeholder="พีค 18:00–21:00" />
-        </div>
-        <div className="space-y-1.5 sm:col-span-2 xl:col-span-3">
-          <Label htmlFor="b-desc">เกี่ยวกับสนาม</Label>
-          <textarea
-            id="b-desc"
-            rows={3}
-            value={form.description}
-            onChange={(e) => set("description", e.target.value)}
-            placeholder="รายละเอียดสนาม สิ่งที่น่าสนใจ..."
-            className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-          />
-        </div>
-      </section>
-
-      {/* ---- สิ่งอำนวยความสะดวก ---- */}
-      <section className="space-y-2">
-        <Label>สิ่งอำนวยความสะดวก</Label>
-        <div className="flex flex-wrap gap-2">
-          {FACILITIES.map((f) => {
-            const on = form.facilities.includes(f.key);
-            return (
-              <button
-                key={f.key}
-                type="button"
-                onClick={() => toggleFacility(f.key)}
-                aria-pressed={on}
-                className={`rounded-full px-3 py-1.5 text-sm font-medium ring-1 transition ${
-                  on
-                    ? "bg-brand text-brand-foreground ring-brand"
-                    : "bg-white text-muted-foreground ring-black/10 hover:bg-app"
-                }`}
-              >
-                {f.label}
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* ---- รูปปก + แผนผัง ---- */}
-      <section className="grid gap-4 sm:grid-cols-2">
-        <ImageField label="รูปปกสนาม" value={form.imageUrl} onChange={(url) => set("imageUrl", url)} />
-        <ImageField label="แผนผังสนาม (floor-plan)" value={form.planImageUrl} onChange={(url) => set("planImageUrl", url)} />
-      </section>
-
-      {/* ---- แกลเลอรีรูปภาพ ---- */}
-      <PhotosField photos={form.photos} onChange={(photos) => set("photos", photos)} />
-
-      {/* ---- เวลาเปิด-ปิด รายวัน ---- */}
-      <section className="space-y-2">
-        <Label>เวลาเปิด-ปิด รายวัน (ไม่บังคับ)</Label>
-        <div className="space-y-1.5">
-          {form.weekHours.map((h, i) => (
-            <div key={h.day} className="flex items-center gap-2">
-              <span className="w-20 text-sm text-muted-foreground">{h.day}</span>
-              <Input
-                type="time"
-                value={h.open}
-                onChange={(e) =>
-                  setForm((f) => {
-                    const wh = [...f.weekHours];
-                    wh[i] = { ...wh[i], open: e.target.value };
-                    return { ...f, weekHours: wh };
-                  })
-                }
-                className="max-w-[120px]"
-              />
-              <span className="text-muted-foreground">-</span>
-              <Input
-                type="time"
-                value={h.close}
-                onChange={(e) =>
-                  setForm((f) => {
-                    const wh = [...f.weekHours];
-                    wh[i] = { ...wh[i], close: e.target.value };
-                    return { ...f, weekHours: wh };
-                  })
-                }
-                className="max-w-[120px]"
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* ===== ซ้าย: ข้อมูล / สิ่งอำนวยความสะดวก / เวลารายวัน ===== */}
+        <div className="space-y-6 lg:col-span-2">
+          {/* ข้อมูลทั่วไป */}
+          <section className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="b-name">ชื่อสนาม</Label>
+              <Input id="b-name" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="เช่น Everyday Badminton" />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="b-address">ที่อยู่</Label>
+              <Input id="b-address" value={form.address} onChange={(e) => set("address", e.target.value)} placeholder="123 ถ.สุขุมวิท กรุงเทพฯ" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="b-phone">เบอร์โทร</Label>
+              <Input id="b-phone" value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="081-234-5678" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="b-sports">กีฬา (คั่นด้วย ,)</Label>
+              <Input id="b-sports" value={form.sports} onChange={(e) => set("sports", e.target.value)} placeholder="badminton, futsal" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="b-open">เวลาเปิด (ทั่วไป)</Label>
+              <Input id="b-open" type="time" value={form.openTime} onChange={(e) => set("openTime", e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="b-close">เวลาปิด (ทั่วไป)</Label>
+              <Input id="b-close" type="time" value={form.closeTime} onChange={(e) => set("closeTime", e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="b-travel">การเดินทาง</Label>
+              <Input id="b-travel" value={form.travelHint} onChange={(e) => set("travelHint", e.target.value)} placeholder="15 นาทีจาก MRT บางรักน้อย" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="b-peak">หมายเหตุช่วงพีค</Label>
+              <Input id="b-peak" value={form.peakNote} onChange={(e) => set("peakNote", e.target.value)} placeholder="พีค 18:00–21:00" />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="b-desc">เกี่ยวกับสนาม</Label>
+              <textarea
+                id="b-desc"
+                rows={3}
+                value={form.description}
+                onChange={(e) => set("description", e.target.value)}
+                placeholder="รายละเอียดสนาม สิ่งที่น่าสนใจ..."
+                className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               />
             </div>
-          ))}
+          </section>
+
+          {/* สิ่งอำนวยความสะดวก */}
+          <section className="space-y-2">
+            <Label>สิ่งอำนวยความสะดวก</Label>
+            <div className="flex flex-wrap gap-2">
+              {FACILITIES.map((f) => {
+                const on = form.facilities.includes(f.key);
+                return (
+                  <button
+                    key={f.key}
+                    type="button"
+                    onClick={() => toggleFacility(f.key)}
+                    aria-pressed={on}
+                    className={`rounded-full px-3 py-1.5 text-sm font-medium ring-1 transition ${
+                      on
+                        ? "bg-brand text-brand-foreground ring-brand"
+                        : "bg-white text-muted-foreground ring-black/10 hover:bg-app"
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* เวลาเปิด-ปิด รายวัน */}
+          <section className="space-y-2">
+            <Label>เวลาเปิด-ปิด รายวัน (ไม่บังคับ)</Label>
+            <div className="space-y-1.5">
+              {form.weekHours.map((h, i) => (
+                <div key={h.day} className="flex items-center gap-2">
+                  <span className="w-20 text-sm text-muted-foreground">{h.day}</span>
+                  <Input
+                    type="time"
+                    value={h.open}
+                    onChange={(e) =>
+                      setForm((f) => {
+                        const wh = [...f.weekHours];
+                        wh[i] = { ...wh[i], open: e.target.value };
+                        return { ...f, weekHours: wh };
+                      })
+                    }
+                    className="max-w-[120px]"
+                  />
+                  <span className="text-muted-foreground">-</span>
+                  <Input
+                    type="time"
+                    value={h.close}
+                    onChange={(e) =>
+                      setForm((f) => {
+                        const wh = [...f.weekHours];
+                        wh[i] = { ...wh[i], close: e.target.value };
+                        return { ...f, weekHours: wh };
+                      })
+                    }
+                    className="max-w-[120px]"
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
-      </section>
+
+        {/* ===== ขวา: รูปภาพ / แผนผัง / แกลเลอรี ===== */}
+        <div className="space-y-6 rounded-xl bg-app/40 p-4">
+          <ImageField label="รูปปกสนาม" value={form.imageUrl} onChange={(url) => set("imageUrl", url)} />
+          <ImageField label="แผนผังสนาม (floor-plan)" value={form.planImageUrl} onChange={(url) => set("planImageUrl", url)} />
+          <PhotosField photos={form.photos} onChange={(photos) => set("photos", photos)} />
+        </div>
+      </div>
 
       {mutation.isError && <p className="text-sm text-brand-danger">บันทึกไม่สำเร็จ ลองอีกครั้ง</p>}
 
