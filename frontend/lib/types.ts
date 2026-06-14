@@ -481,6 +481,21 @@ export type PlatformSettings = {
   currency: string;
   dateFormat: string;
   language: string;
+  // Mail / SMTP (stored in DB, overrides .env at runtime)
+  mailMailer: string;
+  mailHost: string | null;
+  mailPort: string | null;
+  mailUsername: string | null;
+  mailEncryption: string | null;
+  mailFromAddress: string | null;
+  mailFromName: string | null;
+  mailPasswordSet: boolean;
+  mailPassword?: string; // write-only: blank = keep existing
+  // Platform billing payment details
+  promptpayId: string | null;
+  bankName: string | null;
+  bankAccountName: string | null;
+  bankAccountNumber: string | null;
 };
 
 export type Plan = {

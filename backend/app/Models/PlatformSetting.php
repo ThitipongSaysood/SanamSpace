@@ -10,4 +10,9 @@ class PlatformSetting extends Model
     use HasUuids;
 
     protected $guarded = [];
+
+    // SMTP password is stored encrypted at rest (Laravel encrypts on write, decrypts on read).
+    protected $casts = [
+        'mail_password' => 'encrypted',
+    ];
 }

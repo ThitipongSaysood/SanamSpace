@@ -92,6 +92,7 @@ class BookingController extends Controller
             'end' => $data['end'],
             'amount' => $amount,
             'status' => 'pending_payment',
+            'channel' => 'application',
         ]);
 
         $booking->load(['branch.organization', 'court']);

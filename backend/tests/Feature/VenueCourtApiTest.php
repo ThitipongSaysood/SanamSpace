@@ -96,10 +96,29 @@ class VenueCourtApiTest extends TestCase
             ->assertJsonCount(4, 'data');
     }
 
-    public function test_court_schedule_generates_slots_with_booked_hours(): void
+    public function test_court_schedule_marks_real_bookings_as_booked(): void
     {
         $courtId = $this->getJson('/api/v1/courts?venueId=everyday-badminton')
             ->json('data.0.id');
+
+        $court = \App\Models\Court::findOrFail($courtId);
+        $customer = \App\Models\Customer::where('organization_id', $court->organization_id)->firstOrFail();
+
+        // Real bookings drive the schedule now; cancelled ones must NOT block a slot.
+        foreach ([['12:00', '13:00', 'confirmed'], ['19:00', '20:00', 'confirmed'], ['15:00', '16:00', 'cancelled']] as [$start, $end, $status]) {
+            \App\Models\Booking::create([
+                'organization_id' => $court->organization_id,
+                'branch_id' => $court->branch_id,
+                'court_id' => $court->id,
+                'customer_id' => $customer->id,
+                'code' => "BK-TEST-{$start}",
+                'date' => '2026-06-20',
+                'start' => $start,
+                'end' => $end,
+                'amount' => 300,
+                'status' => $status,
+            ]);
+        }
 
         $response = $this->getJson("/api/v1/courts/{$courtId}/schedules?date=2026-06-20")
             ->assertOk()
@@ -110,6 +129,6 @@ class VenueCourtApiTest extends TestCase
         $this->assertCount(12, $slots);
 
         $booked = collect($slots)->where('status', 'booked')->pluck('start')->all();
-        $this->assertEqualsCanonicalizing(['12:00', '19:00'], $booked);
+        $this->assertEqualsCanonicalizing(['12:00', '19:00'], $booked); // 15:00 is cancelled → still available
     }
 }

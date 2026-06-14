@@ -110,14 +110,8 @@ class DashboardController extends Controller
         // --- New: sales grouped by the court's sport ---
         $sportSales = $this->sportSales($orgId);
 
-        // --- New: booking channels ---
-        // TODO: no booking `channel` field exists yet. All bookings currently
-        // originate from the customer app, so this is a single-bucket placeholder
-        // keyed off the total booking count. Replace once a channel is captured.
-        $totalBookings = $statusBreakdown['total'];
-        $bookingChannels = [
-            ['channel' => 'แอปพลิเคชัน', 'count' => $totalBookings],
-        ];
+        // --- New: booking channels (real, grouped by bookings.channel) ---
+        $bookingChannels = $this->bookingChannels($orgId);
 
         // --- New: action items for the "things to do" panel ---
         $cancelledToday = Booking::query()
@@ -305,6 +299,32 @@ class DashboardController extends Controller
                 'status' => $b->status,
             ])
             ->all();
+    }
+
+    /** Real booking counts grouped by channel, with Thai labels (excludes cancelled). */
+    private function bookingChannels(string $orgId): array
+    {
+        return Booking::query()
+            ->forOrganization($orgId)
+            ->where('status', '!=', 'cancelled')
+            ->selectRaw('channel, COUNT(*) as c')
+            ->groupBy('channel')
+            ->orderByDesc('c')
+            ->get()
+            ->map(fn ($row) => ['channel' => $this->channelLabel($row->channel), 'count' => (int) $row->c])
+            ->all();
+    }
+
+    /** Thai display label for a booking channel code, falling back to the code itself. */
+    private function channelLabel(?string $channel): string
+    {
+        return match ($channel) {
+            'application' => 'แอปพลิเคชัน',
+            'walk_in' => 'หน้าเคาน์เตอร์',
+            'phone' => 'โทรศัพท์',
+            'admin' => 'แอดมิน',
+            default => (string) $channel,
+        };
     }
 
     /** Thai display label for a sport code, falling back to the code itself. */

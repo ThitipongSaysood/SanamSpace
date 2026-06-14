@@ -79,6 +79,7 @@ class BookingController extends Controller
             'end' => $data['end'],
             'amount' => round($hours * (float) $court->price_per_hour, 2),
             'status' => $data['status'] ?? 'confirmed',
+            'channel' => 'walk_in', // created at the counter by staff
         ]);
 
         return (new BookingResource($booking->load(['branch.organization', 'court', 'customer'])))

@@ -13,6 +13,22 @@ class PlatformSettingResource extends JsonResource
             'currency' => $this->currency,
             'dateFormat' => $this->date_format,
             'language' => $this->language,
+
+            // --- Mail / SMTP (password never sent back; only whether one is set) ---
+            'mailMailer' => $this->mail_mailer ?? 'log',
+            'mailHost' => $this->mail_host,
+            'mailPort' => $this->mail_port,
+            'mailUsername' => $this->mail_username,
+            'mailEncryption' => $this->mail_encryption,
+            'mailFromAddress' => $this->mail_from_address,
+            'mailFromName' => $this->mail_from_name,
+            'mailPasswordSet' => filled($this->mail_password),
+
+            // --- Platform billing payment details ---
+            'promptpayId' => $this->promptpay_id,
+            'bankName' => $this->bank_name,
+            'bankAccountName' => $this->bank_account_name,
+            'bankAccountNumber' => $this->bank_account_number,
         ];
     }
 }

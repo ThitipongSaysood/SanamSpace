@@ -62,7 +62,7 @@ class OwnerApiTest extends TestCase
                 'revenueSeries' => [['date', 'revenue']],
                 'statusBreakdown' => ['total', 'confirmed', 'pending', 'cancelled', 'completed'],
                 'sportSales',
-                'bookingChannels' => [['channel', 'count']],
+                'bookingChannels', // real, grouped by bookings.channel (empty when no bookings)
                 'actionItems' => ['pendingSlips', 'nearTime', 'todayBookings', 'cancelledToday'],
                 'recentBookings',
             ])
