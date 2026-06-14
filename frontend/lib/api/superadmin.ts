@@ -135,6 +135,23 @@ export const superAdminApi = {
 
   getOrganization: (id: string) => req<AdminOrganizationDetail>(`/admin/organizations/${id}`),
 
+  suspendOrg: (id: string) =>
+    req<AdminOrganizationDetail>(`/admin/organizations/${id}/suspend`, { method: "POST" }),
+
+  activateOrg: (id: string) =>
+    req<AdminOrganizationDetail>(`/admin/organizations/${id}/activate`, { method: "POST" }),
+
+  changeOrgPlan: (id: string, planId: string) =>
+    req<AdminOrganizationDetail>(`/admin/organizations/${id}/plan`, { method: "PUT", body: { planId } }),
+
+  deleteOrg: (id: string) => req<void>(`/admin/organizations/${id}`, { method: "DELETE" }),
+
+  impersonateOrg: (id: string) =>
+    req<{ token: string; user: User }>(`/admin/organizations/${id}/impersonate`, {
+      method: "POST",
+      raw: true,
+    }),
+
   getSubscriptions: () => req<AdminSubscription[]>("/admin/subscriptions"),
 
   getPlans: () => req<Plan[]>("/admin/plans"),

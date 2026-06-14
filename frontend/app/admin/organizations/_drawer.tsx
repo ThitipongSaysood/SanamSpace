@@ -1,17 +1,11 @@
 "use client";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import {
-  Clock,
-  ExternalLink,
-  History,
-  RefreshCw,
-  Trash2,
-  UserCog,
-  X,
-} from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Clock, ExternalLink, History, Power, RefreshCw, Trash2, UserCog, X } from "lucide-react";
 import { superAdminApi } from "@/lib/api/superadmin";
+import { setOwnerToken } from "@/lib/api/owner";
 import { Loading, ErrorState } from "@/components/states";
+import { Button } from "@/components/ui/button";
 
 const fmt = new Intl.NumberFormat("th-TH");
 const TABS = ["ข้อมูลทั่วไป", "การสมัครใช้งาน", "ผู้ใช้งาน", "การใช้งาน", "ประวัติ"] as const;
@@ -31,21 +25,70 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 }
 
 export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) {
+  const qc = useQueryClient();
   const [tab, setTab] = useState<(typeof TABS)[number]>("ข้อมูลทั่วไป");
+  const [showPlans, setShowPlans] = useState(false);
+  const [planId, setPlanId] = useState("");
+
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["admin", "organization", id],
     queryFn: () => superAdminApi.getOrganization(id),
   });
+  const plansQ = useQuery({ queryKey: ["admin", "plans"], queryFn: superAdminApi.getPlans, enabled: showPlans });
 
-  const soon = () => window.alert("ฟีเจอร์นี้กำลังพัฒนา");
+  function invalidate() {
+    qc.invalidateQueries({ queryKey: ["admin", "organization", id] });
+    qc.invalidateQueries({ queryKey: ["admin", "organizations"] });
+  }
+
+  const statusM = useMutation({
+    mutationFn: () => (data?.status === "suspended" ? superAdminApi.activateOrg(id) : superAdminApi.suspendOrg(id)),
+    onSuccess: invalidate,
+    onError: (e: Error) => window.alert(e.message),
+  });
+  const planM = useMutation({
+    mutationFn: () => superAdminApi.changeOrgPlan(id, planId),
+    onSuccess: () => {
+      invalidate();
+      setShowPlans(false);
+    },
+    onError: (e: Error) => window.alert(e.message),
+  });
+  const delM = useMutation({
+    mutationFn: () => superAdminApi.deleteOrg(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "organizations"] });
+      onClose();
+    },
+    onError: (e: Error) => window.alert(e.message),
+  });
+
+  async function impersonate() {
+    try {
+      const res = await superAdminApi.impersonateOrg(id);
+      setOwnerToken(res.token);
+      try {
+        window.localStorage.setItem("sanamspace.owner_user", JSON.stringify(res.user));
+      } catch {
+        /* ignore */
+      }
+      window.location.href = "/owner";
+    } catch (e) {
+      window.alert((e as Error).message);
+    }
+  }
+
   const sub = data?.subscription;
-  const active = data ? data.status !== "suspended" && data.subscriptionStatus === "active" : false;
+  const suspended = data?.status === "suspended";
+  const active = data ? !suspended && data.subscriptionStatus === "active" : false;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true">
-      <button type="button" aria-label="ปิด" className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <aside className="relative flex h-full w-full max-w-md flex-col overflow-y-auto bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-black/5 px-5 py-4">
+    <aside
+      role="dialog"
+      aria-label="รายละเอียดสนาม"
+      className="flex w-full shrink-0 flex-col overflow-y-auto rounded-2xl bg-white shadow-sm ring-1 ring-black/5 xl:sticky xl:top-4 xl:max-h-[calc(100dvh-7rem)] xl:w-[380px]"
+    >
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-black/5 bg-white px-5 py-4">
           <h2 className="font-bold">รายละเอียดสนาม</h2>
           <button type="button" onClick={onClose} aria-label="ปิด" className="grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-app">
             <X className="size-5" />
@@ -65,7 +108,6 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
 
         {data && (
           <div className="flex-1 space-y-5 p-5">
-            {/* Header card */}
             <div className="flex items-center gap-3">
               <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-brand/10 text-sm font-bold text-brand">
                 {data.name.trim().slice(0, 2).toUpperCase()}
@@ -73,28 +115,21 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="truncate font-semibold">{data.name}</span>
-                  <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                      active ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
-                    }`}
-                  >
-                    {active ? "ใช้งานอยู่" : data.status === "suspended" ? "ระงับ" : data.subscriptionStatus ?? "—"}
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${active ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+                    {active ? "ใช้งานอยู่" : suspended ? "ระงับ" : data.subscriptionStatus ?? "—"}
                   </span>
                 </div>
                 <div className="text-sm text-muted-foreground">{sub?.planName ? `${sub.planName} Plan` : "—"}</div>
               </div>
             </div>
 
-            {/* Tabs */}
             <div className="flex gap-1 overflow-x-auto border-b border-black/5 text-sm">
               {TABS.map((t) => (
                 <button
                   key={t}
                   type="button"
                   onClick={() => setTab(t)}
-                  className={`-mb-px shrink-0 border-b-2 px-2.5 py-2 font-medium transition ${
-                    tab === t ? "border-brand text-brand" : "border-transparent text-muted-foreground hover:text-foreground"
-                  }`}
+                  className={`-mb-px shrink-0 border-b-2 px-2.5 py-2 font-medium transition ${tab === t ? "border-brand text-brand" : "border-transparent text-muted-foreground hover:text-foreground"}`}
                 >
                   {t}
                 </button>
@@ -103,7 +138,6 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
 
             {tab === "ข้อมูลทั่วไป" ? (
               <>
-                {/* Org info */}
                 <section className="divide-y divide-black/5">
                   <Row label="ชื่อสนาม">{data.name}</Row>
                   <Row label="เจ้าของ">{data.owner?.name ?? "—"}</Row>
@@ -123,7 +157,6 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
                   </Row>
                 </section>
 
-                {/* Current plan */}
                 <section className="rounded-xl bg-app/60 p-4">
                   <h3 className="mb-1 text-sm font-semibold">แพ็กเกจปัจจุบัน</h3>
                   <div className="divide-y divide-black/5">
@@ -140,34 +173,66 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
                     </Row>
                     <Row label="ค่าบริการ">{sub?.price != null ? `฿${fmt.format(sub.price)} / ${sub.interval ? INTERVAL[sub.interval] ?? sub.interval : "เดือน"}` : "—"}</Row>
                   </div>
-                  <button type="button" onClick={soon} className="mt-3 w-full rounded-lg border border-brand py-2 text-sm font-semibold text-brand hover:bg-brand/10">
-                    จัดการการสมัครใช้งาน
-                  </button>
+
+                  {showPlans ? (
+                    <div className="mt-3 space-y-2">
+                      <select
+                        value={planId}
+                        onChange={(e) => setPlanId(e.target.value)}
+                        className="h-9 w-full rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
+                      >
+                        <option value="">— เลือกแพ็กเกจ —</option>
+                        {(plansQ.data ?? []).map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} (฿{fmt.format(p.price)})
+                          </option>
+                        ))}
+                      </select>
+                      <div className="flex gap-2">
+                        <Button type="button" size="sm" onClick={() => planM.mutate()} disabled={!planId || planM.isPending}>
+                          {planM.isPending ? "กำลังบันทึก..." : "ยืนยันเปลี่ยน"}
+                        </Button>
+                        <Button type="button" size="sm" variant="outline" onClick={() => setShowPlans(false)}>
+                          ยกเลิก
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button type="button" onClick={() => setShowPlans(true)} className="mt-3 w-full rounded-lg border border-brand py-2 text-sm font-semibold text-brand hover:bg-brand/10">
+                      จัดการการสมัครใช้งาน
+                    </button>
+                  )}
                 </section>
 
-                {/* Actions */}
                 <section className="space-y-2">
                   <h3 className="text-sm font-semibold">การดำเนินการ</h3>
                   <div className="grid grid-cols-2 gap-2">
-                    <button type="button" onClick={soon} className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-black/10 hover:bg-app">
+                    <button type="button" onClick={impersonate} className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-black/10 hover:bg-app">
                       <UserCog className="size-4" /> Impersonate
                     </button>
-                    <button type="button" onClick={soon} className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-black/10 hover:bg-app">
-                      <Clock className="size-4" /> ระงับการใช้งาน
+                    <button
+                      type="button"
+                      onClick={() => statusM.mutate()}
+                      disabled={statusM.isPending}
+                      className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-black/10 hover:bg-app ${suspended ? "text-emerald-600" : "text-amber-700"}`}
+                    >
+                      {suspended ? <Power className="size-4" /> : <Clock className="size-4" />}
+                      {suspended ? "เปิดใช้งาน" : "ระงับการใช้งาน"}
                     </button>
-                    <button type="button" onClick={soon} className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-black/10 hover:bg-app">
+                    <button type="button" onClick={() => setShowPlans(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-black/10 hover:bg-app">
                       <RefreshCw className="size-4" /> เปลี่ยนแพ็กเกจ
                     </button>
-                    <button type="button" onClick={soon} className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-black/10 hover:bg-app">
+                    <button type="button" onClick={() => window.alert("ฟีเจอร์นี้กำลังพัฒนา")} className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-black/10 hover:bg-app">
                       <History className="size-4" /> ดูประวัติการใช้งาน
                     </button>
                   </div>
                   <button
                     type="button"
-                    onClick={() => window.confirm(`ลบสนาม "${data.name}" ?`) && soon()}
-                    className="mt-1 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-rose-50 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-100"
+                    onClick={() => window.confirm(`ลบสนาม "${data.name}" ? (ระงับเป็นทางเลือกที่ปลอดภัยกว่า)`) && delM.mutate()}
+                    disabled={delM.isPending}
+                    className="mt-1 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-rose-50 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-100 disabled:opacity-50"
                   >
-                    <Trash2 className="size-4" /> ลบสนาม
+                    <Trash2 className="size-4" /> {delM.isPending ? "กำลังลบ..." : "ลบสนาม"}
                   </button>
                 </section>
               </>
@@ -178,7 +243,6 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
             )}
           </div>
         )}
-      </aside>
-    </div>
+    </aside>
   );
 }

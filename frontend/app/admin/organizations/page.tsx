@@ -130,6 +130,8 @@ export default function AdminOrganizationsPage() {
         <p className="text-sm text-muted-foreground">ดูแลและจัดการสนามทั้งหมดที่ใช้บริการระบบ SanamSpace</p>
       </div>
 
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
+        <div className="min-w-0 flex-1 space-y-5">
       {/* KPI */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi icon={Building2} label="สนามทั้งหมด" value={fmt.format(kpi.total)} hint="ทุกองค์กรในระบบ" tone="bg-brand/10 text-brand" />
@@ -257,7 +259,9 @@ export default function AdminOrganizationsPage() {
         </div>
       )}
 
-      {openId && <OrgDrawer id={openId} onClose={() => setOpenId(null)} />}
+        </div>
+        {openId && <OrgDrawer id={openId} onClose={() => setOpenId(null)} />}
+      </div>
     </div>
   );
 }

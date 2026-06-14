@@ -167,6 +167,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/organizations', [AdminOrganizationController::class, 'index']);
         Route::get('/organizations/{id}', [AdminOrganizationController::class, 'show']);
+        Route::post('/organizations/{id}/suspend', [AdminOrganizationController::class, 'suspend']);
+        Route::post('/organizations/{id}/activate', [AdminOrganizationController::class, 'activate']);
+        Route::post('/organizations/{id}/impersonate', [AdminOrganizationController::class, 'impersonate']);
+        Route::put('/organizations/{id}/plan', [AdminOrganizationController::class, 'changePlan']);
+        Route::delete('/organizations/{id}', [AdminOrganizationController::class, 'destroy']);
 
         Route::get('/subscriptions', [AdminSubscriptionController::class, 'index']);
 
