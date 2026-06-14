@@ -162,6 +162,11 @@ export const superAdminApi = {
   createPlan: (body: { name: string; code: string; price: number; interval: string; isActive?: boolean }) =>
     req<Plan>("/admin/plans", { method: "POST", body }),
 
+  updatePlan: (
+    id: string,
+    body: Partial<{ name: string; price: number; interval: string; isActive: boolean }>,
+  ) => req<Plan>(`/admin/plans/${id}`, { method: "PUT", body }),
+
   getFeatures: () => req<PlatformFeature[]>("/admin/features"),
 
   getPayments: () => req<AdminPayment[]>("/admin/payments"),

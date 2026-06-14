@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import type { Plan } from "@/lib/types";
 import { superAdminApi } from "@/lib/api/superadmin";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
@@ -11,76 +11,57 @@ import { Label } from "@/components/ui/label";
 import { Modal } from "../_components/modal";
 
 const fmt = new Intl.NumberFormat("th-TH");
+const PLANS_KEY = ["admin", "plans"];
 
-function limit(value: number | null) {
-  return value == null ? "ไม่จำกัด" : fmt.format(value);
+function planColor(name: string) {
+  const n = name.toLowerCase();
+  if (n.includes("starter")) return "text-emerald-600";
+  if (n.includes("business")) return "text-blue-600";
+  if (n.includes("pro")) return "text-violet-600";
+  if (n.includes("enterprise")) return "text-amber-600";
+  return "text-foreground";
 }
 
-function PlanCard({ plan }: { plan: Plan }) {
-  // Enterprise (price 0) is quote-based.
-  const priceLabel = plan.price === 0 ? "ติดต่อ" : `฿${fmt.format(plan.price)}/เดือน`;
-  const rows: { label: string; value: string }[] = [
-    { label: "สาขา", value: limit(plan.branchLimit) },
-    { label: "คอร์ท", value: limit(plan.courtLimit) },
-    { label: "staff", value: limit(plan.staffLimit) },
-    { label: "จองต่อเดือน", value: limit(plan.monthlyBookingLimit) },
-    { label: "storage", value: plan.storageGb == null ? "ไม่จำกัด" : `${fmt.format(plan.storageGb)} GB` },
-  ];
+function limit(v: number | null) {
+  return v == null ? "ไม่จำกัด" : fmt.format(v);
+}
 
+function Toggle({ on, onClick, disabled }: { on: boolean; onClick: () => void; disabled?: boolean }) {
   return (
-    <div className="flex flex-col rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-lg font-bold">{plan.name}</h2>
-        <span
-          className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
-            plan.isActive ? "bg-brand/10 text-brand" : "bg-slate-100 text-slate-500"
-          }`}
-        >
-          {plan.isActive ? "ใช้งาน" : "ปิด"}
-        </span>
-      </div>
-      <div className="mt-1 text-2xl font-bold tracking-tight text-brand">{priceLabel}</div>
-
-      <dl className="mt-4 space-y-1.5 text-sm">
-        {rows.map((r) => (
-          <div key={r.label} className="flex items-center justify-between">
-            <dt className="text-muted-foreground">{r.label}</dt>
-            <dd className="font-medium">{r.value}</dd>
-          </div>
-        ))}
-      </dl>
-
-      {plan.featureCodes.length > 0 && (
-        <div className="mt-4 border-t border-black/5 pt-3">
-          <div className="mb-2 text-xs font-medium text-muted-foreground">ฟีเจอร์</div>
-          <div className="flex flex-wrap gap-1.5">
-            {plan.featureCodes.map((code) => (
-              <span
-                key={code}
-                className="inline-block rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700"
-              >
-                {code}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      onClick={onClick}
+      disabled={disabled}
+      className={`relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-50 ${on ? "bg-brand" : "bg-muted"}`}
+    >
+      <span className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-all ${on ? "left-[22px]" : "left-0.5"}`} />
+    </button>
   );
 }
 
 export default function AdminPlansPage() {
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["admin", "plans"],
-    queryFn: superAdminApi.getPlans,
+  const qc = useQueryClient();
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: PLANS_KEY, queryFn: superAdminApi.getPlans });
+  const [modal, setModal] = useState<Plan | "new" | null>(null);
+
+  const toggleM = useMutation({
+    mutationFn: (p: Plan) => superAdminApi.updatePlan(p.id, { isActive: !p.isActive }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: PLANS_KEY }),
+    onError: (e: Error) => window.alert(e.message),
   });
-  const [creating, setCreating] = useState(false);
+
+  const maxFeatures = Math.max(0, ...(data ?? []).map((p) => p.featureCodes.length));
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-bold">แพ็กเกจ</h1>
-        <Button type="button" onClick={() => setCreating(true)}>
+        <div>
+          <h1 className="text-xl font-bold">แพ็กเกจ</h1>
+          <p className="text-sm text-muted-foreground">สร้างและจัดการแพ็กเกจการสมัครใช้งาน</p>
+        </div>
+        <Button type="button" onClick={() => setModal("new")}>
           <Plus className="size-4" /> สร้างแพ็กเกจ
         </Button>
       </div>
@@ -90,34 +71,67 @@ export default function AdminPlansPage() {
       {data && data.length === 0 && <EmptyState message="ยังไม่มีแพ็กเกจ" />}
 
       {data && data.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {data.map((p) => (
-            <PlanCard key={p.id} plan={p} />
-          ))}
+        <div className="space-y-3">
+          {data.map((p) => {
+            const count = p.featureCodes.length;
+            const featLabel = count > 0 && count === maxFeatures ? "ทุกฟีเจอร์" : `${count} ฟีเจอร์`;
+            return (
+              <div key={p.id} className="flex items-center gap-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
+                <div className="min-w-0 flex-1">
+                  <div className={`text-lg font-bold ${planColor(p.name)}`}>{p.name}</div>
+                  <div className="truncate text-sm text-muted-foreground">
+                    สาขา {limit(p.branchLimit)} · คอร์ท {limit(p.courtLimit)} · staff {limit(p.staffLimit)}
+                  </div>
+                </div>
+                <div className="hidden text-right sm:block">
+                  <div className="font-bold">{p.price === 0 ? "ติดต่อ" : `฿${fmt.format(p.price)}`}</div>
+                  <div className="text-xs text-muted-foreground">/ {p.interval === "year" ? "ปี" : "เดือน"}</div>
+                </div>
+                <span className="hidden rounded-full bg-app px-3 py-1 text-xs font-medium text-muted-foreground md:inline-block">
+                  {featLabel}
+                </span>
+                <Toggle on={p.isActive} onClick={() => toggleM.mutate(p)} disabled={toggleM.isPending} />
+                <button
+                  type="button"
+                  aria-label="แก้ไข"
+                  onClick={() => setModal(p)}
+                  className="grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-app hover:text-brand"
+                >
+                  <Pencil className="size-4" />
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {creating && <CreatePlanModal onClose={() => setCreating(false)} />}
+      {modal && <PlanModal plan={modal === "new" ? undefined : modal} onClose={() => setModal(null)} />}
     </div>
   );
 }
 
-function CreatePlanModal({ onClose }: { onClose: () => void }) {
+function PlanModal({ plan, onClose }: { plan?: Plan; onClose: () => void }) {
   const qc = useQueryClient();
-  const [form, setForm] = useState({ name: "", price: "", interval: "month" });
+  const [form, setForm] = useState({
+    name: plan?.name ?? "",
+    price: plan ? String(plan.price) : "",
+    interval: plan?.interval ?? "month",
+  });
   const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   const mutation = useMutation({
-    mutationFn: () =>
-      superAdminApi.createPlan({
-        name: form.name.trim(),
-        code: form.name.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") || `plan-${Date.now()}`,
-        price: Number(form.price) || 0,
-        interval: form.interval,
-        isActive: true,
-      }),
+    mutationFn: () => {
+      const body = { name: form.name.trim(), price: Number(form.price) || 0, interval: form.interval };
+      return plan
+        ? superAdminApi.updatePlan(plan.id, body)
+        : superAdminApi.createPlan({
+            ...body,
+            code: form.name.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") || `plan-${Date.now()}`,
+            isActive: true,
+          });
+    },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin", "plans"] });
+      qc.invalidateQueries({ queryKey: PLANS_KEY });
       onClose();
     },
     onError: (e: Error) => window.alert(e.message),
@@ -125,7 +139,7 @@ function CreatePlanModal({ onClose }: { onClose: () => void }) {
 
   return (
     <Modal
-      title="สร้างแพ็กเกจใหม่"
+      title={plan ? "แก้ไขแพ็กเกจ" : "สร้างแพ็กเกจใหม่"}
       onClose={onClose}
       footer={
         <>
@@ -133,24 +147,24 @@ function CreatePlanModal({ onClose }: { onClose: () => void }) {
             ยกเลิก
           </Button>
           <Button type="button" onClick={() => mutation.mutate()} disabled={!form.name.trim() || mutation.isPending}>
-            {mutation.isPending ? "กำลังสร้าง..." : "สร้างแพ็กเกจ"}
+            {mutation.isPending ? "กำลังบันทึก..." : "บันทึก"}
           </Button>
         </>
       }
     >
       <div className="space-y-3">
         <div className="space-y-1.5">
-          <Label htmlFor="cp-name">ชื่อแพ็กเกจ</Label>
-          <Input id="cp-name" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="เช่น Pro" />
+          <Label htmlFor="pm-name">ชื่อแพ็กเกจ</Label>
+          <Input id="pm-name" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="เช่น Pro" />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="cp-price">ราคา (บาท)</Label>
-          <Input id="cp-price" type="number" min={0} value={form.price} onChange={(e) => set("price", e.target.value)} placeholder="เช่น 3900" />
+          <Label htmlFor="pm-price">ราคา (บาท)</Label>
+          <Input id="pm-price" type="number" min={0} value={form.price} onChange={(e) => set("price", e.target.value)} placeholder="เช่น 3900" />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="cp-interval">รอบชำระเงิน</Label>
+          <Label htmlFor="pm-interval">รอบชำระเงิน</Label>
           <select
-            id="cp-interval"
+            id="pm-interval"
             value={form.interval}
             onChange={(e) => set("interval", e.target.value)}
             className="h-9 w-full rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
@@ -159,7 +173,6 @@ function CreatePlanModal({ onClose }: { onClose: () => void }) {
             <option value="year">รายปี</option>
           </select>
         </div>
-        {mutation.isError && <p className="text-sm text-brand-danger">สร้างไม่สำเร็จ ลองอีกครั้ง</p>}
       </div>
     </Modal>
   );
