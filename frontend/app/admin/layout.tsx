@@ -3,12 +3,21 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  ArrowLeftRight,
+  Banknote,
   Building2,
   CreditCard,
   LayoutDashboard,
+  LifeBuoy,
   LogOut,
+  Megaphone,
   Package,
+  ReceiptText,
+  ScrollText,
+  Settings,
+  ShieldCheck,
   ToggleRight,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 import type { User } from "@/lib/types";
@@ -18,10 +27,19 @@ type NavItem = { label: string; href: string; icon: LucideIcon };
 
 const NAV: NavItem[] = [
   { label: "ภาพรวม", href: "/admin", icon: LayoutDashboard },
-  { label: "องค์กร", href: "/admin/organizations", icon: Building2 },
-  { label: "Subscription", href: "/admin/subscriptions", icon: CreditCard },
+  { label: "จัดการสนาม", href: "/admin/organizations", icon: Building2 },
+  { label: "การสมัครใช้งาน", href: "/admin/subscriptions", icon: CreditCard },
   { label: "แพ็กเกจ", href: "/admin/plans", icon: Package },
   { label: "ฟีเจอร์", href: "/admin/features", icon: ToggleRight },
+  { label: "การชำระเงิน", href: "/admin/payments", icon: Banknote },
+  { label: "รายการเรียกเก็บเงิน", href: "/admin/billing", icon: ReceiptText },
+  { label: "ธุรกรรม", href: "/admin/transactions", icon: ArrowLeftRight },
+  { label: "ผู้ใช้งานระบบ", href: "/admin/users", icon: Users },
+  { label: "บทบาทและสิทธิ์", href: "/admin/roles", icon: ShieldCheck },
+  { label: "ศูนย์ช่วยเหลือ", href: "/admin/support", icon: LifeBuoy },
+  { label: "การแจ้งเตือน", href: "/admin/announcements", icon: Megaphone },
+  { label: "System Logs", href: "/admin/logs", icon: ScrollText },
+  { label: "ตั้งค่าระบบ", href: "/admin/settings", icon: Settings },
 ];
 
 function isActive(pathname: string, href: string) {
