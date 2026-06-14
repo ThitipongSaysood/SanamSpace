@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check } from "lucide-react";
+import { Check, CreditCard, Link2, Store, Wallet } from "lucide-react";
 import type { OwnerSettings } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
 import { Loading, ErrorState } from "@/components/states";
@@ -9,17 +9,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-// Editable text fields, in display order. Colors/font/timezone are shown read-only below.
-const FIELDS: { key: keyof OwnerSettings; label: string; type?: string }[] = [
-  { key: "orgName", label: "ชื่อร้าน / องค์กร" },
-  { key: "phone", label: "เบอร์โทรศัพท์", type: "tel" },
-  { key: "email", label: "อีเมล", type: "email" },
-  { key: "address", label: "ที่อยู่" },
-  { key: "lineOaUrl", label: "LINE OA URL", type: "url" },
-  { key: "googleMapUrl", label: "Google Map URL", type: "url" },
-];
+const TABS = [
+  { key: "info", label: "ข้อมูลสนาม", icon: Store },
+  { key: "payment", label: "การชำระเงิน", icon: Wallet },
+  { key: "channels", label: "ช่องทางการชำระเงิน", icon: CreditCard },
+  { key: "integrations", label: "การเชื่อมต่อ", icon: Link2 },
+] as const;
+
+type TabKey = (typeof TABS)[number]["key"];
+
+const SWATCHES = ["#16a34a", "#0ea5e9", "#6366f1", "#a855f7", "#ec4899", "#ef4444", "#f59e0b", "#14b8a6"];
 
 export default function OwnerSettingsPage() {
+  const [tab, setTab] = useState<TabKey>("info");
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["owner", "settings"],
     queryFn: ownerApi.getSettings,
@@ -28,22 +30,44 @@ export default function OwnerSettingsPage() {
   return (
     <div className="space-y-5">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground">ตั้งค่าระบบ</p>
+        <h1 className="text-2xl font-bold tracking-tight">ตั้งค่า</h1>
+        <p className="text-sm text-muted-foreground">ตั้งค่าระบบและข้อมูลสนาม</p>
       </header>
+
+      <div className="flex flex-wrap gap-1 border-b border-black/5">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setTab(t.key)}
+            className={`-mb-px flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition ${
+              tab === t.key
+                ? "border-brand text-brand"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <t.icon className="size-4" /> {t.label}
+          </button>
+        ))}
+      </div>
 
       {isLoading && <Loading rows={2} />}
       {isError && <ErrorState onRetry={() => refetch()} />}
-      {data && <SettingsForm settings={data} />}
+      {data && tab === "info" && <InfoTab settings={data} />}
+      {data && tab === "integrations" && <IntegrationsTab settings={data} />}
+      {data && (tab === "payment" || tab === "channels") && (
+        <Placeholder
+          title={tab === "payment" ? "การชำระเงิน" : "ช่องทางการชำระเงิน"}
+          note="ส่วนนี้กำลังพัฒนา — จะใช้ตั้งค่าบัญชีรับเงิน / PromptPay / เกตเวย์ชำระเงิน"
+        />
+      )}
     </div>
   );
 }
 
-function SettingsForm({ settings }: { settings: OwnerSettings }) {
+function InfoTab({ settings }: { settings: OwnerSettings }) {
   const qc = useQueryClient();
   const [form, setForm] = useState<OwnerSettings>(settings);
-
-  // Re-sync local form whenever fresh server data arrives (e.g. after invalidate).
   useEffect(() => setForm(settings), [settings]);
 
   const mutation = useMutation({
@@ -58,28 +82,33 @@ function SettingsForm({ settings }: { settings: OwnerSettings }) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    mutation.mutate();
-  }
-
-  const colors: { key: keyof OwnerSettings; label: string }[] = [
-    { key: "primaryColor", label: "สีหลัก" },
-    { key: "secondaryColor", label: "สีรอง" },
-    { key: "accentColor", label: "สีเน้น" },
+  const initials = (form.orgName || "S").trim().slice(0, 2).toUpperCase();
+  const fields: { key: keyof OwnerSettings; label: string; type?: string; full?: boolean }[] = [
+    { key: "orgName", label: "ชื่อสนาม", full: true },
+    { key: "phone", label: "เบอร์โทรศัพท์", type: "tel" },
+    { key: "email", label: "อีเมล", type: "email" },
+    { key: "lineOaUrl", label: "LINE OA", type: "url" },
+    { key: "googleMapUrl", label: "Google Map URL", type: "url" },
+    { key: "address", label: "ที่อยู่", full: true },
   ];
 
   return (
-    <form onSubmit={onSubmit} className="space-y-5">
-      {/* General info */}
-      <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
-        <h2 className="mb-3 text-sm font-semibold">ข้อมูลทั่วไป</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {FIELDS.map((f) => (
-            <div key={f.key} className="space-y-1.5">
-              <Label htmlFor={f.key}>{f.label}</Label>
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        mutation.mutate();
+      }}
+      className="grid gap-6 lg:grid-cols-3"
+    >
+      {/* Left — venue info */}
+      <section className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 lg:col-span-2">
+        <h2 className="text-sm font-semibold">ข้อมูลสนาม</h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {fields.map((f) => (
+            <div key={f.key} className={`space-y-1.5 ${f.full ? "sm:col-span-2" : ""}`}>
+              <Label htmlFor={`s-${f.key}`}>{f.label}</Label>
               <Input
-                id={f.key}
+                id={`s-${f.key}`}
                 type={f.type ?? "text"}
                 value={(form[f.key] as string) ?? ""}
                 onChange={(e) => set(f.key, e.target.value as OwnerSettings[typeof f.key])}
@@ -89,58 +118,117 @@ function SettingsForm({ settings }: { settings: OwnerSettings }) {
         </div>
       </section>
 
-      {/* Brand (read-only) */}
-      <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
-        <h2 className="mb-3 text-sm font-semibold">แบรนด์ &amp; ระบบ</h2>
-        <div className="grid gap-4 sm:grid-cols-3">
-          {colors.map((c) => (
-            <div key={c.key} className="space-y-1.5">
-              <Label>{c.label}</Label>
-              <div className="flex items-center gap-2 rounded-lg border border-input px-2.5 py-1">
-                <span
-                  className="size-5 shrink-0 rounded-md ring-1 ring-black/10"
-                  style={{ background: (form[c.key] as string) || "transparent" }}
-                />
-                <span className="text-sm tabular-nums text-muted-foreground">
-                  {(form[c.key] as string) || "—"}
-                </span>
-              </div>
-            </div>
-          ))}
-          <div className="space-y-1.5">
-            <Label>ฟอนต์</Label>
-            <div className="rounded-lg border border-input px-2.5 py-1.5 text-sm text-muted-foreground">
-              {form.fontFamily || "—"}
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label>โซนเวลา</Label>
-            <div className="rounded-lg border border-input px-2.5 py-1.5 text-sm text-muted-foreground">
-              {form.timezone || "—"}
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label>โลโก้ (ข้อความ)</Label>
-            <div className="rounded-lg border border-input px-2.5 py-1.5 text-sm text-muted-foreground">
-              {form.logoText || "—"}
-            </div>
+      {/* Right — logo + brand colors */}
+      <section className="space-y-6 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+        <div className="space-y-2">
+          <Label>โลโก้สนาม</Label>
+          <div className="flex items-center gap-3">
+            <span
+              className="grid size-16 shrink-0 place-items-center rounded-2xl text-xl font-bold text-white"
+              style={{ background: form.primaryColor || "#16a34a" }}
+            >
+              {initials}
+            </span>
+            <button
+              type="button"
+              disabled
+              title="เร็วๆ นี้"
+              className="rounded-lg border border-input px-3 py-1.5 text-sm text-muted-foreground"
+            >
+              เปลี่ยนรูป
+            </button>
           </div>
         </div>
-      </section>
 
-      <div className="flex items-center gap-3">
-        <Button type="submit" disabled={mutation.isPending}>
-          {mutation.isPending ? "กำลังบันทึก..." : "บันทึก"}
-        </Button>
-        {mutation.isSuccess && !mutation.isPending && (
-          <span className="inline-flex items-center gap-1 text-sm font-medium text-brand">
-            <Check className="size-4" /> บันทึกแล้ว
-          </span>
-        )}
-        {mutation.isError && (
-          <span className="text-sm text-brand-danger">บันทึกไม่สำเร็จ ลองอีกครั้ง</span>
-        )}
-      </div>
+        <div className="space-y-2">
+          <Label>ธีมสีแบรนด์</Label>
+          <div className="flex flex-wrap gap-2">
+            {SWATCHES.map((c) => (
+              <button
+                key={c}
+                type="button"
+                aria-label={c}
+                onClick={() => set("primaryColor", c)}
+                className={`size-7 rounded-full ring-2 ring-offset-2 transition ${
+                  form.primaryColor?.toLowerCase() === c ? "ring-foreground" : "ring-transparent"
+                }`}
+                style={{ background: c }}
+              />
+            ))}
+          </div>
+          <div className="mt-2 grid grid-cols-3 gap-3">
+            {(
+              [
+                ["primaryColor", "สีหลัก"],
+                ["secondaryColor", "สีรอง"],
+                ["accentColor", "สีเน้น"],
+              ] as const
+            ).map(([key, label]) => (
+              <div key={key} className="space-y-1">
+                <span className="text-xs text-muted-foreground">{label}</span>
+                <input
+                  type="color"
+                  value={(form[key] as string) || "#000000"}
+                  onChange={(e) => set(key, e.target.value)}
+                  className="h-9 w-full cursor-pointer rounded-lg border border-input bg-transparent"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2 border-t border-black/5 pt-4">
+          <Button type="submit" disabled={mutation.isPending}>
+            {mutation.isPending ? "กำลังบันทึก..." : "บันทึกการเปลี่ยนแปลง"}
+          </Button>
+          {mutation.isSuccess && !mutation.isPending && (
+            <span className="inline-flex items-center gap-1 text-sm font-medium text-brand">
+              <Check className="size-4" /> บันทึกแล้ว
+            </span>
+          )}
+          {mutation.isError && (
+            <span className="text-sm text-brand-danger">บันทึกไม่สำเร็จ ลองอีกครั้ง</span>
+          )}
+        </div>
+      </section>
     </form>
+  );
+}
+
+function IntegrationsTab({ settings }: { settings: OwnerSettings }) {
+  return (
+    <section className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+      <h2 className="text-sm font-semibold">การเชื่อมต่อ</h2>
+      <div className="flex items-center justify-between rounded-xl bg-app/60 p-4">
+        <div className="flex items-center gap-3">
+          <span className="grid size-10 place-items-center rounded-xl bg-[#06C755] text-sm font-bold text-white">
+            LINE
+          </span>
+          <div>
+            <div className="text-sm font-semibold">LINE Official Account</div>
+            <div className="text-xs text-muted-foreground">{settings.lineOaUrl || "ยังไม่ได้เชื่อมต่อ"}</div>
+          </div>
+        </div>
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+            settings.lineOaUrl ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"
+          }`}
+        >
+          {settings.lineOaUrl ? "เชื่อมต่อแล้ว" : "ยังไม่เชื่อมต่อ"}
+        </span>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        แก้ไข LINE OA URL ได้ที่แท็บ “ข้อมูลสนาม” · การเชื่อมต่ออื่น ๆ (LIFF, payment gateway) กำลังพัฒนา
+      </p>
+    </section>
+  );
+}
+
+function Placeholder({ title, note }: { title: string; note: string }) {
+  return (
+    <section className="rounded-2xl bg-white p-8 text-center shadow-sm ring-1 ring-black/5">
+      <h2 className="text-sm font-semibold">{title}</h2>
+      <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">{note}</p>
+    </section>
   );
 }
