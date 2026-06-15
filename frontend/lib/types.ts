@@ -61,6 +61,29 @@ export type Booking = {
   createdAt: string;
 };
 
+// Public per-venue LINE config for the customer frontend (GET /line-config).
+export type LineConfig = { liffId: string | null };
+
+// --- Refunds (customer requests → owner/admin approve; credit to wallet or manual) ---
+export type RefundStatus = "requested" | "approved" | "rejected";
+
+export type Refund = {
+  id: string;
+  bookingId: string;
+  bookingCode?: string | null;
+  amount: number;
+  reason?: string | null;
+  status: RefundStatus;
+  method?: string | null;      // "wallet" | "manual" — set at approval
+  requestedBy: string;         // "customer" | "owner" | "admin"
+  note?: string | null;        // staff note on approve/reject
+  createdAt: string;
+  processedAt?: string | null;
+};
+
+export type OwnerRefund = Refund & { customerName?: string | null };
+export type AdminRefund = Refund & { organizationName?: string | null; customerName?: string | null };
+
 export type PaymentMethod = "promptpay" | "transfer" | "wallet" | "card";
 export type PaymentStatus = "awaiting_slip" | "pending_review" | "approved" | "rejected";
 
@@ -257,6 +280,11 @@ export type OwnerSettings = {
   bankName?: string | null;
   bankAccountName?: string | null;
   bankAccountNumber?: string | null;
+  // LINE (per-venue). Secrets are write-only: never returned, only a *Set flag.
+  lineChannelId?: string | null;
+  lineLiffId?: string | null;
+  lineChannelSecretSet?: boolean;
+  lineMessagingTokenSet?: boolean;
 };
 
 export type OwnerPromotion = {
@@ -421,6 +449,11 @@ export type AdminOrganizationDetail = {
     address?: string | null;
     lineOaUrl?: string | null;
     timezone?: string | null;
+    // LINE (per-venue), admin override. Secrets are write-only (*Set flags only).
+    lineChannelId?: string | null;
+    lineLiffId?: string | null;
+    lineChannelSecretSet?: boolean;
+    lineMessagingTokenSet?: boolean;
   } | null;
   subscription: {
     planName: string | null;

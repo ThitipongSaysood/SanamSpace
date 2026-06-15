@@ -6,10 +6,9 @@ use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Payment extends Model
+class Refund extends Model
 {
     use HasUuids, SoftDeletes, BelongsToOrganization;
 
@@ -19,6 +18,7 @@ class Payment extends Model
     {
         return [
             'amount' => 'float',
+            'processed_at' => 'datetime',
         ];
     }
 
@@ -27,18 +27,13 @@ class Payment extends Model
         return $this->belongsTo(Booking::class);
     }
 
+    public function payment(): BelongsTo
+    {
+        return $this->belongsTo(Payment::class);
+    }
+
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
-    }
-
-    public function slips(): HasMany
-    {
-        return $this->hasMany(PaymentSlip::class);
-    }
-
-    public function refunds(): HasMany
-    {
-        return $this->hasMany(Refund::class);
     }
 }

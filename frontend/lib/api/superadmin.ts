@@ -6,6 +6,7 @@ import type {
   AdminOrganization,
   AdminOrganizationDetail,
   AdminPayment,
+  AdminRefund,
   AdminRole,
   AdminSubscription,
   AdminSupportTicket,
@@ -145,6 +146,18 @@ export const superAdminApi = {
   changeOrgPlan: (id: string, planId: string) =>
     req<AdminOrganizationDetail>(`/admin/organizations/${id}/plan`, { method: "PUT", body: { planId } }),
 
+  // Per-venue LINE override. Secrets are write-only: send a value to set it, omit
+  // or send "" to keep the existing one. The response never echoes raw secrets.
+  updateOrganizationSettings: (
+    id: string,
+    patch: Partial<{
+      lineChannelId: string;
+      lineLiffId: string;
+      lineChannelSecret: string;
+      lineMessagingToken: string;
+    }>,
+  ) => req<AdminOrganizationDetail>(`/admin/organizations/${id}/settings`, { method: "PUT", body: patch }),
+
   deleteOrg: (id: string) => req<void>(`/admin/organizations/${id}`, { method: "DELETE" }),
 
   impersonateOrg: (id: string) =>
@@ -174,6 +187,15 @@ export const superAdminApi = {
   getFeatures: () => req<PlatformFeature[]>("/admin/features"),
 
   getPayments: () => req<AdminPayment[]>("/admin/payments"),
+
+  // --- Refunds (platform oversight across all orgs; approve/reject override) ---
+  getRefunds: () => req<AdminRefund[]>("/admin/refunds"),
+
+  approveRefund: (id: string, method: "wallet" | "manual", note?: string) =>
+    req<AdminRefund>(`/admin/refunds/${id}/approve`, { method: "POST", body: { method, note } }),
+
+  rejectRefund: (id: string, note?: string) =>
+    req<AdminRefund>(`/admin/refunds/${id}/reject`, { method: "POST", body: { note } }),
 
   getUsers: () => req<AdminUser[]>("/admin/users"),
 

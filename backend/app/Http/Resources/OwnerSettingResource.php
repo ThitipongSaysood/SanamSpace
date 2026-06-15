@@ -41,6 +41,12 @@ class OwnerSettingResource extends JsonResource
             'bankName' => $this->bank_name,
             'bankAccountName' => $this->bank_account_name,
             'bankAccountNumber' => $this->bank_account_number,
+            // LINE (per-venue). Secrets are WRITE-ONLY: expose only a "*Set"
+            // boolean, never the encrypted channel secret / messaging token.
+            'lineChannelId' => $this->line_channel_id,
+            'lineLiffId' => $this->line_liff_id,
+            'lineChannelSecretSet' => filled($this->line_channel_secret),
+            'lineMessagingTokenSet' => filled($this->line_messaging_token),
         ];
     }
 }

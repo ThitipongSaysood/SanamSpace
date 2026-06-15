@@ -1,7 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Clock, ExternalLink, History, Power, RefreshCw, Trash2, UserCog, X } from "lucide-react";
+import { Clock, ExternalLink, History, MessageCircle, Power, RefreshCw, Trash2, UserCog, X } from "lucide-react";
 import { superAdminApi } from "@/lib/api/superadmin";
 import { setOwnerToken } from "@/lib/api/owner";
 import { Loading, ErrorState } from "@/components/states";
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Modal } from "../_components/modal";
 
 const fmt = new Intl.NumberFormat("th-TH");
-const TABS = ["ข้อมูลทั่วไป", "การสมัครใช้งาน", "ผู้ใช้งาน", "การใช้งาน", "ประวัติ"] as const;
+const TABS = ["ข้อมูลทั่วไป", "การสมัครใช้งาน", "LINE", "การใช้งาน", "ประวัติ"] as const;
 const INTERVAL: Record<string, string> = { month: "รายเดือน", year: "รายปี", monthly: "รายเดือน", yearly: "รายปี" };
 
 function fmtDate(iso: string | null | undefined) {
@@ -80,6 +80,35 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "organizations"] });
       onClose();
+    },
+    onError: (e: Error) => window.alert(e.message),
+  });
+
+  // LINE per-venue override form. Secrets stay blank (write-only); typing a value
+  // sets it, leaving blank keeps the existing one.
+  const [line, setLine] = useState({ channelId: "", liffId: "", channelSecret: "", messagingToken: "" });
+  useEffect(() => {
+    if (data?.settings) {
+      setLine((prev) => ({
+        ...prev,
+        channelId: data.settings?.lineChannelId ?? "",
+        liffId: data.settings?.lineLiffId ?? "",
+      }));
+    }
+  }, [data?.settings]);
+
+  const lineM = useMutation({
+    mutationFn: () =>
+      superAdminApi.updateOrganizationSettings(id, {
+        lineChannelId: line.channelId,
+        lineLiffId: line.liffId,
+        ...(line.channelSecret ? { lineChannelSecret: line.channelSecret } : {}),
+        ...(line.messagingToken ? { lineMessagingToken: line.messagingToken } : {}),
+      }),
+    onSuccess: () => {
+      invalidate();
+      setLine((prev) => ({ ...prev, channelSecret: "", messagingToken: "" }));
+      window.alert("บันทึกการตั้งค่า LINE แล้ว");
     },
     onError: (e: Error) => window.alert(e.message),
   });
@@ -258,6 +287,79 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
                   </button>
                 </section>
               </>
+            ) : tab === "LINE" ? (
+              <section className="space-y-4">
+                <div>
+                  <h3 className="flex items-center gap-1.5 text-sm font-semibold">
+                    <MessageCircle className="size-4 text-brand" /> LINE (ตั้งค่าเฉพาะสนาม)
+                  </h3>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    ค่าเหล่านี้ใช้แทนค่า LINE ส่วนกลางของแพลตฟอร์มสำหรับสนามนี้เท่านั้น
+                  </p>
+                </div>
+
+                <label className="block space-y-1">
+                  <span className="text-xs font-medium text-muted-foreground">Channel ID</span>
+                  <input
+                    value={line.channelId}
+                    onChange={(e) => setLine((p) => ({ ...p, channelId: e.target.value }))}
+                    placeholder="เช่น 1234567890"
+                    className="h-9 w-full rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
+                  />
+                </label>
+
+                <label className="block space-y-1">
+                  <span className="text-xs font-medium text-muted-foreground">LIFF ID</span>
+                  <input
+                    value={line.liffId}
+                    onChange={(e) => setLine((p) => ({ ...p, liffId: e.target.value }))}
+                    placeholder="เช่น 1234567890-abcdEFGH"
+                    className="h-9 w-full rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
+                  />
+                </label>
+
+                <label className="block space-y-1">
+                  <span className="flex items-center justify-between text-xs font-medium text-muted-foreground">
+                    Channel Secret
+                    {data.settings?.lineChannelSecretSet && (
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
+                        ตั้งค่าแล้ว
+                      </span>
+                    )}
+                  </span>
+                  <input
+                    type="password"
+                    value={line.channelSecret}
+                    onChange={(e) => setLine((p) => ({ ...p, channelSecret: e.target.value }))}
+                    placeholder={data.settings?.lineChannelSecretSet ? "••••••• (เว้นว่างเพื่อคงค่าเดิม)" : "กรอกเพื่อตั้งค่า"}
+                    autoComplete="new-password"
+                    className="h-9 w-full rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
+                  />
+                </label>
+
+                <label className="block space-y-1">
+                  <span className="flex items-center justify-between text-xs font-medium text-muted-foreground">
+                    Messaging API Token
+                    {data.settings?.lineMessagingTokenSet && (
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
+                        ตั้งค่าแล้ว
+                      </span>
+                    )}
+                  </span>
+                  <input
+                    type="password"
+                    value={line.messagingToken}
+                    onChange={(e) => setLine((p) => ({ ...p, messagingToken: e.target.value }))}
+                    placeholder={data.settings?.lineMessagingTokenSet ? "••••••• (เว้นว่างเพื่อคงค่าเดิม)" : "กรอกเพื่อตั้งค่า"}
+                    autoComplete="new-password"
+                    className="h-9 w-full rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
+                  />
+                </label>
+
+                <Button type="button" className="w-full" onClick={() => lineM.mutate()} disabled={lineM.isPending}>
+                  {lineM.isPending ? "กำลังบันทึก..." : "บันทึกการตั้งค่า LINE"}
+                </Button>
+              </section>
             ) : tab === "การใช้งาน" ? (
               <section className="space-y-4">
                 <h3 className="text-sm font-semibold">การใช้งานเทียบโควต้าแพ็กเกจ</h3>

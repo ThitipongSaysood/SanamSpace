@@ -44,6 +44,11 @@ class AdminOrganizationDetailResource extends JsonResource
                 'address' => $settings->address,
                 'lineOaUrl' => $settings->line_oa_url,
                 'timezone' => $settings->timezone,
+                // LINE per-venue override. Secrets are write-only: expose only *Set flags.
+                'lineChannelId' => $settings->line_channel_id,
+                'lineLiffId' => $settings->line_liff_id,
+                'lineChannelSecretSet' => filled($settings->line_channel_secret),
+                'lineMessagingTokenSet' => filled($settings->line_messaging_token),
             ] : null,
             'plan' => $subscription?->plan
                 ? new PlanResource($subscription->plan->loadMissing('enabledFeatures'))

@@ -10,6 +10,7 @@ import type {
   OwnerMembershipRow,
   OwnerPayment,
   OwnerPromotion,
+  OwnerRefund,
   OwnerRole,
   OwnerSegment,
   OwnerSettings,
@@ -210,6 +211,15 @@ export const ownerApi = {
 
   rejectPayment: (id: string) => req<OwnerPayment>(`/owner/payments/${id}/reject`, { method: "POST" }),
 
+  // --- Refunds (review customer requests; approve credits the wallet or records a manual refund) ---
+  getRefunds: () => req<OwnerRefund[]>("/owner/refunds"),
+
+  approveRefund: (id: string, method: "wallet" | "manual", note?: string) =>
+    req<OwnerRefund>(`/owner/refunds/${id}/approve`, { method: "POST", body: { method, note } }),
+
+  rejectRefund: (id: string, note?: string) =>
+    req<OwnerRefund>(`/owner/refunds/${id}/reject`, { method: "POST", body: { note } }),
+
   // --- Courts (คอร์ท) management ---
   getCourts: () => req<OwnerCourt[]>("/owner/courts"),
 
@@ -264,8 +274,16 @@ export const ownerApi = {
 
   getSettings: () => req<OwnerSettings>("/owner/settings"),
 
-  updateSettings: (patch: Partial<OwnerSettings>) =>
-    req<OwnerSettings>("/owner/settings", { method: "PUT", body: patch }),
+  // The two LINE secrets are WRITE-ONLY: they are accepted here on update but
+  // never returned (the response only carries the `*Set` booleans on
+  // OwnerSettings). Send them only when changing a secret; omit to keep the
+  // stored value (a blank submit must not wipe it).
+  updateSettings: (
+    patch: Partial<OwnerSettings> & {
+      lineChannelSecret?: string;
+      lineMessagingToken?: string;
+    },
+  ) => req<OwnerSettings>("/owner/settings", { method: "PUT", body: patch }),
 
   getOwnerPromotions: () => req<OwnerPromotion[]>("/owner/promotions"),
 

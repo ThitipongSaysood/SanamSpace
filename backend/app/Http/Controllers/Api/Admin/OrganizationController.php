@@ -121,6 +121,45 @@ class OrganizationController extends Controller
         return new AdminOrganizationDetailResource($this->load($org));
     }
 
+    /**
+     * PUT /admin/organizations/{id}/settings — platform override of the org's
+     * per-venue LINE integration. Secrets are write-only: they are only updated
+     * when a non-empty value is provided, and never returned (see the resource).
+     */
+    public function updateSettings(Request $request, string $id): AdminOrganizationDetailResource
+    {
+        $data = $request->validate([
+            'lineChannelId' => ['nullable', 'string', 'max:255'],
+            'lineLiffId' => ['nullable', 'string', 'max:255'],
+            'lineChannelSecret' => ['nullable', 'string', 'max:500'],
+            'lineMessagingToken' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $org = $this->find($id);
+        $settings = $org->settings ?? $org->settings()->create([]);
+
+        $attrs = [];
+        if ($request->has('lineChannelId')) {
+            $attrs['line_channel_id'] = $data['lineChannelId'] ?: null;
+        }
+        if ($request->has('lineLiffId')) {
+            $attrs['line_liff_id'] = $data['lineLiffId'] ?: null;
+        }
+        // Secrets: only write when a non-empty value is given — never wipe on blank.
+        if (filled($data['lineChannelSecret'] ?? null)) {
+            $attrs['line_channel_secret'] = $data['lineChannelSecret'];
+        }
+        if (filled($data['lineMessagingToken'] ?? null)) {
+            $attrs['line_messaging_token'] = $data['lineMessagingToken'];
+        }
+
+        if ($attrs) {
+            $settings->update($attrs);
+        }
+
+        return new AdminOrganizationDetailResource($this->load($org->fresh()));
+    }
+
     /** PUT /admin/organizations/{id}/plan — change the org's subscription plan. */
     public function changePlan(Request $request, string $id): AdminOrganizationDetailResource
     {

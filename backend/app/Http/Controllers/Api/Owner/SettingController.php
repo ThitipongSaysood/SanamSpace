@@ -57,6 +57,14 @@ class SettingController extends Controller
             'bankName' => ['sometimes', 'nullable', 'string', 'max:100'],
             'bankAccountName' => ['sometimes', 'nullable', 'string', 'max:255'],
             'bankAccountNumber' => ['sometimes', 'nullable', 'string', 'max:50'],
+
+            // --- LINE (per-venue integration) ---
+            // channelId / liffId are plain identifiers; the two secrets are
+            // WRITE-ONLY (handled below) and never returned by the resource.
+            'lineChannelId' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'lineLiffId' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'lineChannelSecret' => ['sometimes', 'nullable', 'string', 'max:500'],
+            'lineMessagingToken' => ['sometimes', 'nullable', 'string', 'max:2000'],
         ]);
 
         // Org name lives on the organization, not the settings row.
@@ -83,11 +91,26 @@ class SettingController extends Controller
             'bankName' => 'bank_name',
             'bankAccountName' => 'bank_account_name',
             'bankAccountNumber' => 'bank_account_number',
+            // LINE plain identifiers (the secrets are handled separately below).
+            'lineChannelId' => 'line_channel_id',
+            'lineLiffId' => 'line_liff_id',
         ];
 
         $updates = [];
         foreach ($columnMap as $field => $column) {
             if (array_key_exists($field, $validated)) {
+                $updates[$column] = $validated[$field];
+            }
+        }
+
+        // LINE secrets are write-only: only persist when a non-empty value is
+        // submitted, so a blank submit never wipes an existing stored secret.
+        $secretMap = [
+            'lineChannelSecret' => 'line_channel_secret',
+            'lineMessagingToken' => 'line_messaging_token',
+        ];
+        foreach ($secretMap as $field => $column) {
+            if (array_key_exists($field, $validated) && filled($validated[$field])) {
                 $updates[$column] = $validated[$field];
             }
         }

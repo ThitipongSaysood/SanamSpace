@@ -47,6 +47,9 @@ use App\Http\Controllers\Api\Owner\SubscriptionController as OwnerSubscriptionCo
 use App\Http\Controllers\Api\Owner\UploadController as OwnerUploadController;
 use App\Http\Controllers\Api\Owner\WalletController as OwnerWalletController;
 use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\RefundController;
+use App\Http\Controllers\Api\Owner\RefundController as OwnerRefundController;
+use App\Http\Controllers\Api\Admin\RefundController as AdminRefundController;
 use Illuminate\Support\Facades\Route;
 
 // All routes here are mounted under the /api/v1 prefix (bootstrap/app.php).
@@ -54,6 +57,8 @@ use Illuminate\Support\Facades\Route;
 // --- Public auth ---
 Route::post('/auth/line/login', [AuthController::class, 'lineLogin']);
 Route::post('/auth/admin/login', [AuthController::class, 'adminLogin']);
+// Per-venue LINE LIFF id for the frontend (resolved from ?venueId / ?organizationSlug / default org).
+Route::get('/line-config', [AuthController::class, 'lineConfig']);
 
 // --- Public venue/court browsing (customer-facing reads) ---
 Route::get('/branches', [BranchController::class, 'index']);
@@ -97,6 +102,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/bookings/{id}/checkin', [BookingController::class, 'checkin']);
     Route::post('/bookings/{id}/checkout', [BookingController::class, 'checkout']);
 
+    // --- Refunds (customer-initiated request + own list) ---
+    Route::post('/bookings/{id}/refund', [RefundController::class, 'store']);
+    Route::get('/refunds', [RefundController::class, 'index']);
+
     // --- Payments ---
     Route::post('/payments', [PaymentController::class, 'store']);
     Route::get('/payments/{id}', [PaymentController::class, 'show']);
@@ -125,6 +134,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/payments', [OwnerPaymentController::class, 'index']);
         Route::post('/payments/{id}/verify', [OwnerPaymentController::class, 'verify']);
         Route::post('/payments/{id}/reject', [OwnerPaymentController::class, 'reject']);
+
+        // --- Refunds (review customer requests; approve credits the wallet) ---
+        Route::get('/refunds', [OwnerRefundController::class, 'index']);
+        Route::post('/refunds/{id}/approve', [OwnerRefundController::class, 'approve']);
+        Route::post('/refunds/{id}/reject', [OwnerRefundController::class, 'reject']);
 
         // --- Image upload (venue cover / gallery / floor-plan) ---
         Route::post('/uploads', [OwnerUploadController::class, 'store']);
@@ -200,6 +214,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/organizations/{id}/activate', [AdminOrganizationController::class, 'activate']);
         Route::post('/organizations/{id}/impersonate', [AdminOrganizationController::class, 'impersonate']);
         Route::put('/organizations/{id}/plan', [AdminOrganizationController::class, 'changePlan']);
+        Route::put('/organizations/{id}/settings', [AdminOrganizationController::class, 'updateSettings']);
         Route::delete('/organizations/{id}', [AdminOrganizationController::class, 'destroy']);
 
         Route::get('/subscriptions', [AdminSubscriptionController::class, 'index']);
@@ -212,6 +227,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/features', [AdminFeatureController::class, 'index']);
 
         Route::get('/payments', [AdminPaymentController::class, 'index']);
+        // --- Refunds (platform oversight across all orgs; approve/reject override) ---
+        Route::get('/refunds', [AdminRefundController::class, 'index']);
+        Route::post('/refunds/{id}/approve', [AdminRefundController::class, 'approve']);
+        Route::post('/refunds/{id}/reject', [AdminRefundController::class, 'reject']);
         Route::get('/users', [AdminUserController::class, 'index']);
         Route::get('/roles', [AdminRoleController::class, 'index']);
 

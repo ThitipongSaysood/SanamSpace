@@ -291,31 +291,151 @@ function PaymentTab({ settings }: { settings: OwnerSettings }) {
 }
 
 function IntegrationsTab({ settings }: { settings: OwnerSettings }) {
+  const qc = useQueryClient();
+
+  // Plain identifiers edit in place; the two secrets are WRITE-ONLY — we keep
+  // them as local input state, start them blank, and only send them when the
+  // owner actually types something (a blank submit must not wipe a stored one).
+  const [channelId, setChannelId] = useState(settings.lineChannelId ?? "");
+  const [liffId, setLiffId] = useState(settings.lineLiffId ?? "");
+  const [channelSecret, setChannelSecret] = useState("");
+  const [messagingToken, setMessagingToken] = useState("");
+
+  useEffect(() => {
+    setChannelId(settings.lineChannelId ?? "");
+    setLiffId(settings.lineLiffId ?? "");
+    setChannelSecret("");
+    setMessagingToken("");
+  }, [settings]);
+
+  const mutation = useMutation({
+    mutationFn: () => {
+      const patch: Parameters<typeof ownerApi.updateSettings>[0] = {
+        lineChannelId: channelId,
+        lineLiffId: liffId,
+      };
+      // Only include a secret when the owner typed a new value.
+      if (channelSecret.trim()) patch.lineChannelSecret = channelSecret;
+      if (messagingToken.trim()) patch.lineMessagingToken = messagingToken;
+      return ownerApi.updateSettings(patch);
+    },
+    onSuccess: (updated) => {
+      qc.setQueryData(["owner", "settings"], updated);
+      qc.invalidateQueries({ queryKey: ["owner", "settings"] });
+      // Never keep typed secrets around after a save.
+      setChannelSecret("");
+      setMessagingToken("");
+    },
+  });
+
   return (
-    <section className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
-      <h2 className="text-sm font-semibold">การเชื่อมต่อ</h2>
-      <div className="flex items-center justify-between rounded-xl bg-app/60 p-4">
-        <div className="flex items-center gap-3">
-          <span className="grid size-10 place-items-center rounded-xl bg-[#06C755] text-sm font-bold text-white">
-            LINE
-          </span>
-          <div>
-            <div className="text-sm font-semibold">LINE Official Account</div>
-            <div className="text-xs text-muted-foreground">{settings.lineOaUrl || "ยังไม่ได้เชื่อมต่อ"}</div>
+    <div className="max-w-2xl space-y-4">
+      {/* LINE Official Account status (URL is edited on the "ข้อมูลสนาม" tab) */}
+      <section className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+        <h2 className="text-sm font-semibold">การเชื่อมต่อ</h2>
+        <div className="flex items-center justify-between rounded-xl bg-app/60 p-4">
+          <div className="flex items-center gap-3">
+            <span className="grid size-10 place-items-center rounded-xl bg-[#06C755] text-sm font-bold text-white">
+              LINE
+            </span>
+            <div>
+              <div className="text-sm font-semibold">LINE Official Account</div>
+              <div className="text-xs text-muted-foreground">{settings.lineOaUrl || "ยังไม่ได้เชื่อมต่อ"}</div>
+            </div>
           </div>
+          <span
+            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+              settings.lineOaUrl ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"
+            }`}
+          >
+            {settings.lineOaUrl ? "เชื่อมต่อแล้ว" : "ยังไม่เชื่อมต่อ"}
+          </span>
         </div>
-        <span
-          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-            settings.lineOaUrl ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"
-          }`}
-        >
-          {settings.lineOaUrl ? "เชื่อมต่อแล้ว" : "ยังไม่เชื่อมต่อ"}
-        </span>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        แก้ไข LINE OA URL ได้ที่แท็บ “ข้อมูลสนาม” · การเชื่อมต่ออื่น ๆ (LIFF, payment gateway) กำลังพัฒนา
-      </p>
-    </section>
+        <p className="text-xs text-muted-foreground">แก้ไข LINE OA URL ได้ที่แท็บ “ข้อมูลสนาม”</p>
+      </section>
+
+      {/* LINE (เชื่อมต่อ) — per-venue LINE Login / LIFF / Messaging credentials */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          mutation.mutate();
+        }}
+      >
+        <section className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+          <div>
+            <h2 className="text-sm font-semibold">LINE (เชื่อมต่อ)</h2>
+            <p className="text-xs text-muted-foreground">
+              ตั้งค่าบัญชี LINE ของสนามเอง — ใช้สำหรับ LINE Login / LIFF และการส่งข้อความผ่าน Messaging API
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="line-channel-id">Channel ID</Label>
+              <Input
+                id="line-channel-id"
+                value={channelId}
+                placeholder="1660000000"
+                onChange={(e) => setChannelId(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">LINE Login channel ID</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="line-liff-id">LIFF ID</Label>
+              <Input
+                id="line-liff-id"
+                value={liffId}
+                placeholder="1660000000-abcdEFGh"
+                onChange={(e) => setLiffId(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">LIFF app ID (ฝั่งหน้าเว็บลูกค้า)</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="line-channel-secret">Channel Secret</Label>
+              <Input
+                id="line-channel-secret"
+                type="password"
+                autoComplete="new-password"
+                value={channelSecret}
+                placeholder={settings.lineChannelSecretSet ? "••••••••" : ""}
+                onChange={(e) => setChannelSecret(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                {settings.lineChannelSecretSet
+                  ? "ตั้งค่าแล้ว · เว้นว่างเพื่อใช้ค่าเดิม / กรอกใหม่เพื่อเปลี่ยน"
+                  : "เก็บแบบเข้ารหัส ไม่แสดงค่าเดิมกลับมา"}
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="line-messaging-token">Messaging Token</Label>
+              <Input
+                id="line-messaging-token"
+                type="password"
+                autoComplete="new-password"
+                value={messagingToken}
+                placeholder={settings.lineMessagingTokenSet ? "••••••••" : ""}
+                onChange={(e) => setMessagingToken(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                {settings.lineMessagingTokenSet
+                  ? "ตั้งค่าแล้ว · เว้นว่างเพื่อใช้ค่าเดิม / กรอกใหม่เพื่อเปลี่ยน"
+                  : "OA Messaging API token · เก็บแบบเข้ารหัส"}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 border-t border-black/5 pt-4">
+            <Button type="submit" disabled={mutation.isPending}>
+              {mutation.isPending ? "กำลังบันทึก..." : "บันทึก"}
+            </Button>
+            {mutation.isSuccess && !mutation.isPending && (
+              <span className="inline-flex items-center gap-1 text-sm font-medium text-brand">
+                <Check className="size-4" /> บันทึกแล้ว
+              </span>
+            )}
+            {mutation.isError && <span className="text-sm text-brand-danger">บันทึกไม่สำเร็จ</span>}
+          </div>
+        </section>
+      </form>
+    </div>
   );
 }
 

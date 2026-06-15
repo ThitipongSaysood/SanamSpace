@@ -1,6 +1,6 @@
 import type {
-  AppNotification, Booking, Court, CourtSchedule, CustomerPackage, Membership, Payment, PaymentInstructions,
-  PackagePurchaseInstructions, Promotion, ReviewSummary, Slot, User, Venue, VenuePackage, Wallet, WalletTopupInstructions,
+  AppNotification, Booking, Court, CourtSchedule, CustomerPackage, LineConfig, Membership, Payment, PaymentInstructions,
+  PackagePurchaseInstructions, Promotion, Refund, ReviewSummary, Slot, User, Venue, VenuePackage, Wallet, WalletTopupInstructions,
 } from "@/lib/types";
 import {
   courts as courtsFx, venues as venuesFx,
@@ -9,6 +9,7 @@ import {
 } from "./fixtures";
 
 export type LinePayload = {
+  idToken?: string;       // LIFF-verified id token (real mode)
   lineUserId?: string;
   displayName?: string;
   email?: string;
@@ -18,7 +19,7 @@ export type LinePayload = {
 
 const delay = (ms = 250) => new Promise((r) => setTimeout(r, ms));
 const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
-const db = { bookings: new Map<string, Booking>(), payments: new Map<string, Payment>() };
+const db = { bookings: new Map<string, Booking>(), payments: new Map<string, Payment>(), refunds: new Map<string, Refund>() };
 let seq = 1;
 
 const MOCK_USER: User = {
@@ -42,6 +43,8 @@ export const mockApi = {
     await delay();
     return { token: "mock-token", user: { ...MOCK_USER } };
   },
+  // Public per-venue LINE config. Mock has no LIFF id → demo stub login path.
+  async getLineConfig(): Promise<LineConfig> { await delay(); return { liffId: null }; },
   async getVenues(): Promise<Venue[]> { await delay(); return venuesFx; },
   async getVenue(id: string): Promise<Venue | undefined> { await delay(); return venuesFx.find((v) => v.id === id); },
   async getCourts(venueId: string): Promise<Court[]> { await delay(); return courtsFx.filter((c) => c.venueId === venueId); },
@@ -101,6 +104,26 @@ export const mockApi = {
   async cancelBooking(id: string): Promise<Booking> {
     await delay(); const b = db.bookings.get(id)!; b.status = "cancelled"; return { ...b };
   },
+  async requestRefund(bookingId: string, reason?: string): Promise<Refund> {
+    await delay();
+    const b = db.bookings.get(bookingId);
+    const refund: Refund = {
+      id: `rf-${bookingId}`,
+      bookingId,
+      bookingCode: b?.code ?? null,
+      amount: b?.amount ?? 0,
+      reason: reason ?? null,
+      status: "requested",
+      method: null,
+      requestedBy: "customer",
+      note: null,
+      createdAt: new Date(2026, 5, 13).toISOString(),
+      processedAt: null,
+    };
+    db.refunds.set(refund.id, refund);
+    return { ...refund };
+  },
+  async getRefunds(): Promise<Refund[]> { await delay(); return [...db.refunds.values()]; },
   async getReviews(_venueId: string): Promise<ReviewSummary> { await delay(); return reviewSummaryFx; },
   async submitReview(_venueId: string, rating: number, text: string): Promise<ReviewSummary> {
     await delay();
@@ -149,6 +172,9 @@ export const mockApi = {
   async getPromotions(): Promise<Promotion[]> { await delay(); return promotionsFx; },
   async getNotifications(): Promise<AppNotification[]> { await delay(); return notificationsFx; },
   async updateProfile(patch: Partial<User>): Promise<User> { await delay(); return { ...MOCK_USER, ...patch }; },
+  // Session restore: in mock mode lineLogin never stores a token, so the
+  // rehydrate path doesn't call this — returns the demo user if it ever does.
+  async me(): Promise<User | null> { await delay(); return { ...MOCK_USER }; },
 };
 
 export type Api = typeof mockApi;

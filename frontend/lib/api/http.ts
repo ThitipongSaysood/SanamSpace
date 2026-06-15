@@ -1,6 +1,6 @@
 import type {
-  AppNotification, Booking, Court, CourtSchedule, CustomerPackage, Membership, Payment, PaymentInstructions,
-  PackagePurchaseInstructions, Promotion, ReviewSummary, User, Venue, VenuePackage, Wallet, WalletTopupInstructions,
+  AppNotification, Booking, Court, CourtSchedule, CustomerPackage, LineConfig, Membership, Payment, PaymentInstructions,
+  PackagePurchaseInstructions, Promotion, Refund, ReviewSummary, User, Venue, VenuePackage, Wallet, WalletTopupInstructions,
 } from "@/lib/types";
 import { getToken, setToken } from "./token";
 import type { Api, LinePayload } from "./mock";
@@ -61,6 +61,8 @@ export const httpApi: Api = {
     setToken(res.token);
     return res;
   },
+  // Public; returns { liffId } un-wrapped (plain JsonResponse, not a Resource).
+  getLineConfig: () => req<LineConfig>("/line-config", { raw: true }),
 
   getVenues: () => req<Venue[]>("/branches"),
   getVenue: (id) => getOrUndefined<Venue>(`/branches/${id}`),
@@ -73,6 +75,9 @@ export const httpApi: Api = {
   listBookings: () => req<Booking[]>("/bookings"),
   checkinBooking: (id) => req<Booking>(`/bookings/${id}/checkin`, { method: "POST" }),
   cancelBooking: (id) => req<Booking>(`/bookings/${id}/cancel`, { method: "POST" }),
+  requestRefund: (bookingId, reason) =>
+    req<Refund>(`/bookings/${bookingId}/refund`, { method: "POST", body: { reason } }),
+  getRefunds: () => req<Refund[]>("/refunds"),
 
   createPayment: (bookingId, method) =>
     req<Payment>("/payments", { method: "POST", body: { bookingId, method } }),
@@ -110,4 +115,12 @@ export const httpApi: Api = {
   getPromotions: () => req<Promotion[]>("/promotions"),
   getNotifications: () => req<AppNotification[]>("/notifications"),
   updateProfile: (patch) => req<User>("/auth/me", { method: "PUT", body: patch }),
+  async me(): Promise<User | null> {
+    try {
+      return await req<User>("/auth/me");
+    } catch (e) {
+      if (e instanceof ApiError && (e.status === 401 || e.status === 404)) return null;
+      throw e;
+    }
+  },
 };

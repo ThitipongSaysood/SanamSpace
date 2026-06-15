@@ -8,13 +8,15 @@ import { BottomNav } from "@/components/bottom-nav";
 const TAB_ROUTES = ["/", "/bookings", "/notifications", "/profile"];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, ready } = useAuth();
   const router = useRouter();
   const path = usePathname();
   useEffect(() => {
-    if (!user) router.replace("/login");
-  }, [user, router]);
-  if (!user) return null;
+    // Wait for the session-restore attempt before deciding to redirect,
+    // otherwise a refresh bounces an authenticated user to /login.
+    if (ready && !user) router.replace("/login");
+  }, [ready, user, router]);
+  if (!ready || !user) return null;
   const showNav = TAB_ROUTES.includes(path);
   return (
     <div className={`mx-auto min-h-dvh max-w-md bg-app text-foreground ${showNav ? "pb-16" : ""}`}>

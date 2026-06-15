@@ -1,12 +1,14 @@
 "use client";
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import type { User } from "@/lib/types";
 import { api } from "@/lib/api/client";
-import { clearToken } from "@/lib/api/token";
+import { clearToken, getToken } from "@/lib/api/token";
+import { getLineIdToken } from "./liff";
 
 const STORAGE_KEY = "sanamspace.profile";
 
-// Demo identity sent to the (stubbed) LINE login so the same customer is resolved each time.
+// Demo identity sent to the stub LINE login when LIFF is NOT configured
+// (NEXT_PUBLIC_LIFF_ID unset) — keeps local dev / the mock backend working.
 const LINE_PAYLOAD = {
   lineUserId: "Uxxxx",
   displayName: "คุณสมชาย",
@@ -25,6 +27,7 @@ function loadOverrides(): Partial<User> {
 
 type AuthValue = {
   user: User | null;
+  ready: boolean; // false until the initial session-restore attempt finishes
   login: () => Promise<void>;
   logout: () => void;
   updateUser: (patch: Partial<User>) => void;
@@ -33,10 +36,46 @@ const Ctx = createContext<AuthValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [ready, setReady] = useState(false);
+
+  // Restore an existing session on load: a stored token → fetch the user.
+  // Without this, a page refresh dropped `user` to null and bounced to /login.
+  useEffect(() => {
+    let active = true;
+    async function restore() {
+      if (!getToken()) {
+        if (active) setReady(true);
+        return;
+      }
+      try {
+        const me = await api.me();
+        if (active && me) setUser({ ...me, ...loadOverrides() });
+      } catch {
+        /* stale/invalid token — stay logged out */
+      } finally {
+        if (active) setReady(true);
+      }
+    }
+    void restore();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function login() {
-    const { user: authed } = await api.lineLogin(LINE_PAYLOAD);
-    // Apply any locally-saved profile edits on top (backend has no customer-update endpoint yet).
+    // Real backend (NEXT_PUBLIC_API_URL set): resolve the per-venue LIFF id —
+    // the env override wins, else the org's id from GET /line-config. With a
+    // LIFF id we run the real LINE flow for THAT channel; without one we fall
+    // back to the demo stub. In mock mode (no API url) always use the stub so
+    // local dev / tests keep working without a LINE channel.
+    let payload: Parameters<typeof api.lineLogin>[0] = LINE_PAYLOAD;
+    if (process.env.NEXT_PUBLIC_API_URL) {
+      const config = await api.getLineConfig();
+      const liffId = process.env.NEXT_PUBLIC_LIFF_ID || config.liffId;
+      payload = liffId ? { idToken: await getLineIdToken(liffId) } : LINE_PAYLOAD;
+    }
+    const { user: authed } = await api.lineLogin(payload);
+    // Apply any locally-saved profile edits on top.
     setUser({ ...authed, ...loadOverrides() });
   }
   function logout() {
@@ -56,7 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void api.updateProfile(patch).catch(() => {});
   }
 
-  return <Ctx.Provider value={{ user, login, logout, updateUser }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ user, ready, login, logout, updateUser }}>{children}</Ctx.Provider>;
 }
 
 export function useAuth() {
