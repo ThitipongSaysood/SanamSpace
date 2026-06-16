@@ -31,25 +31,6 @@ class AuthController extends Controller
      */
     public function lineLogin(Request $request, LineTokenVerifier $verifier): JsonResponse
     {
-        try {
-            return $this->doLineLogin($request, $verifier);
-        } catch (ValidationException $e) {
-            throw $e; // real validation errors stay 422
-        } catch (\Throwable $e) {
-            // TEMP DIAGNOSTIC: surface the real cause of the 500 while debugging
-            // LINE login on prod (APP_DEBUG is off there). Remove after fixed.
-            \Log::error('lineLogin failed', ['exception' => $e]);
-
-            return response()->json([
-                'message' => 'lineLogin error',
-                'error' => class_basename($e).': '.$e->getMessage(),
-                'at' => basename($e->getFile()).':'.$e->getLine(),
-            ], 500);
-        }
-    }
-
-    private function doLineLogin(Request $request, LineTokenVerifier $verifier): JsonResponse
-    {
         $data = $request->validate([
             'idToken' => ['nullable', 'string'],
             'lineUserId' => ['nullable', 'string'],
