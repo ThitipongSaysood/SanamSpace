@@ -5,6 +5,12 @@ name: Deploy to Production
 # Laravel's vendor/ is installed on the runner too — so the server only needs
 # to run migrations + restart the Node service (no build step on the server).
 #
+# Incremental: only the side that actually changed is built & shipped.
+#   - push that touches frontend/** -> build + sync frontend, restart Next
+#   - push that touches backend/**  -> install + sync backend, migrate, reload PHP
+#   - a change to this workflow (or a manual run) -> deploy both, to be safe
+#   - a push that touches neither (docs, root files) -> nothing is deployed
+#
 # Repository secrets (Settings -> Secrets and variables -> Actions):
 #   SERVER_HOST       e.g. ssh.semitennis.com  (or the server IP)
 #   SERVER_USER       e.g. root
@@ -32,13 +38,41 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # ---------- decide which side(s) changed ----------
+      - name: Detect changed paths
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+            backend:
+              - 'backend/**'
+            workflow:
+              - '.github/workflows/deploy.yml'
+      - name: Decide what to deploy
+        id: decide
+        run: |
+          FE=false; BE=false
+          # a workflow change or a manual run deploys both (build config may differ)
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ steps.changes.outputs.workflow }}" = "true" ]; then
+            FE=true; BE=true
+          fi
+          [ "${{ steps.changes.outputs.frontend }}" = "true" ] && FE=true
+          [ "${{ steps.changes.outputs.backend }}" = "true" ] && BE=true
+          echo "fe=$FE" >> "$GITHUB_OUTPUT"
+          echo "be=$BE" >> "$GITHUB_OUTPUT"
+          echo "Deploy -> frontend=$FE  backend=$BE"
+
       # ---------- frontend: Next.js standalone build (on the runner) ----------
-      - uses: actions/setup-node@v4
+      - if: steps.decide.outputs.fe == 'true'
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
       - name: Cache Next build
+        if: steps.decide.outputs.fe == 'true'
         uses: actions/cache@v4
         with:
           path: frontend/.next/cache
@@ -47,6 +81,7 @@ jobs:
             nextjs-${{ hashFiles('frontend/package-lock.json') }}-
             nextjs-
       - name: Build frontend (standalone)
+        if: steps.decide.outputs.fe == 'true'
         working-directory: frontend
         env:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || '/api/v1' }}
@@ -61,67 +96,89 @@ jobs:
           [ -d public ] && cp -r public ../_stage/frontend/public || true
 
       # ---------- backend: Laravel deps (on the runner) ----------
-      - uses: shivammathur/setup-php@v2
+      - if: steps.decide.outputs.be == 'true'
+        uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'   # Laravel 13 requires php ^8.3
           extensions: mbstring, xml, curl, zip, bcmath, intl, pdo_mysql
           coverage: none
       - name: Cache composer vendor
+        if: steps.decide.outputs.be == 'true'
         uses: actions/cache@v4
         with:
           path: backend/vendor
           key: composer-${{ hashFiles('backend/composer.lock') }}
           restore-keys: composer-
       - name: Install backend deps
+        if: steps.decide.outputs.be == 'true'
         working-directory: backend
         run: composer install --no-dev --optimize-autoloader --no-interaction
       - name: Stage backend
+        if: steps.decide.outputs.be == 'true'
         run: |
           mkdir -p _stage/backend
           rsync -a --exclude '.env' --exclude 'storage' --exclude '.git' \
                    --exclude 'tests' --exclude 'node_modules' \
                    backend/ _stage/backend/
 
-      # ---------- ship to server (password auth; swap to key if preferred) ----------
-      - name: Sync files to server
+      # ---------- ship to server (only the side(s) that changed) ----------
+      - name: Sync frontend to server
+        if: steps.decide.outputs.fe == 'true'
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
-          # key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SERVER_PORT || 22 }}
-          source: "_stage/backend,_stage/frontend"
+          source: "_stage/frontend"
+          strip_components: 1
+          target: ${{ secrets.DEPLOY_PATH }}
+      - name: Sync backend to server
+        if: steps.decide.outputs.be == 'true'
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          source: "_stage/backend"
           strip_components: 1
           target: ${{ secrets.DEPLOY_PATH }}
 
-      # ---------- post-deploy: migrate, cache, restart ----------
+      # ---------- post-deploy: migrate, cache, restart (only what changed) ----------
       - name: Post-deploy (migrate + restart)
+        if: steps.decide.outputs.fe == 'true' || steps.decide.outputs.be == 'true'
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
-          # key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SERVER_PORT || 22 }}
           script: |
             set -e
             APP="${{ secrets.DEPLOY_PATH }}"
+            FE="${{ steps.decide.outputs.fe }}"
+            BE="${{ steps.decide.outputs.be }}"
             SUDO=""; [ "$(id -u)" -ne 0 ] && SUDO="sudo"
-            cd "$APP/backend"
-            PHP="$(command -v php8.4 || command -v php)"   # Laravel 13 needs php >= 8.3
-            if [ ! -f .env ]; then
-              echo "ERROR: $APP/backend/.env is missing. Do the one-time server setup first."
-              exit 1
+
+            if [ "$BE" = "true" ]; then
+              cd "$APP/backend"
+              PHP="$(command -v php8.4 || command -v php)"   # Laravel 13 needs php >= 8.3
+              if [ ! -f .env ]; then
+                echo "ERROR: $APP/backend/.env is missing. Do the one-time server setup first."
+                exit 1
+              fi
+              "$PHP" artisan migrate --force
+              "$PHP" artisan storage:link 2>/dev/null || true
+              "$PHP" artisan config:cache
+              "$PHP" artisan route:cache
+              "$PHP" artisan view:cache
+              $SUDO chown -R www-data:www-data "$APP/backend/storage" "$APP/backend/bootstrap/cache" 2>/dev/null || true
+              $SUDO systemctl restart sanamspace-queue 2>/dev/null || true
+              $SUDO systemctl reload php8.4-fpm 2>/dev/null || $SUDO systemctl reload php-fpm 2>/dev/null || true
             fi
-            "$PHP" artisan migrate --force
-            "$PHP" artisan storage:link 2>/dev/null || true
-            "$PHP" artisan config:cache
-            "$PHP" artisan route:cache
-            "$PHP" artisan view:cache
-            # writable dirs (files arrive owned by the SSH user; web/Node run as www-data)
-            $SUDO chown -R www-data:www-data "$APP/backend/storage" "$APP/backend/bootstrap/cache" "$APP/frontend" 2>/dev/null || true
-            # restart the Next.js service + queue (created once during server setup); reload PHP
-            $SUDO systemctl restart sanamspace-frontend 2>/dev/null || true
-            $SUDO systemctl restart sanamspace-queue 2>/dev/null || true
-            $SUDO systemctl reload php8.4-fpm 2>/dev/null || $SUDO systemctl reload php-fpm 2>/dev/null || true
+
+            if [ "$FE" = "true" ]; then
+              $SUDO chown -R www-data:www-data "$APP/frontend" 2>/dev/null || true
+              $SUDO systemctl restart sanamspace-frontend 2>/dev/null || true
+            fi
