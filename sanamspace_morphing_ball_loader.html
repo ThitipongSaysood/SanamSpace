@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SanamSpace - Loading Sports...</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Kanit', 'sans-serif'] },
+                    colors: {
+                        brand: {
+                            dark: '#0B1121',
+                            primary: '#10b981',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { 
+            background-color: #0B1121; 
+            color: white; 
+            font-family: 'Kanit', sans-serif; 
+            overflow: hidden; 
+            margin: 0;
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        .loader-wrapper {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 50;
+        }
+
+        /* Physics Bounce */
+        .bouncing-ball-container {
+            position: relative;
+            width: 90px;
+            height: 90px;
+            animation: bounce 0.8s infinite;
+            z-index: 10;
+        }
+
+        /* Squashing and Stretching for realism */
+        @keyframes bounce {
+            0% { transform: translateY(0) scale(1.15, 0.85); animation-timing-function: ease-out; }
+            10% { transform: translateY(-40px) scale(0.95, 1.05); }
+            50% { transform: translateY(-160px) scale(1, 1); animation-timing-function: ease-in; }
+            90% { transform: translateY(-40px) scale(0.95, 1.05); }
+            100% { transform: translateY(0) scale(1.15, 0.85); }
+        }
+
+        /* Shadow expanding and contracting */
+        .ball-shadow {
+            width: 70px;
+            height: 12px;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 50%;
+            margin-top: 10px;
+            filter: blur(5px);
+            animation: shadow-scale 0.8s infinite;
+        }
+
+        @keyframes shadow-scale {
+            0% { transform: scale(1.2); opacity: 0.8; animation-timing-function: ease-out; }
+            10% { transform: scale(0.9); opacity: 0.5; }
+            50% { transform: scale(0.25); opacity: 0.1; animation-timing-function: ease-in; }
+            90% { transform: scale(0.9); opacity: 0.5; }
+            100% { transform: scale(1.2); opacity: 0.8; }
+        }
+
+        .brand-glow { text-shadow: 0 0 20px rgba(16, 185, 129, 0.4); }
+        .fade-text { animation: fade-in-out 0.8s infinite; }
+        
+        @keyframes fade-in-out {
+            0%, 100% { opacity: 0.5; transform: scale(0.98); }
+            50% { opacity: 1; transform: scale(1); }
+        }
+
+        .emoji-ball {
+            font-size: 80px;
+            line-height: 1;
+            display: inline-block;
+            filter: drop-shadow(0 10px 15px rgba(0,0,0,0.6));
+        }
+    </style>
+</head>
+<body>
+
+    <div class="loader-wrapper">
+        
+        <!-- Bouncing Animation Area -->
+        <div class="relative flex flex-col items-center justify-end h-64 mb-8">
+            <div id="ball-element" class="bouncing-ball-container flex justify-center items-center">
+                <!-- Emoji will be injected here -->
+            </div>
+            <div class="ball-shadow"></div>
+        </div>
+
+        <!-- Typography & Branding -->
+        <div class="text-center z-10">
+            <h1 class="text-4xl font-bold tracking-wider mb-2">
+                Sanam<span class="text-brand-primary brand-glow">Space</span>
+            </h1>
+            
+            <div class="h-8 flex items-center justify-center">
+                <p class="text-gray-400 text-lg font-light tracking-wide flex items-center gap-2">
+                    เตรียมสนาม <span id="sport-name" class="font-medium text-white px-3 py-1 bg-slate-800 rounded-full text-sm fade-text">...</span>
+                </p>
+            </div>
+            
+            <!-- Loading Dots -->
+            <div class="mt-4 flex justify-center gap-1.5">
+                <div class="w-1.5 h-1.5 bg-brand-primary rounded-full animate-bounce" style="animation-delay: 0s;"></div>
+                <div class="w-1.5 h-1.5 bg-brand-primary rounded-full animate-bounce" style="animation-delay: 0.15s;"></div>
+                <div class="w-1.5 h-1.5 bg-brand-primary rounded-full animate-bounce" style="animation-delay: 0.3s;"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Array of different sports using Native Emojis
+        const sports = [
+            { id: 'football', name: 'ฟุตบอล / ฟุตซอล', emoji: '⚽', color: '#10b981' },
+            { id: 'tennis', name: 'เทนนิส', emoji: '🎾', color: '#a3e635' },
+            { id: 'pingpong', name: 'ปิงปอง / พิคเคิลบอล', emoji: '🏓', color: '#eab308' },
+            { id: 'badminton', name: 'แบดมินตัน', emoji: '🏸', color: '#ef4444' },
+            { id: 'basketball', name: 'บาสเกตบอล', emoji: '🏀', color: '#ea580c' },
+            { id: 'volleyball', name: 'วอลเลย์บอล', emoji: '🏐', color: '#3b82f6' }
+        ];
+
+        let currentIndex = 0;
+        const ballElement = document.getElementById('ball-element');
+        const sportNameElement = document.getElementById('sport-name');
+
+        function initBall() {
+            if (!ballElement || !sportNameElement) return;
+            ballElement.innerHTML = `<span class="emoji-ball">${sports[currentIndex].emoji}</span>`;
+            sportNameElement.innerText = sports[currentIndex].name;
+            sportNameElement.style.color = sports[currentIndex].color || '#10b981';
+        }
+
+        // Setup the exact moment of morphing
+        if (ballElement) {
+            ballElement.addEventListener('animationiteration', (event) => {
+                if (event.animationName === 'bounce') {
+                    // Next sport
+                    currentIndex = (currentIndex + 1) % sports.length;
+                    
+                    // Swap content instantly at the bottom of the bounce
+                    ballElement.innerHTML = `<span class="emoji-ball">${sports[currentIndex].emoji}</span>`;
+                    sportNameElement.innerText = sports[currentIndex].name;
+                    sportNameElement.style.color = sports[currentIndex].color || '#10b981';
+                    
+                    // Add a tiny random rotation for organic tumbling feel
+                    const randomRotate = Math.floor(Math.random() * 40) - 20;
+                    const emojiChild = ballElement.firstElementChild;
+                    if (emojiChild) {
+                        emojiChild.style.transform = `rotate(${randomRotate}deg)`;
+                        emojiChild.style.transition = 'transform 0.4s ease-out';
+                    }
+                }
+            });
+        }
+
+        // Run setup safely
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initBall);
+        } else {
+            initBall();
+        }
+
+    </script>
+</body>
+</html>
