@@ -1,9 +1,8 @@
 name: Deploy to Production
 
-# Builds SanamSpace and ships it to the server on every push to main.
-# Next.js is built as a self-contained "standalone" bundle on the runner, and
-# Laravel's vendor/ is installed on the runner too — so the server only needs
-# to run migrations + restart the Node service (no build step on the server).
+# Builds SanamSpace on the runner and ships it to the server with rsync over SSH
+# (delta transfer — only changed files move, so re-deploys are fast). The server
+# only runs migrations + restarts the Node service; no build step on the server.
 #
 # Incremental: only the side that actually changed is built & shipped.
 #   - push that touches frontend/** -> build + sync frontend, restart Next
@@ -12,16 +11,10 @@ name: Deploy to Production
 #   - a push that touches neither (docs, root files) -> nothing is deployed
 #
 # Repository secrets (Settings -> Secrets and variables -> Actions):
-#   SERVER_HOST       e.g. ssh.semitennis.com  (or the server IP)
-#   SERVER_USER       e.g. root
-#   SERVER_PASSWORD   the SSH password           (or use SSH_PRIVATE_KEY instead)
-#   DEPLOY_PATH       e.g. /var/www/html/sanamspace
+#   SERVER_HOST  SERVER_USER  SERVER_PASSWORD  DEPLOY_PATH
 # Optional:
 #   SERVER_PORT          SSH port (default 22)
-#   NEXT_PUBLIC_API_URL  build-time API base (default /api/v1 for same-origin;
-#                        for a separate API host use e.g. https://api.semitennis.com/api/v1)
-#   SSH_PRIVATE_KEY      use instead of SERVER_PASSWORD (swap the two `password:`
-#                        lines below for `key:`)
+#   NEXT_PUBLIC_API_URL  build-time API base (default /api/v1, same-origin)
 
 on:
   push:
@@ -121,64 +114,69 @@ jobs:
                    --exclude 'tests' --exclude 'node_modules' \
                    backend/ _stage/backend/
 
-      # ---------- ship to server (only the side(s) that changed) ----------
-      - name: Sync frontend to server
-        if: steps.decide.outputs.fe == 'true'
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          password: ${{ secrets.SERVER_PASSWORD }}
-          port: ${{ secrets.SERVER_PORT || 22 }}
-          source: "_stage/frontend"
-          strip_components: 1
-          target: ${{ secrets.DEPLOY_PATH }}
-      - name: Sync backend to server
-        if: steps.decide.outputs.be == 'true'
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          password: ${{ secrets.SERVER_PASSWORD }}
-          port: ${{ secrets.SERVER_PORT || 22 }}
-          source: "_stage/backend"
-          strip_components: 1
-          target: ${{ secrets.DEPLOY_PATH }}
+      # ---------- ship + post-deploy over SSH (rsync delta, password auth) ----------
+      - name: Install sshpass
+        if: steps.decide.outputs.fe == 'true' || steps.decide.outputs.be == 'true'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq sshpass
 
-      # ---------- post-deploy: migrate, cache, restart (only what changed) ----------
+      - name: Sync frontend to server (rsync)
+        if: steps.decide.outputs.fe == 'true'
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT || 22 }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          sshpass -p "$SERVER_PASSWORD" rsync -az --delete \
+            -e "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p $SERVER_PORT" \
+            _stage/frontend/ "$SERVER_USER@$SERVER_HOST:$DEPLOY_PATH/frontend/"
+
+      - name: Sync backend to server (rsync)
+        if: steps.decide.outputs.be == 'true'
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT || 22 }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          # --delete keeps the server clean but never touches the server's .env or storage/
+          sshpass -p "$SERVER_PASSWORD" rsync -az --delete --exclude '.env' --exclude 'storage' \
+            -e "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p $SERVER_PORT" \
+            _stage/backend/ "$SERVER_USER@$SERVER_HOST:$DEPLOY_PATH/backend/"
+
       - name: Post-deploy (migrate + restart)
         if: steps.decide.outputs.fe == 'true' || steps.decide.outputs.be == 'true'
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          password: ${{ secrets.SERVER_PASSWORD }}
-          port: ${{ secrets.SERVER_PORT || 22 }}
-          script: |
-            set -e
-            APP="${{ secrets.DEPLOY_PATH }}"
-            FE="${{ steps.decide.outputs.fe }}"
-            BE="${{ steps.decide.outputs.be }}"
-            SUDO=""; [ "$(id -u)" -ne 0 ] && SUDO="sudo"
-
-            if [ "$BE" = "true" ]; then
-              cd "$APP/backend"
-              PHP="$(command -v php8.4 || command -v php)"   # Laravel 13 needs php >= 8.3
-              if [ ! -f .env ]; then
-                echo "ERROR: $APP/backend/.env is missing. Do the one-time server setup first."
-                exit 1
-              fi
-              "$PHP" artisan migrate --force
-              "$PHP" artisan storage:link 2>/dev/null || true
-              "$PHP" artisan config:cache
-              "$PHP" artisan route:cache
-              "$PHP" artisan view:cache
-              $SUDO chown -R www-data:www-data "$APP/backend/storage" "$APP/backend/bootstrap/cache" 2>/dev/null || true
-              $SUDO systemctl restart sanamspace-queue 2>/dev/null || true
-              $SUDO systemctl reload php8.4-fpm 2>/dev/null || $SUDO systemctl reload php-fpm 2>/dev/null || true
-            fi
-
-            if [ "$FE" = "true" ]; then
-              $SUDO chown -R www-data:www-data "$APP/frontend" 2>/dev/null || true
-              $SUDO systemctl restart sanamspace-frontend 2>/dev/null || true
-            fi
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT || 22 }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          FE: ${{ steps.decide.outputs.fe }}
+          BE: ${{ steps.decide.outputs.be }}
+        run: |
+          sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p "$SERVER_PORT" "$SERVER_USER@$SERVER_HOST" "bash -s '$DEPLOY_PATH' '$FE' '$BE'" <<'EOF'
+          set -e
+          APP="$1"; FE="$2"; BE="$3"
+          SUDO=""; [ "$(id -u)" -ne 0 ] && SUDO="sudo"
+          if [ "$BE" = "true" ]; then
+            cd "$APP/backend"
+            PHP="$(command -v php8.4 || command -v php)"
+            if [ ! -f .env ]; then echo "ERROR: $APP/backend/.env is missing."; exit 1; fi
+            "$PHP" artisan migrate --force
+            "$PHP" artisan storage:link 2>/dev/null || true
+            "$PHP" artisan config:cache
+            "$PHP" artisan route:cache
+            "$PHP" artisan view:cache
+            $SUDO chown -R www-data:www-data "$APP/backend/storage" "$APP/backend/bootstrap/cache" 2>/dev/null || true
+            $SUDO systemctl restart sanamspace-queue 2>/dev/null || true
+            $SUDO systemctl reload php8.4-fpm 2>/dev/null || $SUDO systemctl reload php-fpm 2>/dev/null || true
+          fi
+          if [ "$FE" = "true" ]; then
+            $SUDO chown -R www-data:www-data "$APP/frontend" 2>/dev/null || true
+            $SUDO systemctl restart sanamspace-frontend 2>/dev/null || true
+          fi
+          echo "Post-deploy done (frontend=$FE backend=$BE)"
+          EOF
