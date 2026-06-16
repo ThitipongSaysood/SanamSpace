@@ -1,20 +1,27 @@
 name: Deploy to Production
 
-# Pull-model deploy: the runner just SSHes into the server, pulls main, and
-# (re)builds only the side that changed. The server holds a git clone of the
-# repo at DEPLOY_PATH (monorepo: backend/ + frontend/) and has PHP 8.4, Node,
-# and Composer installed. The Next.js frontend is built in place and served
-# from .next/standalone/server.js by the `sanamspace-frontend` systemd unit.
+# Builds SanamSpace and ships it to the server on every push to main.
+# Next.js is built as a self-contained "standalone" bundle on the runner, and
+# Laravel's vendor/ is installed on the runner too — so the server only needs
+# to run migrations + restart the Node service (no build step on the server).
 #
-# Incremental: a push touching backend/** runs composer+migrate; touching
-# frontend/** rebuilds Next; touching neither (docs, workflow) does nothing.
-# A manual run (workflow_dispatch) rebuilds both.
+# Incremental: only the side that actually changed is built & shipped.
+#   - push that touches frontend/** -> build + sync frontend, restart Next
+#   - push that touches backend/**  -> install + sync backend, migrate, reload PHP
+#   - a change to this workflow (or a manual run) -> deploy both, to be safe
+#   - a push that touches neither (docs, root files) -> nothing is deployed
 #
 # Repository secrets (Settings -> Secrets and variables -> Actions):
-#   SERVER_HOST  SERVER_USER  SERVER_PASSWORD  DEPLOY_PATH
+#   SERVER_HOST       e.g. ssh.semitennis.com  (or the server IP)
+#   SERVER_USER       e.g. root
+#   SERVER_PASSWORD   the SSH password           (or use SSH_PRIVATE_KEY instead)
+#   DEPLOY_PATH       e.g. /var/www/html/sanamspace
 # Optional:
 #   SERVER_PORT          SSH port (default 22)
-#   NEXT_PUBLIC_API_URL  build-time API base (default /api/v1, same-origin)
+#   NEXT_PUBLIC_API_URL  build-time API base (default /api/v1 for same-origin;
+#                        for a separate API host use e.g. https://api.semitennis.com/api/v1)
+#   SSH_PRIVATE_KEY      use instead of SERVER_PASSWORD (swap the two `password:`
+#                        lines below for `key:`)
 
 on:
   push:
@@ -29,47 +36,138 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy via SSH (pull, build, migrate, restart)
+      - uses: actions/checkout@v4
+
+      # ---------- decide which side(s) changed ----------
+      - name: Detect changed paths
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+            backend:
+              - 'backend/**'
+            workflow:
+              - '.github/workflows/deploy.yml'
+      - name: Decide what to deploy
+        id: decide
+        run: |
+          FE=false; BE=false
+          # a workflow change or a manual run deploys both (build config may differ)
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ steps.changes.outputs.workflow }}" = "true" ]; then
+            FE=true; BE=true
+          fi
+          [ "${{ steps.changes.outputs.frontend }}" = "true" ] && FE=true
+          [ "${{ steps.changes.outputs.backend }}" = "true" ] && BE=true
+          echo "fe=$FE" >> "$GITHUB_OUTPUT"
+          echo "be=$BE" >> "$GITHUB_OUTPUT"
+          echo "Deploy -> frontend=$FE  backend=$BE"
+
+      # ---------- frontend: Next.js standalone build (on the runner) ----------
+      - if: steps.decide.outputs.fe == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - name: Cache Next build
+        if: steps.decide.outputs.fe == 'true'
+        uses: actions/cache@v4
+        with:
+          path: frontend/.next/cache
+          key: nextjs-${{ hashFiles('frontend/package-lock.json') }}-${{ github.sha }}
+          restore-keys: |
+            nextjs-${{ hashFiles('frontend/package-lock.json') }}-
+            nextjs-
+      - name: Build frontend (standalone)
+        if: steps.decide.outputs.fe == 'true'
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || '/api/v1' }}
+        run: |
+          npm ci
+          npm run build
+          # assemble a self-contained run dir: server.js + bundled node_modules + static + public
+          mkdir -p ../_stage/frontend
+          cp -r .next/standalone/. ../_stage/frontend/
+          mkdir -p ../_stage/frontend/.next
+          cp -r .next/static ../_stage/frontend/.next/static
+          [ -d public ] && cp -r public ../_stage/frontend/public || true
+
+      # ---------- backend: Laravel deps (on the runner) ----------
+      - if: steps.decide.outputs.be == 'true'
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'   # Laravel 13 requires php ^8.3
+          extensions: mbstring, xml, curl, zip, bcmath, intl, pdo_mysql
+          coverage: none
+      - name: Cache composer vendor
+        if: steps.decide.outputs.be == 'true'
+        uses: actions/cache@v4
+        with:
+          path: backend/vendor
+          key: composer-${{ hashFiles('backend/composer.lock') }}
+          restore-keys: composer-
+      - name: Install backend deps
+        if: steps.decide.outputs.be == 'true'
+        working-directory: backend
+        run: composer install --no-dev --optimize-autoloader --no-interaction
+      - name: Stage backend
+        if: steps.decide.outputs.be == 'true'
+        run: |
+          mkdir -p _stage/backend
+          rsync -a --exclude '.env' --exclude 'storage' --exclude '.git' \
+                   --exclude 'tests' --exclude 'node_modules' \
+                   backend/ _stage/backend/
+
+      # ---------- ship to server (only the side(s) that changed) ----------
+      - name: Sync frontend to server
+        if: steps.decide.outputs.fe == 'true'
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          source: "_stage/frontend"
+          strip_components: 1
+          target: ${{ secrets.DEPLOY_PATH }}
+      - name: Sync backend to server
+        if: steps.decide.outputs.be == 'true'
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          source: "_stage/backend"
+          strip_components: 1
+          target: ${{ secrets.DEPLOY_PATH }}
+
+      # ---------- post-deploy: migrate, cache, restart (only what changed) ----------
+      - name: Post-deploy (migrate + restart)
+        if: steps.decide.outputs.fe == 'true' || steps.decide.outputs.be == 'true'
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
           port: ${{ secrets.SERVER_PORT || 22 }}
-          command_timeout: 20m
           script: |
             set -e
             APP="${{ secrets.DEPLOY_PATH }}"
-            EVENT="${{ github.event_name }}"
-            API_URL="${{ secrets.NEXT_PUBLIC_API_URL || '/api/v1' }}"
+            FE="${{ steps.decide.outputs.fe }}"
+            BE="${{ steps.decide.outputs.be }}"
             SUDO=""; [ "$(id -u)" -ne 0 ] && SUDO="sudo"
 
-            # ---------- pull latest, work out what changed ----------
-            cd "$APP"
-            git fetch origin main
-            BEFORE="$(git rev-parse HEAD)"
-            git reset --hard origin/main
-            AFTER="$(git rev-parse HEAD)"
-
-            FE=false; BE=false
-            if [ "$EVENT" = "workflow_dispatch" ]; then
-              FE=true; BE=true                      # manual run = rebuild everything
-            elif [ "$BEFORE" = "$AFTER" ]; then
-              echo "Already at $AFTER — nothing to pull."
-            else
-              CHANGED="$(git diff --name-only "$BEFORE" "$AFTER")"
-              echo "$CHANGED" | sed 's/^/changed: /'
-              echo "$CHANGED" | grep -q '^backend/'  && BE=true || true
-              echo "$CHANGED" | grep -q '^frontend/' && FE=true || true
-            fi
-            echo "Build plan -> frontend=$FE backend=$BE"
-
-            # ---------- backend: deps, migrate, cache, reload ----------
             if [ "$BE" = "true" ]; then
               cd "$APP/backend"
-              PHP="$(command -v php8.4 || command -v php)"
-              [ -f .env ] || { echo "ERROR: $APP/backend/.env is missing."; exit 1; }
-              composer install --no-dev --optimize-autoloader --no-interaction
+              PHP="$(command -v php8.4 || command -v php)"   # Laravel 13 needs php >= 8.3
+              if [ ! -f .env ]; then
+                echo "ERROR: $APP/backend/.env is missing. Do the one-time server setup first."
+                exit 1
+              fi
               "$PHP" artisan migrate --force
               "$PHP" artisan storage:link 2>/dev/null || true
               "$PHP" artisan config:cache
@@ -80,18 +178,7 @@ jobs:
               $SUDO systemctl reload php8.4-fpm 2>/dev/null || $SUDO systemctl reload php-fpm 2>/dev/null || true
             fi
 
-            # ---------- frontend: build standalone, restart Next ----------
             if [ "$FE" = "true" ]; then
-              cd "$APP/frontend"
-              export NEXT_PUBLIC_API_URL="$API_URL"
-              npm ci
-              npm run build
-              # the standalone bundle ships server.js + node_modules but NOT the
-              # static assets / public files — copy them in so the server can serve them.
-              cp -r .next/static .next/standalone/.next/static
-              [ -d public ] && cp -r public .next/standalone/public || true
               $SUDO chown -R www-data:www-data "$APP/frontend" 2>/dev/null || true
               $SUDO systemctl restart sanamspace-frontend 2>/dev/null || true
             fi
-
-            echo "Deploy done (frontend=$FE backend=$BE) @ $(date)"
