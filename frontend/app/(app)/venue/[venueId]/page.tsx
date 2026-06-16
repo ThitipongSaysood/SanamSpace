@@ -25,7 +25,7 @@ import {
 import { useVenue, useReviews } from "@/lib/api/queries";
 import { tenant } from "@/config/tenant";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
-import { SportMedia } from "@/components/media";
+import { VenueMedia } from "@/components/venue-media";
 import { Button } from "@/components/ui/button";
 
 type IconType = ComponentType<{ className?: string }>;
@@ -65,7 +65,12 @@ export default function VenueDetailPage({ params }: { params: Promise<{ venueId:
   return (
     <main className="pb-24">
       <div className="relative">
-        <SportMedia sport={venue.sports[0]} className="h-56 w-full" />
+        <VenueMedia
+          src={venue.imageUrl}
+          sport={venue.sports[0]}
+          alt={venue.name}
+          className="h-56 w-full"
+        />
         <Link
           href="/"
           aria-label="ย้อนกลับ"
