@@ -6,6 +6,7 @@ import {
 import type { ComponentType } from "react";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useMembership } from "@/lib/api/queries";
+import { Avatar } from "@/components/avatar";
 
 type Item = {
   icon: ComponentType<{ className?: string }>;
@@ -32,8 +33,8 @@ export default function ProfilePage() {
       <h1 className="mb-3 text-lg font-bold">โปรไฟล์</h1>
 
       <div className="mb-4 flex items-center gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
-        <div className="grid size-14 shrink-0 place-items-center rounded-full bg-brand/10 text-xl font-bold text-brand">
-          {user.displayName.replace(/^คุณ/, "").charAt(0) || user.displayName.charAt(0)}
+        <div className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-full bg-brand/10 text-xl font-bold text-brand">
+          <Avatar src={user.avatarUrl} name={user.displayName} />
         </div>
         <div className="min-w-0">
           <div className="truncate font-semibold">{user.displayName}</div>

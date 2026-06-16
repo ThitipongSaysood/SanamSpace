@@ -4,6 +4,7 @@ import { CalendarPlus, Crown, Package, User, Tag, Search, type LucideIcon } from
 import { useAuth } from "@/lib/auth/auth-context";
 import { useVenues } from "@/lib/api/queries";
 import { VenueCard } from "@/components/venue-card";
+import { Avatar } from "@/components/avatar";
 import { BrandLogo } from "@/components/brand-logo";
 import { Loading, ErrorState } from "@/components/states";
 
@@ -30,7 +31,6 @@ function QuickActionItem({ label, icon: Icon }: QuickAction) {
 export default function HomePage() {
   const { user } = useAuth();
   const { data: venues, isLoading, isError, refetch } = useVenues();
-  const initial = user?.displayName?.replace(/^คุณ/, "").trim().charAt(0) || "ผ";
   return (
     <main>
       <header className="bg-white px-4 pb-4 pt-3">
@@ -39,9 +39,9 @@ export default function HomePage() {
           <Link
             href="/profile"
             aria-label="โปรไฟล์"
-            className="grid size-9 place-items-center rounded-full bg-brand/10 font-semibold text-brand ring-1 ring-brand/15"
+            className="grid size-9 place-items-center overflow-hidden rounded-full bg-brand/10 font-semibold text-brand ring-1 ring-brand/15"
           >
-            {initial}
+            <Avatar src={user?.avatarUrl} name={user?.displayName} />
           </Link>
         </div>
 
