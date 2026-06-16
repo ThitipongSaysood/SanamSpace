@@ -1,17 +1,25 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Feather, MessageCircle, Phone, Mail } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
-import { isLiffEnabled } from "@/lib/auth/liff";
+import { isLiffEnabled, isReturningFromLineLogin } from "@/lib/auth/liff";
 import { tenant } from "@/config/tenant";
 import { Button } from "@/components/ui/button";
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { user, login } = useAuth();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // True on the page reload right after LINE redirects back — AuthProvider is
+  // silently completing the login, so show a spinner instead of the button.
+  const [resuming] = useState(() => isReturningFromLineLogin());
+
+  // The silent resume (or any restore) populated the user → enter the app.
+  useEffect(() => {
+    if (user) router.replace("/");
+  }, [user, router]);
 
   async function handleLogin() {
     setBusy(true);
@@ -39,12 +47,12 @@ export default function LoginPage() {
         <h1 className="mb-5 text-lg font-semibold">เข้าสู่ระบบ</h1>
         <div className="space-y-3">
           <Button
-            disabled={busy}
+            disabled={busy || resuming}
             className="h-12 w-full gap-2 rounded-xl bg-brand text-base font-semibold text-brand-foreground hover:bg-brand/90"
             onClick={handleLogin}
           >
             <MessageCircle className="size-5" />
-            {busy ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบด้วย LINE"}
+            {busy || resuming ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบด้วย LINE"}
           </Button>
           {error && <p className="text-sm text-brand-danger">{error}</p>}
           <Button

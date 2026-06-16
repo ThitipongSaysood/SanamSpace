@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import type { User } from "@/lib/types";
 import { api } from "@/lib/api/client";
 import { clearToken, getToken } from "@/lib/api/token";
-import { getLineIdToken } from "./liff";
+import { getLineIdToken, isReturningFromLineLogin, resumeLineIdToken } from "./liff";
 
 const STORAGE_KEY = "sanamspace.profile";
 
@@ -43,24 +43,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let active = true;
     async function restore() {
-      if (!getToken()) {
-        if (active) setReady(true);
+      // Existing session: a stored token → fetch the user.
+      if (getToken()) {
+        try {
+          const me = await api.me();
+          if (active && me) setUser({ ...me, ...loadOverrides() });
+        } catch {
+          /* stale/invalid token — stay logged out */
+        } finally {
+          if (active) setReady(true);
+        }
         return;
       }
-      try {
-        const me = await api.me();
-        if (active && me) setUser({ ...me, ...loadOverrides() });
-      } catch {
-        /* stale/invalid token — stay logged out */
-      } finally {
-        if (active) setReady(true);
+
+      // Returning from the LINE login redirect (?code/?state present): complete
+      // the login silently — LIFF is already authenticated, so we just grab the
+      // id_token and exchange it for our session. Without this the user lands
+      // back on /login after authorising and nothing finishes the flow.
+      if (isReturningFromLineLogin()) {
+        try {
+          await completeLineResume();
+        } catch {
+          /* resume failed — fall through to the logged-out login screen */
+        }
+        // Strip the LIFF params so a refresh doesn't re-trigger the resume.
+        if (typeof window !== "undefined") {
+          window.history.replaceState({}, "", window.location.pathname);
+        }
       }
+
+      if (active) setReady(true);
     }
     void restore();
     return () => {
       active = false;
     };
   }, []);
+
+  // Finish a login that was started before a LINE redirect, without ever
+  // redirecting again. Returns true when a session was established.
+  async function completeLineResume(): Promise<boolean> {
+    if (!process.env.NEXT_PUBLIC_API_URL) return false;
+    const config = await api.getLineConfig();
+    const liffId = process.env.NEXT_PUBLIC_LIFF_ID || config.liffId;
+    if (!liffId) return false;
+    const idToken = await resumeLineIdToken(liffId);
+    if (!idToken) return false;
+    const { user: authed } = await api.lineLogin({ idToken });
+    setUser({ ...authed, ...loadOverrides() });
+    return true;
+  }
 
   async function login() {
     // Real backend (NEXT_PUBLIC_API_URL set): resolve the per-venue LIFF id —

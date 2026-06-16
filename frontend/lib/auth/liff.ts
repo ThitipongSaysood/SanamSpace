@@ -40,3 +40,33 @@ export async function getLineIdToken(liffId?: string): Promise<string> {
   if (!idToken) throw new Error("Could not obtain a LINE id token.");
   return idToken;
 }
+
+/**
+ * Silent counterpart to getLineIdToken used when the page reloads after LINE
+ * redirects back from its login screen. Initialises LIFF (which consumes the
+ * ?code/?state params and marks the session logged-in) and returns the id_token
+ * if available — but NEVER triggers a redirect. Returns null when there's no
+ * LIFF id or the user isn't logged in, so callers can fall through quietly.
+ */
+export async function resumeLineIdToken(liffId?: string): Promise<string | null> {
+  liffId = liffId || getLiffId();
+  if (!liffId) return null;
+
+  const liff = (await import("@line/liff")).default;
+  await liff.init({ liffId });
+
+  if (!liff.isLoggedIn()) return null;
+  return liff.getIDToken() ?? null;
+}
+
+/**
+ * True when the current URL looks like a return trip from the LINE login
+ * screen. LIFF appends these query params on the redirect back; we use their
+ * presence to decide whether to attempt a silent login resume on page load
+ * (so we don't load the LIFF SDK on every cold visit).
+ */
+export function isReturningFromLineLogin(): boolean {
+  if (typeof window === "undefined") return false;
+  const p = new URLSearchParams(window.location.search);
+  return p.has("liffClientId") || p.has("liffRedirectUri") || (p.has("code") && p.has("state"));
+}
