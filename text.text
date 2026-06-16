@@ -35,6 +35,10 @@ cd backend && php artisan serve
 cd backend && php artisan serve          
 cd frontend && npm run dev               
 
+cd /Users/sangkazee/sanamspace/frontend
+npm install
+npm run dev
+
 
 
 /owner    เจ้าของสนาม — owner@everyday.test / password
