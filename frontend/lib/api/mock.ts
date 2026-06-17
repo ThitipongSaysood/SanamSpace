@@ -1,6 +1,6 @@
 import type {
   AppNotification, Booking, Court, CourtSchedule, CustomerPackage, LineConfig, Membership, Payment, PaymentInstructions,
-  PackagePurchaseInstructions, Promotion, Refund, ReviewSummary, Slot, User, Venue, VenuePackage, Wallet, WalletTopupInstructions,
+  OrgPublic, PackagePurchaseInstructions, Promotion, Refund, ReviewSummary, Slot, User, Venue, VenuePackage, Wallet, WalletTopupInstructions,
 } from "@/lib/types";
 import {
   courts as courtsFx, venues as venuesFx,
@@ -10,6 +10,7 @@ import {
 
 export type LinePayload = {
   idToken?: string;       // LIFF-verified id token (real mode)
+  organizationSlug?: string; // which venue/org to log into (multi-tenant)
   lineUserId?: string;
   displayName?: string;
   email?: string;
@@ -44,7 +45,14 @@ export const mockApi = {
     return { token: "mock-token", user: { ...MOCK_USER } };
   },
   // Public per-venue LINE config. Mock has no LIFF id → demo stub login path.
-  async getLineConfig(): Promise<LineConfig> { await delay(); return { liffId: null }; },
+  async getLineConfig(_slug?: string): Promise<LineConfig> { await delay(); return { liffId: null }; },
+  async getOrgPublic(slug: string): Promise<OrgPublic> {
+    await delay();
+    return {
+      slug, name: "Everyday Badminton", logoText: "EVERYDAY BADMINTON", logoUrl: null, liffId: null,
+      theme: { primary: "#16A34A", warning: "#F59E0B", danger: "#EF4444" }, lineOaUrl: null, phone: null,
+    };
+  },
   async getVenues(): Promise<Venue[]> { await delay(); return venuesFx; },
   async getVenue(id: string): Promise<Venue | undefined> { await delay(); return venuesFx.find((v) => v.id === id); },
   async getCourts(venueId: string): Promise<Court[]> { await delay(); return courtsFx.filter((c) => c.venueId === venueId); },

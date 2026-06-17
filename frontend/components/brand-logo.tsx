@@ -1,7 +1,9 @@
-import { tenant } from "@/config/tenant";
+"use client";
+import { useTenant } from "@/lib/tenant/tenant-context";
 
-/** Brand mark: green shuttlecock badge + two-line wordmark (EVERYDAY / BADMINTON). */
+/** Brand mark: shuttlecock badge + two-line wordmark, themed to the active venue. */
 export function BrandLogo() {
+  const { tenant } = useTenant();
   const [first, ...rest] = tenant.logoText.split(" ");
   return (
     <div className="flex items-center gap-2">

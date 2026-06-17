@@ -6,6 +6,32 @@ import { clearToken, getToken } from "@/lib/api/token";
 import { getLineIdToken, isReturningFromLineLogin, resumeLineIdToken } from "./liff";
 
 const STORAGE_KEY = "sanamspace.profile";
+const ACTIVE_VENUE_KEY = "sanamspace.activeVenue";
+
+/**
+ * The venue/org slug for the current login, from the `/v/{slug}` URL (the LINE
+ * redirect returns here, so the path is reliable) — falling back to the last
+ * persisted slug. undefined → the backend resolves the default org.
+ */
+function currentVenueSlug(): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  const m = window.location.pathname.match(/^\/v\/([^/]+)/);
+  if (m) return decodeURIComponent(m[1]);
+  try {
+    return window.localStorage.getItem(ACTIVE_VENUE_KEY) || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function rememberVenue(slug?: string) {
+  if (typeof window === "undefined" || !slug) return;
+  try {
+    window.localStorage.setItem(ACTIVE_VENUE_KEY, slug);
+  } catch {
+    /* ignore */
+  }
+}
 
 // Demo identity sent to the stub LINE login when LIFF is NOT configured
 // (NEXT_PUBLIC_LIFF_ID unset) — keeps local dev / the mock backend working.
@@ -28,7 +54,7 @@ function loadOverrides(): Partial<User> {
 type AuthValue = {
   user: User | null;
   ready: boolean; // false until the initial session-restore attempt finishes
-  login: () => Promise<void>;
+  login: (slug?: string) => Promise<void>;
   logout: () => void;
   updateUser: (patch: Partial<User>) => void;
 };
@@ -84,27 +110,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // redirecting again. Returns true when a session was established.
   async function completeLineResume(): Promise<boolean> {
     if (!process.env.NEXT_PUBLIC_API_URL) return false;
-    const config = await api.getLineConfig();
+    const slug = currentVenueSlug();
+    const config = await api.getLineConfig(slug);
     const liffId = process.env.NEXT_PUBLIC_LIFF_ID || config.liffId;
     if (!liffId) return false;
     const idToken = await resumeLineIdToken(liffId);
     if (!idToken) return false;
-    const { user: authed } = await api.lineLogin({ idToken });
+    const { user: authed } = await api.lineLogin({ idToken, organizationSlug: slug });
     setUser({ ...authed, ...loadOverrides() });
     return true;
   }
 
-  async function login() {
+  async function login(slug?: string) {
+    // Multi-tenant: the venue/org comes from the /v/{slug} page (or the URL).
+    // Remember it so the post-redirect resume + the app know the active venue.
+    slug = slug ?? currentVenueSlug();
+    rememberVenue(slug);
+
     // Real backend (NEXT_PUBLIC_API_URL set): resolve the per-venue LIFF id —
     // the env override wins, else the org's id from GET /line-config. With a
     // LIFF id we run the real LINE flow for THAT channel; without one we fall
     // back to the demo stub. In mock mode (no API url) always use the stub so
     // local dev / tests keep working without a LINE channel.
-    let payload: Parameters<typeof api.lineLogin>[0] = LINE_PAYLOAD;
+    let payload: Parameters<typeof api.lineLogin>[0] = { ...LINE_PAYLOAD, organizationSlug: slug };
     if (process.env.NEXT_PUBLIC_API_URL) {
-      const config = await api.getLineConfig();
+      const config = await api.getLineConfig(slug);
       const liffId = process.env.NEXT_PUBLIC_LIFF_ID || config.liffId;
-      payload = liffId ? { idToken: await getLineIdToken(liffId) } : LINE_PAYLOAD;
+      payload = liffId
+        ? { idToken: await getLineIdToken(liffId), organizationSlug: slug }
+        : { ...LINE_PAYLOAD, organizationSlug: slug };
     }
     const { user: authed } = await api.lineLogin(payload);
     // Apply any locally-saved profile edits on top.

@@ -64,6 +64,18 @@ export type Booking = {
 // Public per-venue LINE config for the customer frontend (GET /line-config).
 export type LineConfig = { liffId: string | null };
 
+// Public per-venue branding for the multi-tenant login page (GET /orgs/{slug}/public).
+export type OrgPublic = {
+  slug: string;
+  name: string;
+  logoText: string;
+  logoUrl: string | null;
+  liffId: string | null;
+  theme: { primary: string; warning: string; danger: string };
+  lineOaUrl: string | null;
+  phone: string | null;
+};
+
 // --- Refunds (customer requests → owner/admin approve; credit to wallet or manual) ---
 export type RefundStatus = "requested" | "approved" | "rejected";
 

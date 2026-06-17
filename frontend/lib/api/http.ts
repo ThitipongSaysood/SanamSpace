@@ -1,6 +1,6 @@
 import type {
   AppNotification, Booking, Court, CourtSchedule, CustomerPackage, LineConfig, Membership, Payment, PaymentInstructions,
-  PackagePurchaseInstructions, Promotion, Refund, ReviewSummary, User, Venue, VenuePackage, Wallet, WalletTopupInstructions,
+  OrgPublic, PackagePurchaseInstructions, Promotion, Refund, ReviewSummary, User, Venue, VenuePackage, Wallet, WalletTopupInstructions,
 } from "@/lib/types";
 import { getToken, setToken } from "./token";
 import type { Api, LinePayload } from "./mock";
@@ -62,7 +62,9 @@ export const httpApi: Api = {
     return res;
   },
   // Public; returns { liffId } un-wrapped (plain JsonResponse, not a Resource).
-  getLineConfig: () => req<LineConfig>("/line-config", { raw: true }),
+  getLineConfig: (slug?: string) =>
+    req<LineConfig>(slug ? `/line-config?organizationSlug=${encodeURIComponent(slug)}` : "/line-config", { raw: true }),
+  getOrgPublic: (slug: string) => req<OrgPublic>(`/orgs/${encodeURIComponent(slug)}/public`, { raw: true }),
 
   getVenues: () => req<Venue[]>("/branches"),
   getVenue: (id) => getOrUndefined<Venue>(`/branches/${id}`),

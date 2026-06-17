@@ -46,6 +46,7 @@ use App\Http\Controllers\Api\Owner\StaffController as OwnerStaffController;
 use App\Http\Controllers\Api\Owner\SubscriptionController as OwnerSubscriptionController;
 use App\Http\Controllers\Api\Owner\UploadController as OwnerUploadController;
 use App\Http\Controllers\Api\Owner\WalletController as OwnerWalletController;
+use App\Http\Controllers\Api\OrganizationPublicController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\RefundController;
 use App\Http\Controllers\Api\Owner\RefundController as OwnerRefundController;
@@ -59,6 +60,8 @@ Route::post('/auth/line/login', [AuthController::class, 'lineLogin']);
 Route::post('/auth/admin/login', [AuthController::class, 'adminLogin']);
 // Per-venue LINE LIFF id for the frontend (resolved from ?venueId / ?organizationSlug / default org).
 Route::get('/line-config', [AuthController::class, 'lineConfig']);
+// Public per-venue branding for the multi-tenant login page (/v/{slug}).
+Route::get('/orgs/{slug}/public', [OrganizationPublicController::class, 'show']);
 
 // --- Public venue/court browsing (customer-facing reads) ---
 Route::get('/branches', [BranchController::class, 'index']);

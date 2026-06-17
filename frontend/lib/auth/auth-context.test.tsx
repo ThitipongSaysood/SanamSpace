@@ -6,7 +6,7 @@ import { setToken, clearToken } from "../api/token";
 
 function Probe() {
   const { user, login } = useAuth();
-  return <div><span>{user ? user.displayName : "guest"}</span><button onClick={login}>login</button></div>;
+  return <div><span>{user ? user.displayName : "guest"}</span><button onClick={() => login()}>login</button></div>;
 }
 
 describe("auth", () => {

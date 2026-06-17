@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Feather, MessageCircle, Phone, Mail } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
-import { isLiffEnabled, isReturningFromLineLogin } from "@/lib/auth/liff";
+import { isReturningFromLineLogin } from "@/lib/auth/liff";
 import { tenant } from "@/config/tenant";
 import { Button } from "@/components/ui/button";
 
@@ -77,11 +77,6 @@ export default function LoginPage() {
           ยังไม่มีบัญชี?{" "}
           <span className="font-semibold text-brand">สมัครสมาชิก</span>
         </p>
-        {!isLiffEnabled() && (
-          <p className="mt-6 text-xs text-muted-foreground">
-            * เดโม่: จำลองการเข้าสู่ระบบ (ยังไม่ต่อ LINE LIFF จริง)
-          </p>
-        )}
       </div>
     </main>
   );

@@ -298,6 +298,16 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
                   </p>
                 </div>
 
+                <div className="rounded-lg border border-dashed border-border bg-muted/40 p-3 text-xs">
+                  <p className="font-medium text-foreground">URL หน้า login ของสนามนี้</p>
+                  <code className="mt-1 block break-all rounded bg-white px-2 py-1 text-[11px] text-brand">
+                    {typeof window !== "undefined" ? window.location.origin : ""}/v/{data.id}
+                  </code>
+                  <p className="mt-1.5 text-muted-foreground">
+                    ตั้งค่านี้เป็น <b>LIFF Endpoint URL</b> ใน LINE Developers console ของสนาม (ต้องตรงกัน)
+                  </p>
+                </div>
+
                 <label className="block space-y-1">
                   <span className="text-xs font-medium text-muted-foreground">Channel ID</span>
                   <input

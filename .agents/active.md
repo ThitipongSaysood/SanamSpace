@@ -1,6 +1,16 @@
 # Active Task
 
-_Last updated: 2026-06-16 (prod LINE login fixes + deploy → rsync; site LIVE)_
+_Last updated: 2026-06-17 (multi-tenant per-venue login /v/{slug} — Phase 1, local only)_
+
+## ⏱️ In progress (2026-06-17, NOT pushed)
+**Multi-tenant per-venue login — Path scheme `/v/{slug}`, Phase 1 done & green locally** (backend 122/122 ·
+tsc clean · vitest 23/23). Each venue gets a branded login that uses its own LINE channel. New: public
+`GET /orgs/{slug}/public` branding endpoint (no secrets), `TenantProvider` (runtime branding + CSS-var theme
+override), `app/v/[slug]/page.tsx`, slug-aware `auth-context` login/resume. ⚠️ Per venue you must set the LIFF
+**Endpoint URL** in the LINE console = `https://sanam.semitennis.com/v/{slug}`. Deferred: per-slug token
+(multi-venue sessions), app-shell text branding, Admin "show login URL". Detail:
+`sessions/2026-06-17-1136-per-venue-login-path.md`. **Not pushed — site is live; verify in browser first.**
+
 
 ## Project type (auto-detected)
 
