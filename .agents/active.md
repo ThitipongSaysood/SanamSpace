@@ -1,15 +1,21 @@
 # Active Task
 
-_Last updated: 2026-06-17 (multi-tenant per-venue login /v/{slug} — Phase 1, local only)_
+_Last updated: 2026-06-17 (multi-tenant per-venue login /v/{slug} — shipped to prod)_
 
-## ⏱️ In progress (2026-06-17, NOT pushed)
-**Multi-tenant per-venue login — Path scheme `/v/{slug}`, Phase 1 done & green locally** (backend 122/122 ·
-tsc clean · vitest 23/23). Each venue gets a branded login that uses its own LINE channel. New: public
-`GET /orgs/{slug}/public` branding endpoint (no secrets), `TenantProvider` (runtime branding + CSS-var theme
-override), `app/v/[slug]/page.tsx`, slug-aware `auth-context` login/resume. ⚠️ Per venue you must set the LIFF
-**Endpoint URL** in the LINE console = `https://sanam.semitennis.com/v/{slug}`. Deferred: per-slug token
-(multi-venue sessions), app-shell text branding, Admin "show login URL". Detail:
-`sessions/2026-06-17-1136-per-venue-login-path.md`. **Not pushed — site is live; verify in browser first.**
+## ✅ Shipped 2026-06-17 — Multi-tenant per-venue login (`/v/{slug}`, Path scheme)
+Commit `d5f1f84`, **pushed to main → deploying** (code-only, no migration). Each venue has a branded login
+on the one domain that uses its OWN LINE channel. Verified live in the browser locally: `/v/everyday-badminton`
+(green) vs `/v/tsr-arena` (blue) render distinct brand+theme; stub login → app header + whole-app theme follow
+the venue. backend **122/122** · tsc clean · vitest **23/23**.
+- **Backend**: public `GET /orgs/{slug}/public` (name/logo/theme/liffId, NO secrets, 404 on bad slug) + `OrgPublicTest`.
+- **Frontend**: `TenantProvider` (runtime branding; overrides `--brand-*` CSS vars on body → whole app re-themes
+  per venue); `app/v/[slug]/page.tsx` branded login; slug-aware `auth-context` login(slug)/resume (threads
+  `organizationSlug` + per-org LIFF id); `getOrgPublic` + `getLineConfig(slug)`; `brand-logo` via `useTenant`;
+  admin org drawer shows the venue login URL; removed stale env-based demo note on `/login`.
+- ⚠️ **Per venue manual step**: set the LIFF **Endpoint URL** in the LINE console = `https://sanam.semitennis.com/v/{slug}`.
+- **Deferred** (NOT done, low value/risk): per-slug token namespacing (whole app isn't under /v/{slug} → one app
+  session anyway, and changing the token key would log out live users); only the COLOUR re-themes app-wide, the
+  default-tenant TEXT remains in metadata/manifest/contact pages. Detail: `sessions/2026-06-17-1136-per-venue-login-path.md`.
 
 
 ## Project type (auto-detected)

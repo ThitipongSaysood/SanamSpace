@@ -29,8 +29,11 @@ parallelism offered little). **Tested locally, NOT pushed** (site is live on pro
 - `app/(auth)/login/page.tsx` — removed the misleading env-based "* เดโม่ ..." note (showed on prod even though
   login works; `isLiffEnabled()` only checks the build env, but prod uses the runtime LIFF id).
 
-## State — GREEN (local)
-backend **122/122** (119 + 3) · tsc **clean** · vitest **23/23**. Not run in the browser yet; not pushed.
+## State — GREEN & SHIPPED
+backend **122/122** (119 + 3) · tsc **clean** · vitest **23/23**. Verified live in the browser locally
+(`/v/everyday-badminton` green vs `/v/tsr-arena` blue; stub login → app header + whole-app theme follow the
+venue). Committed `d5f1f84`, **pushed to main → deploying** (code-only, no migration). Deferred items below
+were intentionally NOT done (per-slug token = low value + would log out live users).
 
 ## How it works (usage)
 - Each venue's login = `https://sanam.semitennis.com/v/{slug}` (e.g. `/v/everyday-badminton`).
