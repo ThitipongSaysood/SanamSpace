@@ -1,5 +1,6 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { tenant as defaultTenant } from "@/config/tenant";
 import { themeToCssVars, type TenantTheme } from "@/lib/theme";
 import type { OrgPublic } from "@/lib/types";
@@ -47,33 +48,43 @@ function applyTheme(theme: TenantTheme) {
   }
 }
 
+// The per-venue theme applies ONLY to the customer App. The Owner and Admin
+// portals (and the marketing /landing) keep the platform's default brand.
+function isVenueThemed(pathname: string | null): boolean {
+  if (!pathname) return true;
+  return !["/owner", "/admin", "/landing"].some((p) => pathname === p || pathname.startsWith(p + "/"));
+}
+
 type TenantValue = { tenant: TenantBranding; setVenue: (o: OrgPublic) => void };
 const Ctx = createContext<TenantValue>({ tenant: DEFAULT, setVenue: () => {} });
 
 export function TenantProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [tenant, setTenant] = useState<TenantBranding>(DEFAULT);
 
-  // Re-apply the last active venue's branding on load (so the app shell stays
-  // branded after login / on refresh, not just on the /v/{slug} page).
+  // Restore the last active venue's branding into state on load (so the customer
+  // app shell stays branded after login / on refresh). Theme is applied by the
+  // route-aware effect below, never here — to avoid leaking into Owner/Admin.
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const b = JSON.parse(raw) as TenantBranding;
-        setTenant(b);
-        applyTheme(b.theme);
-      }
+      if (raw) setTenant(JSON.parse(raw) as TenantBranding);
     } catch {
       /* ignore */
     }
   }, []);
 
+  // Apply the theme PER ROUTE: the venue colour on the customer app, the default
+  // brand on Owner/Admin/landing. This is what keeps the venue colour from
+  // bleeding into the back-office portals (same origin shares the body element).
+  useEffect(() => {
+    applyTheme(isVenueThemed(pathname) ? tenant.theme : DEFAULT.theme);
+  }, [pathname, tenant]);
+
   const setVenue = useCallback((o: OrgPublic) => {
-    const b = fromOrg(o);
-    setTenant(b);
-    applyTheme(b.theme);
+    setTenant(fromOrg(o));
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(b));
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(fromOrg(o)));
     } catch {
       /* ignore */
     }
