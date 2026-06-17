@@ -3,7 +3,9 @@
 _Last updated: 2026-06-17 (multi-tenant per-venue login /v/{slug} — shipped to prod)_
 
 ## ✅ Shipped 2026-06-17 — Multi-tenant per-venue login (`/v/{slug}`, Path scheme)
-Commit `d5f1f84`, **pushed to main → deploying** (code-only, no migration). Each venue has a branded login
+Commits `d5f1f84` (feature) + `1a19d05` (fix: scope venue theme to the customer App only — it was bleeding
+into Owner/Admin via the shared body/origin; now `/owner` `/admin` `/landing` keep the default brand),
+**pushed to main → deploying** (code-only, no migration). Each venue has a branded login
 on the one domain that uses its OWN LINE channel. Verified live in the browser locally: `/v/everyday-badminton`
 (green) vs `/v/tsr-arena` (blue) render distinct brand+theme; stub login → app header + whole-app theme follow
 the venue. backend **122/122** · tsc clean · vitest **23/23**.
