@@ -1,6 +1,6 @@
 # Active Task
 
-_Last updated: 2026-06-15 (Refund flow — 3-agent build, all green)_
+_Last updated: 2026-06-16 (prod LINE login fixes + deploy → rsync; site LIVE)_
 
 ## Project type (auto-detected)
 
@@ -12,9 +12,25 @@ Next.js 16 (frontend/: customer + owner + super-admin portals + /landing marketi
 
 Tests green every commit: **backend 119/119 · tsc clean · 23/23 vitest** (this day). Full detail: `sessions/2026-06-15-1046-billing-payments-packages-landing.md`.
 
-Deploy pipeline still live (push `main` → GitHub Actions → server). Server = readyidc 157.85.97.241, app at `/var/www/html/sanamspace`, vhost `sanam.semitennis.com`. **Still NOT public** — needs Cloudflare A `sanam` → 157.85.97.241 + `certbot` (see `sessions/2026-06-13-2330-deploy-pipeline-live-readyidc.md`).
+**Site is LIVE & public: https://sanam.semitennis.com** (real LINE login working). Server = readyidc 157.85.97.241, app at `/var/www/html/sanamspace`. Deploy = push `main` → GitHub Actions: **incremental** (paths-filter builds only the changed FE/BE side on the runner) → **rsync + ssh via sshpass** to the server (delta transfer; reuses `SERVER_PASSWORD`). Times: backend-only ~20s, frontend ~60-65s, both/workflow-change ~2min. Detail: `sessions/2026-06-16-prod-login-fixes-and-deploy-rsync.md`. (A pull-model/build-on-server attempt FAILED — server isn't set up to build; see memory `sanamspace-deploy-model`.)
 
 ## What just happened
+
+**2026-06-16 — prod debugging of the live LINE login + deploy speed-up (solo, no agents).** Commits
+`1a90f27`..`33a84ad`. Fixed the real customer login end-to-end and made deploys faster.
+1. **LINE login bounced to /login** (`1a90f27`) — added silent resume after the LIFF redirect
+   (`resumeLineIdToken`/`isReturningFromLineLogin` in `liff.ts`, completed in `auth-context`).
+2. **customer login 500** (`968204c`) — `personal_access_tokens.tokenable_id` was BIGINT but
+   `Customer` ids are UUIDs → migration widens it to `CHAR(36)` (MySQL only; sqlite hid the bug).
+3. **GET /membership 404** (`fd9856d`) — fresh customer had no row; now auto-creates a default Silver.
+4. **Real images** — venue photos (`VenueMedia`, `20e5edd`) + LINE profile avatar (`Avatar`, `380989c`)
+   now render (were placeholder-only); graceful fallback when missing/broken.
+5. **Deploy → rsync** (`33a84ad`) — replaced appleboy scp/ssh Docker actions with native rsync+ssh
+   (sshpass, delta transfer). A pull-model attempt (`592f603`) failed and was reverted (`ca62a9e`).
+Full detail + memories: `sessions/2026-06-16-prod-login-fixes-and-deploy-rsync.md`,
+memories `sanamspace-line-login` + `sanamspace-deploy-model`.
+
+---
 
 **Big day — 3 features shipped, two via parallel 3-agent (App/Owner/Admin) builds. Final: backend
 119/119 · tsc clean · vitest 23/23.** Also created the 3 custom agents (`.claude/agents/App|Owner|Admin.md`)
@@ -106,17 +122,16 @@ money logic, 7 routes, types). Flow: customer requests → Owner/Admin approve (
   component tests; live money E2E covered by feature tests (not curl-driven on the running server yet).
 
 ## Blockers
-none (LINE LIFF is code-complete; going live needs LINE_CHANNEL_ID/SECRET + NEXT_PUBLIC_LIFF_ID)
+none — site is live & public; real LINE login verified working end-to-end on sanam.semitennis.com.
 
 ## Next step (user's choice)
-1. ✅ **LINE LIFF real** — DONE (env-gated, 2026-06-15). Verify path + frontend LIFF + session
-   rehydrate shipped & tested. **To activate**: set `LINE_CHANNEL_ID`/`LINE_CHANNEL_SECRET` (backend)
-   and `NEXT_PUBLIC_LIFF_ID` (frontend build) → rebuild → test on device. Until then runs in stub/mock.
-2. ✅ **Refund** (owner + admin) — DONE (2026-06-15, wallet+manual, customer-requested). Remaining from
-   this line: **support ticket replies** (admin support still read-only).
-3. Owner: staff edit/delete, customer detail page, peak/time-based pricing.
-4. Make site public: Cloudflare A `sanam` + certbot.
+1. ✅ **LINE LIFF real** — DONE & LIVE (2026-06-16). Per-org `line_liff_id`/`line_channel_id` in DB;
+   the channel_id MUST match the LIFF's owning channel or verify fails (422) — memory `sanamspace-line-login`.
+2. ✅ **Make site public** — DONE (https://sanam.semitennis.com).
+3. **support ticket replies** (admin support still read-only).
+4. Owner: staff edit/delete, customer detail page, peak/time-based pricing.
 5. Landing polish: move to `/`, lead-form backend, real mockups, public `GET /plans`.
+6. Optional deploy follow-up: switch sshpass→SSH key for slightly faster/cleaner auth.
 
 ## Run (real)
 backend: cd backend && php artisan serve  (:8000)
