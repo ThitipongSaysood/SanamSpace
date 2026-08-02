@@ -27,7 +27,7 @@ export default function AdminFeaturesPage() {
       {features.length > 0 && (
         <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-sm">
+            <table className="stack-table w-full md:min-w-[560px] text-sm">
               <thead className="bg-app text-xs font-medium text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3 text-left">ฟีเจอร์</th>
@@ -41,14 +41,14 @@ export default function AdminFeaturesPage() {
               <tbody className="divide-y divide-black/5">
                 {features.map((f) => (
                   <tr key={f.id} className="hover:bg-app/40">
-                    <td className="px-4 py-3">
+                    <td data-label="ฟีเจอร์" className="px-4 py-3">
                       <div className="font-medium">{f.name}</div>
                       <div className="font-mono text-[11px] text-muted-foreground">{f.code}</div>
                     </td>
                     {plans.map((p) => {
                       const on = f.planCodes.includes(p.code);
                       return (
-                        <td key={p.id} className="px-4 py-3 text-center">
+                        <td data-actions key={p.id} className="px-4 py-3 text-center">
                           {on ? (
                             <Check className="mx-auto size-4 text-emerald-600" />
                           ) : (

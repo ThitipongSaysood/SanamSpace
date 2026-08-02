@@ -61,7 +61,7 @@ export default function AdminUsersPage() {
       {data && rows.length > 0 && (
         <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-sm">
+            <table className="stack-table w-full md:min-w-[720px] text-sm">
               <thead className="bg-app text-left text-xs font-medium text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3">ผู้ใช้</th>
@@ -111,7 +111,7 @@ function UserRow({
 
   return (
     <tr className={`hover:bg-app/60 ${suspended ? "opacity-60" : ""}`}>
-      <td className="px-4 py-3">
+      <td data-label="ผู้ใช้" className="px-4 py-3">
         <div className="flex items-center gap-2.5">
           <span className="grid size-8 shrink-0 place-items-center rounded-full bg-brand text-xs font-bold text-brand-foreground">
             {user.name.trim().charAt(0).toUpperCase()}
@@ -119,11 +119,11 @@ function UserRow({
           <span className="font-medium">{user.name}</span>
         </div>
       </td>
-      <td className="px-4 py-3 text-muted-foreground">{user.email}</td>
-      <td className="px-4 py-3">
+      <td data-label="อีเมล" className="px-4 py-3 text-muted-foreground">{user.email}</td>
+      <td data-label="บทบาท" className="px-4 py-3">
         <span className="rounded-full bg-brand/10 px-2.5 py-0.5 text-xs font-medium text-brand">{user.role}</span>
       </td>
-      <td className="px-4 py-3">
+      <td data-label="สถานะ" className="px-4 py-3">
         {suspended ? (
           <span className="inline-flex items-center gap-1.5 text-sm text-rose-600">
             <span className="size-2 rounded-full bg-rose-500" /> ระงับแล้ว
@@ -134,8 +134,8 @@ function UserRow({
           </span>
         )}
       </td>
-      <td className="px-4 py-3 text-muted-foreground">{fmtDate(user.createdAt)}</td>
-      <td className="px-4 py-3">
+      <td data-label="เข้าร่วม" className="px-4 py-3 text-muted-foreground">{fmtDate(user.createdAt)}</td>
+      <td data-actions className="px-4 py-3">
         <div className="flex items-center justify-end gap-1">
           <button
             type="button"

@@ -98,7 +98,7 @@ export default function AdminRefundsPage() {
       {data && data.length > 0 && (
         <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-sm">
+            <table className="stack-table w-full md:min-w-[760px] text-sm">
               <thead className="bg-app text-left text-xs font-medium text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3">วันที่</th>
@@ -113,13 +113,13 @@ export default function AdminRefundsPage() {
               <tbody className="divide-y divide-black/5">
                 {data.map((r) => (
                   <tr key={r.id} onClick={() => setSel(r)} className="cursor-pointer hover:bg-app/60">
-                    <td className="px-4 py-3 text-muted-foreground">{fmtDate(r.createdAt)}</td>
-                    <td className="px-4 py-3 font-medium">{r.organizationName ?? "—"}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{r.customerName ?? "—"}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{r.bookingCode ?? "—"}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{r.reason ?? "—"}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-brand">฿{fmt.format(r.amount)}</td>
-                    <td className="px-4 py-3">
+                    <td data-label="วันที่" className="px-4 py-3 text-muted-foreground">{fmtDate(r.createdAt)}</td>
+                    <td data-label="องค์กร" className="px-4 py-3 font-medium">{r.organizationName ?? "—"}</td>
+                    <td data-label="ลูกค้า" className="px-4 py-3 text-muted-foreground">{r.customerName ?? "—"}</td>
+                    <td data-label="การจอง" className="px-4 py-3 text-muted-foreground">{r.bookingCode ?? "—"}</td>
+                    <td data-label="เหตุผล" className="px-4 py-3 text-muted-foreground">{r.reason ?? "—"}</td>
+                    <td data-label="ยอด" className="px-4 py-3 text-right font-semibold text-brand">฿{fmt.format(r.amount)}</td>
+                    <td data-label="สถานะ" className="px-4 py-3">
                       <StatusPill status={r.status} />
                     </td>
                   </tr>

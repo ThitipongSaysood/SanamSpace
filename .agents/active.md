@@ -19,7 +19,7 @@ _Last updated: 2026-08-02 (session close-out) · Last agent: Claude (Opus 5)_
   Now **10 bookings covering every status**, distinct Thai customer names so search is demonstrable, one
   slip in the ตรวจสลิป queue, one checked-in booking. Destructive — dev/demo only. DB backed up first.
 
-## 🟡 In progress 2026-08-02 — Responsive pass
+## ✅ Done 2026-08-02 — Responsive pass, finished
 - **Bookings gained a 4th view: "รายการ"** — every booking in the month, **every status**, with tab
   filters carrying live counts (ทั้งหมด / รอชำระเงิน / ยืนยันแล้ว / เสร็จสิ้น / ยกเลิก). The calendar
   answers "what is on court 3 at 18:00"; this answers "what happened this month", including the cancelled
@@ -34,9 +34,16 @@ _Last updated: 2026-08-02 (session close-out) · Last agent: Claude (Opus 5)_
   `hidden md:block` table. Done so far: **owner/bookings (list view), owner/payments** — the two screens
   staff actually hold a phone for. `owner/staff`, `owner/wallet`, `owner/membership`, `owner/page`,
   `admin/subscriptions` already had it.
-- **Still to do:** 12 table pages without a mobile layout — `admin/{billing,features,logs,organizations,
-  payments,refunds,support,transactions,users,page}`, `owner/{banner,billing}`, `owner/customers/[id]`.
-  Admin is a desktop tool so horizontal scroll there is defensible; the owner ones are not.
+- **The remaining 13 use a `.stack-table` CSS pattern instead of hand-written cards.** Below `md` each row
+  becomes label/value lines (header text supplied per cell as `data-label`) and the actions cell takes the
+  full width. One definition in `globals.css` rather than thirteen duplicate mobile layouts — thirteen
+  copies is thirteen chances for the two views to drift apart.
+- Applied to `admin/{billing,features,logs,organizations,payments,refunds,support,transactions,users,page}`,
+  `owner/{banner,billing}`, `owner/customers/[id]`. Any `min-w-[Npx]` on those tables became
+  `md:min-w-[Npx]`, or it would have forced the old width straight back.
+- **Verified by measurement, not by eye:** a script walks every owner + admin route at 390px and counts
+  interactive elements inside tables whose bounding box falls outside the viewport. **0 offscreen controls,
+  0 document overflow** across 22 routes.
 
 ## ✅ Done 2026-08-02 — Owner payments (ตรวจสลิป) is a table
 - Cards → table. This is a **queue worked top to bottom**; full-size slip images stacked two-up meant

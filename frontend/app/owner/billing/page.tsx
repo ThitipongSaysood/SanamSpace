@@ -195,7 +195,7 @@ export default function OwnerBillingPage() {
           <p className="text-sm text-muted-foreground">ยังไม่มีรายการ</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[520px] text-sm">
+            <table className="stack-table w-full md:min-w-[520px] text-sm">
               <thead className="text-left text-xs text-muted-foreground">
                 <tr>
                   <th className="pb-2 font-medium">เลขที่</th>
@@ -209,12 +209,12 @@ export default function OwnerBillingPage() {
               <tbody className="divide-y divide-black/5">
                 {(invoicesQ.data ?? []).map((inv) => (
                   <tr key={inv.id}>
-                    <td className="py-2.5 font-mono text-xs">{inv.number}</td>
-                    <td className="py-2.5">{inv.periodMonths ?? 1} เดือน</td>
-                    <td className="py-2.5 tabular-nums">฿{fmt.format(inv.amount)}</td>
-                    <td className="py-2.5 text-muted-foreground">{inv.issueDate}</td>
-                    <td className="py-2.5"><StatusChip status={inv.status} /></td>
-                    <td className="py-2.5 text-right">
+                    <td data-label="เลขที่" className="py-2.5 font-mono text-xs">{inv.number}</td>
+                    <td data-label="ระยะเวลา" className="py-2.5">{inv.periodMonths ?? 1} เดือน</td>
+                    <td data-label="ยอด" className="py-2.5 tabular-nums">฿{fmt.format(inv.amount)}</td>
+                    <td data-label="วันที่ออก" className="py-2.5 text-muted-foreground">{inv.issueDate}</td>
+                    <td data-label="สถานะ" className="py-2.5"><StatusChip status={inv.status} /></td>
+                    <td data-label="เอกสาร" className="py-2.5 text-right">
                       <button
                         type="button"
                         onClick={() => setDocId(inv.id)}

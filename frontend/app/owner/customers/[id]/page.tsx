@@ -104,7 +104,7 @@ export default function OwnerCustomerDetailPage({ params }: { params: Promise<{ 
           <p className="p-8 text-center text-sm text-muted-foreground">ยังไม่เคยจอง</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-sm">
+            <table className="stack-table w-full md:min-w-[560px] text-sm">
               <thead className="bg-app text-left text-xs font-medium text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3">รหัส</th>
@@ -117,16 +117,16 @@ export default function OwnerCustomerDetailPage({ params }: { params: Promise<{ 
               <tbody className="divide-y divide-black/5">
                 {data.recentBookings.map((b) => (
                   <tr key={b.id} className="hover:bg-app/60">
-                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{b.code ?? "—"}</td>
-                    <td className="px-4 py-3 font-medium">{b.courtName ?? "—"}</td>
-                    <td className="px-4 py-3">
+                    <td data-label="รหัส" className="px-4 py-3 font-mono text-xs text-muted-foreground">{b.code ?? "—"}</td>
+                    <td data-label="คอร์ท" className="px-4 py-3 font-medium">{b.courtName ?? "—"}</td>
+                    <td data-label="วันและเวลา" className="px-4 py-3">
                       <span className="inline-flex items-center gap-1.5">
                         <CalendarClock className="size-3.5 text-muted-foreground" />
                         {thaiDate(b.date)} · {b.start}–{b.end}
                       </span>
                     </td>
-                    <td className="px-4 py-3">฿{fmt.format(b.amount)}</td>
-                    <td className="px-4 py-3">
+                    <td data-label="ยอด" className="px-4 py-3">฿{fmt.format(b.amount)}</td>
+                    <td data-label="สถานะ" className="px-4 py-3">
                       <StatusBadge status={b.status} />
                     </td>
                   </tr>

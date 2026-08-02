@@ -102,7 +102,7 @@ export default function AdminBillingPage() {
       {data && data.length > 0 && (
         <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[680px] text-sm">
+            <table className="stack-table w-full md:min-w-[680px] text-sm">
               <thead className="bg-app text-left text-xs font-medium text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3">เลขที่</th>
@@ -116,14 +116,14 @@ export default function AdminBillingPage() {
               <tbody className="divide-y divide-black/5">
                 {data.map((inv) => (
                   <tr key={inv.id} onClick={() => setSel(inv)} className="cursor-pointer hover:bg-app/60">
-                    <td className="px-4 py-3 font-medium">{inv.number}</td>
-                    <td className="px-4 py-3">{inv.organizationName}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-brand">฿{fmt.format(inv.amount)}</td>
-                    <td className="px-4 py-3">
+                    <td data-label="เลขที่" className="px-4 py-3 font-medium">{inv.number}</td>
+                    <td data-label="องค์กร" className="px-4 py-3">{inv.organizationName}</td>
+                    <td data-label="ยอด" className="px-4 py-3 text-right font-semibold text-brand">฿{fmt.format(inv.amount)}</td>
+                    <td data-label="สถานะ" className="px-4 py-3">
                       <StatusPill status={inv.status} />
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{inv.issueDate}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{inv.dueDate}</td>
+                    <td data-label="วันที่ออก" className="px-4 py-3 text-muted-foreground">{inv.issueDate}</td>
+                    <td data-label="ครบกำหนด" className="px-4 py-3 text-muted-foreground">{inv.dueDate}</td>
                   </tr>
                 ))}
               </tbody>

@@ -87,7 +87,7 @@ export default function OwnerBannerPage() {
       ) : (
         <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="stack-table w-full text-sm">
               <thead className="bg-app text-left text-xs font-medium text-muted-foreground">
                 <tr>
                   <th className="w-24 px-4 py-3">ลำดับ</th>
@@ -168,7 +168,7 @@ function BannerRow({
 
   return (
     <tr className={`hover:bg-app/60 ${banner.isActive ? "" : "opacity-60"}`}>
-      <td className="px-4 py-3">
+      <td data-label="ลำดับ" className="px-4 py-3">
         <div className="flex items-center gap-1">
           <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-app text-xs font-semibold text-muted-foreground">
             {position + 1}
@@ -194,7 +194,7 @@ function BannerRow({
         </div>
       </td>
 
-      <td className="px-4 py-3">
+      <td data-label="รูป" className="px-4 py-3">
         {banner.imageUrl ? (
           <button
             type="button"
@@ -217,7 +217,7 @@ function BannerRow({
         )}
       </td>
 
-      <td className="px-4 py-3">
+      <td data-label="หัวข้อ / รายละเอียด" className="px-4 py-3">
         {empty ? (
           <span className="text-muted-foreground">(ว่าง — ลูกค้าจะไม่เห็นการ์ดนี้)</span>
         ) : (
@@ -230,7 +230,7 @@ function BannerRow({
         )}
       </td>
 
-      <td className="px-4 py-3">
+      <td data-label="Popup" className="px-4 py-3">
         {banner.popup ? (
           <span className="rounded-full bg-brand-accent/15 px-2 py-0.5 text-xs font-semibold text-brand">
             เด้ง
@@ -240,7 +240,7 @@ function BannerRow({
         )}
       </td>
 
-      <td className="px-4 py-3">
+      <td data-label="สถานะ" className="px-4 py-3">
         {/* The whole reason this is a list: park a banner, keep it. */}
         <button
           type="button"
@@ -255,7 +255,7 @@ function BannerRow({
         </button>
       </td>
 
-      <td className="px-4 py-3">
+      <td data-actions className="px-4 py-3">
         <div className="flex items-center justify-end gap-1">
           <button
             type="button"

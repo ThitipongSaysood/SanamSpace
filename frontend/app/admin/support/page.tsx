@@ -46,7 +46,7 @@ export default function AdminSupportPage() {
       {data && data.length > 0 && (
         <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-sm">
+            <table className="stack-table w-full md:min-w-[720px] text-sm">
               <thead className="bg-app text-left text-xs font-medium text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3">Ticket #</th>
@@ -63,16 +63,16 @@ export default function AdminSupportPage() {
                   const pr = PRIORITY[t.priority] ?? { label: t.priority, cls: "bg-muted text-muted-foreground" };
                   return (
                     <tr key={t.id} onClick={() => setSel(t)} className="cursor-pointer hover:bg-app/60">
-                      <td className="px-4 py-3 font-medium">{t.ticketNo}</td>
-                      <td className="px-4 py-3">{t.organizationName}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{t.subject}</td>
-                      <td className="px-4 py-3">
+                      <td data-label="Ticket #" className="px-4 py-3 font-medium">{t.ticketNo}</td>
+                      <td data-label="องค์กร" className="px-4 py-3">{t.organizationName}</td>
+                      <td data-label="เรื่อง" className="px-4 py-3 text-muted-foreground">{t.subject}</td>
+                      <td data-label="ความสำคัญ" className="px-4 py-3">
                         <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${pr.cls}`}>{pr.label}</span>
                       </td>
-                      <td className="px-4 py-3">
+                      <td data-label="สถานะ" className="px-4 py-3">
                         <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${st.cls}`}>{st.label}</span>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">{fmtDate(t.updatedAt)}</td>
+                      <td data-label="อัปเดต" className="px-4 py-3 text-muted-foreground">{fmtDate(t.updatedAt)}</td>
                     </tr>
                   );
                 })}

@@ -186,7 +186,7 @@ export default function AdminOrganizationsPage() {
       {data && rows.length > 0 && (
         <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px] text-sm">
+            <table className="stack-table w-full md:min-w-[860px] text-sm">
               <thead className="bg-app text-left text-xs font-medium text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3">สนาม</th>
@@ -204,7 +204,7 @@ export default function AdminOrganizationsPage() {
                   const st = statusInfo(o);
                   return (
                     <tr key={o.id} className="cursor-pointer hover:bg-app/60" onClick={() => setOpenId(o.id)}>
-                      <td className="px-4 py-3">
+                      <td data-label="สนาม" className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-brand/10 text-xs font-bold text-brand">
                             {initials(o.name)}
@@ -215,21 +215,21 @@ export default function AdminOrganizationsPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3">
+                      <td data-label="เจ้าของ" className="px-4 py-3">
                         <div className="text-sm">{o.ownerName ?? "—"}</div>
                         <div className="text-xs text-muted-foreground">{o.ownerPhone ?? ""}</div>
                       </td>
-                      <td className="px-4 py-3">
+                      <td data-label="แพ็กเกจ" className="px-4 py-3">
                         <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700">
                           {o.planName ?? "—"}
                         </span>
                       </td>
-                      <td className="px-4 py-3">
+                      <td data-label="สถานะ" className="px-4 py-3">
                         <span className={`inline-flex items-center gap-1.5 text-sm font-medium ${st.text}`}>
                           <span className={`size-2 rounded-full ${st.dot}`} /> {st.label}
                         </span>
                       </td>
-                      <td className="px-4 py-3">
+                      <td data-label="วันหมดอายุ" className="px-4 py-3">
                         <div className="text-sm">{fmtDate(o.expiresAt)}</div>
                         {o.daysRemaining != null && (
                           <div className={`text-xs ${o.daysRemaining < 7 ? "text-rose-600" : "text-muted-foreground"}`}>
@@ -237,9 +237,9 @@ export default function AdminOrganizationsPage() {
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right">{fmt.format(o.userCount)}</td>
-                      <td className="px-4 py-3 text-right font-semibold text-brand">฿{fmt.format(o.revenue)}</td>
-                      <td className="px-4 py-3">
+                      <td data-label="ผู้ใช้" className="px-4 py-3 text-right">{fmt.format(o.userCount)}</td>
+                      <td data-label="รายได้รวม" className="px-4 py-3 text-right font-semibold text-brand">฿{fmt.format(o.revenue)}</td>
+                      <td data-label="จัดการ" className="px-4 py-3">
                         <div className="flex justify-center">
                           <button
                             type="button"
