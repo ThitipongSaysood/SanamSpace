@@ -6,3 +6,6 @@ frontend/.next/
 
 # root compose env (DB creds)
 /.env
+
+# macOS Finder droppings
+.DS_Store

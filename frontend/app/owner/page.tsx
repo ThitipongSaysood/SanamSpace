@@ -34,6 +34,7 @@ import type {
 } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
 import { StatusBadge } from "@/components/status-badge";
+import { CustomerLink } from "@/components/customer-link";
 import { Loading, ErrorState } from "@/components/states";
 
 const fmt = new Intl.NumberFormat("th-TH");
@@ -178,12 +179,20 @@ export default function OwnerDashboardPage() {
       </header>
 
       <PlatformAnnouncements />
+      <VenueCustomerLink />
 
       {isLoading && <Loading rows={3} />}
       {isError && <ErrorState onRetry={() => refetch()} />}
       {data && <DashboardBody d={data} />}
     </div>
   );
+}
+
+// The booking link this venue hands out. On the dashboard because sharing it is
+// a daily job, not a one-off setting.
+function VenueCustomerLink() {
+  const { data } = useQuery({ queryKey: ["owner", "settings"], queryFn: ownerApi.getSettings });
+  return <CustomerLink slug={data?.orgSlug} />;
 }
 
 // Published announcements from the platform (Super Admin), targeted to this org.

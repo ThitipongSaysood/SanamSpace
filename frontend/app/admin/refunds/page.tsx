@@ -6,7 +6,7 @@ import type { AdminRefund } from "@/lib/types";
 import { superAdminApi } from "@/lib/api/superadmin";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
-import { Modal } from "../_components/modal";
+import { Modal } from "@/components/ui/modal";
 
 const fmt = new Intl.NumberFormat("th-TH");
 const REFUNDS_KEY = ["admin", "refunds"];

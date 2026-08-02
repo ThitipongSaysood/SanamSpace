@@ -43,6 +43,12 @@ class SettingController extends Controller
             'phone' => ['sometimes', 'nullable', 'string', 'max:50'],
             'email' => ['sometimes', 'nullable', 'email', 'max:255'],
             'address' => ['sometimes', 'nullable', 'string'],
+
+            // --- Billing identity (buyer block on invoices/receipts) ---
+            'taxId' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'billingName' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'billingAddress' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'billingBranch' => ['sometimes', 'nullable', 'string', 'max:100'],
             'googleMapUrl' => ['sometimes', 'nullable', 'string'],
             'lineOaUrl' => ['sometimes', 'nullable', 'string'],
             'primaryColor' => ['sometimes', 'nullable', 'string', 'max:20'],
@@ -50,6 +56,7 @@ class SettingController extends Controller
             'accentColor' => ['sometimes', 'nullable', 'string', 'max:20'],
             'fontFamily' => ['sometimes', 'nullable', 'string', 'max:100'],
             'timezone' => ['sometimes', 'string', 'max:100'],
+            'checkinEnabled' => ['sometimes', 'boolean'],
 
             // --- Payment (where this venue receives booking money) ---
             'promptpayId' => ['sometimes', 'nullable', 'string', 'max:50'],
@@ -79,6 +86,11 @@ class SettingController extends Controller
             'phone' => 'phone',
             'email' => 'email',
             'address' => 'address',
+            // Billing identity — the buyer block on invoices/receipts.
+            'taxId' => 'tax_id',
+            'billingName' => 'billing_name',
+            'billingAddress' => 'billing_address',
+            'billingBranch' => 'billing_branch',
             'googleMapUrl' => 'google_map_url',
             'lineOaUrl' => 'line_oa_url',
             'primaryColor' => 'primary_color',
@@ -86,6 +98,7 @@ class SettingController extends Controller
             'accentColor' => 'accent_color',
             'fontFamily' => 'font_family',
             'timezone' => 'timezone',
+            'checkinEnabled' => 'checkin_enabled',
             'promptpayId' => 'promptpay_id',
             'promptpayName' => 'promptpay_name',
             'bankName' => 'bank_name',

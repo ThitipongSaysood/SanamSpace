@@ -11,6 +11,9 @@
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-prompt);
   --color-brand: var(--brand-primary);
+  /* Set per venue from its settings — see lib/theme.ts */
+  --color-brand-secondary: var(--brand-secondary);
+  --color-brand-accent: var(--brand-accent);
   --color-brand-warning: var(--brand-warning);
   --color-brand-danger: var(--brand-danger);
   --color-brand-foreground: oklch(0.985 0 0);

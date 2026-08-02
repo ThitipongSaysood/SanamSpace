@@ -28,6 +28,7 @@ class CustomerExtraApiTest extends TestCase
     private function demoToken(): string
     {
         return $this->postJson('/api/v1/auth/line/login', [
+            'organizationSlug' => 'everyday-badminton',
             'lineUserId' => self::DEMO_LINE_ID,
             'displayName' => 'คุณสมชาย',
         ])->json('token');
@@ -53,16 +54,24 @@ class CustomerExtraApiTest extends TestCase
             ->assertJsonPath('data.reviews.0.author', 'ทานต์');
     }
 
-    public function test_reviews_defaults_to_first_branch_without_venue_id(): void
+    /** The venue comes from the X-Venue-Slug header the /v/{slug} app sends. */
+    public function test_reviews_resolves_the_venue_from_the_header(): void
     {
-        $this->getJson('/api/v1/reviews')
+        $this->withHeader('X-Venue-Slug', 'everyday-badminton')
+            ->getJson('/api/v1/reviews')
             ->assertOk()
             ->assertJsonPath('data.total', 236);
     }
 
+    /** No venue named at all → 404, never some other venue's reviews. */
+    public function test_reviews_without_a_venue_is_rejected(): void
+    {
+        $this->getJson('/api/v1/reviews')->assertNotFound();
+    }
+
     public function test_packages_returns_three_in_frontend_shape(): void
     {
-        $this->getJson('/api/v1/packages')
+        $this->getJson('/api/v1/packages?venueId=everyday-badminton')
             ->assertOk()
             ->assertJsonCount(3, 'data')
             ->assertJsonStructure(['data' => [['id', 'name', 'hours', 'price', 'validDays', 'savePercent']]])
@@ -73,12 +82,45 @@ class CustomerExtraApiTest extends TestCase
 
     public function test_promotions_returns_three_in_frontend_shape(): void
     {
-        $this->getJson('/api/v1/promotions')
+        $this->withHeader('X-Venue-Slug', 'everyday-badminton')
+            ->getJson('/api/v1/promotions')
             ->assertOk()
             ->assertJsonCount(3, 'data')
             ->assertJsonStructure(['data' => [['id', 'title', 'subtitle', 'tag']]])
             ->assertJsonPath('data.0.tag', 'ส่วนลด')
             ->assertJsonPath('data.1.title', 'Happy Hour');
+    }
+
+    /**
+     * The leak this scoping exists to stop: TSR Arena has no catalogue of its
+     * own, and must get an empty one rather than the other venue's.
+     */
+    public function test_a_venue_never_sees_another_venues_catalogue(): void
+    {
+        $this->withHeader('X-Venue-Slug', 'tsr-arena')
+            ->getJson('/api/v1/packages')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->withHeader('X-Venue-Slug', 'tsr-arena')
+            ->getJson('/api/v1/promotions')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    }
+
+    /** A signed-in customer cannot read another venue by changing the slug. */
+    public function test_customer_is_forbidden_from_another_venues_catalogue(): void
+    {
+        $token = $this->postJson('/api/v1/auth/line/login', [
+            'lineUserId' => 'Utsrcust',
+            'displayName' => 'TSR Cust',
+            'organizationSlug' => 'tsr-arena',
+        ])->json('token');
+
+        $this->withToken($token)
+            ->withHeader('X-Venue-Slug', 'everyday-badminton')
+            ->getJson('/api/v1/packages')
+            ->assertForbidden();
     }
 
     public function test_membership_returns_demo_customer_membership(): void

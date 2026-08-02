@@ -25,6 +25,7 @@ class AuthLineLoginTest extends TestCase
         config(['services.line.channel_id' => null]);
 
         $res = $this->postJson('/api/v1/auth/line/login', [
+            'organizationSlug' => 'everyday-badminton',
             'lineUserId' => 'Ufallbacktest',
             'displayName' => 'Fallback Tester',
         ]);
@@ -45,6 +46,7 @@ class AuthLineLoginTest extends TestCase
         Http::fake(); // no LINE call should be needed; guards before HTTP
 
         $this->postJson('/api/v1/auth/line/login', [
+            'organizationSlug' => 'everyday-badminton',
             'lineUserId' => 'Ushouldbeignored',
         ])->assertStatus(422)->assertJsonValidationErrors('idToken');
 
@@ -71,6 +73,7 @@ class AuthLineLoginTest extends TestCase
         ]);
 
         $res = $this->postJson('/api/v1/auth/line/login', [
+            'organizationSlug' => 'everyday-badminton',
             'idToken' => 'a.real.looking.jwt',
         ]);
 
@@ -97,6 +100,7 @@ class AuthLineLoginTest extends TestCase
         ]);
 
         $this->postJson('/api/v1/auth/line/login', [
+            'organizationSlug' => 'everyday-badminton',
             'idToken' => 'forged.jwt',
         ])->assertStatus(422)->assertJsonValidationErrors('idToken');
 
@@ -115,6 +119,7 @@ class AuthLineLoginTest extends TestCase
         $before = Customer::query()->count();
 
         $this->postJson('/api/v1/auth/line/login', [
+            'organizationSlug' => 'everyday-badminton',
             'idToken' => 'expired.or.bad.jwt',
         ])->assertStatus(422)->assertJsonValidationErrors('idToken');
 

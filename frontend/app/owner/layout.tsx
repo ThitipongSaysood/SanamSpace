@@ -16,6 +16,9 @@ import {
   LayoutDashboard,
   LayoutGrid,
   LogOut,
+  ListChecks,
+  Megaphone,
+  QrCode,
   Menu,
   MessageSquare,
   ReceiptText,
@@ -27,6 +30,8 @@ import {
   Users,
   Wallet,
   X,
+  CreditCard,
+  Lock,
   type LucideIcon,
 } from "lucide-react";
 import type { User } from "@/lib/types";
@@ -38,6 +43,8 @@ const NAV: NavItem[] = [
   { label: "ภาพรวม", href: "/owner", icon: LayoutDashboard },
   { label: "ศูนย์ปฏิบัติการ", href: "/owner/operations", icon: Activity, count: "6" },
   { label: "การจอง", href: "/owner/bookings", icon: CalendarCheck },
+  { label: "รายการจอง", href: "/owner/bookings/list", icon: ListChecks },
+  { label: "เช็คอิน", href: "/owner/checkin", icon: QrCode },
   { label: "สนาม", href: "/owner/branches", icon: Store },
   { label: "คอร์ท", href: "/owner/courts", icon: LayoutGrid },
   { label: "ลูกค้า", href: "/owner/customers", icon: Users },
@@ -45,15 +52,30 @@ const NAV: NavItem[] = [
   { label: "สมาชิก", href: "/owner/membership", icon: Crown },
   { label: "วอลเล็ต", href: "/owner/wallet", icon: Wallet },
   { label: "โปรโมชั่น", href: "/owner/promotions", icon: Tag },
+  { label: "แบนเนอร์/ต้อนรับ", href: "/owner/banner", icon: Megaphone },
   { label: "การชำระเงิน", href: "/owner/payments", icon: ReceiptText },
   { label: "คืนเงิน", href: "/owner/refunds", icon: Undo2 },
   { label: "รายงาน", href: "/owner/reports", icon: BarChart3 },
   { label: "พนักงาน", href: "/owner/staff", icon: UserCog },
+  { label: "แพ็กเกจ/ต่ออายุ", href: "/owner/billing", icon: CreditCard },
   { label: "ตั้งค่า", href: "/owner/settings", icon: Settings },
 ];
 
+/**
+ * The most specific menu item that matches, and only that one.
+ *
+ * A plain `startsWith` lit up both "การจอง" (/owner/bookings) and "รายการจอง"
+ * (/owner/bookings/list) at the same time, because one href is a prefix of the
+ * other. The boundary check also stops /owner/bookings matching a future
+ * /owner/bookings-archive.
+ */
 function isActive(pathname: string, href: string) {
-  return href === "/owner" ? pathname === "/owner" : pathname.startsWith(href);
+  if (href === "/owner") return pathname === "/owner";
+
+  const matches = (h: string) => pathname === h || pathname.startsWith(h + "/");
+  if (!matches(href)) return false;
+
+  return !NAV.some((item) => item.href !== href && item.href.startsWith(href + "/") && matches(item.href));
 }
 
 function SidebarContent({
@@ -289,8 +311,45 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
           </div>
         </header>
 
-        <main className="flex-1 bg-app p-4 md:p-6">{children}</main>
+        <main className="flex-1 bg-app p-4 md:p-6">
+          <ExpiryGate pathname={pathname}>{children}</ExpiryGate>
+        </main>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Blocks the portal once the venue's plan has lapsed, pointing it at billing.
+ *
+ * The backend already returns 402 on every owner endpoint (owner.subscribed);
+ * this only makes that readable instead of a page full of failed requests.
+ * Billing itself is never gated — it is the way back in. The venue's customers
+ * are unaffected and keep booking.
+ */
+function ExpiryGate({ pathname, children }: { pathname: string; children: React.ReactNode }) {
+  const { data, isLoading } = useQuery({ queryKey: ["owner", "billing"], queryFn: ownerApi.getBilling });
+
+  const onBilling = pathname.startsWith("/owner/billing");
+  if (isLoading || onBilling || !data?.subscription?.isExpired) return <>{children}</>;
+
+  return (
+    <div className="mx-auto max-w-lg rounded-2xl bg-white p-8 text-center shadow-sm ring-1 ring-black/5">
+      <div className="mx-auto grid size-16 place-items-center rounded-2xl bg-red-50 text-red-600">
+        <Lock className="size-8" />
+      </div>
+      <h1 className="mt-5 text-xl font-bold">แพ็กเกจหมดอายุ</h1>
+      <p className="mt-2 text-sm text-muted-foreground">
+        ระบบจัดการสนามถูกล็อกไว้ชั่วคราว
+        <br />
+        <b className="text-foreground">หน้าจองของลูกค้ายังใช้งานได้ตามปกติ</b>
+      </p>
+      <Link
+        href="/owner/billing"
+        className="mt-6 inline-flex h-11 items-center rounded-xl bg-brand px-6 text-sm font-semibold text-brand-foreground transition hover:bg-brand/90"
+      >
+        ต่ออายุแพ็กเกจ
+      </Link>
     </div>
   );
 }

@@ -59,6 +59,10 @@ export type Booking = {
   amount: number;        // THB total
   status: BookingStatus;
   createdAt: string;
+  /** What the check-in QR encodes. Not the code — that is guessable. */
+  checkinToken?: string | null;
+  /** When the counter scanned them in. Null = has not arrived. */
+  checkedInAt?: string | null;
 };
 
 // Public per-venue LINE config for the customer frontend (GET /line-config).
@@ -71,9 +75,47 @@ export type OrgPublic = {
   logoText: string;
   logoUrl: string | null;
   liffId: string | null;
-  theme: { primary: string; warning: string; danger: string };
+  theme: { primary: string; secondary: string; accent: string; warning: string; danger: string };
+  /** The venue's chosen font, applied to the customer app when set. */
+  fontFamily?: string | null;
+  /**
+   * Announcements the venue is currently showing, topmost first. Only the ones
+   * it switched on and actually filled in — the customer app renders whatever
+   * arrives here without second-guessing it.
+   */
+  welcomeBanners?: PublicWelcomeBanner[];
+  /** Whether this venue scans customers in at the counter. */
+  checkinEnabled?: boolean;
   lineOaUrl: string | null;
   phone: string | null;
+};
+
+/** One announcement as the customer app receives it. */
+export type PublicWelcomeBanner = {
+  id: string;
+  title: string | null;
+  message: string | null;
+  imageUrl: string | null;
+  /** Where the card leads when tapped. Blank = not tappable. */
+  link: string | null;
+  /** Also greet arrivals with this one as a popup. */
+  popup: boolean;
+};
+
+/** The owner's editable view — includes the ones switched off. */
+export type OwnerWelcomeBanner = PublicWelcomeBanner & {
+  isActive: boolean;
+  sortOrder: number;
+};
+
+/** The editable fields when creating or updating a banner. */
+export type WelcomeBannerInput = {
+  title?: string | null;
+  message?: string | null;
+  imageUrl?: string | null;
+  link?: string | null;
+  isActive?: boolean;
+  popup?: boolean;
 };
 
 // --- Refunds (customer requests → owner/admin approve; credit to wallet or manual) ---
@@ -274,6 +316,15 @@ export type OwnerCustomer = {
 // Owner-side org settings (GET/PUT /owner/settings).
 export type OwnerSettings = {
   orgName: string;
+  /** Whether staff scan customers in at the counter. */
+  checkinEnabled?: boolean;
+  // Billing identity — the buyer block on invoices/receipts.
+  taxId?: string | null;
+  billingName?: string | null;
+  billingAddress?: string | null;
+  billingBranch?: string | null;
+  /** Read-only. This venue's address: customers open /v/{orgSlug}. */
+  orgSlug: string;
   logoText: string;
   logoUrl?: string | null;
   phone: string;
@@ -346,9 +397,11 @@ export type OwnerBranch = {
 };
 
 export type OwnerStaffMember = {
+  /** The user id — memberships are addressed by it. */
   id: string;
   displayName: string;
   email: string;
+  roleId: string | null;
   roleName: string;
   status: string;
   joinedAt: string;
@@ -502,6 +555,8 @@ export type AdminOrganization = {
 
 export type AdminSubscription = {
   id: string;
+  /** The venue this belongs to — the admin bills it from the subscription list. */
+  organizationId?: string | null;
   organizationName: string;
   planName: string | null;
   price: number;
@@ -543,17 +598,140 @@ export type AdminRole = {
   isSystemRole: boolean;
   scope: string;
   permissionCount: number;
+  /** Which permissions this role carries — the editor ticks these. */
+  permissionIds: string[];
+  /** owner/super_admin bypass every check, so their list is not editable. */
+  editable: boolean;
 };
 
+/** One entry in the permission catalogue (GET /admin/permissions). */
+export type AdminPermission = {
+  id: string;
+  code: string;
+  name: string;
+  module: string;
+};
+
+/** A platform user as created or edited by an admin. */
+export type AdminUserInput = {
+  name: string;
+  email: string;
+  password?: string | null;
+  phone?: string | null;
+};
+
+/** One customer in full (GET /owner/customers/{id}). */
+export type OwnerCustomerDetail = {
+  id: string;
+  displayName: string;
+  phone: string | null;
+  email: string | null;
+  pictureUrl: string | null;
+  totalSpending: number;
+  visits: number;
+  bookingsCount: number;
+  joinedAt: string | null;
+  membership: { tier: string | null; points: number } | null;
+  walletBalance: number;
+  recentBookings: {
+    id: string;
+    code: string | null;
+    courtName: string | null;
+    date: string;
+    start: string;
+    end: string;
+    amount: number;
+    status: BookingStatus;
+  }[];
+};
+
+/**
+ * A platform billing document — what a venue pays to keep using SanamSpace.
+ * Shared by the Super Admin billing screen and the venue's own billing page.
+ *
+ * status: unpaid | pending_review | paid | overdue | rejected
+ */
 export type AdminInvoice = {
   id: string;
   number: string;
+  organizationId?: string | null;
   organizationName: string;
+  planName?: string | null;
   amount: number;
+  periodMonths?: number;
+  /** "owner" = the venue renewed itself · "admin" = the platform billed them. */
+  source?: "owner" | "admin";
   status: string;
   issueDate: string;
   dueDate: string;
   paidDate?: string | null;
+  /** Frozen at issue time — never recomputed from today's rate. */
+  subtotal?: number;
+  vatAmount?: number;
+  vatRate?: number;
+  /** Issued only once the money is confirmed. */
+  receiptNumber?: string | null;
+  receiptDate?: string | null;
+  slipUrl?: string | null;
+  slipUploadedAt?: string | null;
+  rejectReason?: string | null;
+};
+
+/** The venue's own billing view: how long it has left, and what it owes. */
+export type OwnerBilling = {
+  subscription: {
+    planName: string | null;
+    price: number | null;
+    interval: string | null;
+    status: string;
+    startedAt: string | null;
+    endsAt: string | null;
+    /** Negative once the plan has lapsed; null when there is no end date. */
+    daysRemaining: number | null;
+    isExpired: boolean;
+  } | null;
+  outstandingInvoice: AdminInvoice | null;
+  payTo: string | null;
+};
+
+/**
+ * A printable billing document. The server decides which kind it is and what
+ * it is numbered, so the venue and the platform never see different documents.
+ */
+export type BillingDocument = {
+  kind: "invoice" | "receipt";
+  title: string;
+  titleEn: string;
+  number: string;
+  /** On a receipt: the invoice it settles. */
+  reference: string | null;
+  issueDate: string | null;
+  dueDate: string | null;
+  paidDate: string | null;
+  status: string;
+  seller: { name: string; taxId?: string | null; address?: string | null; email?: string | null };
+  buyer: {
+    name: string;
+    taxId?: string | null;
+    address?: string | null;
+    branch?: string | null;
+    phone?: string | null;
+  };
+  lines: { description: string; amount: number }[];
+  subtotal: number;
+  vatRate: number;
+  vatAmount: number;
+  total: number;
+  /** Prices are quoted VAT-inclusive; the document says so. */
+  vatInclusive: boolean;
+};
+
+/** Where to send the money for one invoice. */
+export type BillingInstructions = {
+  amount: number;
+  payTo: string | null;
+  promptpay: { payload: string } | null;
+  bank: { bankName: string; accountName: string; accountNumber: string } | null;
 };
 
 export type AdminTransaction = {
@@ -566,15 +744,31 @@ export type AdminTransaction = {
   createdAt: string | null;
 };
 
+/** One message in a support thread. */
+export type AdminSupportReply = {
+  id: string;
+  authorName: string;
+  /** "platform" = us, "organization" = the venue. */
+  authorSide: "platform" | "organization";
+  body: string;
+  /** Whether the venue was actually emailed — a reply nobody received is not an answer. */
+  emailed: boolean;
+  createdAt: string | null;
+};
+
 export type AdminSupportTicket = {
   id: string;
   ticketNo: string;
   organizationName: string;
   subject: string;
+  body?: string | null;
   status: string;
   priority: string;
   assignedTo: string | null;
+  resolvedAt?: string | null;
+  createdAt?: string | null;
   updatedAt: string | null;
+  replies?: AdminSupportReply[];
 };
 
 export type AdminAnnouncement = {
@@ -612,8 +806,16 @@ export type PlatformSettings = {
   mailFromName: string | null;
   mailPasswordSet: boolean;
   mailPassword?: string; // write-only: blank = keep existing
-  // Platform billing payment details
+  // Platform billing payment details — where venues send their renewal money.
   promptpayId: string | null;
+  /** Payee name the venue sees on the pay dialog. */
+  promptpayName: string | null;
+  // Seller identity + tax, printed on every invoice/receipt.
+  companyName: string | null;
+  taxId: string | null;
+  companyAddress: string | null;
+  vatEnabled: boolean;
+  vatRate: number;
   bankName: string | null;
   bankAccountName: string | null;
   bankAccountNumber: string | null;
@@ -658,4 +860,26 @@ export type PlatformFeature = {
   code: string;
   name: string;
   planCodes: string[];
+};
+
+/** One arrival, as the counter sees it. */
+export type CheckinBooking = {
+  id: string;
+  code: string | null;
+  customerName: string | null;
+  courtName: string | null;
+  date: string;
+  start: string;
+  end: string;
+  status: BookingStatus;
+  checkedInAt: string | null;
+};
+
+/** The counter's answer after a scan (POST /owner/checkin). */
+export type CheckinResult = {
+  ok: boolean;
+  /** checked_in | already | unpaid | cancelled | too_early | expired | not_found */
+  code: string;
+  message: string;
+  booking: CheckinBooking | null;
 };

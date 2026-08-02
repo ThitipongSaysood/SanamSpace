@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { AdminPayment } from "@/lib/types";
 import { superAdminApi } from "@/lib/api/superadmin";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
-import { Modal } from "../_components/modal";
+import { Modal } from "@/components/ui/modal";
 
 const fmt = new Intl.NumberFormat("th-TH");
 

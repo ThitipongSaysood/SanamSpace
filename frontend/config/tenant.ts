@@ -24,5 +24,5 @@ export const tenant: Tenant = {
   facebook: "Everyday Badminton",
   email: "info@everydaybadminton.com",
   addressNote: "ถ.งามวงศ์วาน จ.นนทบุรี",
-  theme: { primary: "#16A34A", warning: "#F59E0B", danger: "#EF4444" },
+  theme: { primary: "#16A34A", secondary: "#16A34A", accent: "#F59E0B", warning: "#F59E0B", danger: "#EF4444" },
 };

@@ -17,6 +17,8 @@ class SubscriptionResource extends JsonResource
     {
         return [
             'id' => (string) $this->id,
+            // The org, not just its name: the admin bills a venue from this list.
+            'organizationId' => $this->organization_id,
             'organizationName' => $this->organization?->name,
             'planName' => $this->plan?->name,
             'price' => $this->plan ? (float) $this->plan->price : null,

@@ -253,11 +253,34 @@ function EmailTab({ settings }: { settings: PlatformSettings }) {
 }
 
 function PaymentTab({ settings }: { settings: PlatformSettings }) {
-  const { form, set, mutation } = useSettingsForm(settings);
+  const { form, set, setField, mutation } = useSettingsForm(settings);
   return (
     <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }} className="max-w-3xl space-y-4">
+      <Card title="ข้อมูลผู้ออกเอกสาร" desc="ชื่อ/ที่อยู่/เลขผู้เสียภาษี ที่พิมพ์บนใบแจ้งหนี้และใบเสร็จรับเงิน">
+        <Field k="companyName" label="ชื่อบริษัท (ตามหนังสือรับรอง)" form={form} set={set} placeholder="บริษัท สนามสเปซ จำกัด" />
+        <Field k="taxId" label="เลขประจำตัวผู้เสียภาษี" form={form} set={set} placeholder="0105564000000" />
+        <Field k="companyAddress" label="ที่อยู่" form={form} set={set} placeholder="99/9 ถนน... กรุงเทพฯ 10110" />
+      </Card>
+
+      <Card title="ภาษีมูลค่าเพิ่ม" desc="ราคาแพ็กเกจเป็นราคารวม VAT แล้ว — เปิดแล้วระบบจะถอด VAT ออกมาแสดงแยกบนเอกสาร">
+        <div className="sm:col-span-2">
+          <ToggleRow
+            label="ออกใบกำกับภาษี (จด VAT)"
+            desc="ราคาแพ็กเกจเป็นราคารวม VAT อยู่แล้ว — เปิดแล้วเอกสารจะถอด VAT ออกมาแสดงแยก"
+            on={!!form.vatEnabled}
+            onToggle={() => setField("vatEnabled", !form.vatEnabled)}
+          />
+        </div>
+        {form.vatEnabled && (
+          <Field k="vatRate" label="อัตรา VAT (%)" form={form} set={set} placeholder="7" />
+        )}
+      </Card>
+
       <Card title="การชำระเงิน (รับเงินค่าบริการแพลตฟอร์ม)" desc="แสดงบนใบแจ้งหนี้/ช่องทางชำระค่าสมาชิกแพลตฟอร์ม">
         <Field k="promptpayId" label="พร้อมเพย์ (เบอร์/เลขผู้เสียภาษี)" form={form} set={set} placeholder="0812345678" />
+        {/* Shown to the venue as "โอนให้ …" on the pay dialog, so it needs to be
+            the name they will recognise on their banking app. */}
+        <Field k="promptpayName" label="ชื่อผู้รับเงิน (แสดงตอนสนามสแกนจ่าย)" form={form} set={set} placeholder="บจก. สนามสเปซ" />
         <Field k="bankName" label="ธนาคาร" form={form} set={set} placeholder="กสิกรไทย" />
         <Field k="bankAccountName" label="ชื่อบัญชี" form={form} set={set} />
         <Field k="bankAccountNumber" label="เลขที่บัญชี" form={form} set={set} />

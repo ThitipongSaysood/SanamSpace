@@ -16,14 +16,14 @@ class PromotionController extends Controller
     /**
      * GET /promotions -> Promotion[]
      *
-     * Same org resolution as packages.
+     * Same org resolution as packages — strictly the current venue's.
      */
     public function index(Request $request): AnonymousResourceCollection
     {
-        $org = $this->resolveOrganization($request, $request->query('venueId'));
+        $org = $this->resolveOrganizationOrFail($request, $request->query('venueId'));
 
         $promotions = Promotion::query()
-            ->forOrganization($org?->id)
+            ->forOrganization($org->id)
             ->orderBy('sort_order')
             ->orderBy('created_at')
             ->get();

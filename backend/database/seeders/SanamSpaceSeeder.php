@@ -15,6 +15,7 @@ use App\Models\Organization;
 use App\Models\OrganizationSetting;
 use App\Models\OrganizationUser;
 use App\Models\Permission;
+use App\Support\RolePermissions;
 use App\Models\Plan;
 use App\Models\Promotion;
 use App\Models\Review;
@@ -466,18 +467,12 @@ class SanamSpaceSeeder extends Seeder
             Role::create($role);
         }
 
-        // A small starter set of permissions, enough to be present.
-        $permissions = [
-            ['code' => 'booking.view', 'name' => 'View bookings', 'module' => 'booking'],
-            ['code' => 'booking.create', 'name' => 'Create bookings', 'module' => 'booking'],
-            ['code' => 'booking.cancel', 'name' => 'Cancel bookings', 'module' => 'booking'],
-            ['code' => 'payment.verify', 'name' => 'Verify payments', 'module' => 'payment'],
-            ['code' => 'court.manage', 'name' => 'Manage courts', 'module' => 'court'],
-        ];
+        // The catalogue and each role's defaults, from the same definition the
+        // upgrade migration uses — two copies of this list is how the two
+        // environments end up disagreeing about what a Cashier may do.
+        RolePermissions::install();
 
-        $created = collect($permissions)->map(fn ($p) => Permission::create($p));
-
-        // Owner gets every permission.
-        Role::where('code', 'owner')->first()?->permissions()->sync($created->pluck('id'));
+        // Owner is listed for display, but bypasses the check in practice.
+        Role::where('code', 'owner')->first()?->permissions()->sync(Permission::pluck('id'));
     }
 }

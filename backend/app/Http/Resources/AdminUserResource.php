@@ -15,7 +15,7 @@ class AdminUserResource extends JsonResource
             'email' => $this->email,
             'role' => $this->is_super_admin ? 'Super Admin' : 'Staff',
             'isSuperAdmin' => (bool) $this->is_super_admin,
-            'status' => 'active',
+            'status' => $this->status ?? 'active',
             'createdAt' => $this->created_at?->toIso8601String(),
         ];
     }

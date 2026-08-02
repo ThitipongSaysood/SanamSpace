@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Owner;
 
+use App\Http\Controllers\Api\Concerns\PaginatesLists;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\BookingResource;
 use App\Models\Booking;
@@ -16,6 +17,8 @@ use Illuminate\Validation\ValidationException;
 
 class BookingController extends Controller
 {
+    use PaginatesLists;
+
     /**
      * GET /owner/bookings?status=&date= — all org bookings (newest first).
      */
@@ -28,10 +31,13 @@ class BookingController extends Controller
             ->with(['branch.organization', 'court', 'customer'])
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
             ->when($request->filled('date'), fn ($q) => $q->where('date', $request->string('date')))
-            ->orderByDesc('created_at')
-            ->get();
+            // The calendar asks for the window it is showing. Without this the
+            // board pulled every booking the venue ever took, to display one day.
+            ->when($request->filled('from'), fn ($q) => $q->where('date', '>=', $request->string('from')))
+            ->when($request->filled('to'), fn ($q) => $q->where('date', '<=', $request->string('to')))
+            ->orderByDesc('created_at');
 
-        return BookingResource::collection($bookings);
+        return BookingResource::collection($this->paginated($bookings, $request));
     }
 
     /**
@@ -149,6 +155,34 @@ class BookingController extends Controller
         $booking->update(['status' => 'cancelled']);
 
         return new BookingResource($booking->fresh()->load(['branch.organization', 'court', 'customer']));
+    }
+
+    /**
+     * DELETE /owner/bookings/{id} — remove the row entirely.
+     *
+     * Different from cancel, which keeps it on the books as a cancelled slot.
+     * This is for a mistake: a double entry, a test row, a wrong customer typed
+     * in at the counter.
+     *
+     * Refused once money has been taken. A booking with an approved payment is a
+     * financial record, and the honest way out of that is cancel-and-refund, not
+     * making the row disappear.
+     */
+    public function destroy(Request $request, string $id): JsonResponse
+    {
+        $booking = $this->findScoped($request, $id);
+
+        $paid = $booking->payments()->where('status', 'approved')->exists();
+
+        if ($paid) {
+            throw ValidationException::withMessages([
+                'id' => 'ลบไม่ได้ — รายการนี้มีการชำระเงินที่อนุมัติแล้ว ให้ยกเลิกและคืนเงินแทน',
+            ]);
+        }
+
+        $booking->delete(); // soft delete: recoverable if it was the wrong row
+
+        return response()->json(null, 204);
     }
 
     private function findScoped(Request $request, string $id): Booking

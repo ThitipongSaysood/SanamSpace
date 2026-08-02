@@ -22,30 +22,23 @@ class ReviewController extends Controller
      * GET /reviews?venueId={slug|branchId} -> ReviewSummary
      *
      * venueId is the organization slug (matching the Venue id used elsewhere).
-     * Falls back to the first branch of the default org when omitted.
+     * Always scoped to the current venue: with no venueId it falls back to the
+     * tenant's own first branch, never to another venue's.
      */
     public function index(Request $request): ReviewSummaryResource
     {
         $venueId = $request->query('venueId');
+        $org = $this->resolveOrganizationOrFail($request, $venueId);
 
         $branch = Branch::query()
             ->with(['reviews' => fn ($q) => $q->orderBy('sort_order')])
+            ->forOrganization($org->id)
             ->when($venueId, function ($query) use ($venueId) {
-                $query->where('id', $venueId)
-                    ->orWhereHas('organization', fn ($oq) => $oq->where('slug', $venueId));
+                $query->where(fn ($q) => $q->where('id', $venueId)
+                    ->orWhereHas('organization', fn ($oq) => $oq->where('slug', $venueId)));
             })
             ->orderBy('created_at')
-            ->first();
-
-        if (! $branch) {
-            // Default org's first branch.
-            $org = $this->resolveOrganization($request);
-            $branch = Branch::query()
-                ->with(['reviews' => fn ($q) => $q->orderBy('sort_order')])
-                ->forOrganization($org?->id)
-                ->orderBy('created_at')
-                ->firstOrFail();
-        }
+            ->firstOrFail();
 
         return new ReviewSummaryResource($branch);
     }

@@ -1,9 +1,10 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { api } from "@/lib/api/client";
 import { tenant as defaultTenant } from "@/config/tenant";
 import { themeToCssVars, type TenantTheme } from "@/lib/theme";
-import type { OrgPublic } from "@/lib/types";
+import type { OrgPublic, PublicWelcomeBanner } from "@/lib/types";
 
 const STORAGE_KEY = "sanamspace.venue";
 
@@ -18,6 +19,12 @@ export type TenantBranding = {
   logoText: string;
   logoUrl: string | null;
   theme: TenantTheme;
+  /** The venue's chosen font, applied to the customer app when set. */
+  fontFamily: string | null;
+  /** The venue's own announcements for its customers, topmost first. */
+  welcomeBanners: PublicWelcomeBanner[];
+  /** Whether this venue scans customers in at the counter. */
+  checkinEnabled: boolean;
   lineOaUrl: string | null;
   phone: string | null;
 };
@@ -28,6 +35,9 @@ const DEFAULT: TenantBranding = {
   logoText: defaultTenant.logoText,
   logoUrl: null,
   theme: defaultTenant.theme,
+  fontFamily: null,
+  welcomeBanners: [],
+  checkinEnabled: true,
   lineOaUrl: defaultTenant.lineOaUrl,
   phone: defaultTenant.phone,
 };
@@ -35,17 +45,23 @@ const DEFAULT: TenantBranding = {
 function fromOrg(o: OrgPublic): TenantBranding {
   return {
     slug: o.slug, name: o.name, logoText: o.logoText, logoUrl: o.logoUrl,
-    theme: o.theme, lineOaUrl: o.lineOaUrl, phone: o.phone,
+    theme: o.theme, fontFamily: o.fontFamily ?? null,
+    welcomeBanners: o.welcomeBanners ?? [],
+    checkinEnabled: o.checkinEnabled ?? true,
+    lineOaUrl: o.lineOaUrl, phone: o.phone,
   };
 }
 
 // Override the theme CSS vars on <body> (the same element the root layout sets
 // them on, so this imperative write wins). Colours cascade to every component.
-function applyTheme(theme: TenantTheme) {
+function applyTheme(theme: TenantTheme, fontFamily?: string | null) {
   if (typeof document === "undefined") return;
   for (const [k, v] of Object.entries(themeToCssVars(theme))) {
     document.body.style.setProperty(k, v);
   }
+  // A venue may pick its own typeface; blank restores the platform font rather
+  // than leaving the previous venue's behind.
+  document.body.style.setProperty("--font-sans", fontFamily || "var(--font-prompt)");
 }
 
 // The per-venue theme applies ONLY to the customer App. The Owner and Admin
@@ -68,7 +84,10 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) setTenant(JSON.parse(raw) as TenantBranding);
+      // Merged onto DEFAULT: a customer carrying a copy stored by an older
+      // build is missing whatever has been added since, and a missing
+      // welcomeBanners would break the home render before the refetch lands.
+      if (raw) setTenant({ ...DEFAULT, ...(JSON.parse(raw) as Partial<TenantBranding>) });
     } catch {
       /* ignore */
     }
@@ -78,8 +97,44 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
   // brand on Owner/Admin/landing. This is what keeps the venue colour from
   // bleeding into the back-office portals (same origin shares the body element).
   useEffect(() => {
-    applyTheme(isVenueThemed(pathname) ? tenant.theme : DEFAULT.theme);
+    const venue = isVenueThemed(pathname);
+    applyTheme(venue ? tenant.theme : DEFAULT.theme, venue ? tenant.fontFamily : null);
   }, [pathname, tenant]);
+
+  // Re-read the venue's branding whenever a customer opens the app.
+  //
+  // Without this, branding only refreshed on the /v/{slug} login page — a venue
+  // that changed its logo or colours would not reach anyone already signed in
+  // until they happened to hit that URL again. localStorage keeps the old look
+  // visible meanwhile, so the refresh is silent rather than a flash of default.
+  const slug = tenant.slug;
+  useEffect(() => {
+    if (!slug || !isVenueThemed(pathname)) return;
+
+    let active = true;
+    api
+      .getOrgPublic(slug)
+      .then((o) => {
+        if (!active) return;
+        const next = fromOrg(o);
+        // Only touch state when something actually changed, so this cannot loop.
+        setTenant((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+        try {
+          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        } catch {
+          /* ignore */
+        }
+      })
+      .catch(() => {
+        /* offline or venue removed — keep what is on screen */
+      });
+
+    return () => {
+      active = false;
+    };
+    // Deliberately not keyed on `tenant`: this refreshes per venue, per visit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug]);
 
   const setVenue = useCallback((o: OrgPublic) => {
     setTenant(fromOrg(o));

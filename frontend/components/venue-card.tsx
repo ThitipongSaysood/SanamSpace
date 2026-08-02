@@ -1,11 +1,11 @@
-import Link from "next/link";
 import { Star, MapPin } from "lucide-react";
 import type { Venue } from "@/lib/types";
 import { VenueMedia } from "@/components/venue-media";
+import { VenueLink } from "@/lib/tenant/venue-nav";
 
 export function VenueCard({ venue }: { venue: Venue }) {
   return (
-    <Link
+    <VenueLink
       href={`/venue/${venue.id}`}
       className="flex gap-3 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-black/5 transition active:scale-[0.99]"
     >
@@ -32,6 +32,6 @@ export function VenueCard({ venue }: { venue: Venue }) {
           {venue.distanceKm} กม.
         </div>
       </div>
-    </Link>
+    </VenueLink>
   );
 }

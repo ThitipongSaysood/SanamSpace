@@ -1,3 +1,4 @@
+import { fetchPdf } from "./owner";
 import type {
   AdminAnnouncement,
   AdminAuditLog,
@@ -7,17 +8,21 @@ import type {
   AdminOrganizationDetail,
   AdminPayment,
   AdminRefund,
+  AdminPermission,
   AdminRole,
   AdminSubscription,
   AdminSupportTicket,
   AdminTransaction,
   AdminUser,
+  AdminUserInput,
+  BillingDocument,
   PlatformDashboard,
   PlatformFeature,
   PlatformSettings,
   Plan,
   User,
 } from "@/lib/types";
+import { toPage } from "./paged";
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 
@@ -199,12 +204,67 @@ export const superAdminApi = {
 
   getUsers: () => req<AdminUser[]>("/admin/users"),
 
+  createUser: (body: AdminUserInput) => req<AdminUser>("/admin/users", { method: "POST", body }),
+
+  updateUser: (id: string, body: Partial<AdminUserInput>) =>
+    req<AdminUser>(`/admin/users/${id}`, { method: "PUT", body }),
+
+  /** Blocks sign-in and drops their tokens; the record stays. */
+  suspendUser: (id: string) => req<AdminUser>(`/admin/users/${id}/suspend`, { method: "POST" }),
+
+  activateUser: (id: string) => req<AdminUser>(`/admin/users/${id}/activate`, { method: "POST" }),
+
   getRoles: () => req<AdminRole[]>("/admin/roles"),
 
-  getInvoices: () => req<AdminInvoice[]>("/admin/invoices"),
+  getPermissions: () => req<AdminPermission[]>("/admin/permissions"),
 
+  /** Replaces the role's whole set — unchecking matters as much as checking. */
+  updateRolePermissions: (id: string, permissionIds: string[]) =>
+    req<AdminRole>(`/admin/roles/${id}/permissions`, { method: "PUT", body: { permissionIds } }),
+
+  /** Stops the renewal; the venue keeps working until the period ends. */
+  cancelSubscription: (id: string) =>
+    req<AdminSubscription>(`/admin/subscriptions/${id}/cancel`, { method: "POST" }),
+
+  /** Ends the plan now — the owner portal locks immediately. */
+  suspendSubscription: (id: string) =>
+    req<AdminSubscription>(`/admin/subscriptions/${id}/suspend`, { method: "POST" }),
+
+  resumeSubscription: (id: string, endsAt?: string) =>
+    req<AdminSubscription>(`/admin/subscriptions/${id}/resume`, { method: "POST", body: { endsAt } }),
+
+  getInvoicesPage: async (page: number, status?: string) =>
+    toPage<AdminInvoice>(
+      await req(`/admin/invoices?page=${page}${status ? `&status=${encodeURIComponent(status)}` : ""}`, { raw: true }),
+    ),
+
+  getTransactionsPage: async (page: number) =>
+    toPage<AdminTransaction>(await req(`/admin/transactions?page=${page}`, { raw: true })),
+
+  /** `status` narrows the list — "pending_review" is the queue awaiting a decision. */
+  getInvoices: (status?: string) =>
+    req<AdminInvoice[]>(`/admin/invoices${status ? `?status=${encodeURIComponent(status)}` : ""}`),
+
+  /** The document as a PDF (blob URL — the endpoint needs the bearer token). */
+  getInvoiceDocumentPdf: (id: string) => fetchPdf(`/admin/invoices/${id}/document.pdf`, getAdminToken()),
+
+  /** The printable document for an invoice — same payload the venue sees. */
+  getInvoiceDocument: (id: string) => req<BillingDocument>(`/admin/invoices/${id}/document`),
+
+  /**
+   * Confirms the money arrived — this is what actually extends the venue's
+   * subscription, so it is both "approve this slip" and "mark as paid".
+   */
   markInvoicePaid: (id: string) =>
     req<AdminInvoice>(`/admin/invoices/${id}/pay`, { method: "POST" }),
+
+  /** Turn down a submitted slip; the venue can transfer again. */
+  rejectInvoice: (id: string, reason?: string) =>
+    req<AdminInvoice>(`/admin/invoices/${id}/reject`, { method: "POST", body: { reason } }),
+
+  /** Bill a venue directly, for venues that would rather be invoiced. */
+  createInvoice: (organizationId: string, periodMonths: number) =>
+    req<AdminInvoice>("/admin/invoices", { method: "POST", body: { organizationId, periodMonths } }),
 
   sendInvoice: (id: string) =>
     req<{ sent: boolean; email?: string; isReceipt?: boolean }>(`/admin/invoices/${id}/send`, {
@@ -215,6 +275,18 @@ export const superAdminApi = {
   getTransactions: () => req<AdminTransaction[]>("/admin/transactions"),
 
   getSupportTickets: () => req<AdminSupportTicket[]>("/admin/support-tickets"),
+
+  getSupportTicket: (id: string) => req<AdminSupportTicket>(`/admin/support-tickets/${id}`),
+
+  /** Answer the venue. The reply is recorded and emailed to their contact address. */
+  replySupportTicket: (id: string, body: string) =>
+    req<AdminSupportTicket>(`/admin/support-tickets/${id}/replies`, { method: "POST", body: { body } }),
+
+  updateSupportTicketStatus: (id: string, status: string, assignedTo?: string) =>
+    req<AdminSupportTicket>(`/admin/support-tickets/${id}/status`, {
+      method: "PUT",
+      body: { status, ...(assignedTo !== undefined ? { assignedTo } : {}) },
+    }),
 
   getAnnouncements: () => req<AdminAnnouncement[]>("/admin/announcements"),
 

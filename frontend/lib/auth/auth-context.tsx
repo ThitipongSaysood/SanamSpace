@@ -3,34 +3,23 @@ import { createContext, useContext, useEffect, useState } from "react";
 import type { User } from "@/lib/types";
 import { api } from "@/lib/api/client";
 import { clearToken, getToken } from "@/lib/api/token";
+import { getActiveVenueSlug, setActiveVenueSlug } from "@/lib/tenant/active-venue";
 import { getLineIdToken, isReturningFromLineLogin, resumeLineIdToken } from "./liff";
 
 const STORAGE_KEY = "sanamspace.profile";
-const ACTIVE_VENUE_KEY = "sanamspace.activeVenue";
 
 /**
  * The venue/org slug for the current login, from the `/v/{slug}` URL (the LINE
  * redirect returns here, so the path is reliable) — falling back to the last
- * persisted slug. undefined → the backend resolves the default org.
+ * persisted slug. A customer is created inside one venue, so the backend
+ * rejects a login that names none.
  */
 function currentVenueSlug(): string | undefined {
-  if (typeof window === "undefined") return undefined;
-  const m = window.location.pathname.match(/^\/v\/([^/]+)/);
-  if (m) return decodeURIComponent(m[1]);
-  try {
-    return window.localStorage.getItem(ACTIVE_VENUE_KEY) || undefined;
-  } catch {
-    return undefined;
-  }
+  return getActiveVenueSlug() ?? undefined;
 }
 
 function rememberVenue(slug?: string) {
-  if (typeof window === "undefined" || !slug) return;
-  try {
-    window.localStorage.setItem(ACTIVE_VENUE_KEY, slug);
-  } catch {
-    /* ignore */
-  }
+  if (slug) setActiveVenueSlug(slug);
 }
 
 // Demo identity sent to the stub LINE login when LIFF is NOT configured

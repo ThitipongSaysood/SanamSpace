@@ -17,7 +17,7 @@ import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Modal } from "../_components/modal";
+import { Modal } from "@/components/ui/modal";
 import { OrgDrawer } from "./_drawer";
 
 const fmt = new Intl.NumberFormat("th-TH");

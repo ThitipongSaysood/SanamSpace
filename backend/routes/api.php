@@ -28,7 +28,9 @@ use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\Owner\BookingController as OwnerBookingController;
 use App\Http\Controllers\Api\Owner\BranchController as OwnerBranchController;
 use App\Http\Controllers\Api\Owner\AnnouncementController as OwnerAnnouncementController;
+use App\Http\Controllers\Api\Owner\BillingController as OwnerBillingController;
 use App\Http\Controllers\Api\Owner\BroadcastController as OwnerBroadcastController;
+use App\Http\Controllers\Api\Owner\CheckinController as OwnerCheckinController;
 use App\Http\Controllers\Api\Owner\CourtBlockController as OwnerCourtBlockController;
 use App\Http\Controllers\Api\Owner\ReportController as OwnerReportController;
 use App\Http\Controllers\Api\Owner\CourtController as OwnerCourtController;
@@ -41,6 +43,7 @@ use App\Http\Controllers\Api\Owner\SegmentController as OwnerSegmentController;
 use App\Http\Controllers\Api\Owner\TimelineController as OwnerTimelineController;
 use App\Http\Controllers\Api\Owner\PaymentController as OwnerPaymentController;
 use App\Http\Controllers\Api\Owner\PromotionController as OwnerPromotionController;
+use App\Http\Controllers\Api\Owner\WelcomeBannerController as OwnerWelcomeBannerController;
 use App\Http\Controllers\Api\Owner\SettingController as OwnerSettingController;
 use App\Http\Controllers\Api\Owner\StaffController as OwnerStaffController;
 use App\Http\Controllers\Api\Owner\SubscriptionController as OwnerSubscriptionController;
@@ -102,8 +105,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/bookings', [BookingController::class, 'store']);
     Route::get('/bookings/{id}', [BookingController::class, 'show']);
     Route::post('/bookings/{id}/cancel', [BookingController::class, 'cancel']);
-    Route::post('/bookings/{id}/checkin', [BookingController::class, 'checkin']);
-    Route::post('/bookings/{id}/checkout', [BookingController::class, 'checkout']);
+    // No customer-side check-in: marking your own booking as attended is not a
+    // check-in. Staff scan the QR at the counter (owner/checkin below).
 
     // --- Refunds (customer-initiated request + own list) ---
     Route::post('/bookings/{id}/refund', [RefundController::class, 'store']);
@@ -118,63 +121,91 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/payments/{id}/reject', [PaymentController::class, 'reject']);
 
     // --- Owner Portal (staff/admin, org-scoped via owner.org middleware) ---
-    Route::prefix('owner')->middleware('owner.org')->group(function () {
+    // owner.subscribed locks the portal once the venue's plan lapses; the
+    // billing routes below are exempt so an expired venue can still renew.
+    Route::prefix('owner')->middleware(['owner.org', 'owner.subscribed'])->group(function () {
+        // --- Billing / ต่ออายุ (reachable even when expired) ---
+        Route::get('/billing', [OwnerBillingController::class, 'show']);
+        Route::get('/billing/invoices', [OwnerBillingController::class, 'invoices']);
+        Route::post('/billing/renew', [OwnerBillingController::class, 'renew']);
+        Route::get('/billing/invoices/{id}/instructions', [OwnerBillingController::class, 'instructions']);
+        Route::get('/billing/invoices/{id}/document', [OwnerBillingController::class, 'document']);
+        Route::get('/billing/invoices/{id}/document.pdf', [OwnerBillingController::class, 'documentPdf']);
+        Route::post('/billing/invoices/{id}/slip', [OwnerBillingController::class, 'uploadSlip']);
+
         Route::get('/dashboard', [OwnerDashboardController::class, 'index']);
         Route::get('/subscription', [OwnerSubscriptionController::class, 'show']);
         Route::get('/announcements', [OwnerAnnouncementController::class, 'index']);
-        Route::get('/reports/bookings.csv', [OwnerReportController::class, 'exportBookings']);
+        Route::get('/reports/bookings.csv', [OwnerReportController::class, 'exportBookings'])->middleware('permission:report.view');
 
         Route::get('/court-blocks', [OwnerCourtBlockController::class, 'index']);
-        Route::post('/court-blocks', [OwnerCourtBlockController::class, 'store']);
-        Route::delete('/court-blocks/{id}', [OwnerCourtBlockController::class, 'destroy']);
+        Route::post('/court-blocks', [OwnerCourtBlockController::class, 'store'])->middleware('permission:court.manage');
+        Route::delete('/court-blocks/{id}', [OwnerCourtBlockController::class, 'destroy'])->middleware('permission:court.manage');
 
         Route::get('/bookings', [OwnerBookingController::class, 'index']);
-        Route::post('/bookings', [OwnerBookingController::class, 'store']);
+        Route::post('/bookings', [OwnerBookingController::class, 'store'])->middleware('permission:booking.create');
         Route::get('/bookings/{id}', [OwnerBookingController::class, 'show']);
-        Route::put('/bookings/{id}', [OwnerBookingController::class, 'update']);
-        Route::post('/bookings/{id}/cancel', [OwnerBookingController::class, 'cancel']);
+        Route::put('/bookings/{id}', [OwnerBookingController::class, 'update'])->middleware('permission:booking.create');
+        Route::post('/bookings/{id}/cancel', [OwnerBookingController::class, 'cancel'])->middleware('permission:booking.cancel');
+        Route::delete('/bookings/{id}', [OwnerBookingController::class, 'destroy'])->middleware('permission:booking.cancel');
 
         Route::get('/payments', [OwnerPaymentController::class, 'index']);
-        Route::post('/payments/{id}/verify', [OwnerPaymentController::class, 'verify']);
-        Route::post('/payments/{id}/reject', [OwnerPaymentController::class, 'reject']);
+        Route::post('/payments/{id}/verify', [OwnerPaymentController::class, 'verify'])->middleware('permission:payment.verify');
+        Route::post('/payments/{id}/reject', [OwnerPaymentController::class, 'reject'])->middleware('permission:payment.verify');
 
         // --- Refunds (review customer requests; approve credits the wallet) ---
         Route::get('/refunds', [OwnerRefundController::class, 'index']);
-        Route::post('/refunds/{id}/approve', [OwnerRefundController::class, 'approve']);
-        Route::post('/refunds/{id}/reject', [OwnerRefundController::class, 'reject']);
+        Route::post('/refunds/{id}/approve', [OwnerRefundController::class, 'approve'])->middleware('permission:refund.manage');
+        Route::post('/refunds/{id}/reject', [OwnerRefundController::class, 'reject'])->middleware('permission:refund.manage');
 
         // --- Image upload (venue cover / gallery / floor-plan) ---
         Route::post('/uploads', [OwnerUploadController::class, 'store']);
 
         // --- Branches (สนาม/สาขา) management CRUD ---
         Route::get('/branches', [OwnerBranchController::class, 'index']);
-        Route::post('/branches', [OwnerBranchController::class, 'store']);
-        Route::put('/branches/{id}', [OwnerBranchController::class, 'update']);
-        Route::post('/branches/{id}/toggle', [OwnerBranchController::class, 'toggle']);
-        Route::delete('/branches/{id}', [OwnerBranchController::class, 'destroy']);
+        Route::post('/branches', [OwnerBranchController::class, 'store'])->middleware('permission:court.manage');
+        Route::put('/branches/{id}', [OwnerBranchController::class, 'update'])->middleware('permission:court.manage');
+        Route::post('/branches/{id}/toggle', [OwnerBranchController::class, 'toggle'])->middleware('permission:court.manage');
+        Route::delete('/branches/{id}', [OwnerBranchController::class, 'destroy'])->middleware('permission:court.manage');
 
         // --- Courts (คอร์ท) management CRUD ---
         Route::get('/courts', [OwnerCourtController::class, 'index']);
-        Route::post('/courts', [OwnerCourtController::class, 'store']);
-        Route::put('/courts/{id}', [OwnerCourtController::class, 'update']);
-        Route::post('/courts/{id}/toggle', [OwnerCourtController::class, 'toggle']);
-        Route::delete('/courts/{id}', [OwnerCourtController::class, 'destroy']);
+        Route::post('/courts', [OwnerCourtController::class, 'store'])->middleware('permission:court.manage');
+        Route::put('/courts/{id}', [OwnerCourtController::class, 'update'])->middleware('permission:court.manage');
+        Route::post('/courts/{id}/toggle', [OwnerCourtController::class, 'toggle'])->middleware('permission:court.manage');
+        Route::delete('/courts/{id}', [OwnerCourtController::class, 'destroy'])->middleware('permission:court.manage');
+
+        // --- QR check-in (the counter scans; the customer shows) ---
+        Route::post('/checkin', [OwnerCheckinController::class, 'store'])->middleware('permission:booking.checkin');
+        Route::get('/checkin/recent', [OwnerCheckinController::class, 'recent'])->middleware('permission:booking.checkin');
 
         Route::get('/customers', [OwnerCustomerController::class, 'index']);
+        Route::get('/customers/{id}', [OwnerCustomerController::class, 'show'])->middleware('permission:customer.view');
 
         // --- Settings (org settings + org name) ---
         Route::get('/settings', [OwnerSettingController::class, 'show']);
-        Route::put('/settings', [OwnerSettingController::class, 'update']);
+        Route::put('/settings', [OwnerSettingController::class, 'update'])->middleware('permission:settings.manage');
 
         // --- Promotions (management CRUD, org-scoped) ---
         Route::get('/promotions', [OwnerPromotionController::class, 'index']);
-        Route::post('/promotions', [OwnerPromotionController::class, 'store']);
-        Route::put('/promotions/{id}', [OwnerPromotionController::class, 'update']);
-        Route::delete('/promotions/{id}', [OwnerPromotionController::class, 'destroy']);
+        Route::post('/promotions', [OwnerPromotionController::class, 'store'])->middleware('permission:promotion.manage');
+        Route::put('/promotions/{id}', [OwnerPromotionController::class, 'update'])->middleware('permission:promotion.manage');
+        Route::delete('/promotions/{id}', [OwnerPromotionController::class, 'destroy'])->middleware('permission:promotion.manage');
+
+        // --- Welcome banners (ข้อความต้อนรับ) shown on the customer home ---
+        // reorder is declared before /{id} so "reorder" is not read as an id.
+        Route::get('/welcome-banners', [OwnerWelcomeBannerController::class, 'index']);
+        Route::post('/welcome-banners', [OwnerWelcomeBannerController::class, 'store'])->middleware('permission:promotion.manage');
+        Route::post('/welcome-banners/reorder', [OwnerWelcomeBannerController::class, 'reorder'])->middleware('permission:promotion.manage');
+        Route::put('/welcome-banners/{id}', [OwnerWelcomeBannerController::class, 'update'])->middleware('permission:promotion.manage');
+        Route::post('/welcome-banners/{id}/toggle', [OwnerWelcomeBannerController::class, 'toggle'])->middleware('permission:promotion.manage');
+        Route::delete('/welcome-banners/{id}', [OwnerWelcomeBannerController::class, 'destroy'])->middleware('permission:promotion.manage');
 
         // --- Staff & roles (read + invite) ---
         Route::get('/staff', [OwnerStaffController::class, 'index']);
-        Route::post('/staff', [OwnerStaffController::class, 'store']);
+        Route::post('/staff', [OwnerStaffController::class, 'store'])->middleware('permission:staff.manage');
+        Route::put('/staff/{userId}', [OwnerStaffController::class, 'update'])->middleware('permission:staff.manage');
+        Route::delete('/staff/{userId}', [OwnerStaffController::class, 'destroy'])->middleware('permission:staff.manage');
         Route::get('/roles', [OwnerStaffController::class, 'roles']);
 
         // --- Memberships (read list + points adjust) ---
@@ -221,6 +252,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/organizations/{id}', [AdminOrganizationController::class, 'destroy']);
 
         Route::get('/subscriptions', [AdminSubscriptionController::class, 'index']);
+        // Cancel = stop at the end of the paid period; suspend = end it now.
+        Route::post('/subscriptions/{id}/cancel', [AdminSubscriptionController::class, 'cancel']);
+        Route::post('/subscriptions/{id}/suspend', [AdminSubscriptionController::class, 'suspend']);
+        Route::post('/subscriptions/{id}/resume', [AdminSubscriptionController::class, 'resume']);
 
         Route::get('/plans', [AdminPlanController::class, 'index']);
         Route::post('/plans', [AdminPlanController::class, 'store']);
@@ -235,13 +270,26 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/refunds/{id}/approve', [AdminRefundController::class, 'approve']);
         Route::post('/refunds/{id}/reject', [AdminRefundController::class, 'reject']);
         Route::get('/users', [AdminUserController::class, 'index']);
+        Route::post('/users', [AdminUserController::class, 'store']);
+        Route::put('/users/{id}', [AdminUserController::class, 'update']);
+        Route::post('/users/{id}/suspend', [AdminUserController::class, 'suspend']);
+        Route::post('/users/{id}/activate', [AdminUserController::class, 'activate']);
         Route::get('/roles', [AdminRoleController::class, 'index']);
+        Route::get('/permissions', [AdminRoleController::class, 'permissions']);
+        Route::put('/roles/{id}/permissions', [AdminRoleController::class, 'updatePermissions']);
 
         Route::get('/invoices', [AdminInvoiceController::class, 'index']);
+        Route::post('/invoices', [AdminInvoiceController::class, 'store']);
+        Route::get('/invoices/{id}/document', [AdminInvoiceController::class, 'document']);
+        Route::get('/invoices/{id}/document.pdf', [AdminInvoiceController::class, 'documentPdf']);
         Route::post('/invoices/{id}/pay', [AdminInvoiceController::class, 'pay']);
+        Route::post('/invoices/{id}/reject', [AdminInvoiceController::class, 'reject']);
         Route::post('/invoices/{id}/send', [AdminInvoiceController::class, 'send']);
         Route::get('/transactions', [AdminTransactionController::class, 'index']);
         Route::get('/support-tickets', [AdminSupportTicketController::class, 'index']);
+        Route::get('/support-tickets/{id}', [AdminSupportTicketController::class, 'show']);
+        Route::post('/support-tickets/{id}/replies', [AdminSupportTicketController::class, 'reply']);
+        Route::put('/support-tickets/{id}/status', [AdminSupportTicketController::class, 'updateStatus']);
         Route::get('/announcements', [AdminAnnouncementController::class, 'index']);
         Route::post('/announcements', [AdminAnnouncementController::class, 'store']);
         Route::put('/announcements/{id}', [AdminAnnouncementController::class, 'update']);

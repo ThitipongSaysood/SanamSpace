@@ -25,7 +25,13 @@ class PlatformSettingResource extends JsonResource
             'mailPasswordSet' => filled($this->mail_password),
 
             // --- Platform billing payment details ---
+            'companyName' => $this->company_name,
+            'taxId' => $this->tax_id,
+            'companyAddress' => $this->company_address,
+            'vatEnabled' => (bool) $this->vat_enabled,
+            'vatRate' => (float) $this->vat_rate,
             'promptpayId' => $this->promptpay_id,
+            'promptpayName' => $this->promptpay_name,
             'bankName' => $this->bank_name,
             'bankAccountName' => $this->bank_account_name,
             'bankAccountNumber' => $this->bank_account_number,

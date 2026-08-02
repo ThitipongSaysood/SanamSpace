@@ -39,6 +39,7 @@ class OwnerMutationsApiTest extends TestCase
     private function customerToken(string $lineUserId = 'Umut', string $name = 'Mut Cust'): string
     {
         return $this->postJson('/api/v1/auth/line/login', [
+            'organizationSlug' => 'everyday-badminton',
             'lineUserId' => $lineUserId,
             'displayName' => $name,
         ])->json('token');

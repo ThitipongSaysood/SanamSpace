@@ -86,6 +86,88 @@ class StaffController extends Controller
     }
 
     /**
+     * PUT /owner/staff/{userId} — change a member's name, role or status.
+     *
+     * A staff member may not change their OWN role or suspend themselves: doing
+     * so is how a venue locks itself out of its own portal, and there is nobody
+     * above them to undo it.
+     */
+    public function update(Request $request, string $userId): OwnerStaffResource
+    {
+        $membership = $this->memberOrFail($request, $userId);
+
+        $validated = $request->validate([
+            'displayName' => ['sometimes', 'string', 'max:255'],
+            'roleId' => ['sometimes', 'string', 'exists:roles,id'],
+            'status' => ['sometimes', 'string', 'in:active,suspended'],
+        ]);
+
+        $isSelf = (string) $request->user()->id === (string) $userId;
+        if ($isSelf && (array_key_exists('roleId', $validated) || array_key_exists('status', $validated))) {
+            abort(422, 'ไม่สามารถเปลี่ยนบทบาทหรือสถานะของตัวเองได้');
+        }
+
+        if (array_key_exists('roleId', $validated)) {
+            $this->assertNotLastOwner($request, $membership, 'เปลี่ยนบทบาท');
+        }
+
+        $membership->update(array_filter([
+            'display_name' => $validated['displayName'] ?? null,
+            'role_id' => $validated['roleId'] ?? null,
+            'status' => $validated['status'] ?? null,
+        ], fn ($v) => $v !== null));
+
+        return new OwnerStaffResource($membership->fresh()->load(['user', 'role']));
+    }
+
+    /**
+     * DELETE /owner/staff/{userId} — remove a member from THIS org.
+     *
+     * Only the membership goes; the User account survives because the same
+     * person may be staff at another venue.
+     */
+    public function destroy(Request $request, string $userId): JsonResponse
+    {
+        $membership = $this->memberOrFail($request, $userId);
+
+        if ((string) $request->user()->id === (string) $userId) {
+            abort(422, 'ไม่สามารถลบตัวเองออกจากสนามได้');
+        }
+
+        $this->assertNotLastOwner($request, $membership, 'ลบ');
+
+        $membership->delete();
+
+        return response()->json(['deleted' => true]);
+    }
+
+    /** The membership must belong to the caller's own organization. */
+    private function memberOrFail(Request $request, string $userId): OrganizationUser
+    {
+        return OrganizationUser::query()
+            ->forOrganization($request->attributes->get('currentOrganizationId'))
+            ->where('user_id', $userId)
+            ->firstOrFail();
+    }
+
+    /**
+     * A venue must keep at least one owner, or nobody can manage staff again.
+     */
+    private function assertNotLastOwner(Request $request, OrganizationUser $membership, string $action): void
+    {
+        if ($membership->role?->code !== 'owner') {
+            return;
+        }
+
+        $owners = OrganizationUser::query()
+            ->forOrganization($request->attributes->get('currentOrganizationId'))
+            ->whereHas('role', fn ($q) => $q->where('code', 'owner'))
+            ->count();
+
+        abort_if($owners <= 1, 422, "ไม่สามารถ{$action}เจ้าของคนสุดท้ายของสนามได้");
+    }
+
+    /**
      * GET /owner/roles — roles available to the current org: the shared system
      * roles (organization_id = null) plus any roles owned by this org.
      * Each item: { id, name, isSystemRole }
