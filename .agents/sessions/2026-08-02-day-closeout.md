@@ -18,7 +18,7 @@ decisions that would be expensive to rediscover, and the state the repo is in.
 | QR check-in | Rebuilt as a real feature on both sides, switchable per venue. |
 | Bookings list | Own sidebar menu: search, date range, status tabs, add/edit/delete. |
 | Payments | Cards → table with a slip lightbox. |
-| Responsive | Started. Audited, and fixed the two screens staff actually use on a phone. |
+| Responsive | Finished. Bespoke cards on the two screens staff hold a phone for; a `.stack-table` CSS pattern for the other 13. |
 | Demo data | 3,052 load-test rows → 10 readable bookings covering every status. |
 
 ## The three findings that reframed the work
@@ -78,7 +78,14 @@ Collected because every one of them cost time and will recur.
 
 ## Repo state
 
-**Committed on a branch, not merged.** 231 files.
+**Committed on `feat/venue-content-portal-gaps-checkin`, pushed, NOT merged.**
+
+```
+6587d7b  feat(ui): make every back-office table usable on a phone
+42fb4e4  feat: venue banners, portal gaps, real QR check-in, bookings list
+```
+
+`.codex/` is deliberately left untracked — it belongs to another agent.
 
 ⚠️ **14 migrations have never run on production.** The deploy workflow runs `php artisan migrate --force`
 on any push to `main`, so merging deploys and migrates in one step.
@@ -104,6 +111,16 @@ booking-delete cases; and **5 e2e specs** (`owner-banners`, `admin-users-roles`,
 The check-in spec **decodes the rendered QR with jsQR and asserts it equals the booking's token** — the
 previous decorative version would have failed that, which is why it is written that way rather than
 checking an element exists.
+
+## On measuring the right thing
+
+Worth keeping because it cost a full round trip. The first responsive audit checked
+`scrollWidth > clientWidth` on every route and came back **clean everywhere** — tables already sit in
+`overflow-x-auto`, so nothing overflows the document. The metric was answering the wrong question.
+
+The question that mattered was *can you do the page's job*, and the measurement that answered it counts
+interactive elements inside tables whose bounding box falls outside the viewport. Same pages, same
+browser, opposite answer.
 
 ## Picking this up tomorrow
 
