@@ -1,6 +1,6 @@
 # Active Task
 
-_Last updated: 2026-08-02 (session close-out) · Last agent: Claude (Opus 5)_
+_Last updated: 2026-08-07 · Last agent: Claude (Opus 5)_
 
 ## ✅ Done 2026-08-02 — "รายการจอง" as its own menu + demo data reset
 - **New sidebar menu `/owner/bookings/list`.** First attempt put it as a 4th tab inside the calendar; the
@@ -168,7 +168,14 @@ reported in the last audit, and QR check-in rebuilt as a real feature — plus a
 the start of a responsive pass.
 
 ## Status
-🟡 **Verified locally — committed on a branch, NOT merged, NOT deployed.**
+🔴 **Merged to `main` (9c3ef49) — deploy FAILED, production still on the old code.**
+
+`Deploy to Production #63` died at the *rsync frontend* step: `DEPLOY_PATH` does not exist on the server.
+Infrastructure, not code — any push would have failed the same way. **No migrations ran, no files were
+overwritten**, so production is untouched and working. See
+`sessions/2026-08-07-merge-to-main-deploy-blocked.md` for how to unblock it.
+
+Verified locally:
 
 backend **223/223** · tsc clean · vitest **24/24** · lint **13 errors / 24 warnings** (2 fewer warnings
 than the session baseline; no new errors) · playwright **37/38**.
@@ -176,9 +183,10 @@ than the session baseline; no new errors) · playwright **37/38**.
 The 1 e2e failure is the long-standing `admin.spec.ts` "MRR" locator bug, confirmed pre-existing in an
 earlier session by re-running it against stashed code.
 
-⚠️ **14 migrations have never run on production**, including one that **drops five columns** from
-`organization_settings`. The deploy workflow runs `php artisan migrate --force` automatically on any push
-to `main`, so merging deploys and migrates in one step. Read `Next Steps` before merging.
+⚠️ **The 14 migrations are still pending on production** — the failed deploy never reached them. One
+**drops five columns** from `organization_settings`. They have only ever been run against SQLite; prod is
+MySQL, which has a 65,535-byte row limit that SQLite does not. **Back up the production database and
+verify the migrations against a copy before re-running the deploy.**
 
 Full detail per feature:
 - `sessions/2026-08-02-welcome-banners.md`
@@ -205,8 +213,9 @@ Full detail per feature:
 None locally. The only thing standing between here and production is the review + merge decision below.
 
 ## Next Steps
-1. **Review the branch, then merge to `main` when ready.** Merging deploys immediately.
-2. **Before merging, understand the destructive migration.**
+1. **Unblock the deploy** — create `DEPLOY_PATH` on the server (or fix the secret), then re-run #63.
+   Detail: `sessions/2026-08-07-merge-to-main-deploy-blocked.md`.
+2. **Back up the production database first, and understand the destructive migration.**
    `2026_08_03_000000_create_welcome_banners_table` copies the existing single welcome banner into the new
    table and then **drops** `welcome_title / welcome_message / welcome_image_url / welcome_link /
    welcome_popup`. It is written to carry data over first, and `down()` folds it back — but take a
