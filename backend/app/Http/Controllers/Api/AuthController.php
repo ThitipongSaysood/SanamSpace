@@ -13,6 +13,8 @@ use App\Services\LineTokenVerifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -131,9 +133,25 @@ class AuthController extends Controller
             'password' => ['required', 'string'],
         ]);
 
+        // Throttle brute-force password guessing: owner + super-admin logins
+        // were previously unlimited. Keyed by email+IP and counting only FAILED
+        // attempts, so a legitimate user logging in repeatedly is never locked
+        // out — 5 wrong guesses in a minute earns a 429.
+        $throttleKey = Str::lower($data['email']).'|'.$request->ip();
+
+        if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
+
+            throw ValidationException::withMessages([
+                'email' => "พยายามเข้าสู่ระบบมากเกินไป กรุณาลองใหม่ใน {$seconds} วินาที",
+            ])->status(429);
+        }
+
         $user = User::where('email', $data['email'])->first();
 
         if (! $user || ! Hash::check($data['password'], $user->password)) {
+            RateLimiter::hit($throttleKey, 60);
+
             throw ValidationException::withMessages([
                 'email' => 'Invalid credentials.',
             ]);
@@ -147,6 +165,8 @@ class AuthController extends Controller
                 'email' => 'บัญชีนี้ถูกระงับการใช้งาน',
             ]);
         }
+
+        RateLimiter::clear($throttleKey);
 
         $token = $user->createToken('admin-token')->plainTextToken;
 

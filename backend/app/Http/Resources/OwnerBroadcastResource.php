@@ -21,11 +21,18 @@ class OwnerBroadcastResource extends JsonResource
             'id' => (string) $this->id,
             'title' => $this->title,
             'message' => $this->message,
+            'imageUrl' => $this->image_url,
             'channel' => $this->channel,
+            'audience' => $this->audience ?? 'all',
+            'inactiveDays' => $this->inactive_days !== null ? (int) $this->inactive_days : null,
             'status' => $this->status,
             'recipientCount' => (int) $this->recipient_count,
             'sentAt' => $this->sent_at,
+            'segmentId' => $this->segment_id,
             'segmentName' => $this->segment?->name,
+            // Present only on the send response (set transiently by the
+            // controller): what actually went out over LINE.
+            'delivery' => $this->delivery ?? null,
         ];
     }
 }

@@ -21,6 +21,7 @@ class NotificationResource extends JsonResource
             'kind' => $this->kind,
             'title' => $this->title,
             'body' => $this->body,
+            'imageUrl' => $this->image_url,
             'timeAgo' => $this->time_ago,
         ];
     }

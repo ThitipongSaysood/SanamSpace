@@ -60,6 +60,11 @@ use Illuminate\Support\Facades\Route;
 
 // --- Public auth ---
 Route::post('/auth/line/login', [AuthController::class, 'lineLogin']);
+// Rate limiting for admin login lives inside the controller (keyed by
+// email+IP, counting only FAILED attempts) rather than route `throttle`
+// middleware: the middleware resolves $request->user() to key the limiter,
+// which re-caches a leftover bearer identity on the guard and breaks the
+// multi-actor test flow. See AuthController::adminLogin.
 Route::post('/auth/admin/login', [AuthController::class, 'adminLogin']);
 // Per-venue LINE LIFF id for the frontend (resolved from ?venueId / ?organizationSlug / default org).
 Route::get('/line-config', [AuthController::class, 'lineConfig']);
@@ -233,7 +238,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/timeline/{customerId}', [OwnerTimelineController::class, 'show']);
 
         Route::get('/broadcasts', [OwnerBroadcastController::class, 'index']);
+        Route::get('/broadcasts/audience-preview', [OwnerBroadcastController::class, 'audiencePreview']);
         Route::post('/broadcasts', [OwnerBroadcastController::class, 'store']);
+        Route::put('/broadcasts/{id}', [OwnerBroadcastController::class, 'update']);
+        Route::delete('/broadcasts/{id}', [OwnerBroadcastController::class, 'destroy']);
         Route::post('/broadcasts/{id}/send', [OwnerBroadcastController::class, 'send']);
     });
 

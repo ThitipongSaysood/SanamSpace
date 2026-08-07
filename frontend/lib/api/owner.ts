@@ -5,7 +5,9 @@ import type {
   OwnerBilling,
   OwnerBooking,
   OwnerBranch,
+  OwnerAudiencePreview,
   OwnerBroadcast,
+  OwnerBroadcastAudience,
   OwnerBroadcastChannel,
   OwnerCourt,
   OwnerCrmOverview,
@@ -476,12 +478,42 @@ export const ownerApi = {
 
   getBroadcasts: () => req<OwnerBroadcast[]>("/owner/broadcasts"),
 
+  previewAudience: (params: {
+    audience: OwnerBroadcastAudience;
+    inactiveDays?: number;
+    segmentId?: string;
+  }) => {
+    const qs = new URLSearchParams({ audience: params.audience });
+    if (params.inactiveDays != null) qs.set("inactiveDays", String(params.inactiveDays));
+    if (params.segmentId) qs.set("segmentId", params.segmentId);
+    return req<OwnerAudiencePreview>(`/owner/broadcasts/audience-preview?${qs.toString()}`);
+  },
+
   createBroadcast: (body: {
     title: string;
     message: string;
+    imageUrl?: string;
     channel: OwnerBroadcastChannel;
+    audience?: OwnerBroadcastAudience;
+    inactiveDays?: number;
     segmentId?: string;
   }) => req<OwnerBroadcast>("/owner/broadcasts", { method: "POST", body }),
+
+  updateBroadcast: (
+    id: string,
+    body: {
+      title: string;
+      message: string;
+      imageUrl?: string;
+      channel: OwnerBroadcastChannel;
+      audience?: OwnerBroadcastAudience;
+      inactiveDays?: number;
+      segmentId?: string;
+    },
+  ) => req<OwnerBroadcast>(`/owner/broadcasts/${id}`, { method: "PUT", body }),
+
+  deleteBroadcast: (id: string) =>
+    req<{ id: string; deleted: boolean }>(`/owner/broadcasts/${id}`, { method: "DELETE", raw: true }),
 
   sendBroadcast: (id: string) =>
     req<OwnerBroadcast>(`/owner/broadcasts/${id}/send`, { method: "POST" }),

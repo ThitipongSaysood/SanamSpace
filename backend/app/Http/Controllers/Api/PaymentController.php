@@ -8,6 +8,7 @@ use App\Models\Booking;
 use App\Models\Organization;
 use App\Models\OrganizationSetting;
 use App\Models\Payment;
+use App\Services\NotificationService;
 use App\Services\PromptPayService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -92,12 +93,14 @@ class PaymentController extends Controller
      *
      * TODO: restrict to owner/staff role
      */
-    public function verify(Request $request, string $id): PaymentResource
+    public function verify(Request $request, string $id, NotificationService $notifications): PaymentResource
     {
         $payment = $this->find($request, $id);
 
         $payment->update(['status' => 'approved']);
         $payment->booking?->update(['status' => 'confirmed']);
+
+        $notifications->paymentApproved($payment);
 
         return new PaymentResource($payment->fresh());
     }
@@ -107,10 +110,12 @@ class PaymentController extends Controller
      *
      * TODO: restrict to owner/staff role
      */
-    public function reject(Request $request, string $id): PaymentResource
+    public function reject(Request $request, string $id, NotificationService $notifications): PaymentResource
     {
         $payment = $this->find($request, $id);
         $payment->update(['status' => 'rejected']);
+
+        $notifications->paymentRejected($payment);
 
         return new PaymentResource($payment->fresh());
     }

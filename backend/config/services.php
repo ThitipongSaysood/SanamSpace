@@ -38,12 +38,15 @@ return [
     // LINE Login / LIFF. When `channel_id` is set the customer login flow
     // REQUIRES a verified id_token (checked against `verify_url`); when it is
     // blank the API falls back to the dev/test stub (trusts the supplied
-    // lineUserId). `messaging_token` is for the Messaging API (push), unused here.
+    // lineUserId). `messaging_token` is the Messaging API push token; a venue's
+    // own per-org token (organization_settings) takes precedence. `push_url` is
+    // the multicast endpoint (see LineMessagingService).
     'line' => [
         'channel_id' => env('LINE_CHANNEL_ID'),
         'channel_secret' => env('LINE_CHANNEL_SECRET'),
         'messaging_token' => env('LINE_MESSAGING_TOKEN'),
         'verify_url' => env('LINE_VERIFY_URL', 'https://api.line.me/oauth2/v2.1/verify'),
+        'push_url' => env('LINE_PUSH_URL', 'https://api.line.me/v2/bot/message/multicast'),
     ],
 
 ];

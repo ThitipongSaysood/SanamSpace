@@ -8,6 +8,7 @@ use App\Http\Resources\BookingResource;
 use App\Models\Booking;
 use App\Models\Court;
 use App\Models\Customer;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -149,10 +150,12 @@ class BookingController extends Controller
     /**
      * POST /owner/bookings/{id}/cancel — mark cancelled (frees the slot).
      */
-    public function cancel(Request $request, string $id): BookingResource
+    public function cancel(Request $request, string $id, NotificationService $notifications): BookingResource
     {
         $booking = $this->findScoped($request, $id);
         $booking->update(['status' => 'cancelled']);
+
+        $notifications->bookingCancelled($booking);
 
         return new BookingResource($booking->fresh()->load(['branch.organization', 'court', 'customer']));
     }

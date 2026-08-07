@@ -280,6 +280,112 @@ class BookingPaymentApiTest extends TestCase
             ->assertJsonValidationErrors('start');
     }
 
+    public function test_adjacent_non_overlapping_slot_is_bookable(): void
+    {
+        // The overlap guard now runs inside a per-court+date lock + transaction;
+        // a slot that merely touches an existing one (end == next start) must
+        // still be allowed through.
+        $token = $this->customerToken();
+        $courtId = $this->everydayCourtId();
+
+        $base = [
+            'venueId' => 'everyday-badminton',
+            'courtId' => $courtId,
+            'date' => '2026-06-24',
+        ];
+
+        $this->withToken($token)->postJson('/api/v1/bookings', $base + ['start' => '18:00', 'end' => '19:00'])
+            ->assertCreated();
+
+        // 19:00–20:00 abuts but does not overlap.
+        $this->withToken($token)->postJson('/api/v1/bookings', $base + ['start' => '19:00', 'end' => '20:00'])
+            ->assertCreated();
+
+        // 18:30–19:30 straddles the boundary and must be refused.
+        $this->withToken($token)->postJson('/api/v1/bookings', $base + ['start' => '18:30', 'end' => '19:30'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('start');
+    }
+
+    public function test_verifying_a_slip_notifies_the_customer(): void
+    {
+        Storage::fake('public');
+
+        $token = $this->customerToken();
+        $courtId = $this->everydayCourtId();
+
+        // A freshly-logged-in customer starts with an empty bell.
+        $this->withToken($token)->getJson('/api/v1/notifications')->assertOk()->assertJsonCount(0, 'data');
+
+        $bookingId = $this->withToken($token)->postJson('/api/v1/bookings', [
+            'venueId' => 'everyday-badminton', 'courtId' => $courtId,
+            'date' => '2026-07-05', 'start' => '18:00', 'end' => '19:00',
+        ])->assertCreated()->json('data.id');
+
+        $paymentId = $this->withToken($token)->postJson('/api/v1/payments', [
+            'bookingId' => $bookingId, 'method' => 'transfer',
+        ])->assertCreated()->json('data.id');
+
+        $this->withToken($token)->postJson("/api/v1/payments/{$paymentId}/upload-slip", [
+            'slip' => UploadedFile::fake()->image('slip.png'),
+        ])->assertOk();
+
+        // Owner approves the slip.
+        $ownerToken = $this->postJson('/api/v1/auth/admin/login', [
+            'email' => 'owner@everyday.test', 'password' => 'password',
+        ])->json('token');
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($ownerToken)->postJson("/api/v1/owner/payments/{$paymentId}/verify")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'approved');
+
+        // The customer is now told, in their own bell.
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->getJson('/api/v1/notifications')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.title', 'ชำระเงินสำเร็จ');
+    }
+
+    public function test_approving_the_same_wallet_topup_twice_credits_once(): void
+    {
+        Storage::fake('public');
+
+        $token = $this->customerToken();
+        $me = $this->withToken($token)->getJson('/api/v1/auth/me')->json('data');
+        $org = Organization::where('slug', 'everyday-badminton')->firstOrFail();
+        \App\Models\Wallet::create(['organization_id' => $org->id, 'customer_id' => $me['id'], 'balance' => 0]);
+
+        $this->app['auth']->forgetGuards();
+        $txnId = $this->withToken($token)->postJson('/api/v1/wallet/topup', ['amount' => 500])
+            ->assertOk()->json('transactionId');
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->postJson("/api/v1/wallet/topup/{$txnId}/slip", [
+            'slip' => UploadedFile::fake()->image('slip.png'),
+        ])->assertOk();
+
+        $ownerToken = $this->postJson('/api/v1/auth/admin/login', [
+            'email' => 'owner@everyday.test', 'password' => 'password',
+        ])->json('token');
+
+        // First approval credits and completes.
+        $this->app['auth']->forgetGuards();
+        $this->withToken($ownerToken)->postJson("/api/v1/owner/wallet-topups/{$txnId}/approve")
+            ->assertOk()->assertJsonPath('status', 'completed');
+
+        // Second approval finds nothing pending → 404, no second credit.
+        $this->app['auth']->forgetGuards();
+        $this->withToken($ownerToken)->postJson("/api/v1/owner/wallet-topups/{$txnId}/approve")
+            ->assertNotFound();
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->getJson('/api/v1/wallet')
+            ->assertOk()
+            ->assertJsonPath('data.balance', 500);
+    }
+
     public function test_cancelled_booking_frees_the_slot(): void
     {
         $token = $this->customerToken();

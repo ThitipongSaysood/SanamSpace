@@ -217,6 +217,7 @@ export type AppNotification = {
   kind: "booking" | "reminder" | "promo" | "points";
   title: string;
   body: string;
+  imageUrl?: string | null;
   timeAgo: string;
 };
 
@@ -472,17 +473,45 @@ export type OwnerTimelineEntry = {
   occurredAt: string;
 };
 
-export type OwnerBroadcastChannel = "line" | "email" | "sms" | "push";
+// "line" pushes over LINE; "app" shows the promo inside the customer app.
+export type OwnerBroadcastChannel = "line" | "app" | "email" | "sms" | "push";
+
+// Smart audience presets computed from booking history, plus a saved segment.
+export type OwnerBroadcastAudience =
+  | "all"
+  | "lost"
+  | "new"
+  | "one_time"
+  | "regulars"
+  | "segment";
+
+// What actually went out over LINE (present only on the send response).
+export type OwnerBroadcastDelivery = {
+  sent: number;
+  failed: number;
+  skipped: number;
+  noToken: boolean;
+};
 
 export type OwnerBroadcast = {
   id: string;
   title: string;
   message: string;
+  imageUrl: string | null;
   channel: OwnerBroadcastChannel;
+  audience: OwnerBroadcastAudience;
+  inactiveDays: number | null;
   status: "draft" | "sent";
   recipientCount: number;
   sentAt: string | null;
+  segmentId: string | null;
   segmentName: string | null;
+  delivery?: OwnerBroadcastDelivery | null;
+};
+
+export type OwnerAudiencePreview = {
+  recipientCount: number;
+  reachableCount: number;
 };
 
 // --- Super Admin (Platform) Portal ---

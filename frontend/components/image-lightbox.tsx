@@ -34,7 +34,7 @@ export function ImageLightbox({
       role="dialog"
       aria-modal="true"
       aria-label={alt}
-      className="fixed inset-0 z-[60] grid place-items-center bg-black/80 p-4"
+      className="fixed inset-0 z-[60] grid place-items-center bg-black/80 p-4 animate-in fade-in duration-200"
     >
       <button type="button" aria-label="ปิด" className="absolute inset-0" onClick={onClose} />
       <button
@@ -46,7 +46,7 @@ export function ImageLightbox({
         <X className="size-5" />
       </button>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt={alt} className="relative max-h-[90vh] max-w-full object-contain" />
+      <img src={src} alt={alt} className="relative max-h-[90vh] max-w-full object-contain animate-in zoom-in-95 duration-200 ease-out" />
     </div>
   );
 }

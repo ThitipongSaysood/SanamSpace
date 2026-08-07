@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\OwnerWalletResource;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\DB;
 
 class WalletController extends Controller
 {
@@ -110,21 +112,46 @@ class WalletController extends Controller
     }
 
     /** POST /owner/wallet-topups/{id}/approve — credit the wallet and post the txn. */
-    public function approveTopup(Request $request, string $id): JsonResponse
+    public function approveTopup(Request $request, string $id, NotificationService $notifications): JsonResponse
     {
-        $txn = $this->findPendingTopup($request, $id);
+        $orgId = $request->attributes->get('currentOrganizationId');
 
-        $txn->update(['status' => 'completed']);
-        $txn->wallet->increment('balance', $txn->amount);
+        // The status flip + the balance credit must be one atomic unit, and two
+        // staff approving the same slip at once must not both credit it. Re-read
+        // the row FOR UPDATE inside the transaction and re-assert it is still
+        // pending: the second approval finds it already `completed` and 404s
+        // rather than crediting a second time.
+        $txn = DB::transaction(function () use ($id, $orgId) {
+            $txn = WalletTransaction::query()
+                ->where('id', $id)
+                ->where('status', 'pending_review')
+                ->whereHas('wallet', fn ($q) => $q->forOrganization($orgId))
+                ->with('wallet')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $txn) {
+                abort(404);
+            }
+
+            $txn->update(['status' => 'completed']);
+            Wallet::whereKey($txn->wallet_id)->lockForUpdate()->first()?->increment('balance', $txn->amount);
+
+            return $txn;
+        });
+
+        $notifications->topupApproved($txn);
 
         return response()->json(['id' => (string) $txn->id, 'status' => 'completed']);
     }
 
     /** POST /owner/wallet-topups/{id}/reject — decline the top-up (no credit). */
-    public function rejectTopup(Request $request, string $id): JsonResponse
+    public function rejectTopup(Request $request, string $id, NotificationService $notifications): JsonResponse
     {
         $txn = $this->findPendingTopup($request, $id);
         $txn->update(['status' => 'rejected']);
+
+        $notifications->topupRejected($txn);
 
         return response()->json(['id' => (string) $txn->id, 'status' => 'rejected']);
     }

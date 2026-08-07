@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Concerns\PaginatesLists;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\OwnerPaymentResource;
 use App\Models\Payment;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -36,12 +37,14 @@ class PaymentController extends Controller
      * POST /owner/payments/{id}/verify — approve slip + confirm its booking.
      * Org-scoped: 404 if the payment belongs to another org.
      */
-    public function verify(Request $request, string $id): OwnerPaymentResource
+    public function verify(Request $request, string $id, NotificationService $notifications): OwnerPaymentResource
     {
         $payment = $this->findScoped($request, $id);
 
         $payment->update(['status' => 'approved']);
         $payment->booking?->update(['status' => 'confirmed']);
+
+        $notifications->paymentApproved($payment);
 
         return new OwnerPaymentResource($payment->fresh(['booking.court', 'customer']));
     }
@@ -49,10 +52,12 @@ class PaymentController extends Controller
     /**
      * POST /owner/payments/{id}/reject — reject slip. Org-scoped.
      */
-    public function reject(Request $request, string $id): OwnerPaymentResource
+    public function reject(Request $request, string $id, NotificationService $notifications): OwnerPaymentResource
     {
         $payment = $this->findScoped($request, $id);
         $payment->update(['status' => 'rejected']);
+
+        $notifications->paymentRejected($payment);
 
         return new OwnerPaymentResource($payment->fresh(['booking.court', 'customer']));
     }

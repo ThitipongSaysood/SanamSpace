@@ -18,6 +18,7 @@ class Broadcast extends Model
     {
         return [
             'recipient_count' => 'integer',
+            'inactive_days' => 'integer',
             'sent_at' => 'datetime',
         ];
     }

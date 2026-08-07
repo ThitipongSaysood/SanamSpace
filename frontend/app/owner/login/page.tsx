@@ -22,9 +22,11 @@ export default function OwnerLoginPage() {
       router.replace("/owner");
     } catch (err) {
       setError(
-        err instanceof OwnerApiError && err.status === 401
-          ? "อีเมลหรือรหัสผ่านไม่ถูกต้อง"
-          : "เข้าสู่ระบบไม่สำเร็จ ลองใหม่อีกครั้ง"
+        err instanceof OwnerApiError && err.status === 429
+          ? "พยายามเข้าสู่ระบบหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่"
+          : err instanceof OwnerApiError && (err.status === 401 || err.status === 422)
+            ? "อีเมลหรือรหัสผ่านไม่ถูกต้อง"
+            : "เข้าสู่ระบบไม่สำเร็จ ลองใหม่อีกครั้ง"
       );
       setBusy(false);
     }

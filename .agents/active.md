@@ -1,6 +1,6 @@
 # Active Task
 
-_Last updated: 2026-08-07 · Last agent: Claude (Opus 5)_
+_Last updated: 2026-08-07 (evening) · Last agent: Claude (Opus 4.8, 1M ctx)_
 
 ## ✅ Done 2026-08-02 — "รายการจอง" as its own menu + demo data reset
 - **New sidebar menu `/owner/bookings/list`.** First attempt put it as a 4th tab inside the calendar; the
@@ -162,92 +162,151 @@ _Last updated: 2026-08-07 · Last agent: Claude (Opus 5)_
   change reaches a signed-in customer and never leaks into owner/admin.
 
 ## Current Task
-Session 2026-08-02 is closed. Everything below is done and verified **locally only** — nothing has been
-deployed. The work spans three areas: venue-authored content (welcome banners), the four portal gaps
-reported in the last audit, and QR check-in rebuilt as a real feature — plus a bookings list screen and
-the start of a responsive pass.
+Session 2026-08-07 is closed. All work is **local only — not committed, not deployed.** This session did:
+(a) closed audit risks **#1, #2, #3, #6, #7** (+ scheduler #5 now exists for the expiry job); (b) built the
+**"ยิงโปร" / Broadcast** feature end-to-end — the Owner blasts a promo over **LINE or in-app**, targeting
+smart audiences (churned/regulars/one-timers/new/all/segment), with **message templates, a live phone
+preview, a banner image**, a **3-step wizard** UI, and a **"sent" success screen**; this is what finally
+reads the venue's stored `line_messaging_token` (#4); (c) fixed **owner/admin login** (a `.env.local` /
+`NEXT_PUBLIC_API_URL` gap + clearer 429/422 messages); (d) added tasteful **open animations**
+(tw-animate-css) + a **notification detail sheet** with image zoom in the customer app.
+
+Detail lives in the four `## ✅ Done 2026-08-07 …` blocks below and in the three session checkpoints.
 
 ## Status
-🔴 **Merged to `main` (9c3ef49) — deploy FAILED, production still on the old code.**
+🟢 **Local: all green.** backend **246/246** · tsc **clean** · vitest **24/24** · lint **13 errors** (=
+baseline, unchanged). Broadcast + banner + in-app + success flow + history CRUD were **live-smoke-tested** on
+the running server. **`main` deploy is still blocked** (see below).
 
-`Deploy to Production #63` died at the *rsync frontend* step: `DEPLOY_PATH` does not exist on the server.
-Infrastructure, not code — any push would have failed the same way. **No migrations ran, no files were
-overwritten**, so production is untouched and working. See
-`sessions/2026-08-07-merge-to-main-deploy-blocked.md` for how to unblock it.
+🔴 **Deploy still blocked** (unchanged from the 2026-08-07 merge): `Deploy to Production #63` died at the
+*rsync frontend* step because `DEPLOY_PATH` doesn't exist on the server — infra, not code. Production is
+untouched. See `sessions/2026-08-07-merge-to-main-deploy-blocked.md`.
 
-Verified locally:
+⚠️ **Migrations pending on prod** now include **four new this session**: `add_audience_to_broadcasts`,
+`add_image_to_broadcasts_and_notifications` (both additive, low risk), plus the earlier welcome-banner
+batch (one **drops five columns** from `organization_settings` — SQLite-only so far; prod MySQL has a
+65,535-byte row limit). **Back up prod DB + test migrations on a copy before re-deploying.**
 
-backend **223/223** · tsc clean · vitest **24/24** · lint **13 errors / 24 warnings** (2 fewer warnings
-than the session baseline; no new errors) · playwright **37/38**.
-
-The 1 e2e failure is the long-standing `admin.spec.ts` "MRR" locator bug, confirmed pre-existing in an
-earlier session by re-running it against stashed code.
-
-⚠️ **The 14 migrations are still pending on production** — the failed deploy never reached them. One
-**drops five columns** from `organization_settings`. They have only ever been run against SQLite; prod is
-MySQL, which has a 65,535-byte row limit that SQLite does not. **Back up the production database and
-verify the migrations against a copy before re-running the deploy.**
-
-Full detail per feature:
-- `sessions/2026-08-02-welcome-banners.md`
-- `sessions/2026-08-02-portal-gaps.md`
-- `sessions/2026-08-02-qr-checkin.md`
-- `sessions/2026-08-02-day-closeout.md` ← starts here
+⚠️ **Dev-environment one-offs done this session (not code, must be redone on a fresh checkout / prod):**
+- `php artisan storage:link` — was missing → every uploaded image 404'd (broken banners). **Standard deploy step.**
+- `frontend/.env.local` with `NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1` — without it the owner/admin
+  portal 404s all API calls. (gitignored; prod uses build-time env `/api/v1`.)
+- `composer install` + frontend `npm install` — vendor/node_modules were out of sync (missing dompdf, jsqr/pngjs).
+- Renewed the seeded `everyday-badminton` subscription (had expired 2026-07-05 → whole owner portal 402'd).
 
 ## What's Done
-1. **Welcome banners** — `organization_settings.welcome_*` became a `welcome_banners` table: many per
-   venue, each switchable on/off, orderable, optionally an entry popup (swipeable when several).
-   Images render at the file's own proportions instead of being cropped to a 16:7 strip.
-2. **The four reported portal gaps** — admin creates/suspends platform users · admin edits role
-   permissions, **and those permissions are now actually enforced** (they were read by nothing) · owner
-   customer-detail page · cancel/suspend/resume a subscription.
-3. **QR check-in, rebuilt** — the old one was a decorative grid of `<div>`s, a hard-coded countdown, and
-   a button letting the customer complete their own booking. Now a real scannable QR of a per-booking
-   token, a counter-side scanner (jsQR + manual code entry), and a per-venue on/off switch.
-4. **Bookings list** — its own sidebar menu with search, date range, status tabs, add/edit/delete, plus a
-   new `DELETE /owner/bookings/{id}` that refuses once money has been taken.
-5. **Payments screen → table** with a slip lightbox; `ImageLightbox` extracted for reuse.
-6. **Demo data reset** — the 3,000-row load-test pile became 10 readable bookings covering every status.
+1. **Audit risks #1/#3/#6/#7** — double-booking lock, `NotificationService` wired into every money/booking
+   event, admin-login rate limit (in-controller `RateLimiter`), transactional wallet-topup approval.
+2. **#2 + scheduler (#5)** — `bookings:expire-unpaid` command cancels stale `pending_payment` bookings and
+   frees the slot; `routes/console.php` runs it every 5 min (needs cron on the server).
+3. **Broadcast / "ยิงโปร LINE"** (closes **#4**) — new Owner menu `/owner/broadcast`. Shared
+   `LineMessagingService` (multicast over the venue token; image + text message; safe no-op without a token)
+   and in-app delivery via `NotificationService::promo`. Audience presets from booking history +
+   `/audience-preview`. **Banner image** (client-side downscale → upload → shows in LINE/in-app preview and
+   in the customer bell). 3-step wizard, phone mockup preview, templates, and a full **success screen** that
+   clears the form. Customer notifications page gained a **tap-to-open detail sheet** + image lightbox.
+   **History CRUD**: tap a row → detail sheet with view / edit (draft only, `PUT`) / send / delete (`DELETE`),
+   plus a "บันทึกร่าง" (create-draft-without-send) path. `PUT` refuses a sent broadcast (422).
+4. **Login fix** — created `frontend/.env.local` (root cause of the 404), and owner+admin login pages now
+   show distinct messages for 401/422 (bad creds) and 429 (rate-limited).
+5. **Motion** — `tw-animate-css` entrance animations on modals, cards, wizard steps, lightbox; global
+   `prefers-reduced-motion` guard in `globals.css`.
 
 ## Blockers
-None locally. The only thing standing between here and production is the review + merge decision below.
+None in code — everything is local-green. External/infra only: the deploy (`DEPLOY_PATH`), the prod DB
+backup + migration check, and (for real LINE sending) a venue that has actually configured a
+`line_messaging_token` (dev has none, so LINE sends report `noToken`).
 
 ## Next Steps
-1. **Unblock the deploy** — create `DEPLOY_PATH` on the server (or fix the secret), then re-run #63.
-   Detail: `sessions/2026-08-07-merge-to-main-deploy-blocked.md`.
-2. **Back up the production database first, and understand the destructive migration.**
-   `2026_08_03_000000_create_welcome_banners_table` copies the existing single welcome banner into the new
-   table and then **drops** `welcome_title / welcome_message / welcome_image_url / welcome_link /
-   welcome_popup`. It is written to carry data over first, and `down()` folds it back — but take a
-   database backup before the first production run regardless.
-3. **Three earlier `2026_08_02_*` welcome migrations are still uncommitted-to-prod and now redundant** —
-   they add columns that the fourth immediately drops. Harmless (223 tests prove a from-scratch run), but
-   they could be collapsed into one before shipping.
-4. **Finish the responsive pass** — 12 table pages still have no mobile layout: `owner/banner`,
-   `owner/billing`, `owner/customers/[id]`, and 9 admin pages. Admin is a desktop tool so its horizontal
-   scroll is defensible; the three owner ones are not.
-5. **The real risks found in the audit are still untouched** — see `Known risks` below. The double-booking
-   race and the slot held forever by an unpaid booking are the two that cost a venue money.
+1. **Commit this session's work** (nothing is committed yet) — then unblock the deploy (`DEPLOY_PATH` on the
+   server), back up prod DB, verify the migrations (esp. the column-drop) on a MySQL copy, re-run #63.
+   Remember `php artisan storage:link` + real SMTP/LINE env on the server.
+2. **Remaining audit risks #5 (partial) & #8** — the scheduler only runs the expiry job; still no
+   subscription-expiry warning (the exact surprise that 402'd the whole dev portal this session) and no
+   booking reminder. **#8**: `MAIL_MAILER=log` + `QUEUE_CONNECTION=database` with no worker.
+3. **Broadcast follow-ups** — template placeholders (e.g. `{ชื่อลูกค้า}`), send LINE + in-app together,
+   schedule a broadcast for later. LINE image messages need public **HTTPS** URLs (dev localhost won't reach
+   LINE — verify on a real deploy).
+4. **CRM upgrade to standard/PDPA** — reviewed this session; the roadmap (11 work packages, P0/P1/P2, split
+   for parallel agents) is in **`topics/crm-roadmap.md`**. P0 = PDPA consent+opt-out+suppression,
+   permission-gate the CRM routes, persist broadcast delivery. Nothing built yet.
+5. **Finish the responsive pass** — 12 table pages still have no mobile layout (carried over).
 6. **Pre-existing**: `composer audit` flags 9 advisories in `guzzlehttp/guzzle` 7.11.1 + `psr7`.
 
-## Known risks found by audit, NOT yet fixed
-Ranked by what they cost a real venue. None of these were introduced this session; all were found while
-auditing it.
+## ✅ Done 2026-08-07 — Four audit risks closed (#1, #3, #6, #7)
+Local-only, verified: backend **233/233** (10 new) · tsc clean · vitest 24/24 · lint **13 errors** (=
+baseline). Restored two out-of-sync dep trees on the way (`composer install` brought back
+`barryvdh/laravel-dompdf`; `npm install` brought back `jsqr`/`pngjs`) — both were missing from
+`vendor/`/`node_modules`, failing BillingDocument + tsc before a line of this work.
+- **#1 Double-booking race** — `BookingController::store` now runs the overlap check + insert inside an
+  application lock keyed per court+date (`Cache::lock("booking:court:{id}:{date}")->block(5, …)`) wrapping a
+  `DB::transaction`. A portable DB unique index can't express "no time-range overlap" and would wrongly
+  block re-booking a slot whose earlier booking was cancelled (cancelled rows are kept), so the guard is the
+  lock, not an index. `cache_locks` table already exists (prod is `CACHE_STORE=database`). New tests:
+  adjacent-slot-ok + straddle-rejected.
+- **#7 Wallet top-up not transactional** — `Owner/WalletController::approveTopup` re-reads the txn
+  `lockForUpdate` inside a transaction and re-asserts `pending_review`; two concurrent approvals no longer
+  both credit (second 404s). Test: approve-twice-credits-once.
+- **#3 Notifications now created** — new shared `App\Services\NotificationService` (one place, consistent
+  wording, like the money services). Wired into Owner + App `PaymentController` verify/reject, `RefundService`
+  approve/reject, `Owner/WalletController` approve/reject topup, and `Owner/BookingController::cancel`. Tests:
+  slip-approve reaches the customer's bell (HTTP) + unit coverage of every event's title.
+- **#6 Admin login rate limit** — done **inside** `AuthController::adminLogin` via `RateLimiter` keyed by
+  email+IP, counting only FAILED attempts (a valid login clears it, so no lock-out). NOT route `throttle`
+  middleware: that resolves `$request->user()` to key the limiter, which re-caches a leftover bearer identity
+  on the sanctum guard and breaks the multi-actor test flow (spent a while finding this). 5 wrong guesses → 429.
 
-1. **Double-booking race.** `BookingController::store` reads then writes with no transaction, no lock and
-   no unique index. Two people tapping the same slot both pass the overlap check.
-2. **An unpaid booking holds a court forever.** The overlap check counts every status except `cancelled`,
-   and nothing ever releases a `pending_payment` row.
-3. **Nothing ever creates a Notification.** `Notification::create` appears nowhere; the customer's bell
-   reads a table only the seeder fills. Slip approved, slip rejected, booking cancelled — the customer is
-   told nothing.
-4. **LINE messaging is stored and never used.** Every venue has an encrypted `line_messaging_token` that
-   no code path reads.
-5. **No scheduler at all.** `routes/console.php` has only Laravel's `inspire`. No expiry warning before a
-   venue is locked out, no booking reminder, no cleanup of (2).
-6. **No rate limit on `/auth/admin/login`.** Unlimited password guesses against owner and super-admin
-   accounts.
-7. **Wallet top-ups are not transactional** (`increment()` alone), unlike `RefundService`.
+## ✅ Done 2026-08-07 — Unpaid bookings expire and free the slot (#2, + scheduler #5)
+- New `bookings:expire-unpaid` command (`app/Console/Commands/`) cancels `pending_payment` bookings older
+  than `config('booking.hold_minutes')` (default 30, env `BOOKING_HOLD_MINUTES`) and notifies the customer
+  (`NotificationService::bookingExpired`). Cancel — not a new `expired` status — because the overlap check
+  excludes only `cancelled`, so cancelling is what actually frees the slot with zero query/UI changes.
+- **A booking whose slip is uploaded and awaiting review (`payments.status = pending_review`) is protected**
+  (`whereDoesntHave`) — that customer has paid; only the venue is slow. `chunkById(200)`.
+- **Scheduler now exists** (#5): `routes/console.php` runs the command `everyFiveMinutes()->withoutOverlapping()`.
+  ⚠️ Needs `* * * * * php artisan schedule:run` on the server (cron) at deploy — otherwise nothing fires.
+- Tests: `ExpireUnpaidBookingsTest` 4/4 (stale→cancelled+notified, fresh untouched, awaiting-review protected,
+  freed slot re-bookable via the API). Backend now **237/237**.
+
+## ✅ Done 2026-08-07 — Broadcast menu: blast a promo over LINE (#4), + login UX fix
+- **New Owner menu `/owner/broadcast` ("ยิงโปร LINE").** Compose a promo, pick an audience, see how many
+  it reaches and how many are contactable on LINE, then send. History below.
+- **`line_messaging_token` is finally read** (#4). New shared `App\Services\LineMessagingService::pushText`
+  multicasts over the venue's own channel token (chunked at LINE's 500 cap). No token → the send is
+  recorded but delivers nothing (`delivery.noToken`), never an exception — dev/self-hosted venues without
+  LINE don't break. A customer with no linked LINE profile is `skipped`, not an error.
+- **Audience presets from booking history** (`broadcasts.audience` + `inactive_days`, new columns):
+  `lost` (churned — booked before, nothing within N days), `regulars` (≥ N bookings),
+  `one_time`, `new`, `all`, and saved `segment`. `GET /owner/broadcasts/audience-preview` returns
+  `{recipientCount, reachableCount}` so the UI previews reach before sending. Thresholds in `config/broadcast.php`.
+- **Back-compat kept**: the old CRM broadcast tab posts a bare `segmentId` with no `audience` — `store`
+  derives `audience=segment` from it, so that screen still works.
+- **Enhanced 2026-08-07 (same day):** the menu now also lets the owner (a) **choose the delivery target** —
+  `channel: line` (push over LINE) **or `channel: app`** (drop a `kind=promo` notification into each targeted
+  customer's in-app bell via `NotificationService::promo`; every targeted customer is reachable in-app, no
+  LINE profile needed); (b) **pick a message template** (5 audience-tuned presets, frontend constants that
+  prefill title+message, still editable); (c) **preview before sending** — a live **LINE-chat bubble mockup**
+  for the LINE channel and an **in-app notification-card mockup** for the app channel. `BroadcastLineTest`
+  now 5/5 (added app-channel → promo-notification test). Live-smoked both channels on the server.
+- Verified: backend **241/241** (4 new in `BroadcastLineTest`, incl. a real `Http::fake` multicast asserting
+  exactly the reachable ids + no-token safety + preset resolution) · tsc clean · vitest 24/24 · lint 13.
+  **Live smoke** on the running server: preview → create → send returns `delivery:{sent:0,skipped:1,noToken:true}`
+  for the dev org (no LINE token configured), exactly as intended.
+- **Login UX fix (fallout from #6):** the owner/admin login pages only special-cased HTTP 401, but the API
+  returns **422** for bad credentials and **429** when rate-limited — both fell through to the generic
+  "เข้าสู่ระบบไม่สำเร็จ ลองใหม่อีกครั้ง". A user who tripped the new rate limit saw that and kept retrying
+  (staying locked). Both pages now show "อีเมลหรือรหัสผ่านไม่ถูกต้อง" (401/422) and a distinct
+  "พยายามเข้าสู่ระบบหลายครั้งเกินไป กรุณารอสักครู่" (429). Cleared the stuck dev rate-limit keys.
+
+⚠️ **Dev-data note:** the seeded `everyday-badminton` subscription had expired (2026-07-05), so every
+`owner.subscribed` route 402'd — the whole owner portal was unusable in dev. Renewed it to +1yr so the
+Broadcast menu (and everything else) can be exercised. This is dev data, not code.
+
+## Known risks found by audit, NOT yet fixed
+**#1, #2, #3, #4, #6, #7 fixed 2026-08-07 (see above). Remaining:**
+
+5. **Scheduler has only the one job** (expiry). No subscription-expiry warning before a venue is locked
+   out (see the dev-data note — this is exactly the surprise it would prevent), no booking reminder.
 8. **`MAIL_MAILER=log`** — "ส่งใบแจ้งหนี้" writes to a file. `QUEUE_CONNECTION=database` with no worker, so
    mail sends inside the request.
 

@@ -9,6 +9,8 @@ use App\Models\Court;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -60,53 +62,68 @@ class BookingController extends Controller
             ]);
         }
 
-        // Reject overlap with an existing non-cancelled booking on this court/date.
-        // Overlap iff existing.start < new.end AND existing.end > new.start.
-        $overlaps = Booking::query()
-            ->where('court_id', $court->id)
-            ->where('date', $data['date'])
-            ->where('status', '!=', 'cancelled')
-            ->where('start', '<', $data['end'])
-            ->where('end', '>', $data['start'])
-            ->exists();
-
-        if ($overlaps) {
-            throw ValidationException::withMessages([
-                'start' => 'ช่วงเวลานี้ถูกจองแล้ว',
-            ]);
-        }
-
-        // Reject if the court is blocked (maintenance / closure) for this slot.
-        $blocked = \App\Models\CourtBlock::query()
-            ->where('court_id', $court->id)
-            ->whereDate('date', $data['date'])
-            ->get()
-            ->contains(fn ($b) => $b->covers($data['start'], $data['end']));
-
-        if ($blocked) {
-            throw ValidationException::withMessages([
-                'start' => 'ช่วงเวลานี้ปิดให้บริการ (ปิดปรับปรุง)',
-            ]);
-        }
-
         $hours = $this->hoursBetween($data['start'], $data['end']);
         // Pricing: amount = hours * price_per_hour (matches the frontend mock).
         // TODO: member discount / coupons
         $amount = round($hours * (float) $court->price_per_hour, 2);
 
-        $booking = Booking::create([
-            'organization_id' => $court->organization_id,
-            'branch_id' => $court->branch_id,
-            'court_id' => $court->id,
-            'customer_id' => $customer->id,
-            'code' => $this->generateCode(),
-            'date' => $data['date'],
-            'start' => $data['start'],
-            'end' => $data['end'],
-            'amount' => $amount,
-            'status' => 'pending_payment',
-            'channel' => 'application',
-        ]);
+        // Serialize concurrent bookings on the SAME court+date so the
+        // read-then-write overlap check can't be won by two people tapping the
+        // same slot at once (the double-booking race). A DB unique index can't
+        // express "no time-range overlap" and would wrongly block re-booking a
+        // slot whose earlier booking was cancelled (cancelled rows are kept),
+        // so the guard is an application lock around the check + insert instead.
+        // Keyed per court+date: two different courts, or the same court on a
+        // different day, never contend. Cache store is `database` (atomic-lock
+        // capable). block(5) waits up to 5s for a slot rather than failing fast.
+        $lock = Cache::lock("booking:court:{$court->id}:{$data['date']}", 10);
+
+        $booking = $lock->block(5, function () use ($court, $customer, $data, $amount) {
+            return DB::transaction(function () use ($court, $customer, $data, $amount) {
+                // Reject overlap with an existing non-cancelled booking on this court/date.
+                // Overlap iff existing.start < new.end AND existing.end > new.start.
+                $overlaps = Booking::query()
+                    ->where('court_id', $court->id)
+                    ->where('date', $data['date'])
+                    ->where('status', '!=', 'cancelled')
+                    ->where('start', '<', $data['end'])
+                    ->where('end', '>', $data['start'])
+                    ->exists();
+
+                if ($overlaps) {
+                    throw ValidationException::withMessages([
+                        'start' => 'ช่วงเวลานี้ถูกจองแล้ว',
+                    ]);
+                }
+
+                // Reject if the court is blocked (maintenance / closure) for this slot.
+                $blocked = \App\Models\CourtBlock::query()
+                    ->where('court_id', $court->id)
+                    ->whereDate('date', $data['date'])
+                    ->get()
+                    ->contains(fn ($b) => $b->covers($data['start'], $data['end']));
+
+                if ($blocked) {
+                    throw ValidationException::withMessages([
+                        'start' => 'ช่วงเวลานี้ปิดให้บริการ (ปิดปรับปรุง)',
+                    ]);
+                }
+
+                return Booking::create([
+                    'organization_id' => $court->organization_id,
+                    'branch_id' => $court->branch_id,
+                    'court_id' => $court->id,
+                    'customer_id' => $customer->id,
+                    'code' => $this->generateCode(),
+                    'date' => $data['date'],
+                    'start' => $data['start'],
+                    'end' => $data['end'],
+                    'amount' => $amount,
+                    'status' => 'pending_payment',
+                    'channel' => 'application',
+                ]);
+            });
+        });
 
         $booking->load(['branch.organization', 'court']);
 

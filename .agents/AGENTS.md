@@ -10,7 +10,7 @@
 - **Git remote**: https://github.com/ThitipongSaysood/SanamSpace.git
 - **Branch**: main
 - **Bootstrapped**: 2026-06-12
-- **Last agent**: Claude (Opus 5) — 2026-08-01
+- **Last agent**: Claude (Opus 4.8, 1M ctx) — 2026-08-07
 
 ## Rules for AI assistants
 
@@ -68,6 +68,16 @@ exceed the existing 13** (all pre-existing `react-hooks/set-state-in-effect` + o
 - **e2e write to the real dev DB.** A spec that books a slot or raises an invoice must clean up after
   itself, or the next run fails for no code reason (see `e2e/billing-helpers.ts`).
 - **`rm -rf frontend/.next`** when you hit `Could not find the module ... in the React Client Manifest`.
+
+### Local dev setup (do these once, or waste an afternoon)
+- **`frontend/.env.local` must set `NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1`** (gitignored). Without
+  it the value is empty, so the **owner/admin** portals post to the Next origin (:3000) → **404 on every API
+  call including login**. The customer app silently falls back to its in-memory mock. Restart `npm run dev`
+  after adding it (NEXT_PUBLIC_* is inlined at start). Prod builds use `/api/v1` (same-origin behind nginx).
+- **`php artisan storage:link`** must exist, or every uploaded image (welcome banners, broadcast banners,
+  slips) 404s while the upload itself succeeds — a broken-image icon, not an error. Standard deploy step.
+- If owner routes 402 `subscription_expired`, the seeded subscription lapsed — renew it in the DB; it does
+  NOT mean the code is broken (`EnsureSubscriptionActive` reads `ends_at`).
 
 ### Frontend
 `frontend/AGENTS.md` applies: this is Next.js 16 and the APIs differ from older training data — read
