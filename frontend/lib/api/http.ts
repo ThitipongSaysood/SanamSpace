@@ -3,6 +3,7 @@ import type {
   OrgPublic, PackagePurchaseInstructions, Promotion, Refund, ReviewSummary, User, Venue, VenuePackage, Wallet, WalletTopupInstructions,
 } from "@/lib/types";
 import { getToken, setToken } from "./token";
+import { getActiveVenueSlug } from "@/lib/tenant/active-venue";
 import type { Api, LinePayload } from "./mock";
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
@@ -21,6 +22,12 @@ async function req<T>(path: string, opts: ReqOpts = {}): Promise<T> {
   const headers: Record<string, string> = { Accept: "application/json" };
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
+
+  // Which venue's app is asking. The backend scopes every customer-facing read
+  // to this, so it goes on every request rather than being threaded through
+  // each call site — a call that forgot it would silently widen the query.
+  const venue = getActiveVenueSlug();
+  if (venue) headers["X-Venue-Slug"] = venue;
 
   let payload: BodyInit | undefined;
   if (body instanceof FormData) {
@@ -75,7 +82,6 @@ export const httpApi: Api = {
   createBooking: (input) => req<Booking>("/bookings", { method: "POST", body: input }),
   getBooking: (id) => getOrUndefined<Booking>(`/bookings/${id}`),
   listBookings: () => req<Booking[]>("/bookings"),
-  checkinBooking: (id) => req<Booking>(`/bookings/${id}/checkin`, { method: "POST" }),
   cancelBooking: (id) => req<Booking>(`/bookings/${id}/cancel`, { method: "POST" }),
   requestRefund: (bookingId, reason) =>
     req<Refund>(`/bookings/${bookingId}/refund`, { method: "POST", body: { reason } }),

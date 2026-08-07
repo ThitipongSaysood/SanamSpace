@@ -37,6 +37,7 @@ class OwnerApiTest extends TestCase
     private function customerToken(string $lineUserId = 'Uownertest', string $name = 'Owner Tester'): string
     {
         return $this->postJson('/api/v1/auth/line/login', [
+            'organizationSlug' => 'everyday-badminton',
             'lineUserId' => $lineUserId,
             'displayName' => $name,
         ])->json('token');

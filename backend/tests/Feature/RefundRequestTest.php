@@ -26,6 +26,7 @@ class RefundRequestTest extends TestCase
     private function customerToken(string $lineUserId = 'Urefundtest', string $name = 'Refund Tester'): string
     {
         return $this->postJson('/api/v1/auth/line/login', [
+            'organizationSlug' => 'everyday-badminton',
             'lineUserId' => $lineUserId,
             'displayName' => $name,
         ])->json('token');

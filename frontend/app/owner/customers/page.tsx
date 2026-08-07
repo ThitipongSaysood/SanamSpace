@@ -1,16 +1,33 @@
 "use client";
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import Link from "next/link";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { Phone } from "lucide-react";
+import type { OwnerCustomer } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
+import { appendPage } from "@/lib/api/paged";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
+import { LoadMore } from "@/components/load-more";
 
 const fmt = new Intl.NumberFormat("th-TH");
 
 export default function OwnerCustomersPage() {
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["owner", "customers"],
-    queryFn: ownerApi.getCustomers,
+  // A venue's customer list only grows, so it arrives a page at a time and the
+  // screen keeps what it has already shown.
+  const [page, setPage] = useState(1);
+  const [rows, setRows] = useState<OwnerCustomer[]>([]);
+
+  const { data: pageData, isLoading, isError, refetch, isFetching } = useQuery({
+    queryKey: ["owner", "customers", page],
+    queryFn: async () => {
+      const res = await ownerApi.getCustomersPage(page);
+      setRows((prev) => (page === 1 ? res.items : appendPage(prev, res.items)));
+      return res;
+    },
+    placeholderData: keepPreviousData,
   });
+
+  const data = rows;
 
   return (
     <div className="space-y-5">
@@ -26,9 +43,10 @@ export default function OwnerCustomersPage() {
       {data && data.length > 0 && (
         <div className="space-y-3">
           {data.map((c) => (
-            <div
+            <Link
               key={c.id}
-              className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5 sm:flex sm:items-center sm:justify-between"
+              href={`/owner/customers/${c.id}`}
+              className="block rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5 transition hover:ring-brand/30 active:scale-[0.99] sm:flex sm:items-center sm:justify-between"
             >
               <div className="min-w-0">
                 <div className="font-semibold">{c.displayName}</div>
@@ -53,9 +71,19 @@ export default function OwnerCustomersPage() {
                   <div className="text-xs text-muted-foreground">การจอง</div>
                 </div>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
+      )}
+
+      {data.length > 0 && (
+        <LoadMore
+          shown={data.length}
+          total={pageData?.total ?? data.length}
+          hasMore={pageData?.hasMore ?? false}
+          loading={isFetching}
+          onMore={() => setPage((p) => p + 1)}
+        />
       )}
     </div>
   );

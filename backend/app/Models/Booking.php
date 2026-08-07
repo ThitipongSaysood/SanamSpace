@@ -22,7 +22,20 @@ class Booking extends Model
             // and surfaced as a plain "Y-m-d" string to match the frontend
             // Booking shape and to keep slot-overlap comparisons exact.
             'amount' => 'float',
+            'checked_in_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Every booking gets a check-in token, whoever created it — the counter's
+     * scanner, the seeder, a test. Doing this in one controller would leave the
+     * other paths with a QR screen that has nothing to draw.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (Booking $booking) {
+            $booking->checkin_token ??= \App\Services\CheckinService::newToken();
+        });
     }
 
     public function branch(): BelongsTo

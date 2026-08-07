@@ -11,6 +11,9 @@
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-prompt);
   --color-brand: var(--brand-primary);
+  /* Set per venue from its settings — see lib/theme.ts */
+  --color-brand-secondary: var(--brand-secondary);
+  --color-brand-accent: var(--brand-accent);
   --color-brand-warning: var(--brand-warning);
   --color-brand-danger: var(--brand-danger);
   --color-brand-foreground: oklch(0.985 0 0);
@@ -131,5 +134,64 @@
   }
   html {
     @apply font-sans;
+  }
+}
+/**
+ * Tables that stack into rows on a phone.
+ *
+ * Every list in the back office is a table, and on a 390px screen the columns
+ * that matter — the amount, the status, the approve button — sit off the right
+ * edge behind a sideways drag. Below `md` each row becomes a block of
+ * label/value lines, with the header text supplied per cell as `data-label`.
+ *
+ * One definition rather than a hand-written mobile card per screen: thirteen
+ * duplicate layouts is thirteen chances for the two views to drift apart.
+ * (The two screens staff actually hold a phone for — ตรวจสลิป and รายการจอง —
+ * still get bespoke cards, because a decision made with a thumb deserves more
+ * than a stacked table.)
+ */
+@media (max-width: 767px) {
+  .stack-table thead {
+    display: none;
+  }
+
+  .stack-table tbody,
+  .stack-table tr,
+  .stack-table td {
+    display: block;
+    width: auto;
+  }
+
+  .stack-table tr {
+    padding: 0.75rem 1rem;
+  }
+
+  .stack-table tbody tr + tr {
+    border-top: 1px solid rgb(0 0 0 / 0.06);
+  }
+
+  .stack-table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.3rem 0;
+    text-align: right;
+  }
+
+  /* The column this value came from. Cells with no label (an actions column,
+     say) stay full width instead of showing an empty gutter. */
+  .stack-table td[data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+    text-align: left;
+  }
+
+  /* Actions get the whole width, so buttons are never squeezed into a corner. */
+  .stack-table td[data-actions] {
+    justify-content: flex-end;
+    padding-top: 0.6rem;
   }
 }

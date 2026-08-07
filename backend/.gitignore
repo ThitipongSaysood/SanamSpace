@@ -18,6 +18,8 @@
 /public/fonts-manifest.dev.json
 /public/hot
 /public/storage
+# dompdf's font cache — rebuilt on boot from resources/fonts (which IS committed)
+/storage/fonts
 /storage/*.key
 /storage/pail
 /vendor

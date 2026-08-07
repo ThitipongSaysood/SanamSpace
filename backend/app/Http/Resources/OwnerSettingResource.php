@@ -10,7 +10,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
  *
  * Shape:
  * {
- *   orgName, logoText, phone, email, address, googleMapUrl, lineOaUrl,
+ *   orgName, orgSlug, logoText, phone, email, address, googleMapUrl, lineOaUrl,
  *   primaryColor, secondaryColor, accentColor, fontFamily, timezone
  * }
  *
@@ -23,7 +23,17 @@ class OwnerSettingResource extends JsonResource
     {
         return [
             'orgName' => $this->organization?->name,
+            // Read-only: the slug is this venue's address (/v/{slug}), so the
+            // owner portal can show the link they hand to their customers.
+            // Renaming the venue must not change it — old links would break.
+            'orgSlug' => $this->organization?->slug,
             'logoText' => $this->logo,
+            // Greeting shown to this venue's customers on their home screen.
+            // Billing identity — what appears as the buyer on a tax invoice.
+            'taxId' => $this->tax_id,
+            'billingName' => $this->billing_name,
+            'billingAddress' => $this->billing_address,
+            'billingBranch' => $this->billing_branch,
             'logoUrl' => $this->logo_url,
             'phone' => $this->phone,
             'email' => $this->email,
@@ -35,6 +45,7 @@ class OwnerSettingResource extends JsonResource
             'accentColor' => $this->accent_color,
             'fontFamily' => $this->font_family,
             'timezone' => $this->timezone,
+            'checkinEnabled' => (bool) ($this->checkin_enabled ?? true),
             // Payment (where this venue receives booking money)
             'promptpayId' => $this->promptpay_id,
             'promptpayName' => $this->promptpay_name,

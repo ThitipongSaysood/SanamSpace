@@ -139,6 +139,15 @@ class AuthController extends Controller
             ]);
         }
 
+        // A suspended account keeps its records but must not get back in.
+        // Checked after the password so a wrong password and a suspended
+        // account are not distinguishable to someone guessing.
+        if ($user->status === 'suspended') {
+            throw ValidationException::withMessages([
+                'email' => 'บัญชีนี้ถูกระงับการใช้งาน',
+            ]);
+        }
+
         $token = $user->createToken('admin-token')->plainTextToken;
 
         return response()->json([
@@ -195,15 +204,22 @@ class AuthController extends Controller
         return response()->json(['message' => 'Logged out.']);
     }
 
+    /**
+     * The venue a login belongs to, from the /v/{slug} the customer came from.
+     *
+     * A customer is created inside one organization and stays there, so binding
+     * them to the wrong one is not recoverable — an unknown slug is rejected
+     * rather than silently redirected to some other venue. The only fallback is
+     * a single-organization install, where there is nothing to get wrong.
+     */
     private function resolveOrganization(?string $slug): ?Organization
     {
         if ($slug) {
-            $org = Organization::where('slug', $slug)->first();
-            if ($org) {
-                return $org;
-            }
+            return Organization::where('slug', $slug)->first();
         }
 
-        return Organization::query()->orderBy('created_at')->first();
+        return Organization::query()->count() === 1
+            ? Organization::query()->first()
+            : null;
     }
 }

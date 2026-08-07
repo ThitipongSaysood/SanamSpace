@@ -29,7 +29,7 @@ export default function AdminLogsPage() {
       {data && data.length > 0 && (
         <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[680px] text-sm">
+            <table className="stack-table w-full md:min-w-[680px] text-sm">
               <thead className="bg-app text-left text-xs font-medium text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3">เวลา</th>
@@ -42,11 +42,11 @@ export default function AdminLogsPage() {
               <tbody className="divide-y divide-black/5">
                 {data.map((l) => (
                   <tr key={l.id} className="hover:bg-app/60">
-                    <td className="px-4 py-3 text-muted-foreground">{fmtDate(l.createdAt)}</td>
-                    <td className="px-4 py-3 font-medium">{l.userName}</td>
-                    <td className="px-4 py-3">{l.action}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{l.detail ?? "—"}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{l.ipAddress ?? "—"}</td>
+                    <td data-label="เวลา" className="px-4 py-3 text-muted-foreground">{fmtDate(l.createdAt)}</td>
+                    <td data-label="ผู้ใช้" className="px-4 py-3 font-medium">{l.userName}</td>
+                    <td data-label="การกระทำ" className="px-4 py-3">{l.action}</td>
+                    <td data-label="รายละเอียด" className="px-4 py-3 text-muted-foreground">{l.detail ?? "—"}</td>
+                    <td data-label="IP" className="px-4 py-3 font-mono text-xs text-muted-foreground">{l.ipAddress ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>

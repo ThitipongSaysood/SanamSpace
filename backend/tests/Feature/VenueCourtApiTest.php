@@ -19,6 +19,7 @@ class VenueCourtApiTest extends TestCase
     public function test_line_login_returns_token_and_user(): void
     {
         $response = $this->postJson('/api/v1/auth/line/login', [
+            'organizationSlug' => 'everyday-badminton',
             'lineUserId' => 'Utest123',
             'displayName' => 'Tester',
         ]);
@@ -70,18 +71,49 @@ class VenueCourtApiTest extends TestCase
         $this->getJson('/api/v1/auth/me')->assertUnauthorized();
     }
 
-    public function test_branches_returns_two_venues_in_frontend_shape(): void
+    /**
+     * /branches lists ONLY the current venue's branches. Each venue's customers
+     * get their own app, so another venue must never appear in the list.
+     */
+    public function test_branches_returns_only_the_current_venue(): void
     {
-        $response = $this->getJson('/api/v1/branches')->assertOk();
+        $response = $this->withHeader('X-Venue-Slug', 'everyday-badminton')
+            ->getJson('/api/v1/branches')
+            ->assertOk();
 
-        $response->assertJsonCount(2, 'data')
+        $response->assertJsonCount(1, 'data')
             ->assertJsonStructure([
                 'data' => [['id', 'name', 'sports', 'rating', 'reviewCount', 'openTime', 'closeTime', 'address', 'imageUrl', 'facilities', 'pricePerHour', 'distanceKm']],
             ]);
 
         $ids = collect($response->json('data'))->pluck('id')->all();
-        $this->assertContains('everyday-badminton', $ids);
-        $this->assertContains('tsr-arena', $ids);
+        $this->assertSame(['everyday-badminton'], $ids);
+
+        $other = $this->withHeader('X-Venue-Slug', 'tsr-arena')
+            ->getJson('/api/v1/branches')
+            ->assertOk();
+
+        $this->assertSame(['tsr-arena'], collect($other->json('data'))->pluck('id')->all());
+    }
+
+    /** With no venue in play there is nothing sensible to list. */
+    public function test_branches_without_a_venue_is_rejected(): void
+    {
+        $this->getJson('/api/v1/branches')->assertNotFound();
+    }
+
+    /** Knowing a court UUID is not enough — it must be the current venue's. */
+    public function test_court_from_another_venue_is_not_readable(): void
+    {
+        $courtId = $this->getJson('/api/v1/courts?venueId=everyday-badminton')->json('data.0.id');
+
+        $this->withHeader('X-Venue-Slug', 'everyday-badminton')
+            ->getJson("/api/v1/courts/{$courtId}")
+            ->assertOk();
+
+        $this->withHeader('X-Venue-Slug', 'tsr-arena')
+            ->getJson("/api/v1/courts/{$courtId}")
+            ->assertNotFound();
     }
 
     public function test_courts_filtered_by_venue_slug(): void
@@ -120,7 +152,8 @@ class VenueCourtApiTest extends TestCase
             ]);
         }
 
-        $response = $this->getJson("/api/v1/courts/{$courtId}/schedules?date=2026-06-20")
+        $response = $this->withHeader('X-Venue-Slug', 'everyday-badminton')
+            ->getJson("/api/v1/courts/{$courtId}/schedules?date=2026-06-20")
             ->assertOk()
             ->assertJsonPath('data.courtId', $courtId)
             ->assertJsonPath('data.date', '2026-06-20');

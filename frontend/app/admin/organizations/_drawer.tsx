@@ -5,8 +5,9 @@ import { Clock, ExternalLink, History, MessageCircle, Power, RefreshCw, Trash2, 
 import { superAdminApi } from "@/lib/api/superadmin";
 import { setOwnerToken } from "@/lib/api/owner";
 import { Loading, ErrorState } from "@/components/states";
+import { CustomerLink, customerLinkFor, useOrigin } from "@/components/customer-link";
 import { Button } from "@/components/ui/button";
-import { Modal } from "../_components/modal";
+import { Modal } from "@/components/ui/modal";
 
 const fmt = new Intl.NumberFormat("th-TH");
 const TABS = ["ข้อมูลทั่วไป", "การสมัครใช้งาน", "LINE", "การใช้งาน", "ประวัติ"] as const;
@@ -50,11 +51,15 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
   const [showPlans, setShowPlans] = useState(false);
   const [planId, setPlanId] = useState("");
   const [confirmImp, setConfirmImp] = useState(false);
+  // Built from the live origin, which differs between local and prod. Same URL
+  // the venue gives its customers.
+  const origin = useOrigin();
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["admin", "organization", id],
     queryFn: () => superAdminApi.getOrganization(id),
   });
+
   const plansQ = useQuery({ queryKey: ["admin", "plans"], queryFn: superAdminApi.getPlans, enabled: showPlans });
 
   function invalidate() {
@@ -208,6 +213,12 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
                   </Row>
                 </section>
 
+                <CustomerLink
+                  slug={data.id}
+                  hint="ลิงก์หน้าจองของสนามนี้ — คัดลอกส่งให้สนาม/ลูกค้าได้เลย"
+                  className="ring-black/10"
+                />
+
                 <section className="rounded-xl bg-app/60 p-4">
                   <h3 className="mb-1 text-sm font-semibold">แพ็กเกจปัจจุบัน</h3>
                   <div className="divide-y divide-black/5">
@@ -301,10 +312,11 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
                 <div className="rounded-lg border border-dashed border-border bg-muted/40 p-3 text-xs">
                   <p className="font-medium text-foreground">URL หน้า login ของสนามนี้</p>
                   <code className="mt-1 block break-all rounded bg-white px-2 py-1 text-[11px] text-brand">
-                    {typeof window !== "undefined" ? window.location.origin : ""}/v/{data.id}
+                    {data.id && origin ? customerLinkFor(data.id, origin) : " "}
                   </code>
                   <p className="mt-1.5 text-muted-foreground">
                     ตั้งค่านี้เป็น <b>LIFF Endpoint URL</b> ใน LINE Developers console ของสนาม (ต้องตรงกัน)
+                    — เป็นลิงก์เดียวกับที่ส่งให้ลูกค้า
                   </p>
                 </div>
 

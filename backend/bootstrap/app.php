@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Middleware\EnsurePermission;
+use App\Http\Middleware\EnsureSubscriptionActive;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\ResolveOwnerOrganization;
 use Illuminate\Foundation\Application;
@@ -18,6 +20,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'owner.org' => ResolveOwnerOrganization::class,
+            // Runs after owner.org — needs the resolved organization.
+            'owner.subscribed' => EnsureSubscriptionActive::class,
+            // permission:court.manage — the staff member's role must carry it.
+            'permission' => EnsurePermission::class,
             'super.admin' => EnsureSuperAdmin::class,
         ]);
     })

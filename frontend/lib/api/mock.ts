@@ -50,7 +50,8 @@ export const mockApi = {
     await delay();
     return {
       slug, name: "Everyday Badminton", logoText: "EVERYDAY BADMINTON", logoUrl: null, liffId: null,
-      theme: { primary: "#16A34A", warning: "#F59E0B", danger: "#EF4444" }, lineOaUrl: null, phone: null,
+      theme: { primary: "#16A34A", secondary: "#16A34A", accent: "#F59E0B", warning: "#F59E0B", danger: "#EF4444" },
+      fontFamily: null, welcomeBanners: [], lineOaUrl: null, phone: null,
     };
   },
   async getVenues(): Promise<Venue[]> { await delay(); return venuesFx; },
@@ -105,9 +106,6 @@ export const mockApi = {
       promptpay: { payload: "00020101021129370016A000000677010111011300668888888885802TH53037646304ABCD" },
       bank: { bankName: "กสิกรไทย", accountName: "ร้านตัวอย่าง", accountNumber: "123-4-56789-0" },
     };
-  },
-  async checkinBooking(id: string): Promise<Booking> {
-    await delay(); const b = db.bookings.get(id)!; b.status = "completed"; return { ...b };
   },
   async cancelBooking(id: string): Promise<Booking> {
     await delay(); const b = db.bookings.get(id)!; b.status = "cancelled"; return { ...b };

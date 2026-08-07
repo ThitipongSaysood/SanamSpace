@@ -36,6 +36,7 @@ class OwnerCrmApiTest extends TestCase
     private function customerToken(string $lineUserId = 'Ucrm', string $name = 'CRM Cust'): string
     {
         return $this->postJson('/api/v1/auth/line/login', [
+            'organizationSlug' => 'everyday-badminton',
             'lineUserId' => $lineUserId,
             'displayName' => $name,
         ])->json('token');

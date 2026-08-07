@@ -38,6 +38,7 @@ class OwnerSectionsApiTest extends TestCase
     private function customerToken(string $lineUserId = 'Usections', string $name = 'Sections Cust'): string
     {
         return $this->postJson('/api/v1/auth/line/login', [
+            'organizationSlug' => 'everyday-badminton',
             'lineUserId' => $lineUserId,
             'displayName' => $name,
         ])->json('token');
@@ -49,14 +50,26 @@ class OwnerSectionsApiTest extends TestCase
             ->assertOk()
             ->assertJsonStructure([
                 'data' => [
-                    'orgName', 'logoText', 'phone', 'email', 'address',
+                    'orgName', 'orgSlug', 'logoText', 'phone', 'email', 'address',
                     'googleMapUrl', 'lineOaUrl', 'primaryColor',
                     'secondaryColor', 'accentColor', 'fontFamily', 'timezone',
                 ],
             ])
             ->assertJsonPath('data.orgName', 'Everyday Badminton')
+            // The owner portal builds the customer link (/v/{slug}) from this.
+            ->assertJsonPath('data.orgSlug', 'everyday-badminton')
             ->assertJsonPath('data.primaryColor', '#16A34A')
             ->assertJsonPath('data.phone', '081-234-5678');
+    }
+
+    /** Renaming the venue must not move its customer link. */
+    public function test_renaming_the_org_does_not_change_its_slug(): void
+    {
+        $this->withToken($this->ownerToken())
+            ->putJson('/api/v1/owner/settings', ['orgName' => 'ชื่อใหม่เอี่ยม'])
+            ->assertOk()
+            ->assertJsonPath('data.orgName', 'ชื่อใหม่เอี่ยม')
+            ->assertJsonPath('data.orgSlug', 'everyday-badminton');
     }
 
     public function test_put_settings_updates_fields_and_org_name(): void

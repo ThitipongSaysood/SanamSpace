@@ -23,6 +23,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import type { User } from "@/lib/types";
 import { getAdminToken, superAdminApi } from "@/lib/api/superadmin";
 
@@ -45,6 +46,32 @@ const NAV: NavItem[] = [
   { label: "System Logs", href: "/admin/logs", icon: ScrollText },
   { label: "ตั้งค่าระบบ", href: "/admin/settings", icon: Settings },
 ];
+
+/**
+ * How many venues are waiting on the platform to check their transfer slip.
+ *
+ * Nothing else surfaces this — a venue that has paid sits blocked until someone
+ * opens the billing screen, so the count belongs where the operator will see it.
+ */
+function PendingSlipsBadge({ active }: { active: boolean }) {
+  const { data } = useQuery({
+    queryKey: ["admin", "invoices", "pending"],
+    queryFn: () => superAdminApi.getInvoices("pending_review"),
+    refetchInterval: 60_000,
+  });
+  const count = data?.length ?? 0;
+  if (count === 0) return null;
+  return (
+    <span
+      aria-label={`สลิปรอตรวจสอบ ${count} รายการ`}
+      className={`min-w-5 rounded-full px-1.5 text-center text-xs font-bold ${
+        active ? "bg-white/25 text-white" : "bg-blue-100 text-blue-700"
+      }`}
+    >
+      {count}
+    </span>
+  );
+}
 
 function isActive(pathname: string, href: string) {
   return href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
@@ -88,6 +115,7 @@ function SidebarContent({
             >
               <item.icon className="size-5 shrink-0" />
               <span className="flex-1">{item.label}</span>
+              {item.href === "/admin/billing" && <PendingSlipsBadge active={active} />}
             </Link>
           );
         })}

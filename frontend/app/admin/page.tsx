@@ -124,7 +124,7 @@ export default function AdminDashboardPage() {
                 <EmptyState message="ยังไม่มีรายได้จากการจอง" />
               </div>
             ) : (
-              <table className="w-full text-sm">
+              <table className="stack-table w-full text-sm">
                 <thead className="bg-app text-left text-xs font-medium text-muted-foreground">
                   <tr>
                     <th className="px-4 py-2.5">องค์กร</th>
@@ -134,8 +134,8 @@ export default function AdminDashboardPage() {
                 <tbody className="divide-y divide-black/5">
                   {data.topOrganizations.map((o) => (
                     <tr key={o.name} className="hover:bg-app/60">
-                      <td className="px-4 py-2.5 font-medium">{o.name}</td>
-                      <td className="px-4 py-2.5 text-right font-semibold text-brand">฿{fmt.format(o.revenue)}</td>
+                      <td data-label="องค์กร" className="px-4 py-2.5 font-medium">{o.name}</td>
+                      <td data-label="รายได้" className="px-4 py-2.5 text-right font-semibold text-brand">฿{fmt.format(o.revenue)}</td>
                     </tr>
                   ))}
                 </tbody>

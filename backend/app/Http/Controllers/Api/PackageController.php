@@ -22,15 +22,15 @@ class PackageController extends Controller
     /**
      * GET /packages -> VenuePackage[]
      *
-     * Org = authenticated customer's org if present, else ?venueId slug, else
-     * the default org.
+     * Strictly the current venue's packages (X-Venue-Slug / ?venueId / the
+     * signed-in customer's org). No tenant → 404, never another venue's list.
      */
     public function index(Request $request): AnonymousResourceCollection
     {
-        $org = $this->resolveOrganization($request, $request->query('venueId'));
+        $org = $this->resolveOrganizationOrFail($request, $request->query('venueId'));
 
         $packages = VenuePackage::query()
-            ->forOrganization($org?->id)
+            ->forOrganization($org->id)
             ->orderBy('sort_order')
             ->orderBy('created_at')
             ->get();

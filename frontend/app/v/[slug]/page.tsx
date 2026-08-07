@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Feather, MessageCircle, Phone, Mail } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useTenant } from "@/lib/tenant/tenant-context";
+import { setActiveVenueSlug, venueHref } from "@/lib/tenant/active-venue";
 import { isReturningFromLineLogin } from "@/lib/auth/liff";
 import { api } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,11 @@ export default function VenueLoginPage({ params }: { params: Promise<{ slug: str
   // completing the login, so show a spinner instead of the button.
   const [resuming] = useState(() => isReturningFromLineLogin());
 
+  // This venue is what every API call is scoped to from here on.
+  useEffect(() => {
+    setActiveVenueSlug(slug);
+  }, [slug]);
+
   // Resolve the venue's branding + apply its theme.
   useEffect(() => {
     let active = true;
@@ -46,17 +52,17 @@ export default function VenueLoginPage({ params }: { params: Promise<{ slug: str
     };
   }, [slug, setVenue]);
 
-  // A restored/just-completed session → enter the app.
+  // A restored/just-completed session → enter this venue's app.
   useEffect(() => {
-    if (user) router.replace("/");
-  }, [user, router]);
+    if (user) router.replace(venueHref(slug, "/home"));
+  }, [user, router, slug]);
 
   async function handleLogin() {
     setBusy(true);
     setError(null);
     try {
       await login(slug);
-      router.replace("/");
+      router.replace(venueHref(slug, "/home"));
     } catch {
       setError("เข้าสู่ระบบไม่สำเร็จ ลองใหม่อีกครั้ง");
       setBusy(false);

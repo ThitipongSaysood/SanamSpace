@@ -8,7 +8,7 @@ import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Modal } from "../_components/modal";
+import { Modal } from "@/components/ui/modal";
 
 const KEY = ["admin", "announcements"];
 const AUDIENCE: Record<string, string> = { all: "ทุกองค์กร", trial: "ทดลองใช้", paid: "ลูกค้าจ่ายเงิน" };

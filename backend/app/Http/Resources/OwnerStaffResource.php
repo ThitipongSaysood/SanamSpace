@@ -9,7 +9,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
  * Owner-portal view of an organization staff member (OrganizationUser joined
  * to its User + Role).
  *
- * Shape: { id(userId), displayName, email, roleName, status, joinedAt }
+ * Shape: { id(userId), displayName, email, roleId, roleName, status, joinedAt }
  *
  * `id` is the underlying user id (not the pivot id). `displayName` prefers the
  * membership display name, falling back to the user's. Expects the `user` and
@@ -23,6 +23,8 @@ class OwnerStaffResource extends JsonResource
             'id' => (string) $this->user_id,
             'displayName' => $this->display_name ?? $this->user?->display_name,
             'email' => $this->user?->email,
+            // roleId so the edit form can preselect the current role.
+            'roleId' => $this->role_id,
             'roleName' => $this->role?->name,
             'status' => $this->status,
             'joinedAt' => $this->joined_at,

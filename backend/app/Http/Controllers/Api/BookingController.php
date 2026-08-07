@@ -176,31 +176,6 @@ class BookingController extends Controller
     }
 
     /**
-     * POST /bookings/{id}/checkin -> Booking (status completed).
-     */
-    public function checkin(Request $request, string $id): BookingResource
-    {
-        $booking = $this->findOwned($request, $id);
-        $booking->update(['status' => 'completed']);
-
-        return new BookingResource($booking->fresh(['branch.organization', 'court']));
-    }
-
-    /**
-     * POST /bookings/{id}/checkout -> Booking (keeps completed; no-op).
-     */
-    public function checkout(Request $request, string $id): BookingResource
-    {
-        $booking = $this->findOwned($request, $id);
-
-        if ($booking->status !== 'completed') {
-            $booking->update(['status' => 'completed']);
-        }
-
-        return new BookingResource($booking->fresh(['branch.organization', 'court']));
-    }
-
-    /**
      * Fetch a booking owned by the current customer or abort (404).
      */
     private function findOwned(Request $request, string $id): Booking

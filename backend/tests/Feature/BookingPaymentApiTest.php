@@ -24,6 +24,7 @@ class BookingPaymentApiTest extends TestCase
     private function customerToken(): string
     {
         return $this->postJson('/api/v1/auth/line/login', [
+            'organizationSlug' => 'everyday-badminton',
             'lineUserId' => 'Ubookingtest',
             'displayName' => 'Booking Tester',
         ])->json('token');
@@ -91,10 +92,15 @@ class BookingPaymentApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.status', 'confirmed');
 
-        // 5. Check-in -> completed.
-        $this->withToken($token)->postJson("/api/v1/bookings/{$bookingId}/checkin")
+        // 5. The customer carries a check-in token, but cannot check themselves
+        //    in — the counter scans it. See OwnerCheckinTest for that half.
+        $this->withToken($token)->getJson("/api/v1/bookings/{$bookingId}")
             ->assertOk()
-            ->assertJsonPath('data.status', 'completed');
+            ->assertJsonPath('data.checkedInAt', null)
+            ->assertJsonStructure(['data' => ['checkinToken']]);
+
+        $this->withToken($token)->postJson("/api/v1/bookings/{$bookingId}/checkin")
+            ->assertNotFound();
     }
 
     public function test_promptpay_instructions_return_a_real_qr_payload_and_bank(): void
@@ -301,11 +307,13 @@ class BookingPaymentApiTest extends TestCase
     public function test_bookings_are_scoped_to_the_current_customer(): void
     {
         $tokenA = $this->postJson('/api/v1/auth/line/login', [
+            'organizationSlug' => 'everyday-badminton',
             'lineUserId' => 'UcustomerA',
             'displayName' => 'A',
         ])->json('token');
 
         $tokenB = $this->postJson('/api/v1/auth/line/login', [
+            'organizationSlug' => 'everyday-badminton',
             'lineUserId' => 'UcustomerB',
             'displayName' => 'B',
         ])->json('token');

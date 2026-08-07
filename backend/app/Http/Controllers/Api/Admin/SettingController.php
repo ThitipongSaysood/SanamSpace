@@ -24,7 +24,13 @@ class SettingController extends Controller
         'mailEncryption' => 'mail_encryption',
         'mailFromAddress' => 'mail_from_address',
         'mailFromName' => 'mail_from_name',
+        'companyName' => 'company_name',
+        'taxId' => 'tax_id',
+        'companyAddress' => 'company_address',
+        'vatEnabled' => 'vat_enabled',
+        'vatRate' => 'vat_rate',
         'promptpayId' => 'promptpay_id',
+        'promptpayName' => 'promptpay_name',
         'bankName' => 'bank_name',
         'bankAccountName' => 'bank_account_name',
         'bankAccountNumber' => 'bank_account_number',
@@ -64,8 +70,16 @@ class SettingController extends Controller
             'mailFromAddress' => ['sometimes', 'nullable', 'email', 'max:255'],
             'mailFromName' => ['sometimes', 'nullable', 'string', 'max:255'],
 
+            // --- Company identity on invoices/receipts ---
+            'companyName' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'taxId' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'companyAddress' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'vatEnabled' => ['sometimes', 'boolean'],
+            'vatRate' => ['sometimes', 'numeric', 'min:0', 'max:100'],
+
             // --- Platform billing payment ---
             'promptpayId' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'promptpayName' => ['sometimes', 'nullable', 'string', 'max:255'],
             'bankName' => ['sometimes', 'nullable', 'string', 'max:100'],
             'bankAccountName' => ['sometimes', 'nullable', 'string', 'max:255'],
             'bankAccountNumber' => ['sometimes', 'nullable', 'string', 'max:50'],

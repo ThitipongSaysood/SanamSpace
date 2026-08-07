@@ -278,6 +278,7 @@ class SuperAdminApiTest extends TestCase
 
         // A customer token (not a staff User) -> 403.
         $customerToken = $this->postJson('/api/v1/auth/line/login', [
+            'organizationSlug' => 'everyday-badminton',
             'lineUserId' => 'Usuperadmincust',
             'displayName' => 'Cust',
         ])->json('token');

@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Link2, Store, Wallet } from "lucide-react";
+import Link from "next/link";
+import { Check, Link2, Palette, Store, Wallet } from "lucide-react";
 import type { OwnerSettings } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
 import { Loading, ErrorState } from "@/components/states";
@@ -11,6 +12,7 @@ import { Label } from "@/components/ui/label";
 
 const TABS = [
   { key: "info", label: "ข้อมูลสนาม", icon: Store },
+  { key: "storefront", label: "หน้าลูกค้า", icon: Palette },
   { key: "payment", label: "การชำระเงิน", icon: Wallet },
   { key: "integrations", label: "การเชื่อมต่อ", icon: Link2 },
 ] as const;
@@ -53,13 +55,20 @@ export default function OwnerSettingsPage() {
       {isLoading && <Loading rows={2} />}
       {isError && <ErrorState onRetry={() => refetch()} />}
       {data && tab === "info" && <InfoTab settings={data} />}
+      {data && tab === "storefront" && <StorefrontTab settings={data} />}
       {data && tab === "integrations" && <IntegrationsTab settings={data} />}
       {data && tab === "payment" && <PaymentTab settings={data} />}
     </div>
   );
 }
 
-function InfoTab({ settings }: { settings: OwnerSettings }) {
+/**
+ * Local copy of the settings + the save mutation.
+ *
+ * Both tabs edit the same settings object, so they share this rather than each
+ * keeping their own half — a save from either sends the whole object back.
+ */
+function useOwnerSettingsForm(settings: OwnerSettings) {
   const qc = useQueryClient();
   const [form, setForm] = useState<OwnerSettings>(settings);
   useEffect(() => setForm(settings), [settings]);
@@ -76,24 +85,52 @@ function InfoTab({ settings }: { settings: OwnerSettings }) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
-  const [logoBusy, setLogoBusy] = useState(false);
-  const [logoErr, setLogoErr] = useState(false);
-  async function onLogoFile(e: React.ChangeEvent<HTMLInputElement>) {
+  return { form, set, mutation };
+}
+
+/** Upload an image and hand back its URL, with busy/error flags for the button. */
+function useImageUpload(onDone: (url: string) => void) {
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    setLogoBusy(true);
-    setLogoErr(false);
+    setBusy(true);
+    setFailed(false);
     try {
-      set("logoUrl", await ownerApi.uploadImage(file));
+      onDone(await ownerApi.uploadImage(file));
     } catch {
-      setLogoErr(true);
+      setFailed(true);
     } finally {
-      setLogoBusy(false);
+      setBusy(false);
     }
   }
 
-  const initials = (form.orgName || "S").trim().slice(0, 2).toUpperCase();
+  return { busy, failed, onFile };
+}
+
+/** Save button + result, shared by both settings tabs. */
+function SaveRow({ mutation }: { mutation: ReturnType<typeof useOwnerSettingsForm>["mutation"] }) {
+  return (
+    <div className="flex flex-col gap-2 border-t border-black/5 pt-4">
+      <Button type="submit" disabled={mutation.isPending}>
+        {mutation.isPending ? "กำลังบันทึก..." : "บันทึกการเปลี่ยนแปลง"}
+      </Button>
+      {mutation.isSuccess && !mutation.isPending && (
+        <span className="inline-flex items-center gap-1 text-sm font-medium text-brand">
+          <Check className="size-4" /> บันทึกแล้ว
+        </span>
+      )}
+      {mutation.isError && <span className="text-sm text-brand-danger">บันทึกไม่สำเร็จ ลองอีกครั้ง</span>}
+    </div>
+  );
+}
+
+function InfoTab({ settings }: { settings: OwnerSettings }) {
+  const { form, set, mutation } = useOwnerSettingsForm(settings);
+
   const fields: { key: keyof OwnerSettings; label: string; type?: string; full?: boolean }[] = [
     { key: "orgName", label: "ชื่อสนาม", full: true },
     { key: "phone", label: "เบอร์โทรศัพท์", type: "tel" },
@@ -109,10 +146,9 @@ function InfoTab({ settings }: { settings: OwnerSettings }) {
         e.preventDefault();
         mutation.mutate();
       }}
-      className="grid gap-6 lg:grid-cols-3"
+      className="max-w-3xl space-y-6"
     >
-      {/* Left — venue info */}
-      <section className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 lg:col-span-2">
+      <section className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
         <h2 className="text-sm font-semibold">ข้อมูลสนาม</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           {fields.map((f) => (
@@ -129,9 +165,81 @@ function InfoTab({ settings }: { settings: OwnerSettings }) {
         </div>
       </section>
 
-      {/* Right — logo + brand colors */}
-      <section className="space-y-6 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
-        <div className="space-y-2">
+      {/* Billing identity — what appears as the buyer on invoices/receipts. */}
+      <section className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+        <div>
+          <h2 className="text-sm font-semibold">ข้อมูลสำหรับออกใบเสร็จ/ใบกำกับภาษี</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            ใช้เป็นชื่อผู้ซื้อบนใบแจ้งหนี้และใบเสร็จของค่าบริการระบบ — เว้นว่างได้ ระบบจะใช้ชื่อสนาม
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="s-billingName">ชื่อผู้เสียภาษี / ชื่อบริษัท</Label>
+            <Input
+              id="s-billingName"
+              value={form.billingName ?? ""}
+              onChange={(e) => set("billingName", e.target.value)}
+              placeholder="บริษัท ... จำกัด"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="s-taxId">เลขประจำตัวผู้เสียภาษี</Label>
+            <Input
+              id="s-taxId"
+              value={form.taxId ?? ""}
+              onChange={(e) => set("taxId", e.target.value)}
+              placeholder="0105562000000"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="s-billingBranch">สำนักงานใหญ่ / สาขา</Label>
+            <Input
+              id="s-billingBranch"
+              value={form.billingBranch ?? ""}
+              onChange={(e) => set("billingBranch", e.target.value)}
+              placeholder="สำนักงานใหญ่"
+            />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="s-billingAddress">ที่อยู่สำหรับออกเอกสาร</Label>
+            <Input
+              id="s-billingAddress"
+              value={form.billingAddress ?? ""}
+              onChange={(e) => set("billingAddress", e.target.value)}
+              placeholder="เว้นว่างเพื่อใช้ที่อยู่สนาม"
+            />
+          </div>
+        </div>
+      </section>
+
+      <SaveRow mutation={mutation} />
+    </form>
+  );
+}
+
+/**
+ * Everything a customer sees: the venue's logo, colours, greeting and banner —
+ * with a live preview of the result. Split out of "ข้อมูลสนาม" because that tab
+ * is business facts, and this one is the shopfront.
+ */
+function StorefrontTab({ settings }: { settings: OwnerSettings }) {
+  const { form, set, mutation } = useOwnerSettingsForm(settings);
+  const logo = useImageUpload((url) => set("logoUrl", url));
+
+  const initials = (form.orgName || "S").trim().slice(0, 2).toUpperCase();
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        mutation.mutate();
+      }}
+      className="grid gap-6 lg:grid-cols-3"
+    >
+      <div className="space-y-6 lg:col-span-2">
+        {/* Logo */}
+        <section className="space-y-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
           <Label>โลโก้สนาม</Label>
           <div className="flex items-center gap-3">
             {form.logoUrl ? (
@@ -151,8 +259,8 @@ function InfoTab({ settings }: { settings: OwnerSettings }) {
             )}
             <div className="flex flex-col gap-1.5">
               <label className="cursor-pointer rounded-lg border border-input px-3 py-1.5 text-center text-sm hover:bg-app">
-                {logoBusy ? "กำลังอัปโหลด..." : "เปลี่ยนรูป"}
-                <input type="file" accept="image/*" className="hidden" onChange={onLogoFile} disabled={logoBusy} />
+                {logo.busy ? "กำลังอัปโหลด..." : "เปลี่ยนรูป"}
+                <input type="file" accept="image/*" className="hidden" onChange={logo.onFile} disabled={logo.busy} />
               </label>
               {form.logoUrl && (
                 <button
@@ -165,12 +273,17 @@ function InfoTab({ settings }: { settings: OwnerSettings }) {
               )}
             </div>
           </div>
-          {logoErr && <p className="text-xs text-brand-danger">อัปโหลดไม่สำเร็จ</p>}
-          <p className="text-xs text-muted-foreground">อัปโหลดแล้วกด “บันทึกการเปลี่ยนแปลง” เพื่อยืนยัน</p>
-        </div>
+          {logo.failed && <p className="text-xs text-brand-danger">อัปโหลดไม่สำเร็จ</p>}
+        </section>
 
-        <div className="space-y-2">
-          <Label>ธีมสีแบรนด์</Label>
+        {/* Brand colours */}
+        <section className="space-y-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+          <div>
+            <Label>ธีมสีแบรนด์</Label>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              ใช้กับทั้งแอปของลูกค้า — ปุ่ม แถบล่าง และแบนเนอร์
+            </p>
+          </div>
           <div className="flex flex-wrap gap-2">
             {SWATCHES.map((c) => (
               <button
@@ -185,7 +298,7 @@ function InfoTab({ settings }: { settings: OwnerSettings }) {
               />
             ))}
           </div>
-          <div className="mt-2 grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             {(
               [
                 ["primaryColor", "สีหลัก"],
@@ -204,23 +317,156 @@ function InfoTab({ settings }: { settings: OwnerSettings }) {
               </div>
             ))}
           </div>
-        </div>
+        </section>
 
-        <div className="flex flex-col gap-2 border-t border-black/5 pt-4">
-          <Button type="submit" disabled={mutation.isPending}>
-            {mutation.isPending ? "กำลังบันทึก..." : "บันทึกการเปลี่ยนแปลง"}
-          </Button>
-          {mutation.isSuccess && !mutation.isPending && (
-            <span className="inline-flex items-center gap-1 text-sm font-medium text-brand">
-              <Check className="size-4" /> บันทึกแล้ว
+        <section className="space-y-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+          <h2 className="text-sm font-semibold">เช็คอินด้วย QR</h2>
+          <label className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              checked={form.checkinEnabled !== false}
+              onChange={(e) => set("checkinEnabled", e.target.checked)}
+              className="mt-0.5 size-4 accent-[var(--brand-primary)]"
+            />
+            <span className="text-sm">
+              ให้ลูกค้าแสดง QR แล้วพนักงานสแกนตอนมาถึง
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                ปิดแล้วลูกค้าจะไม่เห็นหน้า QR ในแอป — เหมาะกับสนามเล็กที่พนักงานจำลูกค้าได้อยู่แล้ว ·
+                พนักงานสแกนที่เมนู{" "}
+                <Link href="/owner/checkin" className="font-semibold text-brand">
+                  เช็คอิน
+                </Link>
+              </span>
+            </span>
+          </label>
+        </section>
+
+        <section className="rounded-2xl bg-white p-5 text-sm shadow-sm ring-1 ring-black/5">
+          <h2 className="text-sm font-semibold">ข้อความต้อนรับ / แบนเนอร์</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            ย้ายไปอยู่เมนู{" "}
+            <Link href="/owner/banner" className="font-semibold text-brand">
+              แบนเนอร์/ต้อนรับ
+            </Link>{" "}
+            แล้ว
+          </p>
+        </section>
+
+        <SaveRow mutation={mutation} />
+      </div>
+
+      <div className="lg:col-span-1">
+        <section className="space-y-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 lg:sticky lg:top-4">
+          <BrandPreview form={form} />
+        </section>
+      </div>
+    </form>
+  );
+}
+
+/**
+ * What the venue's own customers will see.
+ *
+ * The three colours used to be collected and then dropped — only `primary` ever
+ * reached the customer app. Showing the result here is how an owner can tell
+ * that picking a colour did something, without opening their own /v/{slug}.
+ */
+function BrandPreview({ form }: { form: OwnerSettings }) {
+  // The real home shows the venue's own first promotion, so the preview does
+  // too — a preview that invents content is worse than no preview.
+  const { data: promos } = useQuery({
+    queryKey: ["owner", "promotions"],
+    queryFn: ownerApi.getOwnerPromotions,
+  });
+  const promo = promos?.[0] ?? null;
+
+  // Likewise the venue's own topmost live banner, edited over in /owner/banner.
+  const { data: banners } = useQuery({
+    queryKey: ["owner", "welcome-banners"],
+    queryFn: ownerApi.getWelcomeBanners,
+  });
+  const banner = banners?.find((b) => b.isActive) ?? null;
+
+  const primary = form.primaryColor || "#16A34A";
+  const secondary = form.secondaryColor || primary;
+  const accent = form.accentColor || "#F59E0B";
+  const initials = (form.logoText || form.orgName || "?").trim().slice(0, 2).toUpperCase();
+
+  return (
+    <div className="space-y-2 border-t border-black/5 pt-4">
+      <Label>ตัวอย่างหน้าลูกค้า</Label>
+      <div className="overflow-hidden rounded-2xl ring-1 ring-black/10">
+        {/* App header */}
+        <div className="flex items-center gap-2.5 bg-white px-3 py-2.5">
+          {form.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={form.logoUrl} alt="" className="size-8 rounded-lg object-cover" />
+          ) : (
+            <span
+              className="grid size-8 place-items-center rounded-lg text-xs font-bold text-white"
+              style={{ background: primary }}
+            >
+              {initials}
             </span>
           )}
-          {mutation.isError && (
-            <span className="text-sm text-brand-danger">บันทึกไม่สำเร็จ ลองอีกครั้ง</span>
-          )}
+          <span className="truncate text-sm font-semibold">{form.orgName || "ชื่อสนาม"}</span>
         </div>
-      </section>
-    </form>
+
+        {/* The promo banner — the surface all three colours land on */}
+        <div className="space-y-2.5 bg-[oklch(0.969_0.007_155)] p-3">
+          {banner?.imageUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={banner.imageUrl} alt="แบนเนอร์" className="block h-auto w-full rounded-xl" />
+          )}
+          {(banner?.title || banner?.message) && (
+            <div className="rounded-xl bg-white p-2.5">
+              {banner.title && <div className="text-xs font-semibold">{banner.title}</div>}
+              {banner.message && (
+                <div className="mt-0.5 line-clamp-2 whitespace-pre-line text-[10px] text-muted-foreground">
+                  {banner.message}
+                </div>
+              )}
+            </div>
+          )}
+          {promo ? (
+            <div
+              className="flex items-center gap-2.5 rounded-xl p-3 text-white"
+              style={{ background: `linear-gradient(to right, ${primary}, ${secondary})` }}
+            >
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-xs font-semibold">{promo.title}</div>
+                {promo.subtitle && (
+                  <div className="truncate text-[10px] text-white/85">{promo.subtitle}</div>
+                )}
+              </div>
+              {promo.tag && (
+                <span
+                  className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold text-black/80"
+                  style={{ background: accent }}
+                >
+                  {promo.tag}
+                </span>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-black/15 p-3 text-center text-[10px] text-muted-foreground">
+              ยังไม่มีโปรโมชั่น — เพิ่มได้ที่เมนู “โปรโมชั่น” แล้วจะแสดงตรงนี้
+            </div>
+          )}
+
+          <button
+            type="button"
+            className="w-full rounded-xl py-2 text-xs font-semibold text-white"
+            style={{ background: primary }}
+          >
+            จองสนาม
+          </button>
+        </div>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        กด “บันทึกการเปลี่ยนแปลง” แล้วลูกค้าจะเห็นทันทีที่เปิดแอปครั้งถัดไป
+      </p>
+    </div>
   );
 }
 

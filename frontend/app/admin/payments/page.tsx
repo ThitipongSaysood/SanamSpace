@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { AdminPayment } from "@/lib/types";
 import { superAdminApi } from "@/lib/api/superadmin";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
-import { Modal } from "../_components/modal";
+import { Modal } from "@/components/ui/modal";
 
 const fmt = new Intl.NumberFormat("th-TH");
 
@@ -54,7 +54,7 @@ export default function AdminPaymentsPage() {
       {data && data.length > 0 && (
         <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-sm">
+            <table className="stack-table w-full md:min-w-[640px] text-sm">
               <thead className="bg-app text-left text-xs font-medium text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3">วันที่</th>
@@ -68,12 +68,12 @@ export default function AdminPaymentsPage() {
               <tbody className="divide-y divide-black/5">
                 {data.map((p) => (
                   <tr key={p.id} onClick={() => setSel(p)} className="cursor-pointer hover:bg-app/60">
-                    <td className="px-4 py-3 text-muted-foreground">{fmtDate(p.createdAt)}</td>
-                    <td className="px-4 py-3 font-medium">{p.organizationName ?? "—"}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{p.customerName ?? "—"}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{METHOD_LABEL[p.method] ?? p.method}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-brand">฿{fmt.format(p.amount)}</td>
-                    <td className="px-4 py-3">
+                    <td data-label="วันที่" className="px-4 py-3 text-muted-foreground">{fmtDate(p.createdAt)}</td>
+                    <td data-label="องค์กร" className="px-4 py-3 font-medium">{p.organizationName ?? "—"}</td>
+                    <td data-label="ลูกค้า" className="px-4 py-3 text-muted-foreground">{p.customerName ?? "—"}</td>
+                    <td data-label="ช่องทาง" className="px-4 py-3 text-muted-foreground">{METHOD_LABEL[p.method] ?? p.method}</td>
+                    <td data-label="ยอด" className="px-4 py-3 text-right font-semibold text-brand">฿{fmt.format(p.amount)}</td>
+                    <td data-label="สถานะ" className="px-4 py-3">
                       <StatusPill status={p.status} />
                     </td>
                   </tr>

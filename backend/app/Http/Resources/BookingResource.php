@@ -31,6 +31,9 @@ class BookingResource extends JsonResource
             'amount' => (float) $this->amount,
             'status' => $this->status,
             'createdAt' => $this->created_at?->toIso8601String(),
+            // What the customer's QR encodes, and when the counter scanned it.
+            'checkinToken' => $this->checkin_token,
+            'checkedInAt' => $this->checked_in_at?->toIso8601String(),
             $this->mergeWhen($this->relationLoaded('customer'), fn () => [
                 'customerName' => $this->customer?->display_name,
             ]),

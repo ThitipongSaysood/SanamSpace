@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Owner;
 
+use App\Http\Controllers\Api\Concerns\PaginatesLists;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\OwnerPaymentResource;
 use App\Models\Payment;
@@ -10,6 +11,8 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class PaymentController extends Controller
 {
+    use PaginatesLists;
+
     /**
      * GET /owner/payments?status=pending_review
      *
@@ -24,10 +27,9 @@ class PaymentController extends Controller
             ->forOrganization($orgId)
             ->with(['booking.court', 'customer'])
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
-            ->orderByDesc('created_at')
-            ->get();
+            ->orderByDesc('created_at');
 
-        return OwnerPaymentResource::collection($payments);
+        return OwnerPaymentResource::collection($this->paginated($payments, $request));
     }
 
     /**

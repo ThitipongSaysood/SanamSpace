@@ -32,6 +32,20 @@ class Organization extends Model
         return $this->hasMany(Branch::class);
     }
 
+    /**
+     * The announcements this venue is currently showing its customers, topmost
+     * first. Switched-off banners are excluded here rather than at every call
+     * site — the owner portal queries WelcomeBanner directly when it needs all
+     * of them.
+     */
+    public function welcomeBanners(): HasMany
+    {
+        return $this->hasMany(WelcomeBanner::class)
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('created_at');
+    }
+
     public function courts(): HasMany
     {
         return $this->hasMany(Court::class);
