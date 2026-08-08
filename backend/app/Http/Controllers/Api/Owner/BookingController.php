@@ -29,7 +29,11 @@ class BookingController extends Controller
 
         $bookings = Booking::query()
             ->forOrganization($orgId)
-            ->with(['branch.organization', 'court', 'customer', 'rentals'])
+            // latestPayment: "pending_payment" covers both a booking nobody has
+            // paid for and one whose slip is sitting in ตรวจสลิป waiting on the
+            // venue. The list read as "รอชำระเงิน" for both, so staff could not
+            // tell the rows they must chase from the rows they must action.
+            ->with(['branch.organization', 'court', 'customer', 'rentals', 'latestPayment'])
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
             ->when($request->filled('date'), fn ($q) => $q->where('date', $request->string('date')))
             // The calendar asks for the window it is showing. Without this the
@@ -50,7 +54,9 @@ class BookingController extends Controller
 
         // rentals: the detail panel shows what the customer was charged for,
         // and a booking's total is no longer just the court.
-        return new BookingResource($booking->load(['branch.organization', 'court', 'customer', 'rentals']));
+        return new BookingResource($booking->load([
+            'branch.organization', 'court', 'customer', 'rentals', 'latestPayment',
+        ]));
     }
 
     /**
@@ -86,7 +92,11 @@ class BookingController extends Controller
             'date' => $data['date'],
             'start' => $data['start'],
             'end' => $data['end'],
+            // Both, and equal: a walk-in has no rentals, but `court_amount`
+            // left at its 0 default made the detail panel read "ค่าคอร์ท ฿0"
+            // under a total of ฿250.
             'amount' => round($hours * (float) $court->price_per_hour, 2),
+            'court_amount' => round($hours * (float) $court->price_per_hour, 2),
             'status' => $data['status'] ?? 'confirmed',
             'channel' => 'walk_in', // created at the counter by staff
         ]);
@@ -127,13 +137,20 @@ class BookingController extends Controller
         $court = Court::query()->forOrganization($orgId)->with('branch')->findOrFail($courtId);
         $this->assertNoOverlap($court->id, $date, $start, $end, $booking->id);
 
+        // `amount` is the grand total, court + rentals. Repricing only the court
+        // part and writing it straight to `amount` dropped the rented rackets
+        // off the bill — the customer was told one number and charged another.
+        $courtAmount = round($this->hoursBetween($start, $end) * (float) $court->price_per_hour, 2);
+        $rentalTotal = (float) ($booking->rental_total ?? 0);
+
         $updates = [
             'court_id' => $court->id,
             'branch_id' => $court->branch_id,
             'date' => $date,
             'start' => $start,
             'end' => $end,
-            'amount' => round($this->hoursBetween($start, $end) * (float) $court->price_per_hour, 2),
+            'court_amount' => $courtAmount,
+            'amount' => round($courtAmount + $rentalTotal, 2),
         ];
         if (array_key_exists('status', $data)) {
             $updates['status'] = $data['status'];
@@ -156,6 +173,7 @@ class BookingController extends Controller
     {
         $booking = $this->findScoped($request, $id);
         $booking->update(['status' => 'cancelled']);
+        $booking->closeOutstandingPayments();
 
         $notifications->bookingCancelled($booking);
 
@@ -184,6 +202,10 @@ class BookingController extends Controller
                 'id' => 'ลบไม่ได้ — รายการนี้มีการชำระเงินที่อนุมัติแล้ว ให้ยกเลิกและคืนเงินแทน',
             ]);
         }
+
+        // Otherwise its slip outlives it in the review queue, attached to a
+        // booking the table can no longer name.
+        $booking->closeOutstandingPayments();
 
         $booking->delete(); // soft delete: recoverable if it was the wrong row
 

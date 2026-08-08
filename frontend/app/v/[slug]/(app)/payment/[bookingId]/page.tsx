@@ -36,6 +36,9 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
   const [slipFile, setSlipFile] = useState<File | null>(null);
   const [method, setMethod] = useState<MethodId>("promptpay");
   const [redeemed, setRedeemed] = useState(false);
+  // What the package could not cover — the rented equipment. Null until a
+  // package is redeemed on a booking that has some.
+  const [owedAfterPackage, setOwedAfterPackage] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
 
   // Load pay instructions (real PromptPay QR + venue bank details) once a payment exists.
@@ -59,7 +62,9 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
   const methods: Method[] = [
     { id: "promptpay", label: "PromptPay QR", Icon: QrCode, iconCls: "bg-brand/10 text-brand" },
     { id: "transfer", label: "โอนเงิน (อัปโหลดสลิป)", Icon: Landmark, iconCls: "bg-blue-50 text-blue-600" },
-    ...(eligiblePackage
+    // Not offered once one has been redeemed: the court is already covered, so
+    // a second package would spend hours on nothing.
+    ...(eligiblePackage && owedAfterPackage === null
       ? [{ id: "package" as const, label: `ใช้แพ็กเกจ (เหลือ ${eligiblePackage.remainingHours} ชม.)`, Icon: PackageIcon, iconCls: "bg-amber-50 text-amber-600" }]
       : []),
   ];
@@ -68,11 +73,20 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
     setBusy(true);
     try {
       if (method === "package" && eligiblePackage) {
-        await api.payWithPackage(bookingId, eligiblePackage.id);
+        const after = await api.payWithPackage(bookingId, eligiblePackage.id);
         await qc.invalidateQueries({ queryKey: ["booking", bookingId] });
         await qc.invalidateQueries({ queryKey: ["bookings"] });
         await qc.invalidateQueries({ queryKey: ["my-packages"] });
-        setRedeemed(true);
+
+        // A package buys court hours, not rented rackets. If any were rented
+        // the booking is not settled yet, and saying "ยืนยันการชำระเงินแล้ว"
+        // here would be a lie the customer only discovers at the counter.
+        if (after.status === "confirmed") {
+          setRedeemed(true);
+        } else {
+          setOwedAfterPackage(after.amount);
+          setMethod("promptpay");
+        }
         return;
       }
       const p = await api.createPayment(bookingId, method as "promptpay" | "transfer");
@@ -144,6 +158,15 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
     <main className="pb-24">
       <AppHeader title="ชำระเงิน" />
       <div className="space-y-4 p-4">
+        {owedAfterPackage !== null && (
+          <div className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-900 ring-1 ring-amber-200">
+            <p className="font-semibold">ใช้แพ็กเกจกับค่าสนามเรียบร้อย</p>
+            <p className="mt-1">
+              เหลือค่าเช่าอุปกรณ์ <strong>฿{owedAfterPackage}</strong> ที่ต้องชำระ — แพ็กเกจใช้ได้เฉพาะค่าสนาม
+            </p>
+          </div>
+        )}
+
         {!payment && (
           <>
             <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">

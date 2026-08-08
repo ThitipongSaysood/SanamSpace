@@ -18,6 +18,7 @@ const fmt = new Intl.NumberFormat("th-TH");
 const STATUS_TABS = [
   { key: "all", label: "ทั้งหมด" },
   { key: "pending_payment", label: "รอชำระเงิน" },
+  { key: "pending_review", label: "รอตรวจสลิป" },
   { key: "confirmed", label: "ยืนยันแล้ว" },
   { key: "completed", label: "เสร็จสิ้น" },
   { key: "cancelled", label: "ยกเลิก" },
@@ -26,10 +27,26 @@ const STATUS_TABS = [
 const STATUS_LABEL: Record<string, string> = {
   pending_payment: "รอชำระเงิน",
   pending_review: "รอตรวจสลิป",
+  rejected_slip: "สลิปไม่ผ่าน",
   confirmed: "ยืนยันแล้ว",
   completed: "เสร็จสิ้น",
   cancelled: "ยกเลิก",
 };
+
+/**
+ * Who is being waited on, which is not what `booking.status` says.
+ *
+ * A booking sits at `pending_payment` from the moment it is made until the
+ * money is approved — so "nobody has paid" and "the slip is in our queue right
+ * now" wore the same รอชำระเงิน label. Staff could not tell the rows to chase
+ * from the rows to action. The payment status is what separates them.
+ */
+function effectiveStatus(b: OwnerBooking): string {
+  if (b.status !== "pending_payment") return b.status;
+  if (b.paymentStatus === "pending_review") return "pending_review";
+  if (b.paymentStatus === "rejected") return "rejected_slip";
+  return "pending_payment";
+}
 
 function statusPill(status: string): string {
   switch (status) {
@@ -37,8 +54,12 @@ function statusPill(status: string): string {
       return "bg-blue-100 text-blue-700";
     case "completed":
       return "bg-emerald-100 text-emerald-700";
-    case "pending_payment":
+    // Ours to act on — deliberately not the same amber as "waiting on them".
     case "pending_review":
+      return "bg-sky-100 text-sky-700";
+    case "rejected_slip":
+      return "bg-orange-100 text-orange-700";
+    case "pending_payment":
       return "bg-amber-100 text-amber-700";
     case "cancelled":
       return "bg-rose-100 text-rose-700";
@@ -100,12 +121,24 @@ export default function OwnerBookingListPage() {
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: searched.length };
-    for (const b of searched) c[b.status] = (c[b.status] ?? 0) + 1;
+    for (const b of searched) {
+      const s = effectiveStatus(b);
+      c[s] = (c[s] ?? 0) + 1;
+      // A rejected slip is still an unpaid booking to chase, so it belongs
+      // under รอชำระเงิน as well as carrying its own label.
+      if (s === "rejected_slip") c.pending_payment = (c.pending_payment ?? 0) + 1;
+    }
     return c;
   }, [searched]);
 
   const rows = useMemo(() => {
-    const filtered = tab === "all" ? searched : searched.filter((b) => b.status === tab);
+    const filtered =
+      tab === "all"
+        ? searched
+        : searched.filter((b) => {
+            const s = effectiveStatus(b);
+            return s === tab || (tab === "pending_payment" && s === "rejected_slip");
+          });
     return [...filtered].sort((a, b) => `${b.date}T${b.start}`.localeCompare(`${a.date}T${a.start}`));
   }, [searched, tab]);
 
@@ -298,11 +331,17 @@ function BookingDetail({
     >
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-2">
-          <span className={`rounded-full px-2.5 py-1 text-sm font-medium ${statusPill(b.status)}`}>
-            {STATUS_LABEL[b.status] ?? b.status}
+          <span className={`rounded-full px-2.5 py-1 text-sm font-medium ${statusPill(effectiveStatus(b))}`}>
+            {STATUS_LABEL[effectiveStatus(b)] ?? b.status}
           </span>
           {isLoading && <span className="text-xs text-muted-foreground">กำลังอัปเดต…</span>}
         </div>
+
+        {effectiveStatus(b) === "pending_review" && (
+          <p className="rounded-xl bg-sky-50 px-3 py-2 text-sm text-sky-800">
+            ลูกค้าส่งสลิปแล้ว — อนุมัติหรือปฏิเสธได้ที่หน้า <strong>ตรวจสลิป</strong>
+          </p>
+        )}
 
         <dl className="divide-y divide-black/5 rounded-xl bg-app">
           <Field label="ลูกค้า" value={b.customerName ?? "Walk-in"} />
@@ -387,8 +426,10 @@ function BookingRow({
       </td>
       <td className="px-4 py-3 text-right font-semibold text-brand">฿{fmt.format(booking.amount)}</td>
       <td className="px-4 py-3">
-        <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${statusPill(booking.status)}`}>
-          {STATUS_LABEL[booking.status] ?? booking.status}
+        <span
+          className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${statusPill(effectiveStatus(booking))}`}
+        >
+          {STATUS_LABEL[effectiveStatus(booking)] ?? booking.status}
         </span>
       </td>
       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
@@ -432,8 +473,10 @@ function BookingCard({ booking, onView }: { booking: OwnerBooking; onView: () =>
     >
       <div className="flex items-start justify-between gap-2">
         <span className="font-semibold">{booking.customerName ?? "ลูกค้า Walk-in"}</span>
-        <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${statusPill(booking.status)}`}>
-          {STATUS_LABEL[booking.status] ?? booking.status}
+        <span
+          className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${statusPill(effectiveStatus(booking))}`}
+        >
+          {STATUS_LABEL[effectiveStatus(booking)] ?? booking.status}
         </span>
       </div>
       <div className="mt-1 text-sm text-muted-foreground">

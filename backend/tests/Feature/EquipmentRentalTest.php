@@ -343,6 +343,103 @@ class EquipmentRentalTest extends TestCase
         $this->assertSame(50.0, (float) $body['rentals'][0]['unitPrice']);
     }
 
+    /**
+     * Moving a booking must not quietly wipe the rented gear off the bill.
+     *
+     * The owner edit repriced the court and wrote that straight to `amount`,
+     * which is the grand total — so a ฿250 court with ฿180 of rentals became a
+     * ฿250 booking, and the customer had already been told ฿430.
+     */
+    public function test_editing_a_booking_keeps_its_rental_charge(): void
+    {
+        $racket = $this->item(['name' => 'ไม้แบด', 'price' => 50, 'price_unit' => 'per_session']);
+
+        [$bookingId, $before] = $this->book(
+            $this->customerToken(),
+            [['itemId' => $racket->id, 'quantity' => 2]],
+            '2026-10-05',
+            '18:00',
+            '19:00',
+        );
+
+        $this->assertSame(100.0, (float) $before['rentalTotal']);
+
+        // Same length, one hour later — the court price does not change.
+        $after = $this->as($this->ownerToken())->putJson("/api/v1/owner/bookings/{$bookingId}", [
+            'start' => '19:00',
+            'end' => '20:00',
+        ])->assertOk()->json('data');
+
+        $this->assertSame((float) $before['courtAmount'], (float) $after['courtAmount']);
+        $this->assertSame(100.0, (float) $after['rentalTotal']);
+        $this->assertSame((float) $before['amount'], (float) $after['amount']);
+    }
+
+    /**
+     * A package buys court time, not equipment.
+     *
+     * Redeeming one used to zero `amount` — the grand total — so a customer
+     * with a package walked out with ฿180 of rented gear for nothing, and the
+     * booking confirmed itself on the way.
+     */
+    public function test_a_package_does_not_pay_for_the_equipment(): void
+    {
+        $racket = $this->item(['name' => 'ไม้แบด', 'price' => 90, 'price_unit' => 'per_session']);
+        $token = $this->customerToken();
+
+        [$bookingId] = $this->book($token, [['itemId' => $racket->id, 'quantity' => 2]], '2026-10-08', '18:00', '19:00');
+
+        $customerId = \App\Models\Customer::where('line_user_id', 'Urental')->value('id');
+        $package = \App\Models\CustomerPackage::create([
+            'organization_id' => $this->org()->id,
+            'customer_id' => $customerId,
+            'name' => 'แพ็ก 10 ชม.',
+            'total_hours' => 10,
+            'remaining_hours' => 10,
+            'status' => 'active',
+        ]);
+
+        $body = $this->as($token)->postJson("/api/v1/bookings/{$bookingId}/pay-with-package", [
+            'customerPackageId' => $package->id,
+        ])->assertOk()->json('data');
+
+        // The court hour is gone from the package; the rackets are still owed.
+        $this->assertSame(9.0, (float) $package->fresh()->remaining_hours);
+        $this->assertSame(180.0, (float) $body['amount']);
+        $this->assertSame('pending_payment', $body['status']);
+
+        // …and the still-pending booking must not swallow a second package.
+        $this->as($token)->postJson("/api/v1/bookings/{$bookingId}/pay-with-package", [
+            'customerPackageId' => $package->id,
+        ])->assertStatus(422);
+
+        $this->assertSame(9.0, (float) $package->fresh()->remaining_hours);
+    }
+
+    /** With no equipment on it, a package still settles the booking outright. */
+    public function test_a_package_still_confirms_a_court_only_booking(): void
+    {
+        $token = $this->customerToken();
+        [$bookingId] = $this->book($token, [], '2026-10-09', '18:00', '19:00');
+
+        $customerId = \App\Models\Customer::where('line_user_id', 'Urental')->value('id');
+        $package = \App\Models\CustomerPackage::create([
+            'organization_id' => $this->org()->id,
+            'customer_id' => $customerId,
+            'name' => 'แพ็ก 10 ชม.',
+            'total_hours' => 10,
+            'remaining_hours' => 10,
+            'status' => 'active',
+        ]);
+
+        $body = $this->as($token)->postJson("/api/v1/bookings/{$bookingId}/pay-with-package", [
+            'customerPackageId' => $package->id,
+        ])->assertOk()->json('data');
+
+        $this->assertSame(0.0, (float) $body['amount']);
+        $this->assertSame('confirmed', $body['status']);
+    }
+
     /** Counter staff may look; changing what the venue owns is not counter work. */
     public function test_managing_equipment_is_gated(): void
     {

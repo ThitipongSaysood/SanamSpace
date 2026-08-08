@@ -77,6 +77,23 @@ class Booking extends Model
         return $this->hasOne(Payment::class)->latestOfMany();
     }
 
+    /**
+     * Close any payment still waiting on someone, because this booking is over.
+     *
+     * Called when a booking is cancelled or deleted. Without it the slip stays
+     * in the venue's ตรวจสลิป queue forever — and approving it there used to
+     * flip the cancelled booking back to confirmed.
+     *
+     * Approved payments are left alone: that is money actually received, and it
+     * leaves through a refund, not by rewriting the payment.
+     */
+    public function closeOutstandingPayments(): void
+    {
+        $this->payments()
+            ->whereIn('status', ['awaiting_slip', 'pending_review'])
+            ->update(['status' => 'cancelled']);
+    }
+
     public function refunds(): HasMany
     {
         return $this->hasMany(Refund::class);

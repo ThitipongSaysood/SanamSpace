@@ -91,13 +91,6 @@ export const mockApi = {
     const p = db.payments.get(paymentId)!;
     p.status = "pending_review"; p.slipUrl = "/slips/mock.jpg"; return { ...p };
   },
-  // demo helper: simulate staff approval
-  async approvePayment(paymentId: string): Promise<Payment> {
-    await delay();
-    const p = db.payments.get(paymentId)!; p.status = "approved";
-    const b = db.bookings.get(p.bookingId); if (b) b.status = "confirmed";
-    return { ...p };
-  },
   async getPayment(paymentId: string): Promise<Payment | undefined> { await delay(); return db.payments.get(paymentId); },
   async getPaymentInstructions(paymentId: string): Promise<PaymentInstructions> {
     await delay();

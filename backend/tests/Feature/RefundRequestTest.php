@@ -62,9 +62,20 @@ class RefundRequestTest extends TestCase
             'slip' => UploadedFile::fake()->image('slip.png', 600, 800),
         ])->assertOk();
 
-        $this->withToken($token)->postJson("/api/v1/payments/{$paymentId}/verify")
+        // Approval is a staff action, in the owner portal. The customer route
+        // that used to do this let anyone confirm their own booking for free.
+        $this->app['auth']->forgetGuards();
+        $owner = $this->postJson('/api/v1/auth/admin/login', [
+            'email' => 'owner@everyday.test',
+            'password' => 'password',
+        ])->json('token');
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($owner)->postJson("/api/v1/owner/payments/{$paymentId}/verify")
             ->assertOk()
             ->assertJsonPath('data.status', 'approved');
+
+        $this->app['auth']->forgetGuards();
 
         return $bookingId;
     }

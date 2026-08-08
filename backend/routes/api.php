@@ -136,8 +136,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/payments/{id}', [PaymentController::class, 'show']);
     Route::get('/payments/{id}/instructions', [PaymentController::class, 'instructions']);
     Route::post('/payments/{id}/upload-slip', [PaymentController::class, 'uploadSlip']);
-    Route::post('/payments/{id}/verify', [PaymentController::class, 'verify']);
-    Route::post('/payments/{id}/reject', [PaymentController::class, 'reject']);
+    // No customer-side verify/reject. Approving your own slip is not a payment,
+    // and these once sat here unscoped: any signed-in customer could confirm
+    // their booking without transferring a baht, or reject a stranger's slip by
+    // id. Staff approve at owner/payments, behind permission:payment.verify.
 
     // --- Owner Portal (staff/admin, org-scoped via owner.org middleware) ---
     // owner.subscribed locks the portal once the venue's plan lapses; the

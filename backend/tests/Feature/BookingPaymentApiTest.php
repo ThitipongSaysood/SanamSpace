@@ -83,11 +83,22 @@ class BookingPaymentApiTest extends TestCase
 
         $this->assertStringStartsWith('http', $upload->json('data.slipUrl'));
 
-        // 4. Verify -> approved + booking confirmed.
-        $this->withToken($token)->postJson("/api/v1/payments/{$paymentId}/verify")
+        // 4. Verify -> approved + booking confirmed. This step belongs to the
+        //    venue, not the customer: it is the moment the money is accepted.
+        //    This test used to call it with the customer's own token, which is
+        //    exactly the hole that made free bookings possible.
+        $this->app['auth']->forgetGuards();
+        $owner = $this->postJson('/api/v1/auth/admin/login', [
+            'email' => 'owner@everyday.test',
+            'password' => 'password',
+        ])->json('token');
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($owner)->postJson("/api/v1/owner/payments/{$paymentId}/verify")
             ->assertOk()
             ->assertJsonPath('data.status', 'approved');
 
+        $this->app['auth']->forgetGuards();
         $this->withToken($token)->getJson("/api/v1/bookings/{$bookingId}")
             ->assertOk()
             ->assertJsonPath('data.status', 'confirmed');

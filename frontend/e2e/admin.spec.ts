@@ -12,5 +12,7 @@ test("super admin can log in and reach the platform dashboard", async ({ page })
   // Lands on the platform shell with a dashboard stat visible.
   await expect(page).toHaveURL(/\/admin$/);
   await expect(page.getByText("องค์กรทั้งหมด")).toBeVisible();
-  await expect(page.getByText("MRR")).toBeVisible();
+  // exact: a later chart heading also contains "MRR", and the loose match
+  // turned this assertion into a strict-mode violation rather than a check.
+  await expect(page.getByText("MRR", { exact: true })).toBeVisible();
 });

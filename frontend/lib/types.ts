@@ -187,7 +187,9 @@ export type OwnerRefund = Refund & { customerName?: string | null };
 export type AdminRefund = Refund & { organizationName?: string | null; customerName?: string | null };
 
 export type PaymentMethod = "promptpay" | "transfer" | "wallet" | "card";
-export type PaymentStatus = "awaiting_slip" | "pending_review" | "approved" | "rejected";
+// `cancelled` closes a payment whose booking went away — it keeps dead slips
+// out of the venue's review queue without pretending they were rejected.
+export type PaymentStatus = "awaiting_slip" | "pending_review" | "approved" | "rejected" | "cancelled";
 
 export type Payment = {
   id: string;

@@ -174,6 +174,9 @@ class BookingController extends Controller
     {
         $booking = $this->findOwned($request, $id);
         $booking->update(['status' => 'cancelled']);
+        // A slip sent minutes before cancelling must not stay in the venue's
+        // review queue, where approving it would revive the booking.
+        $booking->closeOutstandingPayments();
 
         return new BookingResource($booking->fresh(['branch.organization', 'court']));
     }
@@ -196,6 +199,15 @@ class BookingController extends Controller
             throw ValidationException::withMessages(['booking' => 'รายการจองนี้ชำระเงินแล้ว']);
         }
 
+        // A booking whose court is already on a package stays pending while the
+        // equipment is unpaid — without this, a second package could be spent
+        // on the same court hour, buying nothing.
+        if ($booking->customer_package_id) {
+            throw ValidationException::withMessages([
+                'booking' => 'ค่าสนามของรายการนี้ใช้แพ็กเกจไปแล้ว — ส่วนที่เหลือเป็นค่าเช่าอุปกรณ์',
+            ]);
+        }
+
         $package = \App\Models\CustomerPackage::query()
             ->where('id', $data['customerPackageId'])
             ->where('customer_id', $request->user()->id)
@@ -212,7 +224,18 @@ class BookingController extends Controller
         }
 
         $package->decrement('remaining_hours', $hours);
-        $booking->update(['amount' => 0, 'status' => 'confirmed']);
+
+        // A package buys court hours. It does not buy the rackets — so what is
+        // left to pay is the rental total, and the booking is only settled when
+        // that is nothing. Zeroing `amount` outright handed the gear over free.
+        $stillOwed = round((float) ($booking->rental_total ?? 0), 2);
+
+        $booking->update([
+            'amount' => $stillOwed,
+            'status' => $stillOwed > 0 ? 'pending_payment' : 'confirmed',
+            'customer_package_id' => $package->id,
+            'package_redeemed_at' => now(),
+        ]);
 
         return new BookingResource($booking->fresh(['branch.organization', 'court']));
     }

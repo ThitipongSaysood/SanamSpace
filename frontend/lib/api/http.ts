@@ -94,7 +94,9 @@ export const httpApi: Api = {
     if (file) fd.append("slip", file);
     return req<Payment>(`/payments/${paymentId}/upload-slip`, { method: "POST", body: fd });
   },
-  approvePayment: (paymentId) => req<Payment>(`/payments/${paymentId}/verify`, { method: "POST" }),
+  // No approvePayment here. Approving a slip is a staff decision made in the
+  // owner portal (ownerApi.verifyPayment) — the customer client having a method
+  // for it is how the unscoped /payments/{id}/verify route stayed alive.
   getPayment: (id) => getOrUndefined<Payment>(`/payments/${id}`),
   getPaymentInstructions: (id) => req<PaymentInstructions>(`/payments/${id}/instructions`),
 
