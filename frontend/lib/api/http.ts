@@ -3,7 +3,7 @@ import type {
   OrgPublic, PackagePurchaseInstructions, Promotion, Refund, ReviewSummary, User, Venue, VenuePackage, Wallet, WalletTopupInstructions,
   CouponPreview,
 } from "@/lib/types";
-import { getToken, setToken } from "./token";
+import { clearToken, getToken, setToken } from "./token";
 import { getActiveVenueSlug } from "@/lib/tenant/active-venue";
 import type { Api, LinePayload } from "./mock";
 
@@ -52,6 +52,19 @@ async function req<T>(path: string, opts: ReqOpts = {}): Promise<T> {
   }
 
   const res = await fetch(`${BASE}${path}`, { method, headers, body: payload });
+
+  // A dead session ends at the venue's login screen, not on a "ลองอีกครั้ง"
+  // button that can never work. Scoped to the venue in the URL, because a
+  // customer belongs to one venue and the platform root is not one.
+  if (res.status === 401 && !path.includes("/auth/")) {
+    clearToken();
+    if (typeof window !== "undefined") {
+      const slug = getActiveVenueSlug();
+      const home = slug ? `/v/${slug}` : "/";
+      if (window.location.pathname !== home) window.location.replace(home);
+    }
+  }
+
   if (res.status === 204) return undefined as T;
   const json = await res.json().catch(() => null);
   if (!res.ok) {

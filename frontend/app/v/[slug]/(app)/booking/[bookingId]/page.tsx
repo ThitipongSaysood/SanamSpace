@@ -19,6 +19,101 @@ const REFUND_META: Record<RefundStatus, { label: string; cls: string }> = {
   rejected: { label: "ถูกปฏิเสธ", cls: "bg-red-100 text-red-600" },
 };
 
+const baht = (n: number) => `฿${n.toLocaleString("th-TH")}`;
+
+/**
+ * The whole money story of one booking.
+ *
+ * Everything that moved the price has to be visible here, not only at the
+ * moment of booking: what the court cost, what was rented, what a code took
+ * off, what credit was spent, what has been paid and what is left. A bare total
+ * cannot be checked against anything, and every one of these lines is a
+ * question someone eventually asks at the counter.
+ */
+function MoneyBreakdown({ booking }: { booking: Booking }) {
+  const rentals = booking.rentals ?? [];
+  const court = booking.courtAmount ?? booking.amount;
+  const discount = booking.discountAmount ?? 0;
+  const credit = booking.credit;
+  const paid = booking.paidAmount ?? 0;
+  const outstanding = booking.outstandingAmount ?? 0;
+
+  // Only worth breaking out when something other than the court is in play.
+  const itemised = rentals.length > 0 || discount > 0 || !!credit;
+
+  return (
+    <div className="mt-3 space-y-1 border-t border-black/5 pt-3 text-sm">
+      {itemised && (
+        <>
+          <div className="flex items-baseline justify-between">
+            <span className="text-muted-foreground">ค่าสนาม</span>
+            <span className="tabular-nums">{baht(court)}</span>
+          </div>
+
+          {rentals.map((r) => (
+            <div key={r.id} className="flex items-baseline justify-between">
+              <span className="min-w-0 truncate text-muted-foreground">
+                {r.name} × {r.quantity}
+              </span>
+              <span className="tabular-nums">{baht(r.lineTotal)}</span>
+            </div>
+          ))}
+
+          {discount > 0 && (
+            <div className="flex items-baseline justify-between text-emerald-700">
+              <span className="min-w-0 truncate">{booking.discountLabel ?? "ส่วนลด"}</span>
+              <span className="tabular-nums">−{baht(discount)}</span>
+            </div>
+          )}
+
+          {/* Credit is hours, not baht — that is what the venue sells and what
+              the customer's balance is counted in. Without this line a booking
+              paid with a package simply looked free. */}
+          {credit && (
+            <div className="flex items-baseline justify-between text-brand">
+              <span className="min-w-0 truncate">
+                ใช้เครดิต{credit.packageName ? ` · ${credit.packageName}` : ""}
+              </span>
+              {/* An unknown figure says nothing rather than "−0 ชม.", which
+                  reads as a bug on a receipt. */}
+              <span className="shrink-0 tabular-nums">
+                {credit.hoursUsed > 0 ? `−${credit.hoursUsed} ชม.` : "จ่ายด้วยเครดิต"}
+              </span>
+            </div>
+          )}
+        </>
+      )}
+
+      <div className="flex items-baseline justify-between pt-1">
+        <span className="text-muted-foreground">ยอดรวม</span>
+        <span className="text-2xl font-bold text-brand tabular-nums">{baht(booking.amount)}</span>
+      </div>
+
+      {/* Shown only when part of it is settled: on an untouched booking
+          "จ่ายแล้ว ฿0" is noise, not information. */}
+      {paid > 0 && (
+        <div className="flex items-baseline justify-between border-t border-black/5 pt-1">
+          <span className="text-muted-foreground">จ่ายแล้ว</span>
+          <span className="tabular-nums">{baht(paid)}</span>
+        </div>
+      )}
+      {paid > 0 && outstanding > 0 && (
+        <div className="flex items-baseline justify-between font-medium text-amber-700">
+          <span>ค้างชำระ</span>
+          <span className="tabular-nums">{baht(outstanding)}</span>
+        </div>
+      )}
+
+      {credit && booking.amount === 0 && (
+        <p className="pt-1 text-xs text-muted-foreground">
+          จ่ายด้วยเครดิตทั้งหมด ไม่มียอดต้องโอน
+          {credit.remainingHours != null && ` · เครดิตคงเหลือ ${credit.remainingHours} ชม.`}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /** The one next action a customer actually has, given where their money is. */
 function PaymentNextStep({ booking }: { booking: Booking }) {
   const cta = "flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand text-base font-semibold text-white";
@@ -166,30 +261,7 @@ export default function BookingDetailPage({ params }: { params: Promise<{ bookin
                 <Clock className="size-4 shrink-0" /> {booking.start}–{booking.end}
               </div>
             </div>
-            {/* Itemised whenever there is more than the court, so the total is
-                explained here too and not only at the moment of booking. */}
-            <div className="mt-3 space-y-1 border-t border-black/5 pt-3 text-sm">
-              {(booking.rentals?.length ?? 0) > 0 && (
-                <>
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-muted-foreground">ค่าสนาม</span>
-                    <span className="tabular-nums">฿{booking.courtAmount ?? booking.amount}</span>
-                  </div>
-                  {booking.rentals!.map((r) => (
-                    <div key={r.id} className="flex items-baseline justify-between">
-                      <span className="min-w-0 truncate text-muted-foreground">
-                        {r.name} × {r.quantity}
-                      </span>
-                      <span className="tabular-nums">฿{r.lineTotal}</span>
-                    </div>
-                  ))}
-                </>
-              )}
-              <div className="flex items-baseline justify-between pt-1">
-                <span className="text-muted-foreground">ยอดรวม</span>
-                <span className="text-2xl font-bold text-brand tabular-nums">฿{booking.amount}</span>
-              </div>
-            </div>
+            <MoneyBreakdown booking={booking} />
           </div>
         </div>
 

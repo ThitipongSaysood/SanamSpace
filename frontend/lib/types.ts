@@ -143,6 +143,16 @@ export type Booking = {
   /** Why it cost less than the court price. Snapshotted at booking time. */
   discountAmount?: number;
   discountLabel?: string | null;
+  /**
+   * Credit spent on this booking, in hours — that is the unit the venue sells
+   * packages in. Absent when no package paid for it.
+   */
+  credit?: {
+    packageName: string | null;
+    hoursUsed: number;
+    redeemedAt: string | null;
+    remainingHours: number | null;
+  } | null;
 };
 
 /** What a code would do, asked before committing to the booking. */

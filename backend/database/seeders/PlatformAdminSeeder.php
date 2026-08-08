@@ -96,6 +96,21 @@ class PlatformAdminSeeder extends Seeder
             'currency' => 'THB',
             'date_format' => 'DD/MM/YYYY',
             'language' => 'th',
+            // The seller on every invoice and receipt. Left null, the billing
+            // documents render with no one issuing them — which is not a valid
+            // ใบกำกับภาษี, and not something a fresh install should have to
+            // discover from a customer.
+            'company_name' => 'บริษัท สนามสเปซ จำกัด',
+            'tax_id' => '0105564000123',
+            'company_address' => '99/1 อาคารสนามทาวเวอร์ ชั้น 12 ถนนพระราม 9 แขวงห้วยขวาง เขตห้วยขวาง กรุงเทพฯ 10310',
+            // Where venues actually send their subscription money. Without
+            // these the renewal screen offers a QR it cannot draw and bank
+            // details it does not have.
+            'promptpay_id' => '0812345678',
+            'promptpay_name' => 'บริษัท สนามสเปซ จำกัด',
+            'bank_name' => 'กสิกรไทย',
+            'bank_account_name' => 'บริษัท สนามสเปซ จำกัด',
+            'bank_account_number' => '123-4-56789-0',
         ]);
     }
 }

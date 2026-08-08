@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
-import { clearOutstanding } from "./billing-helpers";
+import { clearOutstanding, enableVat } from "./billing-helpers";
 
 const PNG_1x1 = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/x8AAAAASUVORK5CYII=",
@@ -31,6 +31,7 @@ async function loginAdmin(page: import("@playwright/test").Page) {
  */
 test("owner renews and the admin approves the slip", async ({ page, request }) => {
   test.skip(!process.env.E2E_OWNER, "requires backend (E2E_OWNER=1)");
+  await enableVat(request);
   await clearOutstanding(request);
 
   await loginOwner(page);

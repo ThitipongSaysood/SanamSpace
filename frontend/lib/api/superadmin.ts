@@ -99,6 +99,17 @@ async function req<T>(path: string, opts: ReqOpts = {}): Promise<T> {
   }
 
   const res = await fetch(`${BASE}${path}`, { method, headers, body: payload });
+
+  // Same reason as the owner client: a token that exists but no longer works
+  // passes the layout's guard and then fails everything, leaving every screen
+  // telling the user to retry something that cannot succeed.
+  if (res.status === 401 && !path.includes("/auth/")) {
+    clearAdminToken();
+    if (typeof window !== "undefined" && !window.location.pathname.endsWith("/login")) {
+      window.location.replace("/admin/login");
+    }
+  }
+
   if (res.status === 204) return undefined as T;
   const json = await res.json().catch(() => null);
   if (!res.ok) {

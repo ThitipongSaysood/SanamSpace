@@ -22,14 +22,27 @@ class WalletController extends Controller
     /**
      * GET /wallet -> Wallet (current authenticated customer, with txns).
      */
-    public function show(Request $request): WalletResource
+    public function show(Request $request): JsonResponse
     {
+        // Created on read rather than 404'd. A customer who has never topped up
+        // has no wallet row, and answering "you have no wallet" with an error
+        // made the whole screen read as broken — their balance is ฿0, which is
+        // a fact, not a failure.
         $wallet = Wallet::query()
-            ->with(['transactions' => fn ($q) => $q->orderBy('sort_order')])
             ->where('customer_id', $request->user()->id)
-            ->firstOrFail();
+            ->first()
+            ?? Wallet::create([
+                'organization_id' => $request->user()->organization_id,
+                'customer_id' => $request->user()->id,
+                'balance' => 0,
+            ]);
 
-        return new WalletResource($wallet);
+        $wallet->load(['transactions' => fn ($q) => $q->orderBy('sort_order')]);
+
+        // Status set explicitly: Laravel answers 201 when the resource's model
+        // was created during this request, and a GET that sometimes returns
+        // "Created" is a surprise for every client that reads the status.
+        return (new WalletResource($wallet))->response()->setStatusCode(200);
     }
 
     /**
@@ -43,7 +56,14 @@ class WalletController extends Controller
             'amount' => ['required', 'numeric', 'gt:0', 'max:100000'],
         ]);
 
-        $wallet = Wallet::query()->where('customer_id', $request->user()->id)->firstOrFail();
+        // Same as show(): topping up is often the very first thing a customer
+        // does, and that must not require a wallet to already exist.
+        $wallet = Wallet::query()->where('customer_id', $request->user()->id)->first()
+            ?? Wallet::create([
+                'organization_id' => $request->user()->organization_id,
+                'customer_id' => $request->user()->id,
+                'balance' => 0,
+            ]);
 
         $nextSort = (int) WalletTransaction::query()->where('wallet_id', $wallet->id)->max('sort_order') + 1;
 
@@ -82,7 +102,14 @@ class WalletController extends Controller
             'slip' => ['required', 'image', 'mimes:jpeg,jpg,png', 'max:5120'],
         ]);
 
-        $wallet = Wallet::query()->where('customer_id', $request->user()->id)->firstOrFail();
+        // Same as show(): topping up is often the very first thing a customer
+        // does, and that must not require a wallet to already exist.
+        $wallet = Wallet::query()->where('customer_id', $request->user()->id)->first()
+            ?? Wallet::create([
+                'organization_id' => $request->user()->organization_id,
+                'customer_id' => $request->user()->id,
+                'balance' => 0,
+            ]);
 
         $txn = WalletTransaction::query()
             ->where('id', $id)

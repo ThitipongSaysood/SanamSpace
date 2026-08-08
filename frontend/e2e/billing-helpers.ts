@@ -22,6 +22,22 @@ export async function ownerBilling(request: APIRequestContext) {
 }
 
 /**
+ * Tax documents only exist when the platform is VAT-registered.
+ *
+ * `vat_enabled` ships OFF — whether a business charges VAT is its own decision,
+ * not a sensible default — so a spec that asserts a ใบกำกับภาษี has to say so.
+ * Without this the receipt renders with no tax block and the assertions fail
+ * for a reason that has nothing to do with the code under test.
+ */
+export async function enableVat(request: APIRequestContext): Promise<void> {
+  const admin = await adminToken(request);
+  await request.put(`${BASE}/admin/settings`, {
+    headers: { Authorization: `Bearer ${admin}`, Accept: "application/json" },
+    data: { vatEnabled: true, vatRate: 7 },
+  });
+}
+
+/**
  * Start a spec from "nothing owed", whatever a previous one left behind.
  *
  * These run against a real database and only one invoice may be outstanding at

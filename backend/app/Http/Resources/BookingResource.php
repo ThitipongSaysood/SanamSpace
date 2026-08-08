@@ -54,6 +54,17 @@ class BookingResource extends JsonResource
             'depositAmount' => (float) ($this->deposit_amount ?? 0),
             'paidAmount' => (float) ($this->paid_amount ?? 0),
             'outstandingAmount' => max(0, round((float) $this->amount - (float) ($this->paid_amount ?? 0), 2)),
+            // Credit spent on this booking. Hours, not baht: that is what the
+            // venue sells and what the customer's balance is counted in, and a
+            // booking paid this way otherwise looked like it was simply free.
+            'credit' => $this->when((bool) $this->customer_package_id, fn () => [
+                'packageName' => $this->customerPackage?->name,
+                'hoursUsed' => (float) ($this->package_hours_used ?? 0),
+                'redeemedAt' => $this->package_redeemed_at?->toIso8601String(),
+                'remainingHours' => $this->customerPackage
+                    ? (float) $this->customerPackage->remaining_hours
+                    : null,
+            ]),
             'status' => $this->status,
             'createdAt' => $this->created_at?->toIso8601String(),
             // Booking status alone cannot tell "not paid yet" from "slip sent,

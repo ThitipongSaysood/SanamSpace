@@ -184,6 +184,22 @@ async function req<T>(path: string, opts: ReqOpts = {}): Promise<T> {
   }
 
   const res = await fetch(`${BASE}${path}`, { method, headers, body: payload });
+
+  // A dead session has to end at the login screen.
+  //
+  // The layout only checks that a token EXISTS, so a token that is present but
+  // no longer valid — expired, revoked, or left over from a database reset —
+  // sails past the guard and then fails every single request. Every screen then
+  // showed "เกิดข้อผิดพลาด ลองอีกครั้ง", which is advice that can never work:
+  // retrying a request nobody is authenticated for fails identically forever.
+  if (res.status === 401 && !path.includes("/auth/")) {
+    clearOwnerToken();
+    clearStoredUser();
+    if (typeof window !== "undefined" && !window.location.pathname.endsWith("/login")) {
+      window.location.replace("/owner/login");
+    }
+  }
+
   if (res.status === 204) return undefined as T;
   const json = await res.json().catch(() => null);
   if (!res.ok) {

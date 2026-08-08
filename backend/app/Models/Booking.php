@@ -26,6 +26,11 @@ class Booking extends Model
             'court_amount' => 'float',
             'rental_total' => 'float',
             'checked_in_at' => 'datetime',
+            'package_redeemed_at' => 'datetime',
+            'package_hours_used' => 'float',
+            'discount_amount' => 'float',
+            'deposit_amount' => 'float',
+            'paid_amount' => 'float',
         ];
     }
 
@@ -92,6 +97,12 @@ class Booking extends Model
         $this->payments()
             ->whereIn('status', ['awaiting_slip', 'pending_review'])
             ->update(['status' => 'cancelled']);
+    }
+
+    /** The credit package that paid for this booking's court time, if any. */
+    public function customerPackage(): BelongsTo
+    {
+        return $this->belongsTo(CustomerPackage::class, 'customer_package_id');
     }
 
     public function refunds(): HasMany

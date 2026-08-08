@@ -29,7 +29,7 @@ class BookingController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $bookings = Booking::query()
-            ->with(['branch.organization', 'court', 'rentals', 'latestPayment'])
+            ->with(['branch.organization', 'court', 'rentals', 'latestPayment', 'customerPackage'])
             ->where('customer_id', $request->user()->id)
             ->orderByDesc('created_at')
             ->get();
@@ -187,7 +187,7 @@ class BookingController extends Controller
             });
         });
 
-        $booking->load(['branch.organization', 'court', 'rentals', 'latestPayment']);
+        $booking->load(['branch.organization', 'court', 'rentals', 'latestPayment', 'customerPackage']);
 
         return (new BookingResource($booking))
             ->response()
@@ -272,6 +272,9 @@ class BookingController extends Controller
             'status' => $stillOwed > 0 ? 'pending_payment' : 'confirmed',
             'customer_package_id' => $package->id,
             'package_redeemed_at' => now(),
+            // What it actually cost them in credit, snapshotted — rescheduling
+            // the booking later must not rewrite the receipt.
+            'package_hours_used' => $hours,
         ]);
 
         return new BookingResource($booking->fresh(['branch.organization', 'court']));
@@ -283,7 +286,7 @@ class BookingController extends Controller
     private function findOwned(Request $request, string $id): Booking
     {
         return Booking::query()
-            ->with(['branch.organization', 'court', 'rentals', 'latestPayment'])
+            ->with(['branch.organization', 'court', 'rentals', 'latestPayment', 'customerPackage'])
             ->where('id', $id)
             ->where('customer_id', $request->user()->id)
             ->firstOrFail();

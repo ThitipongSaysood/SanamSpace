@@ -37,7 +37,7 @@ class BookingController extends Controller
             // paid for and one whose slip is sitting in ตรวจสลิป waiting on the
             // venue. The list read as "รอชำระเงิน" for both, so staff could not
             // tell the rows they must chase from the rows they must action.
-            ->with(['branch.organization', 'court', 'customer', 'rentals', 'latestPayment'])
+            ->with(['branch.organization', 'court', 'customer', 'rentals', 'latestPayment', 'customerPackage'])
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
             ->when($request->filled('date'), fn ($q) => $q->where('date', $request->string('date')))
             // The calendar asks for the window it is showing. Without this the
@@ -59,7 +59,7 @@ class BookingController extends Controller
         // rentals: the detail panel shows what the customer was charged for,
         // and a booking's total is no longer just the court.
         return new BookingResource($booking->load([
-            'branch.organization', 'court', 'customer', 'rentals', 'latestPayment',
+            'branch.organization', 'court', 'customer', 'rentals', 'latestPayment', 'customerPackage',
         ]));
     }
 
@@ -251,7 +251,7 @@ class BookingController extends Controller
         $deposits->applyPayment($booking, $amount);
 
         return new BookingResource($booking->fresh()->load([
-            'branch.organization', 'court', 'customer', 'rentals', 'latestPayment',
+            'branch.organization', 'court', 'customer', 'rentals', 'latestPayment', 'customerPackage',
         ]));
     }
 

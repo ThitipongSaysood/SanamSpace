@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { adminToken, clearOutstanding, ownerBilling, ownerToken } from "./billing-helpers";
+import { adminToken, clearOutstanding, enableVat, ownerBilling, ownerToken } from "./billing-helpers";
 
 const PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/x8AAAAASUVORK5CYII=",
@@ -17,6 +17,7 @@ async function loginOwner(page: import("@playwright/test").Page) {
 
 /** Renew, pay and approve, leaving a settled invoice behind. */
 async function settleOne(request: import("@playwright/test").APIRequestContext) {
+  await enableVat(request);
   await clearOutstanding(request);
   const owner = await ownerToken(request);
   await request.post(`${BASE}/owner/billing/renew`, {
@@ -62,6 +63,7 @@ test("the venue can open the receipt for a paid invoice", async ({ page, request
 
 test("an unpaid invoice reads as ใบแจ้งหนี้, not a receipt", async ({ page, request }) => {
   test.skip(!process.env.E2E_OWNER, "requires backend (E2E_OWNER=1)");
+  await enableVat(request);
   await clearOutstanding(request);
   const owner = await ownerToken(request);
   await request.post(`${BASE}/owner/billing/renew`, {

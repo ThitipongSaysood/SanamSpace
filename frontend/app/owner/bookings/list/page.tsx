@@ -367,6 +367,26 @@ function BookingDetail({
             <RentalLine key={r.id} bookingId={b.id} rental={r} />
           ))}
 
+          {/* Everything that moved the price, so a total the customer disputes
+              can be explained without opening the database. */}
+          {(b.discountAmount ?? 0) > 0 && (
+            <div className="flex justify-between text-emerald-700">
+              <span className="min-w-0 truncate">{b.discountLabel ?? "ส่วนลด"}</span>
+              <span className="tabular-nums">−฿{fmt.format(b.discountAmount!)}</span>
+            </div>
+          )}
+
+          {b.credit && (
+            <div className="flex justify-between text-brand">
+              <span className="min-w-0 truncate">
+                ใช้เครดิต{b.credit.packageName ? ` · ${b.credit.packageName}` : ""}
+              </span>
+              <span className="shrink-0 tabular-nums">
+                {b.credit.hoursUsed > 0 ? `−${b.credit.hoursUsed} ชม.` : "จ่ายด้วยเครดิต"}
+              </span>
+            </div>
+          )}
+
           <div className="flex items-baseline justify-between border-t border-black/5 pt-1.5">
             <span className="font-medium">ยอดรวม</span>
             <span className="text-xl font-bold text-brand tabular-nums">฿{fmt.format(b.amount)}</span>
