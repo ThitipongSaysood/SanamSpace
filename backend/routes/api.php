@@ -43,7 +43,9 @@ use App\Http\Controllers\Api\Owner\PackagePurchaseController as OwnerPackagePurc
 use App\Http\Controllers\Api\Owner\SegmentController as OwnerSegmentController;
 use App\Http\Controllers\Api\Owner\TimelineController as OwnerTimelineController;
 use App\Http\Controllers\Api\Owner\PaymentController as OwnerPaymentController;
+use App\Http\Controllers\Api\Owner\ProductController as OwnerProductController;
 use App\Http\Controllers\Api\Owner\PromotionController as OwnerPromotionController;
+use App\Http\Controllers\Api\Owner\SaleController as OwnerSaleController;
 use App\Http\Controllers\Api\Owner\WelcomeBannerController as OwnerWelcomeBannerController;
 use App\Http\Controllers\Api\Owner\SettingController as OwnerSettingController;
 use App\Http\Controllers\Api\Owner\StaffController as OwnerStaffController;
@@ -169,6 +171,21 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/refunds', [OwnerRefundController::class, 'index']);
         Route::post('/refunds/{id}/approve', [OwnerRefundController::class, 'approve'])->middleware('permission:refund.manage');
         Route::post('/refunds/{id}/reject', [OwnerRefundController::class, 'reject'])->middleware('permission:refund.manage');
+
+        // --- POS: the counter's till and the things it sells ---
+        Route::get('/products', [OwnerProductController::class, 'index'])->middleware('permission:pos.sell');
+        Route::post('/products', [OwnerProductController::class, 'store'])->middleware('permission:product.manage');
+        Route::put('/products/{id}', [OwnerProductController::class, 'update'])->middleware('permission:product.manage');
+        Route::post('/products/{id}/stock', [OwnerProductController::class, 'adjustStock'])->middleware('permission:product.manage');
+        Route::delete('/products/{id}', [OwnerProductController::class, 'destroy'])->middleware('permission:product.manage');
+
+        // `summary` before `{id}` so the word is not read as an id.
+        Route::get('/sales/summary', [OwnerSaleController::class, 'summary'])->middleware('permission:pos.sell');
+        Route::get('/sales', [OwnerSaleController::class, 'index'])->middleware('permission:pos.sell');
+        Route::post('/sales', [OwnerSaleController::class, 'store'])->middleware('permission:pos.sell');
+        Route::get('/sales/{id}', [OwnerSaleController::class, 'show'])->middleware('permission:pos.sell');
+        Route::get('/sales/{id}/promptpay', [OwnerSaleController::class, 'promptpay'])->middleware('permission:pos.sell');
+        Route::post('/sales/{id}/void', [OwnerSaleController::class, 'void'])->middleware('permission:pos.void');
 
         // --- Image upload (venue cover / gallery / floor-plan) ---
         Route::post('/uploads', [OwnerUploadController::class, 'store']);

@@ -927,3 +927,63 @@ export type CheckinResult = {
   message: string;
   booking: CheckinBooking | null;
 };
+
+// --- POS (the counter's till) ---
+export type OwnerProduct = {
+  id: string;
+  name: string;
+  category: string | null;
+  price: number;
+  stockQty: number;
+  lowStockThreshold: number;
+  imageUrl: string | null;
+  isActive: boolean;
+  sortOrder: number;
+  /** Computed server-side so the till and the stock screen agree on "ใกล้หมด". */
+  stockState: "ok" | "low" | "out";
+};
+
+export type ProductInput = {
+  name?: string;
+  category?: string | null;
+  price?: number;
+  stockQty?: number;
+  lowStockThreshold?: number;
+  imageUrl?: string | null;
+  isActive?: boolean;
+};
+
+export type OwnerSaleItem = {
+  id: string;
+  productId: string | null;
+  /** The name as charged, not a join — a later rename must not rewrite it. */
+  name: string;
+  unitPrice: number;
+  quantity: number;
+  lineTotal: number;
+};
+
+export type OwnerSale = {
+  id: string;
+  code: string;
+  total: number;
+  paymentMethod: "cash" | "transfer";
+  status: "completed" | "voided";
+  soldAt: string | null;
+  voidedAt: string | null;
+  voidReason: string | null;
+  sellerName?: string | null;
+  items: OwnerSaleItem[];
+};
+
+export type OwnerSalesSummary = {
+  date: string;
+  total: number;
+  saleCount: number;
+  cashTotal: number;
+  transferTotal: number;
+  voidedCount: number;
+};
+
+/** A PromptPay QR for one sale's total. */
+export type SalePromptPay = { amount: number; payload: string; payTo: string | null };

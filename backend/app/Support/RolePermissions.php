@@ -28,6 +28,9 @@ final class RolePermissions
         'refund.manage' => ['Approve refunds', 'payment'],
         'wallet.manage' => ['Adjust customer wallets', 'payment'],
         'court.manage' => ['Manage courts and branches', 'court'],
+        'pos.sell' => ['Sell at the counter', 'pos'],
+        'pos.void' => ['Void a sale', 'pos'],
+        'product.manage' => ['Manage products and stock', 'pos'],
         'customer.view' => ['View customers', 'customer'],
         'crm.view' => ['View CRM, segments and broadcasts', 'customer'],
         'crm.manage' => ['Adjust membership points', 'customer'],
@@ -51,13 +54,15 @@ final class RolePermissions
     public const DEFAULTS = [
         'manager' => [
             'booking.view', 'booking.create', 'booking.cancel', 'booking.checkin', 'payment.verify', 'refund.manage',
-            'wallet.manage', 'court.manage', 'customer.view', 'crm.view', 'crm.manage',
+            'wallet.manage', 'court.manage', 'pos.sell', 'pos.void', 'product.manage',
+            'customer.view', 'crm.view', 'crm.manage',
             'segment.manage', 'broadcast.send', 'promotion.manage', 'report.view',
         ],
         'reception' => [
-            'booking.view', 'booking.create', 'booking.cancel', 'booking.checkin', 'customer.view', 'crm.view',
+            'booking.view', 'booking.create', 'booking.cancel', 'booking.checkin', 'pos.sell',
+            'customer.view', 'crm.view',
         ],
-        'cashier' => ['booking.view', 'booking.checkin', 'payment.verify', 'customer.view'],
+        'cashier' => ['booking.view', 'booking.checkin', 'payment.verify', 'pos.sell', 'customer.view'],
         'marketing' => [
             'booking.view', 'customer.view', 'crm.view', 'segment.manage', 'broadcast.send',
             'promotion.manage', 'report.view',

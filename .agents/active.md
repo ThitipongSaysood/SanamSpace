@@ -161,6 +161,23 @@ _Last updated: 2026-08-08 · Last agent: Claude (Opus 5)_
   (the 1 is the pre-existing `admin.spec.ts` "MRR" bug). New `e2e/branding.spec.ts` proves a colour
   change reaches a signed-in customer and never leaks into owner/admin.
 
+## ✅ Done 2026-08-08 — POS: selling drinks at the counter
+- `/owner/pos` (till) + `/owner/products` (catalogue & stock). Cash or **PromptPay QR** for the sale total,
+  drawn from the venue's existing promptpay id; 422 rather than a QR that pays nobody when unset.
+- **Three tables, not two.** `product_sale_items` **snapshots name + unit price** — joining back to
+  `products` would rewrite last month's takings the first time someone edits a price.
+- **Stock moves inside a transaction with `lockForUpdate()`**, rows locked in id order. Two staff selling
+  the last bottle at once is the double-booking race with a different table. Duplicate cart lines are
+  merged *before* the check, or each half passes a check the pair fails.
+- Low stock **warns, never blocks** — only zero stops a sale. A **void is a new fact**, not an edit: the
+  receipt keeps its number and gains a reason, and voiding twice is refused so stock cannot return twice.
+- Stock is **not editable from the product form** — it moves through เติมของ (`delta` / `set`), so editing
+  a price cannot silently rewrite the shelf count.
+- `pos.sell` / `pos.void` / `product.manage`: cashier and reception sell but cannot void, which changes the
+  day's takings.
+- backend **277/277** (+17) · verified by selling through the UI, not just unit-tested.
+  Detail: `sessions/2026-08-08-1500-pos.md`.
+
 ## ✅ Done 2026-08-08 — PDPA consent + opt-out, and the CRM is no longer ungated (WP1, WP2)
 - **The customer app's "แจ้งเตือนโปรโมชั่น" switch was `useState(true)`** — a marketing opt-out wired to
   nothing. Now real: `GET/POST /me/consent`, `POST /me/unsubscribe|resubscribe`, no id in any route so one

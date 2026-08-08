@@ -22,6 +22,11 @@ import type {
   CheckinBooking,
   CheckinResult,
   OwnerCustomerDetail,
+  OwnerProduct,
+  OwnerSale,
+  OwnerSalesSummary,
+  ProductInput,
+  SalePromptPay,
   OwnerSettings,
   OwnerWelcomeBanner,
   WelcomeBannerInput,
@@ -349,6 +354,41 @@ export const ownerApi = {
   checkin: (token: string) => req<CheckinResult>("/owner/checkin", { method: "POST", body: { token }, raw: true }),
 
   getRecentCheckins: () => req<CheckinBooking[]>("/owner/checkin/recent"),
+
+  // --- POS: the counter's till ---
+  /** `sellable` narrows to what the till may show (active, in the venue's order). */
+  getProducts: (sellable = false) =>
+    req<OwnerProduct[]>(`/owner/products${sellable ? "?sellable=1" : ""}`),
+
+  createProduct: (body: ProductInput) => req<OwnerProduct>("/owner/products", { method: "POST", body }),
+
+  updateProduct: (id: string, body: ProductInput) =>
+    req<OwnerProduct>(`/owner/products/${id}`, { method: "PUT", body }),
+
+  /** `delta` to add or remove on a delivery, `set` to correct after a stock-take. */
+  adjustStock: (id: string, body: { delta: number } | { set: number }) =>
+    req<OwnerProduct>(`/owner/products/${id}/stock`, { method: "POST", body }),
+
+  deleteProduct: (id: string) => req<void>(`/owner/products/${id}`, { method: "DELETE" }),
+
+  createSale: (items: { productId: string; quantity: number }[], paymentMethod: "cash" | "transfer") =>
+    req<OwnerSale>("/owner/sales", { method: "POST", body: { items, paymentMethod } }),
+
+  getSales: (params?: { date?: string; status?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.date) qs.set("date", params.date);
+    if (params?.status) qs.set("status", params.status);
+    const q = qs.toString();
+    return req<OwnerSale[]>(`/owner/sales${q ? `?${q}` : ""}`);
+  },
+
+  getSalesSummary: (date?: string) =>
+    req<OwnerSalesSummary>(`/owner/sales/summary${date ? `?date=${date}` : ""}`, { raw: true }),
+
+  getSalePromptPay: (id: string) => req<SalePromptPay>(`/owner/sales/${id}/promptpay`, { raw: true }),
+
+  voidSale: (id: string, reason?: string) =>
+    req<OwnerSale>(`/owner/sales/${id}/void`, { method: "POST", body: { reason } }),
 
   getCustomers: () => req<OwnerCustomer[]>("/owner/customers"),
 
