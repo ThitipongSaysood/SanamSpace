@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Trash2, X } from "lucide-react";
+import { Check, Maximize2, Plus, Search, Trash2, X } from "lucide-react";
 import type { OwnerBooking } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
+import { ImageLightbox } from "@/components/image-lightbox";
 import { RowActions, rowAction } from "@/components/ui/row-action";
 import { BookingDialog, type Dialog } from "../booking-dialog";
 
@@ -337,11 +338,7 @@ function BookingDetail({
           {isLoading && <span className="text-xs text-muted-foreground">กำลังอัปเดต…</span>}
         </div>
 
-        {effectiveStatus(b) === "pending_review" && (
-          <p className="rounded-xl bg-sky-50 px-3 py-2 text-sm text-sky-800">
-            ลูกค้าส่งสลิปแล้ว — อนุมัติหรือปฏิเสธได้ที่หน้า <strong>ตรวจสลิป</strong>
-          </p>
-        )}
+        <SlipReview booking={b} />
 
         <dl className="divide-y divide-black/5 rounded-xl bg-app">
           <Field label="ลูกค้า" value={b.customerName ?? "Walk-in"} />
@@ -386,6 +383,106 @@ function BookingDetail({
         </section>
       </div>
     </Modal>
+  );
+}
+
+/**
+ * The slip, and the decision, next to the booking they belong to.
+ *
+ * This panel used to say "อนุมัติได้ที่หน้าตรวจสลิป" — which meant leaving the
+ * booking you were looking at, finding the same row again in another queue, and
+ * matching it up by name and time before you could approve it. The slip is the
+ * thing being decided, so it belongs here.
+ *
+ * Once decided it stays visible but read-only: staff still need to see what was
+ * approved, and the queue screen is the place to work through a backlog.
+ */
+function SlipReview({ booking }: { booking: OwnerBooking }) {
+  const qc = useQueryClient();
+  const [zoom, setZoom] = useState(false);
+
+  const paymentId = booking.paymentId;
+  const awaitingDecision = effectiveStatus(booking) === "pending_review";
+
+  function settled() {
+    qc.invalidateQueries({ queryKey: BOOKINGS_KEY });
+    qc.invalidateQueries({ queryKey: ["owner", "booking", booking.id] });
+    qc.invalidateQueries({ queryKey: ["owner", "payments"] });
+    qc.invalidateQueries({ queryKey: ["owner", "dashboard"] });
+  }
+
+  const verify = useMutation({ mutationFn: () => ownerApi.verifyPayment(paymentId!), onSuccess: settled });
+  const reject = useMutation({ mutationFn: () => ownerApi.rejectPayment(paymentId!), onSuccess: settled });
+  const busy = verify.isPending || reject.isPending;
+  const failed = (verify.error ?? reject.error) as Error | null;
+
+  // Nothing has been sent, so there is nothing to look at.
+  if (!booking.paymentSlipUrl) {
+    return awaitingDecision ? (
+      <p className="rounded-xl bg-sky-50 px-3 py-2 text-sm text-sky-800">
+        ลูกค้าแจ้งชำระเงินแล้วแต่ยังไม่มีรูปสลิป
+      </p>
+    ) : null;
+  }
+
+  return (
+    <section className="space-y-3 rounded-xl border border-black/5 p-3">
+      <div className="flex items-start gap-3">
+        <button
+          type="button"
+          onClick={() => setZoom(true)}
+          aria-label="ดูสลิปเต็ม"
+          className="group relative block size-20 shrink-0 overflow-hidden rounded-lg ring-1 ring-black/10"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={booking.paymentSlipUrl} alt="" className="size-full object-cover" />
+          <span className="absolute inset-0 grid place-items-center bg-black/45 text-white opacity-0 transition group-hover:opacity-100">
+            <Maximize2 className="size-4" />
+          </span>
+        </button>
+
+        <div className="min-w-0 flex-1 text-sm">
+          <p className="font-medium">สลิปการโอน</p>
+          <p className="text-muted-foreground">
+            {booking.paymentMethod === "promptpay" ? "PromptPay" : "โอนเงิน"} · ฿{fmt.format(booking.amount)}
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {awaitingDecision ? "กดที่รูปเพื่อดูเต็มก่อนอนุมัติ" : "กดที่รูปเพื่อดูเต็ม"}
+          </p>
+        </div>
+      </div>
+
+      {awaitingDecision && paymentId && (
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => reject.mutate()}
+            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold text-brand-danger ring-1 ring-brand-danger/20 transition hover:bg-brand-danger/10 disabled:opacity-50"
+          >
+            <X className="size-4" /> {reject.isPending ? "..." : "ปฏิเสธสลิป"}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => verify.mutate()}
+            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-brand text-sm font-semibold text-brand-foreground transition hover:bg-brand/90 disabled:opacity-50"
+          >
+            <Check className="size-4" /> {verify.isPending ? "..." : "อนุมัติ"}
+          </button>
+        </div>
+      )}
+
+      {failed && <p className="text-sm text-brand-danger">{failed.message}</p>}
+
+      {zoom && (
+        <ImageLightbox
+          src={booking.paymentSlipUrl}
+          alt={`สลิปการชำระเงินของ ${booking.customerName ?? "ลูกค้า"}`}
+          onClose={() => setZoom(false)}
+        />
+      )}
+    </section>
   );
 }
 

@@ -48,6 +48,11 @@ class BookingResource extends JsonResource
             // was asking people to pay a second time because of it.
             'paymentStatus' => $this->whenLoaded('latestPayment', fn () => $this->latestPayment?->status),
             'paymentId' => $this->whenLoaded('latestPayment', fn () => $this->latestPayment?->id),
+            // The slip itself, so staff can read the transfer where they are
+            // looking at the booking instead of hunting for the row on another
+            // screen. Absolute URL, same as the payment endpoints emit.
+            'paymentSlipUrl' => $this->whenLoaded('latestPayment', fn () => $this->latestPayment?->slip_url),
+            'paymentMethod' => $this->whenLoaded('latestPayment', fn () => $this->latestPayment?->method),
             // What the customer's QR encodes, and when the counter scanned it.
             'checkinToken' => $this->checkin_token,
             'checkedInAt' => $this->checked_in_at?->toIso8601String(),

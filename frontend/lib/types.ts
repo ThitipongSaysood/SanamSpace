@@ -111,6 +111,9 @@ export type Booking = {
    */
   paymentStatus?: PaymentStatus | null;
   paymentId?: string | null;
+  /** The transfer slip, so it can be read next to the booking it belongs to. */
+  paymentSlipUrl?: string | null;
+  paymentMethod?: PaymentMethod | null;
 };
 
 // Public per-venue LINE config for the customer frontend (GET /line-config).

@@ -269,6 +269,69 @@ class SlipReviewTest extends TestCase
         $this->assertSame('pending_review', $row['paymentStatus']);
     }
 
+    /**
+     * The slip travels with the booking, so it can be decided in place.
+     *
+     * The detail panel used to send staff to another screen to find the same
+     * row again; it needs the image itself to be worth opening.
+     */
+    public function test_the_booking_detail_carries_the_slip_itself(): void
+    {
+        $token = $this->customerToken();
+        [$bookingId, $paymentId] = $this->bookAndSendSlip($token);
+
+        $row = $this->withToken($this->ownerToken())
+            ->getJson("/api/v1/owner/bookings/{$bookingId}")
+            ->assertOk()
+            ->json('data');
+
+        $this->assertSame($paymentId, $row['paymentId']);
+        $this->assertSame('pending_review', $row['paymentStatus']);
+        $this->assertSame('transfer', $row['paymentMethod']);
+        $this->assertStringStartsWith('http', $row['paymentSlipUrl']);
+    }
+
+    /**
+     * Deciding from the booking panel is the same gated action as the queue.
+     *
+     * A cashier legitimately holds payment.verify — checking slips is counter
+     * work. A viewer does not, and the new buttons must not become a way round
+     * that just because they sit on a different screen.
+     */
+    public function test_a_viewer_cannot_approve_from_the_booking_panel(): void
+    {
+        $token = $this->customerToken();
+        [, $paymentId] = $this->bookAndSendSlip($token);
+
+        $org = \App\Models\Organization::where('slug', 'everyday-badminton')->firstOrFail();
+        $user = \App\Models\User::create([
+            'name' => 'Viewer',
+            'display_name' => 'Viewer',
+            'email' => 'slip-viewer@everyday.test',
+            'password' => 'password',
+        ]);
+        \App\Models\OrganizationUser::create([
+            'organization_id' => $org->id,
+            'user_id' => $user->id,
+            'role_id' => \App\Models\Role::where('code', 'viewer')->value('id'),
+            'display_name' => $user->display_name,
+            'status' => 'active',
+            'joined_at' => now(),
+        ]);
+
+        $this->app['auth']->forgetGuards();
+        $viewer = $this->postJson('/api/v1/auth/admin/login', [
+            'email' => 'slip-viewer@everyday.test',
+            'password' => 'password',
+        ])->json('token');
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($viewer)->postJson("/api/v1/owner/payments/{$paymentId}/verify")
+            ->assertForbidden();
+
+        $this->assertSame('pending_review', Payment::find($paymentId)->status);
+    }
+
     /** And a booking nobody has paid for still reads as nothing owed yet. */
     public function test_an_untouched_booking_reports_no_payment(): void
     {
