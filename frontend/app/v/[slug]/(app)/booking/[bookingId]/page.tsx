@@ -22,6 +22,26 @@ const REFUND_META: Record<RefundStatus, { label: string; cls: string }> = {
 /** The one next action a customer actually has, given where their money is. */
 function PaymentNextStep({ booking }: { booking: Booking }) {
   const cta = "flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand text-base font-semibold text-white";
+  const outstanding = booking.outstandingAmount ?? booking.amount;
+  const paid = booking.paidAmount ?? 0;
+
+  // Deposit paid, court held, balance still to come. Not a warning — this is
+  // the arrangement working, so it reads as reassurance with a number.
+  if (paid > 0 && outstanding > 0 && booking.paymentStatus !== "pending_review") {
+    return (
+      <div className="space-y-2">
+        <div className="rounded-2xl bg-emerald-50 p-4 text-center">
+          <p className="font-semibold text-emerald-800">จ่ายมัดจำแล้ว คอร์ทถูกจองให้เรียบร้อย</p>
+          <p className="mt-0.5 text-sm text-emerald-700">
+            เหลือ ฿{outstanding.toLocaleString("th-TH")} จ่ายที่สนามได้เลย หรือจ่ายล่วงหน้าตอนนี้
+          </p>
+        </div>
+        <Link href={`/payment/${booking.id}`} className={cta}>
+          จ่ายส่วนที่เหลือ ฿{outstanding.toLocaleString("th-TH")}
+        </Link>
+      </div>
+    );
+  }
 
   // Slip is with the venue. There is nothing for them to do, and offering a
   // button here is what caused double payments.
@@ -60,10 +80,21 @@ function PaymentNextStep({ booking }: { booking: Booking }) {
     );
   }
 
+  // A deposit means the first payment is not the whole price, and saying so
+  // here is the difference between "฿250" and an unexplained "฿100".
+  const first = booking.depositAmount && booking.depositAmount > 0 ? booking.depositAmount : outstanding;
+
   return (
-    <Link href={`/payment/${booking.id}`} className={cta}>
-      ไปชำระเงิน
-    </Link>
+    <div className="space-y-2">
+      {booking.depositAmount != null && booking.depositAmount > 0 && (
+        <p className="text-center text-sm text-muted-foreground">
+          จ่ายมัดจำ ฿{booking.depositAmount.toLocaleString("th-TH")} เพื่อจองคอร์ท ที่เหลือจ่ายที่สนาม
+        </p>
+      )}
+      <Link href={`/payment/${booking.id}`} className={cta}>
+        ไปชำระเงิน ฿{first.toLocaleString("th-TH")}
+      </Link>
+    </div>
   );
 }
 
@@ -166,7 +197,10 @@ export default function BookingDetailPage({ params }: { params: Promise<{ bookin
             booking sits at pending_payment both before anyone pays and while
             the venue is checking the slip — telling someone who has already
             transferred to "ไปชำระเงิน" is how they end up paying twice. */}
-        {booking.status === "pending_payment" && <PaymentNextStep booking={booking} />}
+        {/* A deposit booking is confirmed and still owes money, so the next
+            step follows the balance rather than the status. */}
+        {(booking.status === "pending_payment" || (booking.outstandingAmount ?? 0) > 0) &&
+          booking.status !== "cancelled" && <PaymentNextStep booking={booking} />}
 
         {isConfirmed && (
           <>

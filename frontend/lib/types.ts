@@ -133,6 +133,13 @@ export type Booking = {
   /** The transfer slip, so it can be read next to the booking it belongs to. */
   paymentSlipUrl?: string | null;
   paymentMethod?: PaymentMethod | null;
+  /**
+   * Deposits. With one, `confirmed` no longer means "paid in full" — the slot
+   * is held once the deposit lands and a balance can still be owed.
+   */
+  depositAmount?: number;
+  paidAmount?: number;
+  outstandingAmount?: number;
 };
 
 // Public per-venue LINE config for the customer frontend (GET /line-config).
@@ -400,6 +407,10 @@ export type OwnerSettings = {
   orgName: string;
   /** Whether staff scan customers in at the counter. */
   checkinEnabled?: boolean;
+  /** Deposits: hold the slot for part of the money, take the rest at the desk. */
+  depositEnabled?: boolean;
+  depositType?: "percent" | "fixed";
+  depositValue?: number;
   // Billing identity — the buyer block on invoices/receipts.
   taxId?: string | null;
   billingName?: string | null;

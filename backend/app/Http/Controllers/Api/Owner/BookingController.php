@@ -8,6 +8,7 @@ use App\Http\Resources\BookingResource;
 use App\Models\Booking;
 use App\Models\Court;
 use App\Models\Customer;
+use App\Models\Payment;
 use App\Services\NotificationService;
 use App\Services\RentalService;
 use Illuminate\Http\JsonResponse;
@@ -127,6 +128,14 @@ class BookingController extends Controller
             $this->rentals->attach($booking, $quote['rows'], $quote['total']);
         }
 
+        // A walk-in the counter marks confirmed has been paid at the counter —
+        // that is what taking the booking there means. Without this every
+        // walk-in would read as owing its whole amount.
+        $booking->refresh();
+        if (in_array($booking->status, ['confirmed', 'completed'], true)) {
+            $booking->update(['paid_amount' => $booking->amount]);
+        }
+
         return (new BookingResource($booking->fresh()->load([
             'branch.organization', 'court', 'customer', 'rentals',
         ])))
@@ -192,6 +201,58 @@ class BookingController extends Controller
         $booking->update($updates);
 
         return new BookingResource($booking->fresh()->load(['branch.organization', 'court', 'customer']));
+    }
+
+    /**
+     * POST /owner/bookings/{id}/settle — the customer pays the rest at the desk.
+     *
+     * A deposit holds the court; the balance is usually handed over in cash
+     * when they arrive. Without this the booking would owe money forever, and
+     * "how much did we actually take today" would be wrong.
+     */
+    public function settle(Request $request, string $id, \App\Services\DepositService $deposits): BookingResource
+    {
+        $booking = $this->findScoped($request, $id);
+
+        $data = $request->validate([
+            'amount' => ['nullable', 'numeric', 'min:0.01'],
+            'method' => ['nullable', 'string', 'in:cash,promptpay,transfer'],
+        ]);
+
+        $outstanding = $deposits->outstanding($booking);
+
+        if ($outstanding <= 0) {
+            throw ValidationException::withMessages([
+                'amount' => 'รายการนี้ชำระครบแล้ว',
+            ]);
+        }
+
+        // Defaults to everything left, which is what a counter almost always
+        // means. A part payment is allowed but has to be asked for.
+        $amount = round((float) ($data['amount'] ?? $outstanding), 2);
+
+        if ($amount > $outstanding) {
+            throw ValidationException::withMessages([
+                'amount' => "ค้างชำระ ฿{$outstanding} รับเกินกว่านี้ไม่ได้",
+            ]);
+        }
+
+        // Recorded as a payment, not just a number on the booking: this is money
+        // received, and it belongs in the same place as every other payment.
+        Payment::create([
+            'organization_id' => $booking->organization_id,
+            'booking_id' => $booking->id,
+            'customer_id' => $booking->customer_id,
+            'method' => $data['method'] ?? 'cash',
+            'amount' => $amount,
+            'status' => 'approved',
+        ]);
+
+        $deposits->applyPayment($booking, $amount);
+
+        return new BookingResource($booking->fresh()->load([
+            'branch.organization', 'court', 'customer', 'rentals', 'latestPayment',
+        ]));
     }
 
     /**

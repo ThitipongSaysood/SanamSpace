@@ -398,6 +398,10 @@ export const ownerApi = {
       `/owner/rental-items/offer?date=${date}&start=${start}&end=${end}`,
     ),
 
+  /** Take the rest of a deposit booking at the desk. Defaults to the balance. */
+  settleBooking: (id: string, body?: { amount?: number; method?: "cash" | "promptpay" | "transfer" }) =>
+    req<OwnerBooking>(`/owner/bookings/${id}/settle`, { method: "POST", body: body ?? {} }),
+
   /** Omitting quantity takes back everything still outstanding on the line. */
   returnRental: (bookingId: string, rentalId: string, quantity?: number) =>
     req<OwnerBooking>(`/owner/bookings/${bookingId}/rentals/${rentalId}/return`, {

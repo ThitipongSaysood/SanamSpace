@@ -57,6 +57,11 @@ class SettingController extends Controller
             'fontFamily' => ['sometimes', 'nullable', 'string', 'max:100'],
             'timezone' => ['sometimes', 'string', 'max:100'],
             'checkinEnabled' => ['sometimes', 'boolean'],
+            // Deposits: hold the slot for part of the money, take the rest at
+            // the desk. `percent` is a share of the booking, `fixed` a flat baht.
+            'depositEnabled' => ['sometimes', 'boolean'],
+            'depositType' => ['sometimes', 'in:percent,fixed'],
+            'depositValue' => ['sometimes', 'numeric', 'min:0', 'max:100000'],
 
             // --- Payment (where this venue receives booking money) ---
             'promptpayId' => ['sometimes', 'nullable', 'string', 'max:50'],
@@ -99,6 +104,9 @@ class SettingController extends Controller
             'fontFamily' => 'font_family',
             'timezone' => 'timezone',
             'checkinEnabled' => 'checkin_enabled',
+            'depositEnabled' => 'deposit_enabled',
+            'depositType' => 'deposit_type',
+            'depositValue' => 'deposit_value',
             'promptpayId' => 'promptpay_id',
             'promptpayName' => 'promptpay_name',
             'bankName' => 'bank_name',

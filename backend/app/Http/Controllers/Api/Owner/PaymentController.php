@@ -46,7 +46,7 @@ class PaymentController extends Controller
      * POST /owner/payments/{id}/verify — approve slip + confirm its booking.
      * Org-scoped: 404 if the payment belongs to another org.
      */
-    public function verify(Request $request, string $id, NotificationService $notifications): OwnerPaymentResource
+    public function verify(Request $request, string $id, NotificationService $notifications, \App\Services\DepositService $deposits): OwnerPaymentResource
     {
         $payment = $this->findScoped($request, $id);
 
@@ -65,10 +65,11 @@ class PaymentController extends Controller
 
         $payment->update(['status' => 'approved']);
 
-        // A booking already played out stays completed; confirming it again
-        // would walk its status backwards.
-        if ($booking && $booking->status !== 'completed') {
-            $booking->update(['status' => 'confirmed']);
+        // Credit the money and let the booking decide what it now is. With
+        // deposits a booking can be confirmed and still owe a balance, so
+        // "approved slip" no longer implies "paid in full".
+        if ($booking) {
+            $deposits->applyPayment($booking, (float) $payment->amount);
         }
 
         $notifications->paymentApproved($payment);

@@ -178,12 +178,18 @@ class PaymentFlowTest extends TestCase
         $this->assertSame('awaiting_slip', $this->bookingBody($token, $bookingId)['paymentStatus']);
     }
 
-    /** Paying a booking that is already settled is a mistake, not a payment. */
-    public function test_a_confirmed_booking_cannot_be_paid_again(): void
+    /**
+     * Paying a booking that is already settled is a mistake, not a payment.
+     *
+     * Settled means the money is in, not that the status says confirmed —
+     * with deposits a confirmed booking can still owe a balance.
+     */
+    public function test_a_fully_paid_booking_cannot_be_paid_again(): void
     {
         $token = $this->customerToken();
         $bookingId = $this->book($token);
-        Booking::where('id', $bookingId)->update(['status' => 'confirmed']);
+        $booking = Booking::find($bookingId);
+        $booking->update(['status' => 'confirmed', 'paid_amount' => $booking->amount]);
 
         $this->withToken($token)->postJson('/api/v1/payments', [
             'bookingId' => $bookingId, 'method' => 'transfer',

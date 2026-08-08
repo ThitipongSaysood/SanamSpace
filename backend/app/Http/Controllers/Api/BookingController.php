@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\BookingResource;
 use App\Models\Booking;
 use App\Models\Court;
+use App\Models\OrganizationSetting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -16,7 +17,10 @@ use Illuminate\Validation\ValidationException;
 
 class BookingController extends Controller
 {
-    public function __construct(private \App\Services\RentalService $rentals) {}
+    public function __construct(
+        private \App\Services\RentalService $rentals,
+        private \App\Services\DepositService $deposits,
+    ) {}
 
     /**
      * GET /bookings -> Booking[] (current customer's bookings, newest first).
@@ -145,6 +149,16 @@ class BookingController extends Controller
                 ]);
 
                 $this->rentals->attach($booking, $quote['rows'], $quote['total']);
+
+                // After attach, because the deposit is a share of the grand
+                // total — court plus whatever was rented with it.
+                $booking->refresh();
+                $booking->update([
+                    'deposit_amount' => $this->deposits->depositFor(
+                        OrganizationSetting::query()->where('organization_id', $court->organization_id)->first(),
+                        (float) $booking->amount,
+                    ),
+                ]);
 
                 return $booking->fresh();
             });

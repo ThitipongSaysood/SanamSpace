@@ -372,12 +372,62 @@ function BookingDetail({
             <span className="text-xl font-bold text-brand tabular-nums">฿{fmt.format(b.amount)}</span>
           </div>
 
+          <Balance booking={b} />
+
           {rentals.length === 0 && (
             <p className="text-xs text-muted-foreground">ไม่มีการเช่าอุปกรณ์</p>
           )}
         </section>
       </div>
     </Modal>
+  );
+}
+
+/**
+ * What is still owed, and the button that takes it.
+ *
+ * With deposits a booking can be confirmed and still owe money, so a total on
+ * its own stops being the whole story. Only shown when there is a balance —
+ * a paid booking should not carry a payment control.
+ */
+function Balance({ booking }: { booking: OwnerBooking }) {
+  const qc = useQueryClient();
+  const outstanding = booking.outstandingAmount ?? 0;
+  const paid = booking.paidAmount ?? 0;
+
+  const settle = useMutation({
+    mutationFn: () => ownerApi.settleBooking(booking.id, { method: "cash" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: BOOKINGS_KEY });
+      qc.invalidateQueries({ queryKey: ["owner", "booking", booking.id] });
+      qc.invalidateQueries({ queryKey: ["owner", "dashboard"] });
+    },
+  });
+
+  if (outstanding <= 0) return null;
+
+  return (
+    <div className="space-y-2 border-t border-black/5 pt-2">
+      <div className="flex justify-between text-sm">
+        <span className="text-muted-foreground">จ่ายแล้ว</span>
+        <span className="tabular-nums">฿{fmt.format(paid)}</span>
+      </div>
+      <div className="flex justify-between text-sm font-medium text-amber-700">
+        <span>ค้างชำระ</span>
+        <span className="tabular-nums">฿{fmt.format(outstanding)}</span>
+      </div>
+      <button
+        type="button"
+        disabled={settle.isPending}
+        onClick={() => settle.mutate()}
+        className="h-10 w-full rounded-lg bg-brand text-sm font-semibold text-brand-foreground disabled:opacity-50"
+      >
+        {settle.isPending ? "กำลังบันทึก…" : `รับเงินสด ฿${fmt.format(outstanding)}`}
+      </button>
+      {settle.isError && (
+        <p className="text-xs text-brand-danger">{(settle.error as Error).message}</p>
+      )}
+    </div>
   );
 }
 

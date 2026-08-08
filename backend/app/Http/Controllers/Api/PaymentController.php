@@ -16,6 +16,8 @@ use Illuminate\Validation\ValidationException;
 
 class PaymentController extends Controller
 {
+    public function __construct(private \App\Services\DepositService $deposits) {}
+
     /**
      * POST /payments { bookingId, method } -> Payment (status awaiting_slip).
      */
@@ -46,11 +48,18 @@ class PaymentController extends Controller
             ]);
         }
 
-        if (in_array($booking->status, ['confirmed', 'completed'], true)) {
+        // With deposits, "confirmed" no longer means "paid in full" — the slot
+        // is held once the deposit lands and a balance can still be owed. So the
+        // question is whether money is outstanding, not what the status says.
+        $outstanding = $this->deposits->outstanding($booking);
+
+        if ($outstanding <= 0) {
             throw ValidationException::withMessages([
                 'bookingId' => 'การจองนี้ชำระเงินเรียบร้อยแล้ว',
             ]);
         }
+
+        $due = $this->deposits->nextPaymentAmount($booking);
 
         // Reuse the payment already in flight instead of opening a second one.
         // Tapping "ไปชำระเงิน" again used to create a duplicate row, so the
@@ -64,7 +73,7 @@ class PaymentController extends Controller
             // Still choosing how to pay: honour the new choice rather than
             // stranding them on the method they first tapped.
             if ($existing->status === 'awaiting_slip' && $existing->method !== $data['method']) {
-                $existing->update(['method' => $data['method'], 'amount' => $booking->amount]);
+                $existing->update(['method' => $data['method'], 'amount' => $due]);
             }
 
             return (new PaymentResource($existing->fresh()))
@@ -77,7 +86,9 @@ class PaymentController extends Controller
             'booking_id' => $booking->id,
             'customer_id' => $customer->id,
             'method' => $data['method'],
-            'amount' => $booking->amount,
+            // The deposit first, the balance after — asking for the full amount
+            // up front would make the venue's deposit setting decorative.
+            'amount' => $due,
             'status' => 'awaiting_slip',
         ]);
 

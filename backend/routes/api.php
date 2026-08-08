@@ -174,6 +174,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/bookings/{id}', [OwnerBookingController::class, 'show']);
         Route::put('/bookings/{id}', [OwnerBookingController::class, 'update'])->middleware('permission:booking.create');
         Route::post('/bookings/{id}/cancel', [OwnerBookingController::class, 'cancel'])->middleware('permission:booking.cancel');
+        // Taking the balance of a deposit booking at the desk.
+        Route::post('/bookings/{id}/settle', [OwnerBookingController::class, 'settle'])->middleware('permission:payment.verify');
         Route::delete('/bookings/{id}', [OwnerBookingController::class, 'destroy'])->middleware('permission:booking.cancel');
 
         Route::get('/payments', [OwnerPaymentController::class, 'index']);

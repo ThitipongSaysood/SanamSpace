@@ -341,6 +341,58 @@ function StorefrontTab({ settings }: { settings: OwnerSettings }) {
           </label>
         </section>
 
+        <section className="space-y-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+          <h2 className="text-sm font-semibold">มัดจำ</h2>
+          <label className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              checked={form.depositEnabled === true}
+              onChange={(e) => set("depositEnabled", e.target.checked)}
+              className="mt-0.5 size-4 accent-[var(--brand-primary)]"
+            />
+            <span className="text-sm">
+              ให้ลูกค้าจ่ายมัดจำเพื่อจองคอร์ท แล้วจ่ายส่วนที่เหลือที่สนาม
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                จ่ายมัดจำแล้วคอร์ทถูกกันไว้ทันที · ยอดที่เหลือรับได้ที่หน้ารายการจอง
+              </span>
+            </span>
+          </label>
+
+          {form.depositEnabled && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="deposit-type">คิดแบบ</Label>
+                <select
+                  id="deposit-type"
+                  value={form.depositType ?? "percent"}
+                  onChange={(e) => set("depositType", e.target.value as "percent" | "fixed")}
+                  className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                >
+                  <option value="percent">เปอร์เซ็นต์ของยอดจอง</option>
+                  <option value="fixed">จำนวนเงินคงที่</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="deposit-value">
+                  {form.depositType === "fixed" ? "จำนวนเงิน (บาท)" : "เปอร์เซ็นต์"}
+                </Label>
+                <Input
+                  id="deposit-value"
+                  type="number"
+                  min={0}
+                  value={form.depositValue ?? 0}
+                  onChange={(e) => set("depositValue", Number(e.target.value))}
+                />
+              </div>
+              {/* Said plainly: a deposit at or above the price is just paying
+                  in full, and the backend stores it as no deposit at all. */}
+              <p className="sm:col-span-2 text-xs text-muted-foreground">
+                ถ้ามัดจำมากกว่าหรือเท่ากับยอดจอง ระบบจะถือว่าจ่ายเต็มจำนวน
+              </p>
+            </div>
+          )}
+        </section>
+
         <section className="rounded-2xl bg-white p-5 text-sm shadow-sm ring-1 ring-black/5">
           <h2 className="text-sm font-semibold">ข้อความต้อนรับ / แบนเนอร์</h2>
           <p className="mt-1 text-xs text-muted-foreground">

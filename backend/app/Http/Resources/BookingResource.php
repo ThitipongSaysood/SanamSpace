@@ -45,6 +45,11 @@ class BookingResource extends JsonResource
                 'returnedQty' => (int) ($r->returned_qty ?? 0),
                 'returnedAt' => $r->returned_at?->toIso8601String(),
             ])->values(), []),
+            // With deposits, a booking can be confirmed and still owe money, so
+            // "what is left" has to be part of what a booking says about itself.
+            'depositAmount' => (float) ($this->deposit_amount ?? 0),
+            'paidAmount' => (float) ($this->paid_amount ?? 0),
+            'outstandingAmount' => max(0, round((float) $this->amount - (float) ($this->paid_amount ?? 0), 2)),
             'status' => $this->status,
             'createdAt' => $this->created_at?->toIso8601String(),
             // Booking status alone cannot tell "not paid yet" from "slip sent,
