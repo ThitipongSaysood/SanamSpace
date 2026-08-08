@@ -10,7 +10,7 @@
 - **Git remote**: https://github.com/ThitipongSaysood/SanamSpace.git
 - **Branch**: main
 - **Bootstrapped**: 2026-06-12
-- **Last agent**: Claude (Opus 4.8, 1M ctx) — 2026-08-07
+- **Last agent**: Claude (Opus 5) — 2026-08-08
 
 ## Rules for AI assistants
 
@@ -49,8 +49,51 @@ Every venue is an `Organization` and rents the platform. A customer belongs to e
 
 ### Money
 Anything that moves money or a subscription goes through a shared service — `RefundService`,
-`SubscriptionRenewalService` — never re-implemented per portal. State transitions are guarded so the
-same transfer can't be counted twice. If you add a money path, add the double-processing test with it.
+`CreditService`, `DepositService`, `DiscountService` — never re-implemented per portal. State
+transitions are guarded so the same transfer can't be counted twice. If you add a money path, add the
+double-processing test with it.
+
+- **A customer holds ONE balance: credit, in baht** (`CreditService`). The old "wallet" is gone —
+  wallet and credit were two balances in two units, and the wallet was a dead end: money went in via
+  top-ups and refunds and nothing could ever spend it. Cancelling a paid booking returns credit
+  immediately; refunds pay out as credit, never cash (`manual` survives only for money genuinely
+  returned off-system).
+- **Every credit movement records who caused it** (`wallet_transactions.created_by` + `source`).
+  Credit is money staff can create by hand, so a balance alone is not enough — "who gave this
+  customer ฿5,000" has to have an answer. A row with no name is one the customer caused themselves.
+- **"confirmed" does not mean "paid in full."** Deposits let a booking be confirmed with a balance
+  owing. Key on `paid_amount` / outstanding, never on status.
+- **Anything that changed a price is snapshotted on the booking** (`discount_amount`,
+  `discount_label`, `package_hours_used`, rental lines). Editing or retiring a coupon, a package or a
+  rental item must not rewrite what someone was charged last month.
+- **An accepted payment-method string is not a payment method.** `wallet` was in the `in:` rule for
+  months with no code behind it anywhere. If you add one, add the code that moves the money.
+
+### Dev is SQLite, prod is MySQL — and CI runs no tests
+`.github/workflows/deploy.yml` builds and deploys and **runs no tests at all**. Everything "green" is
+green because someone ran it locally, on SQLite, against a database that does not enforce what
+production enforces.
+
+MySQL is installed locally. Before calling a release ready, run the migrations **and** the suite
+against it:
+
+```
+mysql -u root -e "CREATE DATABASE sanamspace_migtest CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+DB_CONNECTION=mysql DB_HOST=127.0.0.1 DB_PORT=3306 DB_DATABASE=sanamspace_migtest \
+  DB_USERNAME=root DB_PASSWORD= php artisan migrate --force && ... php artisan test
+```
+
+This is how `reviews.sort_order` was caught: declared `unsignedInteger`, written as `min - 1`. SQLite
+stored -1 happily and all tests passed; MySQL raises `SQLSTATE[22003] 1264`, so **every customer
+review would have 500'd in production**. Watch for unsigned columns receiving computed negatives,
+GETs that answer 201 because the model was created during the request, and column-length truncation.
+
+### Auth: a token that exists is not a token that works
+The portal layouts only check that a token is *present*. A token that is present but dead — expired,
+revoked, or left over from a `migrate:fresh` — used to sail past that guard and then fail every
+request, so every screen showed "เกิดข้อผิดพลาด ลองอีกครั้ง", which can never succeed. All three API
+clients now clear the session and redirect to their login on a 401 (login routes exempt, or a wrong
+password loops). **Resetting the dev DB signs every open tab out** — say so before doing it.
 
 ### Verify before claiming
 Run the thing, don't infer it. This project has had bugs that only a real run surfaces: a slip upload

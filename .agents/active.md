@@ -1,6 +1,6 @@
 # Active Task
 
-_Last updated: 2026-08-08 · Last agent: Claude (Opus 5)_
+_Last updated: 2026-08-08 (19:00) · Last agent: Claude (Opus 5)_
 
 ## ✅ Done 2026-08-02 — "รายการจอง" as its own menu + demo data reset
 - **New sidebar menu `/owner/bookings/list`.** First attempt put it as a 4th tab inside the calendar; the
@@ -197,78 +197,66 @@ _Last updated: 2026-08-08 · Last agent: Claude (Opus 5)_
   lint 13 = baseline · e2e 37/38. Detail: `sessions/2026-08-08-1100-pdpa-consent-crm-gating.md`.
 
 ## Current Task
-Sessions 2026-08-07 and 2026-08-08. The 08-07 work **is committed** (`cc23b92`, pushed); the 08-08 PDPA
-work above is **not committed yet**. Neither is deployed — see the deploy blocker below. 08-07 did:
-(a) closed audit risks **#1, #2, #3, #6, #7** (+ scheduler #5 now exists for the expiry job); (b) built the
-**"ยิงโปร" / Broadcast** feature end-to-end — the Owner blasts a promo over **LINE or in-app**, targeting
-smart audiences (churned/regulars/one-timers/new/all/segment), with **message templates, a live phone
-preview, a banner image**, a **3-step wizard** UI, and a **"sent" success screen**; this is what finally
-reads the venue's stored `line_messaging_token` (#4); (c) fixed **owner/admin login** (a `.env.local` /
-`NEXT_PUBLIC_API_URL` gap + clearer 429/422 messages); (d) added tasteful **open animations**
-(tw-animate-css) + a **notification detail sheet** with image zoom in the customer app.
+Session 2026-08-08 (afternoon/evening) — **all committed and pushed to `main`**, none of it deployed.
+Started as "the app asks me to pay again after I uploaded a slip" and turned into a rebuild of the
+customer money model. Full detail: `sessions/2026-08-08-1900-money-flow-security-and-credit.md`.
 
-Detail lives in the four `## ✅ Done 2026-08-07 …` blocks below and in the three session checkpoints.
+The thread running through it: **things that looked finished but were not.** A payment method with no
+code behind it, a permission catalogue nothing read, a timeline only the seeder wrote, a wallet money
+could enter and never leave.
 
 ## Status
-🟢 **Local: all green.** backend **246/246** · tsc **clean** · vitest **24/24** · lint **13 errors** (=
-baseline, unchanged). Broadcast + banner + in-app + success flow + history CRUD were **live-smoke-tested** on
-the running server. **`main` deploy is still blocked** (see below).
+🟢 **Local: all green.** backend **438/438** · tsc **clean** · vitest **24/24** · lint **13 errors** (=
+baseline) · e2e **38/38**. The e2e suite is fully green for the first time in several sessions (the
+`admin.spec.ts` "MRR" locator was ambiguous, not a real failure).
 
-🔴 **Deploy still blocked** (unchanged from the 2026-08-07 merge): `Deploy to Production #63` died at the
-*rsync frontend* step because `DEPLOY_PATH` doesn't exist on the server — infra, not code. Production is
-untouched. See `sessions/2026-08-07-merge-to-main-deploy-blocked.md`.
+🟢 **MySQL is now measured, not guessed.** All 60 migrations + the seeder + the full suite were run
+against local MySQL 9.6. This is how `reviews.sort_order` was caught — see below.
 
-⚠️ **Migrations pending on prod** now include **four new this session**: `add_audience_to_broadcasts`,
-`add_image_to_broadcasts_and_notifications` (both additive, low risk), plus the earlier welcome-banner
-batch (one **drops five columns** from `organization_settings` — SQLite-only so far; prod MySQL has a
-65,535-byte row limit). **Back up prod DB + test migrations on a copy before re-deploying.**
+🔴 **Deploy still blocked** (unchanged since 2026-08-07): `DEPLOY_PATH` does not exist on the server.
+Infra, not code. Production is untouched, which also means **the security fix below is not live**.
 
-⚠️ **Dev-environment one-offs done this session (not code, must be redone on a fresh checkout / prod):**
-- `php artisan storage:link` — was missing → every uploaded image 404'd (broken banners). **Standard deploy step.**
-- `frontend/.env.local` with `NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1` — without it the owner/admin
-  portal 404s all API calls. (gitignored; prod uses build-time env `/api/v1`.)
-- `composer install` + frontend `npm install` — vendor/node_modules were out of sync (missing dompdf, jsqr/pngjs).
-- Renewed the seeded `everyday-badminton` subscription (had expired 2026-07-05 → whole owner portal 402'd).
+⚠️ **~26 migrations pending on prod.** They apply cleanly to an empty MySQL database now, but one
+earlier migration **drops five columns** from `organization_settings`. **Back up the prod DB first.**
+
+⚠️ **Resetting the dev DB signs everyone out.** `migrate:fresh` drops `personal_access_tokens`; open
+browser tabs then hold a dead token. Warn before doing it.
 
 ## What's Done
-1. **Audit risks #1/#3/#6/#7** — double-booking lock, `NotificationService` wired into every money/booking
-   event, admin-login rate limit (in-controller `RateLimiter`), transactional wallet-topup approval.
-2. **#2 + scheduler (#5)** — `bookings:expire-unpaid` command cancels stale `pending_payment` bookings and
-   frees the slot; `routes/console.php` runs it every 5 min (needs cron on the server).
-3. **Broadcast / "ยิงโปร LINE"** (closes **#4**) — new Owner menu `/owner/broadcast`. Shared
-   `LineMessagingService` (multicast over the venue token; image + text message; safe no-op without a token)
-   and in-app delivery via `NotificationService::promo`. Audience presets from booking history +
-   `/audience-preview`. **Banner image** (client-side downscale → upload → shows in LINE/in-app preview and
-   in the customer bell). 3-step wizard, phone mockup preview, templates, and a full **success screen** that
-   clears the form. Customer notifications page gained a **tap-to-open detail sheet** + image lightbox.
-   **History CRUD**: tap a row → detail sheet with view / edit (draft only, `PUT`) / send / delete (`DELETE`),
-   plus a "บันทึกร่าง" (create-draft-without-send) path. `PUT` refuses a sent broadcast (422).
-4. **Login fix** — created `frontend/.env.local` (root cause of the 404), and owner+admin login pages now
-   show distinct messages for 401/422 (bad creds) and 429 (rate-limited).
-5. **Motion** — `tw-animate-css` entrance animations on modals, cards, wizard steps, lightbox; global
-   `prefers-reduced-motion` guard in `globals.css`.
+1. **🔴 Security — a customer could confirm their own booking for free.** `POST /payments/{id}/verify`
+   and `/reject` sat on the CUSTOMER route table, unscoped, with a stale `TODO: restrict to owner/staff`.
+   Reproduced end-to-end, then deleted. Two tests had been *using* the hole as a shortcut.
+2. **Payment flow** — `pending_payment` could not tell "nobody paid" from "slip is with the venue", and
+   `POST /payments` opened a new payment on every call. Idempotent now; the slip queue and the booking
+   state can no longer disagree; slip review happens in the booking panel.
+3. **MySQL run found a live prod bug** — `reviews.sort_order` was unsigned while the code writes
+   `min - 1`. Every customer review would have 500'd in production. SQLite does not enforce unsigned.
+4. **PDPA WP1 finished** — data export + erasure (anonymise the person, keep the books).
+5. **Counter gaps** — POS sales history + void, equipment returns, renting on a walk-in booking.
+6. **CRM WP3/WP4/WP5** — timeline from real events (was seeder-only), per-recipient broadcast delivery,
+   dynamic segments + RFM.
+7. **Deposits** and **coupons + member discount** (the latter replacing a first-commit `// TODO`).
+8. **Dead sessions now land on login** instead of showing "ลองอีกครั้ง" forever, in all three portals.
+9. **Wallet retired; one credit balance in baht.** The wallet was a dead end — money in, nothing out.
+   Cancelling a paid booking returns credit immediately; every movement records the staff member behind
+   it. Existing hour packages are kept, not deleted.
+10. **Demo data rebuilt** to cover every feature; the seeder is idempotent now.
 
 ## Blockers
-None in code — everything is local-green. External/infra only: the deploy (`DEPLOY_PATH`), the prod DB
-backup + migration check, and (for real LINE sending) a venue that has actually configured a
-`line_messaging_token` (dev has none, so LINE sends report `noToken`).
+None in code. Infra only: `DEPLOY_PATH` on the server, and a prod DB backup before the migration batch.
 
 ## Next Steps
-1. **Commit the 2026-08-08 PDPA work** (08-07 is already committed as `cc23b92`) — then unblock the deploy (`DEPLOY_PATH` on the
-   server), back up prod DB, verify the migrations (esp. the column-drop) on a MySQL copy, re-run #63.
-   Remember `php artisan storage:link` + real SMTP/LINE env on the server.
-2. **Remaining audit risks #5 (partial) & #8** — the scheduler only runs the expiry job; still no
-   subscription-expiry warning (the exact surprise that 402'd the whole dev portal this session) and no
-   booking reminder. **#8**: `MAIL_MAILER=log` + `QUEUE_CONNECTION=database` with no worker.
-3. **Broadcast follow-ups** — template placeholders (e.g. `{ชื่อลูกค้า}`), send LINE + in-app together,
-   schedule a broadcast for later. LINE image messages need public **HTTPS** URLs (dev localhost won't reach
-   LINE — verify on a real deploy).
-4. **CRM upgrade to standard/PDPA** — reviewed this session; the roadmap (11 work packages, P0/P1/P2, split
-   for parallel agents) is in **`topics/crm-roadmap.md`**. P0 = PDPA consent+opt-out+suppression,
-   permission-gate the CRM routes, persist broadcast delivery. Nothing built yet.
-5. ~~Finish the responsive pass~~ — **done 2026-08-02** (`.stack-table` in `globals.css` + 13 pages);
-   verified at session start that no `<table>` page is left without a mobile layout.
-6. **Pre-existing**: `composer audit` flags 9 advisories in `guzzlehttp/guzzle` 7.11.1 + `psr7`.
+1. **Unblock the deploy** (`DEPLOY_PATH`), back up prod, run the migrations. The MySQL risk is now
+   measured — the batch applies cleanly to an empty database and the suite passes against MySQL.
+   Remember `php artisan storage:link` + real SMTP/LINE env.
+2. **Put tests in CI.** `.github/workflows/deploy.yml` builds and deploys and **runs no tests at all**.
+   Everything green is green because someone ran it locally. Run against **MySQL**, not SQLite.
+3. **Decide the package question.** Hour packages still sell in hours while credit is now baht. Left
+   untouched on purpose: converting them changes a discount customers already paid for.
+4. **Audit risks #5 (partial) & #8** — no subscription-expiry warning, no booking reminder;
+   `MAIL_MAILER=log` + `QUEUE_CONNECTION=database` with no worker.
+5. **CRM WP6–WP11** — notes/tasks, broadcast analytics (needs a LINE webhook), enrichment.
+6. `composer audit`: **21** advisories (guzzle 9, psr7 2, commonmark 10) — was 9.
 
 ## ✅ Done 2026-08-07 — Four audit risks closed (#1, #3, #6, #7)
 Local-only, verified: backend **233/233** (10 new) · tsc clean · vitest 24/24 · lint **13 errors** (=
