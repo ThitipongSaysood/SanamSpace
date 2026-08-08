@@ -104,6 +104,13 @@ export type Booking = {
   checkinToken?: string | null;
   /** When the counter scanned them in. Null = has not arrived. */
   checkedInAt?: string | null;
+  /**
+   * The latest payment's status. Booking status alone cannot tell "not paid
+   * yet" from "slip sent, waiting for the venue" — both sit at
+   * `pending_payment`.
+   */
+  paymentStatus?: PaymentStatus | null;
+  paymentId?: string | null;
 };
 
 // Public per-venue LINE config for the customer frontend (GET /line-config).

@@ -43,6 +43,11 @@ class BookingResource extends JsonResource
             ])->values(), []),
             'status' => $this->status,
             'createdAt' => $this->created_at?->toIso8601String(),
+            // Booking status alone cannot tell "not paid yet" from "slip sent,
+            // waiting for the venue" — both sit at pending_payment, and the app
+            // was asking people to pay a second time because of it.
+            'paymentStatus' => $this->whenLoaded('latestPayment', fn () => $this->latestPayment?->status),
+            'paymentId' => $this->whenLoaded('latestPayment', fn () => $this->latestPayment?->id),
             // What the customer's QR encodes, and when the counter scanned it.
             'checkinToken' => $this->checkin_token,
             'checkedInAt' => $this->checked_in_at?->toIso8601String(),

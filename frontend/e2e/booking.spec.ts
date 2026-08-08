@@ -72,9 +72,17 @@ test("customer can book a court end-to-end", async ({ page, request }) => {
   await expect(page).toHaveURL(new RegExp(`/v/${VENUE}/payment/`));
   await page.getByRole("button", { name: "ดูรายละเอียดการจอง" }).click();
 
-  // Booking detail: still awaiting payment approval.
+  // Booking detail: the slip is with the venue, not "unpaid".
+  //
+  // This used to assert "รอชำระเงิน" — which was the bug. A booking sits at
+  // pending_payment both before anyone pays and while the venue checks the
+  // slip, so the customer was told to pay a second time for money they had
+  // already transferred.
   await expect(page).toHaveURL(new RegExp(`/v/${VENUE}/booking/`));
-  await expect(page.getByText("รอชำระเงิน")).toBeVisible();
+  await expect(page.getByText("รอตรวจสอบสลิป")).toBeVisible();
+  await expect(page.getByText("ส่งสลิปแล้ว รอสนามตรวจสอบ")).toBeVisible();
+  // The button that caused the double payment must not be here.
+  await expect(page.getByRole("link", { name: "ไปชำระเงิน" })).toHaveCount(0);
 
   fs.unlinkSync(slipPath);
 

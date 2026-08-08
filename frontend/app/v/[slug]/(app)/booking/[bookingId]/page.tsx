@@ -1,7 +1,8 @@
 "use client";
 import { use, useState } from "react";
 import { VenueLink as Link } from "@/lib/tenant/venue-nav";
-import { CalendarDays, Clock, Share2, X, QrCode, RotateCcw } from "lucide-react";
+import { CalendarDays, Clock, Clock3, Share2, X, QrCode, RotateCcw } from "lucide-react";
+import type { Booking } from "@/lib/types";
 import { api } from "@/lib/api/client";
 import { useTenant } from "@/lib/tenant/tenant-context";
 import { useBooking, useRefunds } from "@/lib/api/queries";
@@ -17,6 +18,54 @@ const REFUND_META: Record<RefundStatus, { label: string; cls: string }> = {
   approved: { label: "อนุมัติแล้ว", cls: "bg-brand/10 text-brand" },
   rejected: { label: "ถูกปฏิเสธ", cls: "bg-red-100 text-red-600" },
 };
+
+/** The one next action a customer actually has, given where their money is. */
+function PaymentNextStep({ booking }: { booking: Booking }) {
+  const cta = "flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand text-base font-semibold text-white";
+
+  // Slip is with the venue. There is nothing for them to do, and offering a
+  // button here is what caused double payments.
+  if (booking.paymentStatus === "pending_review") {
+    return (
+      <div className="rounded-2xl bg-amber-50 p-4 text-center">
+        <Clock3 className="mx-auto size-6 text-amber-600" />
+        <p className="mt-2 font-semibold text-amber-800">ส่งสลิปแล้ว รอสนามตรวจสอบ</p>
+        <p className="mt-0.5 text-sm text-amber-700">
+          ระบบจะยืนยันการจองให้อัตโนมัติเมื่อตรวจสอบเรียบร้อย ไม่ต้องโอนซ้ำ
+        </p>
+      </div>
+    );
+  }
+
+  // The venue said no. This is the only case where paying again is right.
+  if (booking.paymentStatus === "rejected") {
+    return (
+      <div className="space-y-2">
+        <p className="rounded-2xl bg-rose-50 p-3 text-center text-sm text-rose-700">
+          สลิปไม่ผ่านการตรวจสอบ — กรุณาชำระเงินอีกครั้ง
+        </p>
+        <Link href={`/payment/${booking.id}`} className={cta}>
+          ชำระเงินอีกครั้ง
+        </Link>
+      </div>
+    );
+  }
+
+  // Started but never sent a slip — continue where they left off.
+  if (booking.paymentStatus === "awaiting_slip") {
+    return (
+      <Link href={`/payment/${booking.id}`} className={cta}>
+        อัปโหลดสลิปการโอน
+      </Link>
+    );
+  }
+
+  return (
+    <Link href={`/payment/${booking.id}`} className={cta}>
+      ไปชำระเงิน
+    </Link>
+  );
+}
 
 export default function BookingDetailPage({ params }: { params: Promise<{ bookingId: string }> }) {
   const { bookingId } = use(params);
@@ -71,7 +120,7 @@ export default function BookingDetailPage({ params }: { params: Promise<{ bookin
     <main className="pb-24">
       <AppHeader title="รายละเอียดการจอง" />
       <div className="space-y-4 p-4">
-        <StatusBadge status={booking.status} />
+        <StatusBadge status={booking.status} paymentStatus={booking.paymentStatus} />
 
         <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
           <SportMedia sport="badminton" className="h-40 w-full" />
@@ -113,14 +162,11 @@ export default function BookingDetailPage({ params }: { params: Promise<{ bookin
           </div>
         </div>
 
-        {booking.status === "pending_payment" && (
-          <Link
-            href={`/payment/${booking.id}`}
-            className="flex h-12 w-full items-center justify-center rounded-xl bg-brand text-base font-semibold text-white hover:bg-brand/90"
-          >
-            ไปชำระเงิน
-          </Link>
-        )}
+        {/* What to do next depends on the PAYMENT, not just the booking. A
+            booking sits at pending_payment both before anyone pays and while
+            the venue is checking the slip — telling someone who has already
+            transferred to "ไปชำระเงิน" is how they end up paying twice. */}
+        {booking.status === "pending_payment" && <PaymentNextStep booking={booking} />}
 
         {isConfirmed && (
           <>

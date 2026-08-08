@@ -41,6 +41,38 @@ class PaymentController extends Controller
             ]);
         }
 
+        if ($booking->status === 'cancelled') {
+            throw ValidationException::withMessages([
+                'bookingId' => 'การจองนี้ถูกยกเลิกแล้ว',
+            ]);
+        }
+
+        if (in_array($booking->status, ['confirmed', 'completed'], true)) {
+            throw ValidationException::withMessages([
+                'bookingId' => 'การจองนี้ชำระเงินเรียบร้อยแล้ว',
+            ]);
+        }
+
+        // Reuse the payment already in flight instead of opening a second one.
+        // Tapping "ไปชำระเงิน" again used to create a duplicate row, so the
+        // venue saw two payments — and two slips — for one booking.
+        $existing = $booking->payments()
+            ->whereIn('status', ['awaiting_slip', 'pending_review'])
+            ->latest()
+            ->first();
+
+        if ($existing) {
+            // Still choosing how to pay: honour the new choice rather than
+            // stranding them on the method they first tapped.
+            if ($existing->status === 'awaiting_slip' && $existing->method !== $data['method']) {
+                $existing->update(['method' => $data['method'], 'amount' => $booking->amount]);
+            }
+
+            return (new PaymentResource($existing->fresh()))
+                ->response()
+                ->setStatusCode(200);
+        }
+
         $payment = Payment::create([
             'organization_id' => $booking->organization_id,
             'booking_id' => $booking->id,

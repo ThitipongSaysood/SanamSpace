@@ -61,7 +61,7 @@ export default function BookingsPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <div className="truncate font-semibold">{b.venueName} · {b.courtName}</div>
-                    <StatusBadge status={b.status} />
+                    <StatusBadge status={b.status} paymentStatus={b.paymentStatus} />
                   </div>
                   <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                     <CalendarDays className="size-3.5" />

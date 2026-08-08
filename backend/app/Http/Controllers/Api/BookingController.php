@@ -24,7 +24,7 @@ class BookingController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $bookings = Booking::query()
-            ->with(['branch.organization', 'court', 'rentals'])
+            ->with(['branch.organization', 'court', 'rentals', 'latestPayment'])
             ->where('customer_id', $request->user()->id)
             ->orderByDesc('created_at')
             ->get();
@@ -150,7 +150,7 @@ class BookingController extends Controller
             });
         });
 
-        $booking->load(['branch.organization', 'court', 'rentals']);
+        $booking->load(['branch.organization', 'court', 'rentals', 'latestPayment']);
 
         return (new BookingResource($booking))
             ->response()
@@ -223,7 +223,7 @@ class BookingController extends Controller
     private function findOwned(Request $request, string $id): Booking
     {
         return Booking::query()
-            ->with(['branch.organization', 'court', 'rentals'])
+            ->with(['branch.organization', 'court', 'rentals', 'latestPayment'])
             ->where('id', $id)
             ->where('customer_id', $request->user()->id)
             ->firstOrFail();
