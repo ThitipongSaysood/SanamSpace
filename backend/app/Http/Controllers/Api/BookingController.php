@@ -281,6 +281,61 @@ class BookingController extends Controller
     }
 
     /**
+     * POST /bookings/{id}/pay-with-wallet — spend the balance on this booking.
+     *
+     * Settled on the spot: the venue is already holding this money, so there is
+     * no slip to send and nothing to review. That is the whole difference
+     * between paying from a wallet and paying by transfer.
+     */
+    public function payWithWallet(Request $request, \App\Services\WalletService $wallets, \App\Services\DepositService $deposits): BookingResource
+    {
+        $booking = $this->findOwned($request, $request->route('id'));
+
+        if ($booking->status === 'cancelled') {
+            throw ValidationException::withMessages(['booking' => 'การจองนี้ถูกยกเลิกแล้ว']);
+        }
+
+        $outstanding = $deposits->outstanding($booking);
+
+        if ($outstanding <= 0) {
+            throw ValidationException::withMessages(['booking' => 'รายการจองนี้ชำระเงินเรียบร้อยแล้ว']);
+        }
+
+        $data = $request->validate([
+            // Part-paying from the wallet is allowed — someone with ฿100 left
+            // should be able to put it towards a ฿250 court rather than being
+            // told the balance is useless.
+            'amount' => ['sometimes', 'numeric', 'min:1'],
+        ]);
+
+        $amount = round(min((float) ($data['amount'] ?? $outstanding), $outstanding), 2);
+
+        $wallets->spend(
+            $request->user(),
+            $amount,
+            'จ่ายค่าจอง '.$booking->code,
+            $booking,
+        );
+
+        // Recorded as a payment like any other: this is money received, and the
+        // venue's takings should not depend on which pocket it came from.
+        \App\Models\Payment::create([
+            'organization_id' => $booking->organization_id,
+            'booking_id' => $booking->id,
+            'customer_id' => $booking->customer_id,
+            'method' => 'wallet',
+            'amount' => $amount,
+            'status' => 'approved',
+        ]);
+
+        $deposits->applyPayment($booking, $amount);
+
+        return new BookingResource($booking->fresh()->load([
+            'branch.organization', 'court', 'rentals', 'latestPayment', 'customerPackage',
+        ]));
+    }
+
+    /**
      * Fetch a booking owned by the current customer or abort (404).
      */
     private function findOwned(Request $request, string $id): Booking

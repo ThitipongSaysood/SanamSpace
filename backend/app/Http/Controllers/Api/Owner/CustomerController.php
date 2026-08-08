@@ -25,6 +25,11 @@ class CustomerController extends Controller
         $customers = Customer::query()
             ->forOrganization($orgId)
             ->withCount('bookings')
+            // Credit and wallet on the list itself: "who has credit with us" is
+            // a question asked while looking at the list, and answering it one
+            // customer at a time means opening twenty of them.
+            ->withSum(['packages as credit_hours' => fn ($q) => $q->where('status', 'active')], 'remaining_hours')
+            ->with('wallet')
             ->orderByDesc('created_at');
 
         return OwnerCustomerResource::collection($this->paginated($customers, $request));

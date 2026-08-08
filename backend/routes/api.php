@@ -41,6 +41,7 @@ use App\Http\Controllers\Api\Owner\CouponController as OwnerCouponController;
 use App\Http\Controllers\Api\Owner\CourtController as OwnerCourtController;
 use App\Http\Controllers\Api\Owner\CrmController as OwnerCrmController;
 use App\Http\Controllers\Api\Owner\CustomerController as OwnerCustomerController;
+use App\Http\Controllers\Api\Owner\CustomerCreditController as OwnerCustomerCreditController;
 use App\Http\Controllers\Api\Owner\DashboardController as OwnerDashboardController;
 use App\Http\Controllers\Api\Owner\MembershipController as OwnerMembershipController;
 use App\Http\Controllers\Api\Owner\PackagePurchaseController as OwnerPackagePurchaseController;
@@ -127,6 +128,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/packages/{id}/purchase', [PackageController::class, 'purchase']);
     Route::post('/packages/purchases/{id}/slip', [PackageController::class, 'purchaseSlip']);
     Route::post('/bookings/{id}/pay-with-package', [BookingController::class, 'payWithPackage']);
+    // Spending the wallet balance. Settled on the spot — the venue already has
+    // the money, so there is no slip and nothing to review.
+    Route::post('/bookings/{id}/pay-with-wallet', [BookingController::class, 'payWithWallet']);
     Route::get('/notifications', [NotificationController::class, 'index']);
 
     // --- Bookings (scoped to the authenticated Customer) ---
@@ -241,6 +245,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/customers', [OwnerCustomerController::class, 'index'])->middleware('permission:customer.view');
         Route::get('/customers/{id}', [OwnerCustomerController::class, 'show'])->middleware('permission:customer.view');
+        // Credit (hours) and wallet (baht) — what a customer holds, and how
+        // staff change it. Granting money is wallet.manage, not customer.view.
+        Route::get('/customer-credit', [OwnerCustomerCreditController::class, 'index'])->middleware('permission:customer.view');
+        Route::post('/customer-credit/{customerId}/hours', [OwnerCustomerCreditController::class, 'grantHours'])->middleware('permission:wallet.manage');
+        Route::post('/customer-credit/{customerId}/hours/deduct', [OwnerCustomerCreditController::class, 'deductHours'])->middleware('permission:wallet.manage');
+        Route::post('/customer-credit/{customerId}/wallet', [OwnerCustomerCreditController::class, 'adjustWallet'])->middleware('permission:wallet.manage');
 
         // --- Settings (org settings + org name) ---
         Route::get('/settings', [OwnerSettingController::class, 'show']);

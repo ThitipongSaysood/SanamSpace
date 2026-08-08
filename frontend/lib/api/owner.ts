@@ -26,6 +26,7 @@ import type {
   CheckinBooking,
   CheckinResult,
   OwnerCustomerDetail,
+  OwnerCustomerCredit,
   OwnerProduct,
   OwnerRentalOut,
   OutstandingRental,
@@ -414,6 +415,31 @@ export const ownerApi = {
     req<Array<RentalItem & { availableQty: number; priceForBooking: number }>>(
       `/owner/rental-items/offer?date=${date}&start=${start}&end=${end}`,
     ),
+
+  // --- Customer credit (hours) and wallet (baht) ---
+  getCustomerCredit: (params?: { q?: string; holding?: boolean }) => {
+    const qs = new URLSearchParams();
+    if (params?.q) qs.set("q", params.q);
+    if (params?.holding) qs.set("holding", "1");
+    const q = qs.toString();
+    return req<OwnerCustomerCredit[]>(`/owner/customer-credit${q ? `?${q}` : ""}`);
+  },
+  grantCreditHours: (customerId: string, body: { hours: number; name?: string; expiresAt?: string | null }) =>
+    req<{ id: string; name: string; remainingHours: number }>(`/owner/customer-credit/${customerId}/hours`, {
+      method: "POST",
+      body,
+    }),
+  deductCreditHours: (customerId: string, hours: number) =>
+    req<{ creditHours: number }>(`/owner/customer-credit/${customerId}/hours/deduct`, {
+      method: "POST",
+      body: { hours },
+    }),
+  /** Signed: positive tops up, negative takes back. */
+  adjustCustomerWallet: (customerId: string, amount: number, label?: string) =>
+    req<{ balance: number }>(`/owner/customer-credit/${customerId}/wallet`, {
+      method: "POST",
+      body: { amount, label },
+    }),
 
   // --- Discount codes ---
   getCoupons: () => req<OwnerCoupon[]>("/owner/coupons"),

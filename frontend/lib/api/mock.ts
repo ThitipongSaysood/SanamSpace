@@ -98,6 +98,12 @@ export const mockApi = {
     await delay();
     throw new Error("ไม่พบคูปองนี้");
   },
+  async payWithWallet(bookingId: string, _amount?: number): Promise<Booking> {
+    await delay();
+    const b = db.bookings.get(bookingId)!;
+    b.status = "confirmed";
+    return { ...b };
+  },
   async getPayment(paymentId: string): Promise<Payment | undefined> { await delay(); return db.payments.get(paymentId); },
   async getPaymentInstructions(paymentId: string): Promise<PaymentInstructions> {
     await delay();

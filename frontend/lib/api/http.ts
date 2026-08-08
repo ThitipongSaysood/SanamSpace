@@ -146,6 +146,12 @@ export const httpApi: Api = {
   },
   payWithPackage: (bookingId, customerPackageId) =>
     req<Booking>(`/bookings/${bookingId}/pay-with-package`, { method: "POST", body: { customerPackageId } }),
+  /** Spend the wallet balance. Settled on the spot — no slip to send. */
+  payWithWallet: (bookingId: string, amount?: number) =>
+    req<Booking>(`/bookings/${bookingId}/pay-with-wallet`, {
+      method: "POST",
+      body: amount === undefined ? {} : { amount },
+    }),
   getPackages: () => req<VenuePackage[]>("/packages"),
   getMembership: () => req<Membership>("/membership"),
   getWallet: () => req<Wallet>("/wallet"),

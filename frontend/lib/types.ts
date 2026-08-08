@@ -155,6 +155,16 @@ export type Booking = {
   } | null;
 };
 
+/** One customer's holdings, for the credit screen. */
+export type OwnerCustomerCredit = {
+  id: string;
+  displayName: string;
+  phone: string | null;
+  creditHours: number;
+  walletBalance: number;
+  packages: { id: string; name: string; totalHours: number; remainingHours: number; expiresAt: string | null }[];
+};
+
 /** What a code would do, asked before committing to the booking. */
 export type CouponPreview = {
   code: string;
@@ -437,6 +447,10 @@ export type OwnerCustomer = {
   totalSpending: number;
   visits: number;
   bookingsCount: number;
+  /** Hours of court time they hold. Never added to walletBalance — different units. */
+  creditHours?: number;
+  /** Baht they hold, which can pay for anything. */
+  walletBalance?: number;
 };
 
 // Owner-side org settings (GET/PUT /owner/settings).

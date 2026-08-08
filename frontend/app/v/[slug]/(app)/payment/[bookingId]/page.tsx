@@ -3,7 +3,7 @@ import { use, useEffect, useState } from "react";
 import { useVenueRouter as useRouter } from "@/lib/tenant/venue-nav";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  CalendarDays, CheckCircle2, Ticket, ChevronRight, QrCode, Landmark, Clock, Check, Hourglass, Package as PackageIcon,
+  CalendarDays, CheckCircle2, Ticket, ChevronRight, QrCode, Landmark, Clock, Check, Hourglass, Package as PackageIcon, Wallet as WalletIcon,
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { api } from "@/lib/api/client";
@@ -15,7 +15,7 @@ import { Loading, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import type { Payment, PaymentInstructions } from "@/lib/types";
 
-type MethodId = "promptpay" | "transfer" | "package";
+type MethodId = "promptpay" | "transfer" | "package" | "wallet";
 type Method = { id: MethodId; label: string; Icon: ComponentType<{ className?: string }>; iconCls: string };
 
 /** Hours between "HH:MM" strings. */
@@ -31,6 +31,7 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
   const qc = useQueryClient();
   const { data: booking, isLoading } = useBooking(bookingId);
   const myPackages = useQuery({ queryKey: ["my-packages"], queryFn: api.getMyPackages });
+  const wallet = useQuery({ queryKey: ["wallet"], queryFn: api.getWallet });
   const [payment, setPayment] = useState<Payment | null>(null);
   const [instructions, setInstructions] = useState<PaymentInstructions | null>(null);
   const [slipFile, setSlipFile] = useState<File | null>(null);
@@ -59,6 +60,11 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
     (p) => p.status === "active" && p.remainingHours >= bookingHours,
   );
 
+  // The wallet is money the venue already holds, so it settles instantly.
+  const walletBalance = wallet.data?.balance ?? 0;
+  const owed = booking.outstandingAmount ?? booking.amount;
+  const walletCovers = walletBalance >= owed && owed > 0;
+
   const methods: Method[] = [
     { id: "promptpay", label: "PromptPay QR", Icon: QrCode, iconCls: "bg-brand/10 text-brand" },
     { id: "transfer", label: "โอนเงิน (อัปโหลดสลิป)", Icon: Landmark, iconCls: "bg-blue-50 text-blue-600" },
@@ -67,11 +73,27 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
     ...(eligiblePackage && owedAfterPackage === null
       ? [{ id: "package" as const, label: `ใช้แพ็กเกจ (เหลือ ${eligiblePackage.remainingHours} ชม.)`, Icon: PackageIcon, iconCls: "bg-amber-50 text-amber-600" }]
       : []),
+    // Offered only when it actually covers the bill. A method that fails on tap
+    // for "ยอดไม่พอ" is worse than one that is not offered.
+    ...(walletCovers
+      ? [{ id: "wallet" as const, label: `ใช้วอลเล็ต (มี ฿${walletBalance.toLocaleString("th-TH")})`, Icon: WalletIcon, iconCls: "bg-emerald-50 text-emerald-600" }]
+      : []),
   ];
 
   async function start() {
     setBusy(true);
     try {
+      if (method === "wallet") {
+        await api.payWithWallet(bookingId);
+        await qc.invalidateQueries({ queryKey: ["booking", bookingId] });
+        await qc.invalidateQueries({ queryKey: ["bookings"] });
+        await qc.invalidateQueries({ queryKey: ["wallet"] });
+        // Settled: the venue already had this money, so there is nothing to
+        // send and nothing to review.
+        setRedeemed(true);
+        return;
+      }
+
       if (method === "package" && eligiblePackage) {
         const after = await api.payWithPackage(bookingId, eligiblePackage.id);
         await qc.invalidateQueries({ queryKey: ["booking", bookingId] });

@@ -70,6 +70,12 @@ class Customer extends Authenticatable
         return $this->hasOne(Wallet::class);
     }
 
+    /** Credit the customer holds with this venue, counted in hours. */
+    public function packages(): HasMany
+    {
+        return $this->hasMany(CustomerPackage::class);
+    }
+
     public function notifications(): HasMany
     {
         return $this->hasMany(Notification::class);
