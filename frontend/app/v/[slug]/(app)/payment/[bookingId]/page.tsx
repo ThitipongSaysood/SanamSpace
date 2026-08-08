@@ -15,7 +15,7 @@ import { Loading, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import type { Payment, PaymentInstructions } from "@/lib/types";
 
-type MethodId = "promptpay" | "transfer" | "package" | "wallet";
+type MethodId = "promptpay" | "transfer" | "package" | "credit";
 type Method = { id: MethodId; label: string; Icon: ComponentType<{ className?: string }>; iconCls: string };
 
 /** Hours between "HH:MM" strings. */
@@ -31,7 +31,7 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
   const qc = useQueryClient();
   const { data: booking, isLoading } = useBooking(bookingId);
   const myPackages = useQuery({ queryKey: ["my-packages"], queryFn: api.getMyPackages });
-  const wallet = useQuery({ queryKey: ["wallet"], queryFn: api.getWallet });
+  const credit = useQuery({ queryKey: ["credit"], queryFn: api.getCredit });
   const [payment, setPayment] = useState<Payment | null>(null);
   const [instructions, setInstructions] = useState<PaymentInstructions | null>(null);
   const [slipFile, setSlipFile] = useState<File | null>(null);
@@ -60,10 +60,10 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
     (p) => p.status === "active" && p.remainingHours >= bookingHours,
   );
 
-  // The wallet is money the venue already holds, so it settles instantly.
-  const walletBalance = wallet.data?.balance ?? 0;
+  // Credit is money the venue already holds, so it settles instantly.
+  const creditBalance = credit.data?.balance ?? 0;
   const owed = booking.outstandingAmount ?? booking.amount;
-  const walletCovers = walletBalance >= owed && owed > 0;
+  const creditCovers = creditBalance >= owed && owed > 0;
 
   const methods: Method[] = [
     { id: "promptpay", label: "PromptPay QR", Icon: QrCode, iconCls: "bg-brand/10 text-brand" },
@@ -75,19 +75,19 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
       : []),
     // Offered only when it actually covers the bill. A method that fails on tap
     // for "ยอดไม่พอ" is worse than one that is not offered.
-    ...(walletCovers
-      ? [{ id: "wallet" as const, label: `ใช้วอลเล็ต (มี ฿${walletBalance.toLocaleString("th-TH")})`, Icon: WalletIcon, iconCls: "bg-emerald-50 text-emerald-600" }]
+    ...(creditCovers
+      ? [{ id: "credit" as const, label: `ใช้เครดิต (มี ฿${creditBalance.toLocaleString("th-TH")})`, Icon: WalletIcon, iconCls: "bg-emerald-50 text-emerald-600" }]
       : []),
   ];
 
   async function start() {
     setBusy(true);
     try {
-      if (method === "wallet") {
-        await api.payWithWallet(bookingId);
+      if (method === "credit") {
+        await api.payWithCredit(bookingId);
         await qc.invalidateQueries({ queryKey: ["booking", bookingId] });
         await qc.invalidateQueries({ queryKey: ["bookings"] });
-        await qc.invalidateQueries({ queryKey: ["wallet"] });
+        await qc.invalidateQueries({ queryKey: ["credit"] });
         // Settled: the venue already had this money, so there is nothing to
         // send and nothing to review.
         setRedeemed(true);

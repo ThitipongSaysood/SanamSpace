@@ -120,15 +120,15 @@ class AdminRefundTest extends TestCase
         $this->assertSame($pending->id, $ids->first());
     }
 
-    public function test_approve_with_wallet_credits_customer_and_cancels_booking(): void
+    public function test_approving_pays_out_as_credit_and_cancels_the_booking(): void
     {
         $refund = $this->seedRefund('tsr-arena', 'BKTSR000002', 600, 'TSR Customer');
 
         $this->withToken($this->superToken())
-            ->postJson("/api/v1/admin/refunds/{$refund->id}/approve", ['method' => 'wallet'])
+            ->postJson("/api/v1/admin/refunds/{$refund->id}/approve", ['method' => 'credit'])
             ->assertOk()
             ->assertJsonPath('data.status', 'approved')
-            ->assertJsonPath('data.method', 'wallet');
+            ->assertJsonPath('data.method', 'credit');
 
         $refund->refresh();
         $this->assertSame('approved', $refund->status);
@@ -186,13 +186,13 @@ class AdminRefundTest extends TestCase
         $token = $this->superToken();
 
         $this->withToken($token)
-            ->postJson("/api/v1/admin/refunds/{$refund->id}/approve", ['method' => 'wallet'])
+            ->postJson("/api/v1/admin/refunds/{$refund->id}/approve", ['method' => 'credit'])
             ->assertOk();
 
         // Second approve is guarded by RefundService (state must be `requested`).
         $this->app['auth']->forgetGuards();
         $this->withToken($token)
-            ->postJson("/api/v1/admin/refunds/{$refund->id}/approve", ['method' => 'wallet'])
+            ->postJson("/api/v1/admin/refunds/{$refund->id}/approve", ['method' => 'credit'])
             ->assertStatus(422);
     }
 

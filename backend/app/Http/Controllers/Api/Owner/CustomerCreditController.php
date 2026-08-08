@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api\Owner;
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\CustomerPackage;
-use App\Services\WalletService;
+use App\Services\CreditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -23,7 +23,7 @@ use Illuminate\Validation\ValidationException;
  */
 class CustomerCreditController extends Controller
 {
-    public function __construct(private WalletService $wallets) {}
+    public function __construct(private CreditService $credit) {}
 
     /**
      * GET /owner/customer-credit — everyone who holds something, and everyone
@@ -58,8 +58,11 @@ class CustomerCreditController extends Controller
                 'id' => (string) $c->id,
                 'displayName' => $c->display_name,
                 'phone' => $c->phone,
+                // Credit in baht is THE balance. `creditHours` is what remains
+                // of the old hour packages, kept visible so nobody's existing
+                // hours silently vanish in the switch.
+                'balance' => (float) ($c->wallet?->balance ?? 0),
                 'creditHours' => (float) ($c->credit_hours ?? 0),
-                'walletBalance' => (float) ($c->wallet?->balance ?? 0),
                 'packages' => $c->packages->map(fn ($p) => [
                     'id' => (string) $p->id,
                     'name' => $p->name,
@@ -67,6 +70,46 @@ class CustomerCreditController extends Controller
                     'remainingHours' => (float) $p->remaining_hours,
                     'expiresAt' => $p->expires_at?->toDateString(),
                 ])->values(),
+            ])->values(),
+        ]);
+    }
+
+    /**
+     * GET /owner/customer-credit/{customerId}/history — every movement, newest
+     * first, with the staff member who caused it.
+     *
+     * The point of an audit trail is that it answers "who gave this customer
+     * ฿5,000" — a balance alone cannot, and neither can a ledger that records
+     * only amounts.
+     */
+    public function history(Request $request, string $customerId): JsonResponse
+    {
+        $customer = $this->find($request, $customerId);
+
+        $wallet = $customer->wallet;
+
+        if (! $wallet) {
+            return response()->json(['data' => []]);
+        }
+
+        $rows = \App\Models\WalletTransaction::query()
+            ->where('wallet_id', $wallet->id)
+            ->with('actor')
+            ->orderByDesc('created_at')
+            ->limit(200)
+            ->get();
+
+        return response()->json([
+            'data' => $rows->map(fn ($t) => [
+                'id' => (string) $t->id,
+                'label' => $t->label,
+                'amount' => (float) $t->amount,
+                'status' => $t->status,
+                'source' => $t->source,
+                // Null means the customer did it themselves — a top-up they
+                // paid for is not an action anyone has to answer for.
+                'byName' => $t->actor?->display_name ?? $t->actor?->name,
+                'createdAt' => $t->created_at?->toIso8601String(),
             ])->values(),
         ]);
     }
@@ -153,8 +196,8 @@ class CustomerCreditController extends Controller
         ]]);
     }
 
-    /** POST /owner/customer-credit/{customerId}/wallet — put baht in, or take it out. */
-    public function adjustWallet(Request $request, string $customerId): JsonResponse
+    /** POST /owner/customer-credit/{customerId}/adjust — put baht in, or take it out. */
+    public function adjustCredit(Request $request, string $customerId): JsonResponse
     {
         $customer = $this->find($request, $customerId);
 
@@ -168,9 +211,11 @@ class CustomerCreditController extends Controller
         $amount = (float) $data['amount'];
         $label = ($data['label'] ?? null) ?: ($amount > 0 ? 'เติมเครดิตโดยสนาม' : 'ปรับยอดโดยสนาม');
 
+        $actor = $request->user()?->id;
+
         $wallet = $amount > 0
-            ? $this->wallets->credit($customer, $amount, $label)
-            : $this->wallets->spend($customer, abs($amount), $label);
+            ? $this->credit->add($customer, $amount, $label, 'adjustment', $actor)
+            : $this->credit->spend($customer, abs($amount), $label, null, 'adjustment', $actor);
 
         return response()->json(['data' => ['balance' => (float) $wallet->balance]]);
     }

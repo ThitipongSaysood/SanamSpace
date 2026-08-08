@@ -51,7 +51,7 @@ class DeadSessionAndWalletTest extends TestCase
             'precondition: no wallet row yet',
         );
 
-        $body = $this->withToken($token)->getJson('/api/v1/wallet')->assertOk()->json('data');
+        $body = $this->withToken($token)->getJson('/api/v1/credit')->assertOk()->json('data');
 
         $this->assertSame(0.0, (float) $body['balance']);
         $this->assertSame([], $body['transactions']);
@@ -62,8 +62,8 @@ class DeadSessionAndWalletTest extends TestCase
     {
         $token = $this->token();
 
-        $this->withToken($token)->getJson('/api/v1/wallet')->assertOk();
-        $this->withToken($token)->getJson('/api/v1/wallet')->assertOk();
+        $this->withToken($token)->getJson('/api/v1/credit')->assertOk();
+        $this->withToken($token)->getJson('/api/v1/credit')->assertOk();
 
         $this->assertSame(
             1,
@@ -76,7 +76,7 @@ class DeadSessionAndWalletTest extends TestCase
     {
         $token = $this->token();
 
-        $this->withToken($token)->postJson('/api/v1/wallet/topup', ['amount' => 500])->assertOk();
+        $this->withToken($token)->postJson('/api/v1/credit/topup', ['amount' => 500])->assertOk();
     }
 
     /**
@@ -86,14 +86,14 @@ class DeadSessionAndWalletTest extends TestCase
     public function test_a_revoked_token_is_rejected(): void
     {
         $token = $this->token();
-        $this->withToken($token)->getJson('/api/v1/wallet')->assertOk();
+        $this->withToken($token)->getJson('/api/v1/credit')->assertOk();
 
         // What a database reset does to every session that was open at the time.
         $this->app['auth']->forgetGuards();
         \Laravel\Sanctum\PersonalAccessToken::query()->delete();
 
         $this->app['auth']->forgetGuards();
-        $this->withToken($token)->getJson('/api/v1/wallet')->assertUnauthorized();
+        $this->withToken($token)->getJson('/api/v1/credit')->assertUnauthorized();
         $this->app['auth']->forgetGuards();
         $this->withToken($token)->getJson('/api/v1/bookings')->assertUnauthorized();
     }

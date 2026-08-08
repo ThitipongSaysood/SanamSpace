@@ -206,16 +206,44 @@ class BookingController extends Controller
 
     /**
      * POST /bookings/{id}/cancel -> Booking (status cancelled).
+     *
+     * Money already paid comes back as CREDIT, immediately. The venue's policy
+     * is credit rather than cash, and credit costs the venue nothing to return —
+     * so making the customer file a request and wait for approval would be
+     * ceremony around a decision that has already been made.
      */
-    public function cancel(Request $request, string $id): BookingResource
+    public function cancel(Request $request, string $id, \App\Services\CreditService $credit): BookingResource
     {
         $booking = $this->findOwned($request, $id);
+
+        if ($booking->status === 'cancelled') {
+            throw ValidationException::withMessages(['booking' => 'การจองนี้ถูกยกเลิกไปแล้ว']);
+        }
+
+        // Read before the status changes, and only what was actually received.
+        $refundable = round((float) ($booking->paid_amount ?? 0), 2);
+
         $booking->update(['status' => 'cancelled']);
         // A slip sent minutes before cancelling must not stay in the venue's
         // review queue, where approving it would revive the booking.
         $booking->closeOutstandingPayments();
 
-        return new BookingResource($booking->fresh(['branch.organization', 'court']));
+        if ($refundable > 0) {
+            $credit->add(
+                $request->user(),
+                $refundable,
+                'คืนจากการยกเลิก · '.$booking->code,
+                'refund',
+            );
+
+            // The booking now owes nothing and has given everything back, so it
+            // must not still read as "฿250 paid" on a cancelled row.
+            $booking->update(['paid_amount' => 0]);
+        }
+
+        return new BookingResource($booking->fresh([
+            'branch.organization', 'court', 'rentals', 'latestPayment', 'customerPackage',
+        ]));
     }
 
     /**
@@ -281,13 +309,13 @@ class BookingController extends Controller
     }
 
     /**
-     * POST /bookings/{id}/pay-with-wallet — spend the balance on this booking.
+     * POST /bookings/{id}/pay-with-credit — spend the balance on this booking.
      *
      * Settled on the spot: the venue is already holding this money, so there is
      * no slip to send and nothing to review. That is the whole difference
      * between paying from a wallet and paying by transfer.
      */
-    public function payWithWallet(Request $request, \App\Services\WalletService $wallets, \App\Services\DepositService $deposits): BookingResource
+    public function payWithCredit(Request $request, \App\Services\CreditService $credit, \App\Services\DepositService $deposits): BookingResource
     {
         $booking = $this->findOwned($request, $request->route('id'));
 
@@ -302,7 +330,7 @@ class BookingController extends Controller
         }
 
         $data = $request->validate([
-            // Part-paying from the wallet is allowed — someone with ฿100 left
+            // Part-paying from credit is allowed — someone with ฿100 left
             // should be able to put it towards a ฿250 court rather than being
             // told the balance is useless.
             'amount' => ['sometimes', 'numeric', 'min:1'],
@@ -310,7 +338,7 @@ class BookingController extends Controller
 
         $amount = round(min((float) ($data['amount'] ?? $outstanding), $outstanding), 2);
 
-        $wallets->spend(
+        $credit->spend(
             $request->user(),
             $amount,
             'จ่ายค่าจอง '.$booking->code,
@@ -323,7 +351,7 @@ class BookingController extends Controller
             'organization_id' => $booking->organization_id,
             'booking_id' => $booking->id,
             'customer_id' => $booking->customer_id,
-            'method' => 'wallet',
+            'method' => 'credit',
             'amount' => $amount,
             'status' => 'approved',
         ]);

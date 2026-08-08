@@ -131,11 +131,11 @@ export const httpApi: Api = {
   submitReview: (venueId, rating, text) =>
     req<ReviewSummary>("/reviews", { method: "POST", body: { venueId, rating, text } }),
   walletTopup: (amount) =>
-    req<WalletTopupInstructions>("/wallet/topup", { method: "POST", body: { amount } }),
+    req<WalletTopupInstructions>("/credit/topup", { method: "POST", body: { amount } }),
   walletTopupSlip: (id, file) => {
     const fd = new FormData();
     if (file) fd.append("slip", file);
-    return req<Wallet>(`/wallet/topup/${id}/slip`, { method: "POST", body: fd });
+    return req<Wallet>(`/credit/topup/${id}/slip`, { method: "POST", body: fd });
   },
   getMyPackages: () => req<CustomerPackage[]>("/my-packages"),
   purchasePackage: (id) => req<PackagePurchaseInstructions>(`/packages/${id}/purchase`, { method: "POST" }),
@@ -146,15 +146,15 @@ export const httpApi: Api = {
   },
   payWithPackage: (bookingId, customerPackageId) =>
     req<Booking>(`/bookings/${bookingId}/pay-with-package`, { method: "POST", body: { customerPackageId } }),
-  /** Spend the wallet balance. Settled on the spot — no slip to send. */
-  payWithWallet: (bookingId: string, amount?: number) =>
-    req<Booking>(`/bookings/${bookingId}/pay-with-wallet`, {
+  /** Spend credit. Settled on the spot — no slip to send. */
+  payWithCredit: (bookingId: string, amount?: number) =>
+    req<Booking>(`/bookings/${bookingId}/pay-with-credit`, {
       method: "POST",
       body: amount === undefined ? {} : { amount },
     }),
   getPackages: () => req<VenuePackage[]>("/packages"),
   getMembership: () => req<Membership>("/membership"),
-  getWallet: () => req<Wallet>("/wallet"),
+  getCredit: () => req<Wallet>("/credit"),
   getPromotions: () => req<Promotion[]>("/promotions"),
   /** What can be rented for this exact slot — availability needs a window. */
   getRentals: (date: string, start: string, end: string) =>

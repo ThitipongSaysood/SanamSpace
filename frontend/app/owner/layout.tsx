@@ -62,7 +62,6 @@ const NAV: NavItem[] = [
   { label: "CRM", href: "/owner/crm", icon: HeartHandshake },
   { label: "ยิงโปร LINE", href: "/owner/broadcast", icon: Send },
   { label: "สมาชิก", href: "/owner/membership", icon: Crown },
-  { label: "วอลเล็ต", href: "/owner/wallet", icon: Wallet },
   { label: "โปรโมชั่น", href: "/owner/promotions", icon: Tag },
   { label: "คูปองส่วนลด", href: "/owner/coupons", icon: Ticket },
   { label: "แบนเนอร์/ต้อนรับ", href: "/owner/banner", icon: Megaphone },

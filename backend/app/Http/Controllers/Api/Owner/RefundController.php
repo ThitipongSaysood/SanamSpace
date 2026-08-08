@@ -51,13 +51,13 @@ class RefundController extends Controller
         $refund = $this->findInOrg($request, $id);
 
         $validated = $request->validate([
-            'method' => ['nullable', 'in:wallet,manual'],
+            'method' => ['nullable', 'in:credit,manual'],
             'note' => ['nullable', 'string'],
         ]);
 
         $refund = app(RefundService::class)->approve(
             $refund,
-            $validated['method'] ?? 'wallet',
+            $validated['method'] ?? 'credit',
             $validated['note'] ?? null,
             $request->user()->id,
         );

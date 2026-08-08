@@ -15,11 +15,13 @@ const KEY = ["owner", "customer-credit"];
 const fmt = new Intl.NumberFormat("th-TH");
 
 /**
- * What customers hold with the venue.
+ * What customers hold with the venue: credit, in baht.
  *
- * Two columns, never one total: credit is hours of court time, the wallet is
- * baht. Adding them would need a rate nobody has agreed on — a venue that sells
- * "10 ชม. ฿2,000" has not promised an hour is worth ฿200 forever.
+ * There used to be two balances in two units — a "wallet" in baht and hour
+ * packages — so a customer could hold both and staff had to know which one a
+ * question was about. One balance now, and every movement of it is recorded
+ * with the staff member behind it, because credit is money that can be created
+ * by hand.
  */
 export default function OwnerCustomerCreditPage() {
   const [q, setQ] = useState("");
@@ -39,7 +41,8 @@ export default function OwnerCustomerCreditPage() {
       <header>
         <h1 className="text-2xl font-bold tracking-tight">เครดิตลูกค้า</h1>
         <p className="text-sm text-muted-foreground">
-          เครดิตคิดเป็น<strong>ชั่วโมง</strong>ใช้กับค่าสนาม · วอลเล็ตเป็น<strong>เงินบาท</strong>ใช้จ่ายได้ทุกอย่าง
+          เครดิตเป็น<strong>เงินบาท</strong> ใช้จ่ายค่าจอง ค่าเช่าอุปกรณ์ ได้ทันทีโดยไม่ต้องแนบสลิป ·
+          ยกเลิกการจองแล้วเงินจะคืนกลับมาที่นี่
         </p>
       </header>
 
@@ -64,7 +67,7 @@ export default function OwnerCustomerCreditPage() {
             onChange={(e) => setHolding(e.target.checked)}
             className="size-4 accent-[var(--brand-primary)]"
           />
-          <span className="text-sm">แสดงเฉพาะคนที่มีเครดิตหรือเงินคงเหลือ</span>
+          <span className="text-sm">แสดงเฉพาะคนที่มียอดคงเหลือ</span>
         </label>
       </section>
 
@@ -81,8 +84,8 @@ export default function OwnerCustomerCreditPage() {
               <thead className="bg-app text-left text-xs font-medium text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3">ลูกค้า</th>
-                  <th className="px-4 py-3 text-right">เครดิต (ชั่วโมง)</th>
-                  <th className="px-4 py-3 text-right">วอลเล็ต (บาท)</th>
+                  <th className="px-4 py-3 text-right">เครดิต (บาท)</th>
+                  <th className="px-4 py-3 text-right">ชั่วโมงคงเหลือ</th>
                   <th className="px-4 py-3">แพ็กเกจที่ถืออยู่</th>
                   <th className="w-36 px-4 py-3 text-right">จัดการ</th>
                 </tr>
@@ -95,13 +98,13 @@ export default function OwnerCustomerCreditPage() {
                       {c.phone && <div className="text-xs text-muted-foreground">{c.phone}</div>}
                     </td>
                     <td data-label="เครดิต" className="px-4 py-3 text-right">
-                      <span className={`font-semibold tabular-nums ${c.creditHours > 0 ? "text-brand" : "text-muted-foreground"}`}>
-                        {fmt.format(c.creditHours)} ชม.
+                      <span className={`font-semibold tabular-nums ${c.balance > 0 ? "text-brand" : "text-muted-foreground"}`}>
+                        ฿{fmt.format(c.balance)}
                       </span>
                     </td>
-                    <td data-label="วอลเล็ต" className="px-4 py-3 text-right">
-                      <span className={`font-semibold tabular-nums ${c.walletBalance > 0 ? "text-brand" : "text-muted-foreground"}`}>
-                        ฿{fmt.format(c.walletBalance)}
+                    <td data-label="ชั่วโมงคงเหลือ" className="px-4 py-3 text-right">
+                      <span className={`tabular-nums ${c.creditHours > 0 ? "font-semibold" : "text-muted-foreground"}`}>
+                        {c.creditHours > 0 ? `${fmt.format(c.creditHours)} ชม.` : "—"}
                       </span>
                     </td>
                     <td data-label="แพ็กเกจ" className="px-4 py-3 text-xs text-muted-foreground">
@@ -171,7 +174,7 @@ function CreditEditor({ customer, onClose }: { customer: OwnerCustomerCredit; on
 
   const wallet = useMutation({
     mutationFn: (sign: 1 | -1) =>
-      ownerApi.adjustCustomerWallet(customer.id, sign * Number(money), moneyLabel.trim() || undefined),
+      ownerApi.adjustCustomerCredit(customer.id, sign * Number(money), moneyLabel.trim() || undefined),
     onSuccess: done,
   });
 
@@ -194,19 +197,21 @@ function CreditEditor({ customer, onClose }: { customer: OwnerCustomerCredit; on
         <div className="grid grid-cols-2 gap-3 rounded-xl bg-app p-3 text-center">
           <div>
             <div className="text-xs text-muted-foreground">เครดิตคงเหลือ</div>
-            <div className="text-xl font-bold text-brand tabular-nums">{fmt.format(customer.creditHours)} ชม.</div>
+            <div className="text-xl font-bold text-brand tabular-nums">฿{fmt.format(customer.balance)}</div>
           </div>
           <div>
-            <div className="text-xs text-muted-foreground">วอลเล็ต</div>
-            <div className="text-xl font-bold text-brand tabular-nums">฿{fmt.format(customer.walletBalance)}</div>
+            <div className="text-xs text-muted-foreground">ชั่วโมงคงเหลือ (แพ็กเกจเดิม)</div>
+            <div className="text-xl font-bold tabular-nums">{fmt.format(customer.creditHours)} ชม.</div>
           </div>
         </div>
 
         <section className="space-y-2 rounded-xl border border-black/10 p-3">
           <h3 className="flex items-center gap-1.5 text-sm font-semibold">
-            <Clock className="size-4 text-brand" /> เครดิตชั่วโมง
+            <Clock className="size-4 text-brand" /> ชั่วโมงคงเหลือ (แพ็กเกจเดิม)
           </h3>
-          <p className="text-xs text-muted-foreground">ใช้กับค่าสนามเท่านั้น — ค่าเช่าอุปกรณ์ยังต้องจ่ายแยก</p>
+          <p className="text-xs text-muted-foreground">
+            ใช้กับค่าสนามเท่านั้น — ของเดิมที่ลูกค้ายังถืออยู่ ยังใช้ได้ตามปกติ
+          </p>
 
           <div className="grid gap-2 sm:grid-cols-2">
             <div className="space-y-1.5">
@@ -258,9 +263,11 @@ function CreditEditor({ customer, onClose }: { customer: OwnerCustomerCredit; on
 
         <section className="space-y-2 rounded-xl border border-black/10 p-3">
           <h3 className="flex items-center gap-1.5 text-sm font-semibold">
-            <WalletIcon className="size-4 text-brand" /> วอลเล็ต (เงินบาท)
+            <WalletIcon className="size-4 text-brand" /> เครดิต (เงินบาท)
           </h3>
-          <p className="text-xs text-muted-foreground">ลูกค้าใช้จ่ายค่าจองได้ทันที ไม่ต้องแนบสลิป</p>
+          <p className="text-xs text-muted-foreground">
+            ลูกค้าใช้จ่ายค่าจองและค่าเช่าอุปกรณ์ได้ทันที ไม่ต้องแนบสลิป · ทุกครั้งที่ปรับจะถูกบันทึกชื่อผู้ทำ
+          </p>
 
           <div className="grid gap-2 sm:grid-cols-2">
             <div className="space-y-1.5">
@@ -306,7 +313,67 @@ function CreditEditor({ customer, onClose }: { customer: OwnerCustomerCredit; on
         </section>
 
         {error && <p className="text-sm text-brand-danger">{error.message}</p>}
+
+        <CreditHistory customerId={customer.id} />
       </div>
     </Modal>
+  );
+}
+
+const SOURCE_LABEL: Record<string, string> = {
+  topup: "เติมเงิน",
+  booking: "จ่ายค่าจอง",
+  refund: "คืนจากการยกเลิก",
+  adjustment: "ปรับโดยพนักงาน",
+};
+
+/**
+ * Every movement, with the person behind it.
+ *
+ * Credit is money staff can create by hand, so a balance on its own is not
+ * enough — "who gave this customer ฿5,000" has to have an answer. A row with no
+ * name is one the customer caused themselves.
+ */
+function CreditHistory({ customerId }: { customerId: string }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["owner", "customer-credit", customerId, "history"],
+    queryFn: () => ownerApi.getCreditHistory(customerId),
+  });
+
+  const rows = data ?? [];
+
+  return (
+    <section className="space-y-2 rounded-xl border border-black/10 p-3">
+      <h3 className="text-sm font-semibold">ประวัติการเคลื่อนไหว</h3>
+
+      {isLoading && <p className="text-xs text-muted-foreground">กำลังโหลด…</p>}
+      {!isLoading && rows.length === 0 && (
+        <p className="text-xs text-muted-foreground">ยังไม่มีการเคลื่อนไหว</p>
+      )}
+
+      {rows.length > 0 && (
+        <ul className="max-h-64 divide-y divide-black/5 overflow-y-auto">
+          {rows.map((t) => (
+            <li key={t.id} className="flex items-start justify-between gap-3 py-2 text-sm">
+              <div className="min-w-0">
+                <div className="truncate">{t.label}</div>
+                <div className="text-xs text-muted-foreground">
+                  {new Date(t.createdAt).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}
+                  {t.source && ` · ${SOURCE_LABEL[t.source] ?? t.source}`}
+                  {/* No name means the customer did it — a top-up they paid for
+                      is not an action anyone has to answer for. */}
+                  {t.byName ? ` · โดย ${t.byName}` : ""}
+                </div>
+              </div>
+              <span
+                className={`shrink-0 font-semibold tabular-nums ${t.amount < 0 ? "text-brand-danger" : "text-emerald-700"}`}
+              >
+                {t.amount < 0 ? "−" : "+"}฿{fmt.format(Math.abs(t.amount))}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

@@ -13,7 +13,7 @@ export const useRefunds = () => useQuery({ queryKey: ["refunds"], queryFn: api.g
 export const useReviews = (venueId: string) => useQuery({ queryKey: ["reviews", venueId], queryFn: () => api.getReviews(venueId) });
 export const usePackages = () => useQuery({ queryKey: ["packages"], queryFn: api.getPackages });
 export const useMembership = () => useQuery({ queryKey: ["membership"], queryFn: api.getMembership });
-export const useWallet = () => useQuery({ queryKey: ["wallet"], queryFn: api.getWallet });
+export const useCredit = () => useQuery({ queryKey: ["credit"], queryFn: api.getCredit });
 export const usePromotions = () => useQuery({ queryKey: ["promotions"], queryFn: api.getPromotions });
 export const useNotifications = () => useQuery({ queryKey: ["notifications"], queryFn: api.getNotifications });
 

@@ -46,13 +46,13 @@ class RefundController extends Controller
         $refund = Refund::findOrFail($id);
 
         $data = $request->validate([
-            'method' => ['nullable', 'in:wallet,manual'],
+            'method' => ['nullable', 'in:credit,manual'],
             'note' => ['nullable', 'string'],
         ]);
 
         $refund = app(RefundService::class)->approve(
             $refund,
-            $data['method'] ?? 'wallet',
+            $data['method'] ?? 'credit',
             $data['note'] ?? null,
             $request->user()->id,
         );

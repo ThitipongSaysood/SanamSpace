@@ -24,11 +24,10 @@ class OwnerCustomerResource extends JsonResource
             'totalSpending' => (float) $this->total_spending,
             'visits' => (int) $this->visits,
             'bookingsCount' => (int) ($this->bookings_count ?? 0),
-            // Two different things, deliberately not added together: credit is
-            // hours of court time, the wallet is baht. Converting one to the
-            // other needs a rate nobody has agreed on.
+            // Credit, in baht — the one balance. `creditHours` is what is left
+            // of the old hour packages; shown so existing hours stay visible.
+            'creditBalance' => (float) ($this->wallet?->balance ?? 0),
             'creditHours' => (float) ($this->credit_hours ?? 0),
-            'walletBalance' => (float) ($this->wallet?->balance ?? 0),
         ];
     }
 }

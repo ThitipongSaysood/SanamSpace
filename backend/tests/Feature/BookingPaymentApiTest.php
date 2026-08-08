@@ -176,18 +176,18 @@ class BookingPaymentApiTest extends TestCase
 
         // Request top-up → pending, returns a real PromptPay QR; balance unchanged.
         $this->app['auth']->forgetGuards();
-        $topup = $this->withToken($token)->postJson('/api/v1/wallet/topup', ['amount' => 500])
+        $topup = $this->withToken($token)->postJson('/api/v1/credit/topup', ['amount' => 500])
             ->assertOk()
             ->assertJsonPath('amount', 500);
         $txnId = $topup->json('transactionId');
         $this->assertNotNull($topup->json('promptpay.payload'));
 
         $this->app['auth']->forgetGuards();
-        $this->withToken($token)->getJson('/api/v1/wallet')->assertOk()->assertJsonPath('data.balance', 0);
+        $this->withToken($token)->getJson('/api/v1/credit')->assertOk()->assertJsonPath('data.balance', 0);
 
         // Attach slip → pending_review.
         $this->app['auth']->forgetGuards();
-        $this->withToken($token)->postJson("/api/v1/wallet/topup/{$txnId}/slip", [
+        $this->withToken($token)->postJson("/api/v1/credit/topup/{$txnId}/slip", [
             'slip' => UploadedFile::fake()->image('slip.png'),
         ])->assertOk();
 
@@ -208,7 +208,7 @@ class BookingPaymentApiTest extends TestCase
 
         // Balance now credited.
         $this->app['auth']->forgetGuards();
-        $this->withToken($token)->getJson('/api/v1/wallet')->assertOk()->assertJsonPath('data.balance', 500);
+        $this->withToken($token)->getJson('/api/v1/credit')->assertOk()->assertJsonPath('data.balance', 500);
     }
 
     public function test_package_purchase_approval_and_redemption_at_booking(): void
@@ -369,11 +369,11 @@ class BookingPaymentApiTest extends TestCase
         \App\Models\Wallet::create(['organization_id' => $org->id, 'customer_id' => $me['id'], 'balance' => 0]);
 
         $this->app['auth']->forgetGuards();
-        $txnId = $this->withToken($token)->postJson('/api/v1/wallet/topup', ['amount' => 500])
+        $txnId = $this->withToken($token)->postJson('/api/v1/credit/topup', ['amount' => 500])
             ->assertOk()->json('transactionId');
 
         $this->app['auth']->forgetGuards();
-        $this->withToken($token)->postJson("/api/v1/wallet/topup/{$txnId}/slip", [
+        $this->withToken($token)->postJson("/api/v1/credit/topup/{$txnId}/slip", [
             'slip' => UploadedFile::fake()->image('slip.png'),
         ])->assertOk();
 
@@ -392,7 +392,7 @@ class BookingPaymentApiTest extends TestCase
             ->assertNotFound();
 
         $this->app['auth']->forgetGuards();
-        $this->withToken($token)->getJson('/api/v1/wallet')
+        $this->withToken($token)->getJson('/api/v1/credit')
             ->assertOk()
             ->assertJsonPath('data.balance', 500);
     }

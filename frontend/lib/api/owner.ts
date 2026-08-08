@@ -27,6 +27,7 @@ import type {
   CheckinResult,
   OwnerCustomerDetail,
   OwnerCustomerCredit,
+  OwnerCreditMovement,
   OwnerProduct,
   OwnerRentalOut,
   OutstandingRental,
@@ -435,11 +436,15 @@ export const ownerApi = {
       body: { hours },
     }),
   /** Signed: positive tops up, negative takes back. */
-  adjustCustomerWallet: (customerId: string, amount: number, label?: string) =>
-    req<{ balance: number }>(`/owner/customer-credit/${customerId}/wallet`, {
+  adjustCustomerCredit: (customerId: string, amount: number, label?: string) =>
+    req<{ balance: number }>(`/owner/customer-credit/${customerId}/adjust`, {
       method: "POST",
       body: { amount, label },
     }),
+
+  /** Every movement with the staff member behind it — the audit trail. */
+  getCreditHistory: (customerId: string) =>
+    req<OwnerCreditMovement[]>(`/owner/customer-credit/${customerId}/history`),
 
   // --- Discount codes ---
   getCoupons: () => req<OwnerCoupon[]>("/owner/coupons"),

@@ -98,7 +98,7 @@ class OwnerRefundTest extends TestCase
             ->assertJsonPath('data.0.requestedBy', 'customer');
     }
 
-    public function test_approve_with_wallet_credits_wallet_and_cancels_booking(): void
+    public function test_approving_pays_out_as_credit_and_cancels_the_booking(): void
     {
         $org = $this->everyday();
         $customer = $this->everydayCustomer($org);
@@ -111,10 +111,10 @@ class OwnerRefundTest extends TestCase
         $txnCountBefore = $wallet->transactions()->count();
 
         $this->withToken($this->ownerToken())
-            ->postJson("/api/v1/owner/refunds/{$refund->id}/approve", ['method' => 'wallet'])
+            ->postJson("/api/v1/owner/refunds/{$refund->id}/approve", ['method' => 'credit'])
             ->assertOk()
             ->assertJsonPath('data.status', 'approved')
-            ->assertJsonPath('data.method', 'wallet');
+            ->assertJsonPath('data.method', 'credit');
 
         // Wallet credited by the refund amount + a transaction logged.
         $this->assertEquals($before + 300, (float) $wallet->fresh()->balance);
@@ -182,13 +182,13 @@ class OwnerRefundTest extends TestCase
         $refund = $this->makeRefund($org, $customer);
 
         $this->withToken($this->ownerToken())
-            ->postJson("/api/v1/owner/refunds/{$refund->id}/approve", ['method' => 'wallet'])
+            ->postJson("/api/v1/owner/refunds/{$refund->id}/approve", ['method' => 'credit'])
             ->assertOk();
 
         // Second approve hits the RefundService `requested`-only guard.
         $this->app['auth']->forgetGuards();
         $this->withToken($this->ownerToken())
-            ->postJson("/api/v1/owner/refunds/{$refund->id}/approve", ['method' => 'wallet'])
+            ->postJson("/api/v1/owner/refunds/{$refund->id}/approve", ['method' => 'credit'])
             ->assertStatus(422);
     }
 

@@ -139,7 +139,7 @@ class CustomerExtraApiTest extends TestCase
     public function test_wallet_returns_balance_and_transactions(): void
     {
         $this->withToken($this->demoToken())
-            ->getJson('/api/v1/wallet')
+            ->getJson('/api/v1/credit')
             ->assertOk()
             ->assertJsonStructure(['data' => ['balance', 'transactions' => [['id', 'date', 'label', 'amount']]]])
             ->assertJsonPath('data.balance', 580)
@@ -189,7 +189,7 @@ class CustomerExtraApiTest extends TestCase
     public function test_account_endpoints_require_authentication(): void
     {
         $this->getJson('/api/v1/membership')->assertUnauthorized();
-        $this->getJson('/api/v1/wallet')->assertUnauthorized();
+        $this->getJson('/api/v1/credit')->assertUnauthorized();
         $this->getJson('/api/v1/notifications')->assertUnauthorized();
         $this->putJson('/api/v1/auth/me', ['displayName' => 'x'])->assertUnauthorized();
     }

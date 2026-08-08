@@ -18,7 +18,7 @@ const MENU: Item[] = [
   { icon: UserRound, label: "ข้อมูลส่วนตัว", href: "/profile/info" },
   { icon: CalendarCheck, label: "การจองของฉัน", href: "/bookings" },
   { icon: Package, label: "แพ็กเกจของฉัน", href: "/packages" },
-  { icon: Wallet, label: "วอลเล็ต", href: "/wallet" },
+  { icon: Wallet, label: "เครดิต", href: "/credit" },
   { icon: Star, label: "คะแนนของฉัน", href: "/membership" },
   { icon: Headphones, label: "ติดต่อเรา", href: "/contact" },
   { icon: Settings, label: "การตั้งค่า", href: "/settings" },

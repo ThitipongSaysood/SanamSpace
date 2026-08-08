@@ -160,9 +160,27 @@ export type OwnerCustomerCredit = {
   id: string;
   displayName: string;
   phone: string | null;
+  /** Credit in baht — the one balance. */
+  balance: number;
+  /** Legacy hour packages, still spendable on court time. */
   creditHours: number;
-  walletBalance: number;
   packages: { id: string; name: string; totalHours: number; remainingHours: number; expiresAt: string | null }[];
+};
+
+/**
+ * One movement of a customer's credit.
+ *
+ * `byName` is null when the customer did it themselves — a top-up they paid for
+ * is not an action anyone has to answer for.
+ */
+export type OwnerCreditMovement = {
+  id: string;
+  label: string;
+  amount: number;
+  status: string;
+  source: string | null;
+  byName: string | null;
+  createdAt: string;
 };
 
 /** What a code would do, asked before committing to the booking. */
@@ -447,10 +465,10 @@ export type OwnerCustomer = {
   totalSpending: number;
   visits: number;
   bookingsCount: number;
-  /** Hours of court time they hold. Never added to walletBalance — different units. */
+  /** Credit in baht — the one balance. */
+  creditBalance?: number;
+  /** What is left of the old hour packages, kept visible during the switch. */
   creditHours?: number;
-  /** Baht they hold, which can pay for anything. */
-  walletBalance?: number;
 };
 
 // Owner-side org settings (GET/PUT /owner/settings).

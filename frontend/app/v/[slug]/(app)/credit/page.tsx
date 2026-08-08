@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Hourglass } from "lucide-react";
 import { api } from "@/lib/api/client";
 import { AppHeader } from "@/components/app-header";
-import { useWallet } from "@/lib/api/queries";
+import { useCredit } from "@/lib/api/queries";
 import { PromptPayQR } from "@/components/promptpay-qr";
 import { SlipUploader } from "@/components/slip-uploader";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
@@ -14,9 +14,9 @@ import type { WalletTopupInstructions } from "@/lib/types";
 
 const PRESETS = [100, 300, 500, 1000];
 
-export default function WalletPage() {
+export default function CreditPage() {
   const qc = useQueryClient();
-  const { data: wallet, isLoading, isError, refetch } = useWallet();
+  const { data: wallet, isLoading, isError, refetch } = useCredit();
 
   // top-up flow: idle → amount → pay (QR + slip) → done
   const [step, setStep] = useState<"idle" | "amount" | "pay" | "done">("idle");
@@ -56,7 +56,7 @@ export default function WalletPage() {
 
   return (
     <main className="pb-6">
-      <AppHeader title="วอลเล็ต" />
+      <AppHeader title="เครดิต" />
       {isLoading ? (
         <Loading />
       ) : isError || !wallet ? (
@@ -84,7 +84,7 @@ export default function WalletPage() {
           {/* Step: choose amount */}
           {step === "amount" && (
             <div className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
-              <p className="font-semibold">เติมเงินเข้าวอลเล็ต</p>
+              <p className="font-semibold">เติมเงินเข้าเครดิต</p>
               <div className="grid grid-cols-4 gap-2">
                 {PRESETS.map((p) => (
                   <button
@@ -170,7 +170,7 @@ export default function WalletPage() {
                 <Hourglass className="size-8" />
               </div>
               <p className="mt-4 font-semibold">ส่งสลิปแล้ว</p>
-              <p className="mt-1 text-sm text-muted-foreground">รอร้านตรวจสอบ ระบบจะเติมเงินเข้าวอลเล็ตให้เมื่ออนุมัติ</p>
+              <p className="mt-1 text-sm text-muted-foreground">รอร้านตรวจสอบ ระบบจะเติมเงินเข้าเครดิตให้เมื่ออนุมัติ</p>
               <Button className="mt-4 h-11 w-full rounded-xl bg-brand font-semibold hover:bg-brand/90" onClick={reset}>
                 เสร็จสิ้น
               </Button>

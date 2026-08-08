@@ -73,16 +73,16 @@ export default function OwnerCustomersPage() {
                 {/* Only for customers who actually hold something — a column of
                     "0 ชม." on every row is noise, and what staff scan for here
                     is who has a balance with the venue. */}
-                {(c.creditHours ?? 0) > 0 && (
+                {(c.creditBalance ?? 0) > 0 && (
                   <div>
-                    <div className="text-base font-bold text-brand">{fmt.format(c.creditHours!)} ชม.</div>
+                    <div className="text-base font-bold text-brand">฿{fmt.format(c.creditBalance!)}</div>
                     <div className="text-xs text-muted-foreground">เครดิต</div>
                   </div>
                 )}
-                {(c.walletBalance ?? 0) > 0 && (
+                {(c.creditHours ?? 0) > 0 && (
                   <div>
-                    <div className="text-base font-bold text-brand">฿{fmt.format(c.walletBalance!)}</div>
-                    <div className="text-xs text-muted-foreground">วอลเล็ต</div>
+                    <div className="text-base font-bold">{fmt.format(c.creditHours!)} ชม.</div>
+                    <div className="text-xs text-muted-foreground">ชั่วโมงคงเหลือ</div>
                   </div>
                 )}
               </div>

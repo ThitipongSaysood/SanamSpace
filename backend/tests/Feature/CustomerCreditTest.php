@@ -94,7 +94,7 @@ class CustomerCreditTest extends TestCase
 
         $this->app['auth']->forgetGuards();
         $after = $this->withToken($token)
-            ->postJson("/api/v1/bookings/{$booking['id']}/pay-with-wallet")
+            ->postJson("/api/v1/bookings/{$booking['id']}/pay-with-credit")
             ->assertOk()->json('data');
 
         $this->assertSame('confirmed', $after['status']);
@@ -103,18 +103,18 @@ class CustomerCreditTest extends TestCase
     }
 
     /** Settled on the spot — the venue already holds the money. */
-    public function test_paying_from_the_wallet_needs_no_slip(): void
+    public function test_paying_from_credit_needs_no_slip(): void
     {
         $token = $this->token();
         $this->fund(1000);
         $booking = $this->book($token);
 
         $this->app['auth']->forgetGuards();
-        $this->withToken($token)->postJson("/api/v1/bookings/{$booking['id']}/pay-with-wallet")->assertOk();
+        $this->withToken($token)->postJson("/api/v1/bookings/{$booking['id']}/pay-with-credit")->assertOk();
 
         $payment = Payment::where('booking_id', $booking['id'])->first();
 
-        $this->assertSame('wallet', $payment->method);
+        $this->assertSame('credit', $payment->method);
         $this->assertSame('approved', $payment->status);
         $this->assertNull($payment->slip_url);
     }
@@ -127,7 +127,7 @@ class CustomerCreditTest extends TestCase
         $booking = $this->book($token);
 
         $this->app['auth']->forgetGuards();
-        $this->withToken($token)->postJson("/api/v1/bookings/{$booking['id']}/pay-with-wallet")->assertOk();
+        $this->withToken($token)->postJson("/api/v1/bookings/{$booking['id']}/pay-with-credit")->assertOk();
 
         $walletId = Wallet::where('customer_id', $this->customer()->id)->value('id');
         $txn = WalletTransaction::where('wallet_id', $walletId)->latest('created_at')->first();
@@ -145,7 +145,7 @@ class CustomerCreditTest extends TestCase
 
         $this->app['auth']->forgetGuards();
         $this->withToken($token)
-            ->postJson("/api/v1/bookings/{$booking['id']}/pay-with-wallet")
+            ->postJson("/api/v1/bookings/{$booking['id']}/pay-with-credit")
             ->assertStatus(422);
 
         $this->assertSame(100.0, (float) Wallet::where('customer_id', $this->customer()->id)->value('balance'));
@@ -160,7 +160,7 @@ class CustomerCreditTest extends TestCase
 
         $this->app['auth']->forgetGuards();
         $after = $this->withToken($token)
-            ->postJson("/api/v1/bookings/{$booking['id']}/pay-with-wallet", ['amount' => 100])
+            ->postJson("/api/v1/bookings/{$booking['id']}/pay-with-credit", ['amount' => 100])
             ->assertOk()->json('data');
 
         $this->assertSame(150.0, (float) $after['outstandingAmount']);
@@ -175,9 +175,9 @@ class CustomerCreditTest extends TestCase
         $booking = $this->book($token);
 
         $this->app['auth']->forgetGuards();
-        $this->withToken($token)->postJson("/api/v1/bookings/{$booking['id']}/pay-with-wallet")->assertOk();
+        $this->withToken($token)->postJson("/api/v1/bookings/{$booking['id']}/pay-with-credit")->assertOk();
         $this->app['auth']->forgetGuards();
-        $this->withToken($token)->postJson("/api/v1/bookings/{$booking['id']}/pay-with-wallet")->assertStatus(422);
+        $this->withToken($token)->postJson("/api/v1/bookings/{$booking['id']}/pay-with-credit")->assertStatus(422);
 
         $this->assertSame(750.0, (float) Wallet::where('customer_id', $this->customer()->id)->value('balance'));
     }
@@ -193,14 +193,14 @@ class CustomerCreditTest extends TestCase
 
         $this->app['auth']->forgetGuards();
         $this->withToken($mine)
-            ->postJson("/api/v1/bookings/{$booking['id']}/pay-with-wallet")
+            ->postJson("/api/v1/bookings/{$booking['id']}/pay-with-credit")
             ->assertNotFound();
     }
 
     // ---- what the venue can see and grant ---------------------------------
 
     /** Staff need to see who holds what without opening each customer. */
-    public function test_the_customers_list_shows_credit_and_wallet(): void
+    public function test_the_customers_list_shows_the_credit_balance(): void
     {
         $this->token();
         $c = $this->customer();
@@ -219,8 +219,8 @@ class CustomerCreditTest extends TestCase
 
         $row = collect($rows)->firstWhere('id', $c->id);
 
-        $this->assertSame(6.0, (float) $row['creditHours']);
-        $this->assertSame(300.0, (float) $row['walletBalance']);
+        $this->assertSame(300.0, (float) $row['creditBalance'], 'credit in baht is the balance');
+        $this->assertSame(6.0, (float) $row['creditHours'], 'old package hours stay visible');
     }
 
     /** Granting credit creates its own package, so the history stays readable. */
@@ -299,10 +299,10 @@ class CustomerCreditTest extends TestCase
         $c = $this->customer();
         $owner = $this->ownerToken();
 
-        $this->withToken($owner)->postJson("/api/v1/owner/customer-credit/{$c->id}/wallet", ['amount' => 500])
+        $this->withToken($owner)->postJson("/api/v1/owner/customer-credit/{$c->id}/adjust", ['amount' => 500])
             ->assertOk()->assertJsonPath('data.balance', 500);
 
-        $this->withToken($owner)->postJson("/api/v1/owner/customer-credit/{$c->id}/wallet", ['amount' => -200])
+        $this->withToken($owner)->postJson("/api/v1/owner/customer-credit/{$c->id}/adjust", ['amount' => -200])
             ->assertOk()->assertJsonPath('data.balance', 300);
     }
 
@@ -313,8 +313,194 @@ class CustomerCreditTest extends TestCase
         $c = $this->customer();
 
         $this->withToken($this->ownerToken())
-            ->postJson("/api/v1/owner/customer-credit/{$c->id}/wallet", ['amount' => -50])
+            ->postJson("/api/v1/owner/customer-credit/{$c->id}/adjust", ['amount' => -50])
             ->assertStatus(422);
+    }
+
+    // ---- cancelling pays back in credit -----------------------------------
+
+    /**
+     * The venue's policy: cancel and the money comes back as credit, not cash.
+     * Immediately, because credit costs the venue nothing to return.
+     */
+    public function test_cancelling_a_paid_booking_returns_the_money_as_credit(): void
+    {
+        $token = $this->token();
+        $this->fund(1000);
+        $booking = $this->book($token, '2027-04-01');
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->postJson("/api/v1/bookings/{$booking['id']}/pay-with-credit")->assertOk();
+        $this->assertSame(750.0, (float) Wallet::where('customer_id', $this->customer()->id)->value('balance'));
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->postJson("/api/v1/bookings/{$booking['id']}/cancel")->assertOk();
+
+        $this->assertSame(1000.0, (float) Wallet::where('customer_id', $this->customer()->id)->value('balance'));
+    }
+
+    /** Equipment money comes back to the same place — it is baht either way. */
+    public function test_the_rental_part_comes_back_as_credit_too(): void
+    {
+        // The org directly: the customer does not exist until the token below.
+        $racket = \App\Models\RentalItem::create([
+            'organization_id' => Organization::where('slug', 'everyday-badminton')->value('id'),
+            'name' => 'ไม้แบด',
+            'price' => 60,
+            'price_unit' => 'per_session',
+            'stock_qty' => 4,
+        ]);
+
+        $token = $this->token();
+        $this->fund(1000);
+
+        $courtId = $this->getJson('/api/v1/courts?venueId=everyday-badminton')->json('data.0.id');
+        $this->app['auth']->forgetGuards();
+        $booking = $this->withToken($token)->postJson('/api/v1/bookings', [
+            'venueId' => 'everyday-badminton',
+            'courtId' => $courtId,
+            'date' => '2027-04-02',
+            'start' => '18:00',
+            'end' => '19:00',
+            'rentals' => [['itemId' => $racket->id, 'quantity' => 1]],
+        ])->assertCreated()->json('data');
+
+        $this->assertSame(310.0, (float) $booking['amount']); // 250 court + 60 racket
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->postJson("/api/v1/bookings/{$booking['id']}/pay-with-credit")->assertOk();
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->postJson("/api/v1/bookings/{$booking['id']}/cancel")->assertOk();
+
+        // The whole ฿310 is back — court and racket are both baht.
+        $this->assertSame(1000.0, (float) Wallet::where('customer_id', $this->customer()->id)->value('balance'));
+    }
+
+    /** Cancelling something nobody paid for gives nothing back. */
+    public function test_cancelling_an_unpaid_booking_credits_nothing(): void
+    {
+        $token = $this->token();
+        $this->fund(500);
+        $booking = $this->book($token, '2027-04-03');
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->postJson("/api/v1/bookings/{$booking['id']}/cancel")->assertOk();
+
+        $this->assertSame(500.0, (float) Wallet::where('customer_id', $this->customer()->id)->value('balance'));
+    }
+
+    /** Cancelling twice must not pay out twice. */
+    public function test_a_second_cancel_does_not_refund_again(): void
+    {
+        $token = $this->token();
+        $this->fund(1000);
+        $booking = $this->book($token, '2027-04-04');
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->postJson("/api/v1/bookings/{$booking['id']}/pay-with-credit")->assertOk();
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->postJson("/api/v1/bookings/{$booking['id']}/cancel")->assertOk();
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->postJson("/api/v1/bookings/{$booking['id']}/cancel")->assertStatus(422);
+
+        $this->assertSame(1000.0, (float) Wallet::where('customer_id', $this->customer()->id)->value('balance'));
+    }
+
+    /** The refund shows in the history as a refund, not as a staff adjustment. */
+    public function test_the_cancellation_refund_is_labelled_as_one(): void
+    {
+        $token = $this->token();
+        $this->fund(1000);
+        $booking = $this->book($token, '2027-04-05');
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->postJson("/api/v1/bookings/{$booking['id']}/pay-with-credit")->assertOk();
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->postJson("/api/v1/bookings/{$booking['id']}/cancel")->assertOk();
+
+        $rows = $this->withToken($this->ownerToken())
+            ->getJson("/api/v1/owner/customer-credit/{$this->customer()->id}/history")
+            ->assertOk()->json('data');
+
+        $this->assertSame('refund', $rows[0]['source']);
+        $this->assertNull($rows[0]['byName'], 'the customer cancelled; no staff member did this');
+        $this->assertStringContainsString($booking['code'], $rows[0]['label']);
+    }
+
+    // ---- the audit trail --------------------------------------------------
+
+    /**
+     * Credit is money staff can create by hand, so every line has to name a
+     * hand. A balance cannot answer "who gave this customer ฿5,000".
+     */
+    public function test_a_staff_adjustment_records_who_made_it(): void
+    {
+        $this->token();
+        $c = $this->customer();
+
+        $this->withToken($this->ownerToken())
+            ->postJson("/api/v1/owner/customer-credit/{$c->id}/adjust", ['amount' => 5000, 'label' => 'ชดเชย'])
+            ->assertOk();
+
+        $rows = $this->withToken($this->ownerToken())
+            ->getJson("/api/v1/owner/customer-credit/{$c->id}/history")
+            ->assertOk()->json('data');
+
+        $this->assertCount(1, $rows);
+        $this->assertSame(5000.0, (float) $rows[0]['amount']);
+        $this->assertSame('adjustment', $rows[0]['source']);
+        $this->assertSame('Everyday Owner', $rows[0]['byName']);
+        $this->assertSame('ชดเชย', $rows[0]['label']);
+    }
+
+    /** Taking credit away is just as answerable as giving it. */
+    public function test_a_deduction_is_recorded_with_its_actor_too(): void
+    {
+        $this->token();
+        $c = $this->customer();
+        $owner = $this->ownerToken();
+
+        $this->withToken($owner)->postJson("/api/v1/owner/customer-credit/{$c->id}/adjust", ['amount' => 300])->assertOk();
+        $this->withToken($owner)->postJson("/api/v1/owner/customer-credit/{$c->id}/adjust", ['amount' => -100, 'label' => 'ปรับผิด'])->assertOk();
+
+        $rows = $this->withToken($owner)
+            ->getJson("/api/v1/owner/customer-credit/{$c->id}/history")->assertOk()->json('data');
+
+        $this->assertCount(2, $rows);
+        $this->assertSame(-100.0, (float) $rows[0]['amount'], 'newest first');
+        $this->assertSame('Everyday Owner', $rows[0]['byName']);
+    }
+
+    /** A customer spending their own credit is not a staff action. */
+    public function test_spending_records_no_staff_member(): void
+    {
+        $token = $this->token();
+        $this->fund(1000);
+        $booking = $this->book($token, '2027-03-01');
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->postJson("/api/v1/bookings/{$booking['id']}/pay-with-credit")->assertOk();
+
+        $rows = $this->withToken($this->ownerToken())
+            ->getJson("/api/v1/owner/customer-credit/{$this->customer()->id}/history")
+            ->assertOk()->json('data');
+
+        $this->assertSame('booking', $rows[0]['source']);
+        $this->assertNull($rows[0]['byName'], 'the customer did this, not staff');
+    }
+
+    /** Another venue's customer history is not readable. */
+    public function test_the_history_is_org_scoped(): void
+    {
+        $tsr = Organization::where('slug', 'tsr-arena')->firstOrFail();
+        $theirs = Customer::create([
+            'organization_id' => $tsr->id,
+            'display_name' => 'ลูกค้าสนามอื่น',
+        ]);
+
+        $this->withToken($this->ownerToken())
+            ->getJson("/api/v1/owner/customer-credit/{$theirs->id}/history")
+            ->assertNotFound();
     }
 
     /** Giving away money is not a "view customers" permission. */

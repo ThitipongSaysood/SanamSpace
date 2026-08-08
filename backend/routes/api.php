@@ -116,9 +116,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // --- Customer account (scoped to the authenticated Customer) ---
     Route::get('/membership', [MembershipController::class, 'show']);
-    Route::get('/wallet', [WalletController::class, 'show']);
-    Route::post('/wallet/topup', [WalletController::class, 'topup']);
-    Route::post('/wallet/topup/{id}/slip', [WalletController::class, 'topupSlip']);
+    // Credit: one balance, in baht. The venue used to call this a wallet and
+    // also sell hour packages, which meant a customer had two balances in two
+    // units and staff had to know which one a question was about.
+    Route::get('/credit', [WalletController::class, 'show']);
+    Route::post('/credit/topup', [WalletController::class, 'topup']);
+    Route::post('/credit/topup/{id}/slip', [WalletController::class, 'topupSlip']);
     Route::post('/reviews', [ReviewController::class, 'store']);
     // What a code is worth, before committing to the booking.
     Route::post('/coupons/preview', [CouponController::class, 'preview']);
@@ -128,9 +131,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/packages/{id}/purchase', [PackageController::class, 'purchase']);
     Route::post('/packages/purchases/{id}/slip', [PackageController::class, 'purchaseSlip']);
     Route::post('/bookings/{id}/pay-with-package', [BookingController::class, 'payWithPackage']);
-    // Spending the wallet balance. Settled on the spot — the venue already has
-    // the money, so there is no slip and nothing to review.
-    Route::post('/bookings/{id}/pay-with-wallet', [BookingController::class, 'payWithWallet']);
+    // Spending credit. Settled on the spot — the venue already has the money,
+    // so there is no slip and nothing to review.
+    Route::post('/bookings/{id}/pay-with-credit', [BookingController::class, 'payWithCredit']);
     Route::get('/notifications', [NotificationController::class, 'index']);
 
     // --- Bookings (scoped to the authenticated Customer) ---
@@ -190,7 +193,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/payments/{id}/verify', [OwnerPaymentController::class, 'verify'])->middleware('permission:payment.verify');
         Route::post('/payments/{id}/reject', [OwnerPaymentController::class, 'reject'])->middleware('permission:payment.verify');
 
-        // --- Refunds (review customer requests; approve credits the wallet) ---
+        // --- Refunds (review customer requests; approving pays out as credit) ---
         Route::get('/refunds', [OwnerRefundController::class, 'index']);
         Route::post('/refunds/{id}/approve', [OwnerRefundController::class, 'approve'])->middleware('permission:refund.manage');
         Route::post('/refunds/{id}/reject', [OwnerRefundController::class, 'reject'])->middleware('permission:refund.manage');
@@ -245,12 +248,13 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/customers', [OwnerCustomerController::class, 'index'])->middleware('permission:customer.view');
         Route::get('/customers/{id}', [OwnerCustomerController::class, 'show'])->middleware('permission:customer.view');
-        // Credit (hours) and wallet (baht) — what a customer holds, and how
-        // staff change it. Granting money is wallet.manage, not customer.view.
+        // What a customer holds, and how staff change it. Granting credit is
+        // wallet.manage, not customer.view — giving away money is not a read.
         Route::get('/customer-credit', [OwnerCustomerCreditController::class, 'index'])->middleware('permission:customer.view');
+        Route::get('/customer-credit/{customerId}/history', [OwnerCustomerCreditController::class, 'history'])->middleware('permission:customer.view');
         Route::post('/customer-credit/{customerId}/hours', [OwnerCustomerCreditController::class, 'grantHours'])->middleware('permission:wallet.manage');
         Route::post('/customer-credit/{customerId}/hours/deduct', [OwnerCustomerCreditController::class, 'deductHours'])->middleware('permission:wallet.manage');
-        Route::post('/customer-credit/{customerId}/wallet', [OwnerCustomerCreditController::class, 'adjustWallet'])->middleware('permission:wallet.manage');
+        Route::post('/customer-credit/{customerId}/adjust', [OwnerCustomerCreditController::class, 'adjustCredit'])->middleware('permission:wallet.manage');
 
         // --- Settings (org settings + org name) ---
         Route::get('/settings', [OwnerSettingController::class, 'show']);

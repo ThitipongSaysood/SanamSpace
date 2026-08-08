@@ -28,20 +28,26 @@ class RefundService
     public function __construct(private NotificationService $notifications) {}
 
     /**
-     * Approve a requested refund.
+     * Approve a requested refund. The venue refunds in CREDIT, not cash.
      *
-     * @param  string  $method  'wallet' (credit the customer's wallet) or 'manual'
-     *                          (refunded off-system — record only, no wallet change).
+     * One balance, in baht, whatever the money was originally for — the court
+     * and the rented rackets are both baht, so both go back to the same place.
+     * Splitting them by what they paid for is how a customer ends up with two
+     * balances again.
+     *
+     * `manual` remains for money genuinely returned off-system (a bank
+     * transfer the venue made by hand): the record has to be able to say that
+     * happened without inventing credit the customer never received.
      *
      * @throws ValidationException when the refund is not in the `requested` state.
      */
-    public function approve(Refund $refund, string $method = 'wallet', ?string $note = null, ?string $processedBy = null): Refund
+    public function approve(Refund $refund, string $method = 'credit', ?string $note = null, ?string $processedBy = null): Refund
     {
         $this->assertRequested($refund);
 
         return DB::transaction(function () use ($refund, $method, $note, $processedBy) {
-            if ($method === 'wallet') {
-                $this->creditWallet($refund);
+            if ($method !== 'manual') {
+                $this->creditCustomer($refund);
             }
 
             $refund->update([
@@ -87,8 +93,8 @@ class RefundService
         }
     }
 
-    /** Credit the refund amount to the customer's wallet (creating it if needed) + log the txn. */
-    private function creditWallet(Refund $refund): void
+    /** Put the refund back as credit (creating the balance if needed) + log it. */
+    private function creditCustomer(Refund $refund): void
     {
         $wallet = Wallet::firstOrCreate(
             ['organization_id' => $refund->organization_id, 'customer_id' => $refund->customer_id],
@@ -104,10 +110,12 @@ class RefundService
         WalletTransaction::create([
             'wallet_id' => $wallet->id,
             'txn_date' => $this->thaiShortDate(),
-            'label' => 'คืนเงิน'.($refund->booking?->code ? ' · '.$refund->booking->code : ''),
+            'label' => 'คืนเป็นเครดิต'.($refund->booking?->code ? ' · '.$refund->booking->code : ''),
             'amount' => $refund->amount,
             'sort_order' => $nextSort,
             'status' => 'completed',
+            'source' => 'refund',
+            'created_by' => $refund->processed_by,
         ]);
     }
 

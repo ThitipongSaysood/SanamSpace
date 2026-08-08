@@ -10,19 +10,15 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * The wallet as money that can actually be spent.
+ * Credit: one customer balance, in baht.
  *
- * Until now `wallet` was an accepted payment-method string with no code behind
- * it: a customer could top up, the venue could approve the slip, and the
- * balance sat there forever because nothing ever deducted from it. Money in,
- * nothing out.
- *
- * Wallet and credit are NOT the same thing and are deliberately kept apart:
- * a wallet holds **baht** and can pay for anything, a package holds **hours**
- * and pays for court time. Merging them would mean converting hours to money at
- * some rate nobody agreed on.
+ * This was two things — a "wallet" in baht that nothing could ever spend, and
+ * hour packages that only paid for court time. A customer held two balances in
+ * two units and staff had to know which one a question was about, so the venue
+ * asked for one. Baht, because that is what refunds and equipment are already
+ * denominated in; hours would need a court rate to convert against.
  */
-class WalletService
+class CreditService
 {
     /** Every customer conceptually has one; it just may not have a row yet. */
     public function forCustomer(Customer $customer): Wallet
@@ -43,13 +39,20 @@ class WalletService
      * money twice. Reading the balance before the lock is the classic version
      * of this bug.
      */
-    public function spend(Customer $customer, float $amount, string $label, ?Booking $booking = null): Wallet
+    public function spend(
+        Customer $customer,
+        float $amount,
+        string $label,
+        ?Booking $booking = null,
+        string $source = 'booking',
+        ?string $actorId = null,
+    ): Wallet
     {
         if ($amount <= 0) {
             throw ValidationException::withMessages(['amount' => 'จำนวนเงินต้องมากกว่า 0']);
         }
 
-        return DB::transaction(function () use ($customer, $amount, $label, $booking) {
+        return DB::transaction(function () use ($customer, $amount, $label, $source, $actorId) {
             $wallet = Wallet::query()
                 ->where('customer_id', $customer->id)
                 ->lockForUpdate()
@@ -74,6 +77,10 @@ class WalletService
                 // statement, and "where did my money go" needs a row to point at.
                 'amount' => -1 * round($amount, 2),
                 'status' => 'approved',
+                // Who and why. Credit is money that staff can create by hand,
+                // so every line has to be answerable for.
+                'created_by' => $actorId,
+                'source' => $source,
                 'sort_order' => $this->nextSort($wallet),
             ]);
 
@@ -81,14 +88,20 @@ class WalletService
         });
     }
 
-    /** Put money in — a venue credit, a goodwill adjustment, a refund. */
-    public function credit(Customer $customer, float $amount, string $label): Wallet
+    /** Put money in — a top-up, a goodwill adjustment, a refund. */
+    public function add(
+        Customer $customer,
+        float $amount,
+        string $label,
+        string $source = 'adjustment',
+        ?string $actorId = null,
+    ): Wallet
     {
         if ($amount <= 0) {
             throw ValidationException::withMessages(['amount' => 'จำนวนเงินต้องมากกว่า 0']);
         }
 
-        return DB::transaction(function () use ($customer, $amount, $label) {
+        return DB::transaction(function () use ($customer, $amount, $label, $source, $actorId) {
             $wallet = Wallet::query()
                 ->where('customer_id', $customer->id)
                 ->lockForUpdate()
@@ -102,6 +115,8 @@ class WalletService
                 'label' => $label,
                 'amount' => round($amount, 2),
                 'status' => 'approved',
+                'created_by' => $actorId,
+                'source' => $source,
                 'sort_order' => $this->nextSort($wallet),
             ]);
 

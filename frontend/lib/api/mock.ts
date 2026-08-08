@@ -98,7 +98,7 @@ export const mockApi = {
     await delay();
     throw new Error("ไม่พบคูปองนี้");
   },
-  async payWithWallet(bookingId: string, _amount?: number): Promise<Booking> {
+  async payWithCredit(bookingId: string, _amount?: number): Promise<Booking> {
     await delay();
     const b = db.bookings.get(bookingId)!;
     b.status = "confirmed";
@@ -184,7 +184,7 @@ export const mockApi = {
   },
   async getPackages(): Promise<VenuePackage[]> { await delay(); return packagesFx; },
   async getMembership(): Promise<Membership> { await delay(); return membershipFx; },
-  async getWallet(): Promise<Wallet> { await delay(); return walletFx; },
+  async getCredit(): Promise<Wallet> { await delay(); return walletFx; },
   async getPromotions(): Promise<Promotion[]> { await delay(); return promotionsFx; },
   // Mock mode has no catalogue — an empty list, never invented equipment.
   async getRentals(_date: string, _start: string, _end: string): Promise<RentalItem[]> { await delay(); return []; },
