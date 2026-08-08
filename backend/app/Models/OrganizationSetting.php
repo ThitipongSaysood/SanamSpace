@@ -16,5 +16,7 @@ class OrganizationSetting extends Model
         // LINE secrets stored encrypted at rest (Laravel encrypts on write, decrypts on read).
         'line_channel_secret' => 'encrypted',
         'line_messaging_token' => 'encrypted',
+        // { "Gold": 10 } — a standing discount rate per membership tier.
+        'member_discounts' => 'array',
     ];
 }

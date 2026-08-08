@@ -1,8 +1,10 @@
 "use client";
-import { Suspense, useCallback, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useVenueRouter as useRouter } from "@/lib/tenant/venue-nav";
-import { CheckCircle2, Circle, Minus, Package, Plus } from "lucide-react";
+import { CheckCircle2, Circle, Minus, Package, Plus, Ticket, X } from "lucide-react";
+import type { CouponPreview } from "@/lib/types";
+import { api } from "@/lib/api/client";
 import { useCourts, useSchedule, useCreateBooking, useRentals } from "@/lib/api/queries";
 import { AppHeader } from "@/components/app-header";
 import { SportMedia } from "@/components/media";
@@ -108,12 +110,21 @@ function NewBookingInner() {
     if (Object.keys(rentals).length > 0) setRentals({});
   }
 
+  const [coupon, setCoupon] = useState<CouponPreview | null>(null);
+
   const rentalLines = (rentalItems ?? [])
     .map((item) => ({ item, qty: rentals[item.id] ?? 0 }))
     .filter((l) => l.qty > 0);
 
   const rentalTotal = rentalLines.reduce((sum, l) => sum + (l.item.priceForBooking ?? l.item.price) * l.qty, 0);
-  const grandTotal = price + rentalTotal;
+  const subtotal = price + rentalTotal;
+  const grandTotal = Math.max(0, subtotal - (coupon?.discount ?? 0));
+
+  // Cleared whenever the price it was checked against changes: a code worth
+  // ฿100 on a two-hour booking is not the same code on a one-hour one.
+  useEffect(() => {
+    setCoupon(null);
+  }, [court?.id, date, start, end, rentalTotal]);
 
   async function confirm() {
     if (!ready || !court || !start || !end) return;
@@ -124,6 +135,7 @@ function NewBookingInner() {
       start,
       end,
       rentals: rentalLines.map((l) => ({ itemId: l.item.id, quantity: l.qty })),
+      ...(coupon ? { couponCode: coupon.code } : {}),
     });
     router.push(`/payment/${booking.id}`);
   }
@@ -303,6 +315,21 @@ function NewBookingInner() {
             </div>
           </section>
         )}
+
+        {/* 5. coupon — only once there is a price for it to apply to. */}
+        {ready && (
+          <section>
+            <SectionTitle n={rentalItems && rentalItems.length > 0 ? 5 : 4}>
+              คูปองส่วนลด (ถ้ามี)
+            </SectionTitle>
+            <CouponField
+              courtId={court!.id}
+              amount={subtotal}
+              applied={coupon}
+              onApply={setCoupon}
+            />
+          </section>
+        )}
       </div>
 
       {/* sticky summary + single CTA */}
@@ -333,6 +360,13 @@ function NewBookingInner() {
               </div>
             ))}
 
+            {coupon && (
+              <div className="flex items-center justify-between gap-2 text-emerald-700">
+                <span className="min-w-0 truncate">คูปอง {coupon.code}</span>
+                <span className="shrink-0 tabular-nums">−฿{coupon.discount}</span>
+              </div>
+            )}
+
             <div className="flex items-center justify-between gap-2 border-t border-black/5 pt-1">
               <span className="font-medium">ยอดที่ต้องโอน</span>
               <span className="text-lg font-bold text-brand tabular-nums">฿{grandTotal}</span>
@@ -348,6 +382,90 @@ function NewBookingInner() {
         </Button>
       </div>
     </main>
+  );
+}
+
+/**
+ * Type a code, see what it does, before committing to the booking.
+ *
+ * Checked against the server rather than guessed at, because every rule that
+ * can refuse a code — expiry, minimum spend, per-customer limit — lives there.
+ * A wrong code says why while it can still be fixed, instead of on the receipt.
+ */
+function CouponField({
+  courtId,
+  amount,
+  applied,
+  onApply,
+}: {
+  courtId: string;
+  amount: number;
+  applied: CouponPreview | null;
+  onApply: (c: CouponPreview | null) => void;
+}) {
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function check() {
+    if (!code.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      onApply(await api.previewCoupon(courtId, code.trim(), amount));
+    } catch (e) {
+      onApply(null);
+      setError((e as Error).message || "ใช้คูปองนี้ไม่ได้");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (applied) {
+    return (
+      <div className="flex items-center gap-3 rounded-2xl bg-emerald-50 p-3 ring-1 ring-emerald-200">
+        <Ticket className="size-5 shrink-0 text-emerald-600" />
+        <div className="min-w-0 flex-1">
+          <div className="font-semibold text-emerald-800">{applied.code}</div>
+          <div className="text-sm text-emerald-700">ลด ฿{applied.discount}</div>
+        </div>
+        <button
+          type="button"
+          aria-label="เอาคูปองออก"
+          onClick={() => {
+            onApply(null);
+            setCode("");
+          }}
+          className="grid size-8 shrink-0 place-items-center rounded-lg text-emerald-700 hover:bg-emerald-100"
+        >
+          <X className="size-4" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex gap-2">
+        <input
+          value={code}
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
+          onKeyDown={(e) => e.key === "Enter" && check()}
+          placeholder="กรอกรหัสคูปอง"
+          aria-label="รหัสคูปอง"
+          className="h-11 min-w-0 flex-1 rounded-xl border border-black/10 px-3 text-sm uppercase outline-none focus:border-brand"
+        />
+        <Button
+          type="button"
+          onClick={check}
+          disabled={busy || !code.trim()}
+          className="h-11 shrink-0 rounded-xl px-5"
+        >
+          {busy ? "..." : "ใช้"}
+        </Button>
+      </div>
+      {error && <p className="text-sm text-brand-danger">{error}</p>}
+    </div>
   );
 }
 

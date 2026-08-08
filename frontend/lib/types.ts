@@ -140,6 +140,33 @@ export type Booking = {
   depositAmount?: number;
   paidAmount?: number;
   outstandingAmount?: number;
+  /** Why it cost less than the court price. Snapshotted at booking time. */
+  discountAmount?: number;
+  discountLabel?: string | null;
+};
+
+/** What a code would do, asked before committing to the booking. */
+export type CouponPreview = {
+  code: string;
+  description: string | null;
+  discount: number;
+  payable: number;
+};
+
+export type OwnerCoupon = {
+  id: string;
+  code: string;
+  description: string | null;
+  type: "percent" | "fixed";
+  value: number;
+  minAmount: number;
+  maxDiscount: number | null;
+  usageLimit: number | null;
+  perCustomerLimit: number;
+  usedCount: number;
+  startsAt: string | null;
+  endsAt: string | null;
+  isActive: boolean;
 };
 
 // Public per-venue LINE config for the customer frontend (GET /line-config).

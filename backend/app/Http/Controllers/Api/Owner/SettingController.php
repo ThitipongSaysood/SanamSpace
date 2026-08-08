@@ -62,6 +62,9 @@ class SettingController extends Controller
             'depositEnabled' => ['sometimes', 'boolean'],
             'depositType' => ['sometimes', 'in:percent,fixed'],
             'depositValue' => ['sometimes', 'numeric', 'min:0', 'max:100000'],
+            // { "Gold": 10, "Platinum": 15 } — a standing rate per tier.
+            'memberDiscounts' => ['sometimes', 'nullable', 'array'],
+            'memberDiscounts.*' => ['numeric', 'min:0', 'max:100'],
 
             // --- Payment (where this venue receives booking money) ---
             'promptpayId' => ['sometimes', 'nullable', 'string', 'max:50'],
@@ -107,6 +110,7 @@ class SettingController extends Controller
             'depositEnabled' => 'deposit_enabled',
             'depositType' => 'deposit_type',
             'depositValue' => 'deposit_value',
+            'memberDiscounts' => 'member_discounts',
             'promptpayId' => 'promptpay_id',
             'promptpayName' => 'promptpay_name',
             'bankName' => 'bank_name',

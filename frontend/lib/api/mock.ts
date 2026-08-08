@@ -1,6 +1,7 @@
 import type {
   AppNotification, Booking, Court, CourtSchedule, CustomerPackage, LineConfig, Membership, Payment, PaymentInstructions,
   MarketingConsent, OrgPublic, RentalItem, PackagePurchaseInstructions, Promotion, Refund, ReviewSummary, Slot, User, Venue, VenuePackage, Wallet, WalletTopupInstructions,
+  CouponPreview,
 } from "@/lib/types";
 import {
   courts as courtsFx, venues as venuesFx,
@@ -90,6 +91,12 @@ export const mockApi = {
     await delay();
     const p = db.payments.get(paymentId)!;
     p.status = "pending_review"; p.slipUrl = "/slips/mock.jpg"; return { ...p };
+  },
+  // Mock mode has no coupon store; the shape is right so the field can be
+  // built and tested, but no code is ever accepted.
+  async previewCoupon(_courtId: string, _code: string, _amount: number): Promise<CouponPreview> {
+    await delay();
+    throw new Error("ไม่พบคูปองนี้");
   },
   async getPayment(paymentId: string): Promise<Payment | undefined> { await delay(); return db.payments.get(paymentId); },
   async getPaymentInstructions(paymentId: string): Promise<PaymentInstructions> {

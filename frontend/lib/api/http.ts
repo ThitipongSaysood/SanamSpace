@@ -1,6 +1,7 @@
 import type {
   AppNotification, Booking, MarketingConsent, RentalItem, Court, CourtSchedule, CustomerPackage, LineConfig, Membership, Payment, PaymentInstructions,
   OrgPublic, PackagePurchaseInstructions, Promotion, Refund, ReviewSummary, User, Venue, VenuePackage, Wallet, WalletTopupInstructions,
+  CouponPreview,
 } from "@/lib/types";
 import { getToken, setToken } from "./token";
 import { getActiveVenueSlug } from "@/lib/tenant/active-venue";
@@ -141,6 +142,10 @@ export const httpApi: Api = {
     req<RentalItem[]>(`/rentals?date=${date}&start=${start}&end=${end}`),
 
   getNotifications: () => req<AppNotification[]>("/notifications"),
+
+  /** What a code is worth here, before committing. Throws with the reason. */
+  previewCoupon: (courtId: string, code: string, amount: number) =>
+    req<CouponPreview>("/coupons/preview", { method: "POST", body: { courtId, code, amount }, raw: true }),
 
   // --- Marketing consent / opt-out. Always the signed-in customer. ---
   getConsent: () => req<MarketingConsent>("/me/consent"),

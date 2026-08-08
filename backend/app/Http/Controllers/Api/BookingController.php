@@ -20,6 +20,7 @@ class BookingController extends Controller
     public function __construct(
         private \App\Services\RentalService $rentals,
         private \App\Services\DepositService $deposits,
+        private \App\Services\DiscountService $discounts,
     ) {}
 
     /**
@@ -52,6 +53,7 @@ class BookingController extends Controller
             'rentals' => ['sometimes', 'array'],
             'rentals.*.itemId' => ['required', 'string'],
             'rentals.*.quantity' => ['required', 'integer', 'min:1', 'max:99'],
+            'couponCode' => ['sometimes', 'nullable', 'string', 'max:40'],
         ]);
 
         $customer = $request->user();
@@ -74,8 +76,6 @@ class BookingController extends Controller
         }
 
         $hours = $this->hoursBetween($data['start'], $data['end']);
-        // Pricing: amount = hours * price_per_hour (matches the frontend mock).
-        // TODO: member discount / coupons
         $amount = round($hours * (float) $court->price_per_hour, 2);
 
         // Serialize concurrent bookings on the SAME court+date so the
@@ -150,15 +150,38 @@ class BookingController extends Controller
 
                 $this->rentals->attach($booking, $quote['rows'], $quote['total']);
 
-                // After attach, because the deposit is a share of the grand
-                // total — court plus whatever was rented with it.
+                // Discount and deposit both come after attach, because both are
+                // a share of the grand total — court plus whatever was rented
+                // with it. A coupon applied to the court alone would be a
+                // different, smaller promise than the one shown at checkout.
                 $booking->refresh();
+                $settings = OrganizationSetting::query()
+                    ->where('organization_id', $court->organization_id)
+                    ->first();
+
+                $discount = $this->discounts->resolve(
+                    $court->organization_id,
+                    (float) $booking->amount,
+                    $customer,
+                    $data['couponCode'] ?? null,
+                    $settings,
+                );
+
+                $payable = round((float) $booking->amount - $discount['amount'], 2);
+
                 $booking->update([
-                    'deposit_amount' => $this->deposits->depositFor(
-                        OrganizationSetting::query()->where('organization_id', $court->organization_id)->first(),
-                        (float) $booking->amount,
-                    ),
+                    'discount_amount' => $discount['amount'],
+                    'discount_label' => $discount['label'],
+                    'coupon_id' => $discount['coupon']?->id,
+                    'amount' => $payable,
+                    'deposit_amount' => $this->deposits->depositFor($settings, $payable),
                 ]);
+
+                if ($discount['coupon']) {
+                    // Inside the transaction: a booking that fails after this
+                    // point must not burn the customer's one use of the code.
+                    $this->discounts->redeem($discount['coupon'], $customer, $booking->id, $discount['amount']);
+                }
 
                 return $booking->fresh();
             });

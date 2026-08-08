@@ -9,6 +9,7 @@ import type {
   OwnerBroadcast,
   OwnerBroadcastAudience,
   OwnerBroadcastChannel,
+  OwnerCoupon,
   OwnerCourt,
   OwnerCrmOverview,
   OwnerCustomer,
@@ -397,6 +398,14 @@ export const ownerApi = {
     req<Array<RentalItem & { availableQty: number; priceForBooking: number }>>(
       `/owner/rental-items/offer?date=${date}&start=${start}&end=${end}`,
     ),
+
+  // --- Discount codes ---
+  getCoupons: () => req<OwnerCoupon[]>("/owner/coupons"),
+  createCoupon: (body: Partial<OwnerCoupon>) =>
+    req<OwnerCoupon>("/owner/coupons", { method: "POST", body }),
+  updateCoupon: (id: string, body: Partial<OwnerCoupon>) =>
+    req<OwnerCoupon>(`/owner/coupons/${id}`, { method: "PUT", body }),
+  deleteCoupon: (id: string) => req<void>(`/owner/coupons/${id}`, { method: "DELETE" }),
 
   /** Take the rest of a deposit booking at the desk. Defaults to the balance. */
   settleBooking: (id: string, body?: { amount?: number; method?: "cash" | "promptpay" | "transfer" }) =>

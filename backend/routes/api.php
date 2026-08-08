@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\ConsentController;
 use App\Http\Controllers\Api\BranchController;
+use App\Http\Controllers\Api\CouponController;
 use App\Http\Controllers\Api\CourtController;
 use App\Http\Controllers\Api\MembershipController;
 use App\Http\Controllers\Api\NotificationController;
@@ -36,6 +37,7 @@ use App\Http\Controllers\Api\Owner\BroadcastController as OwnerBroadcastControll
 use App\Http\Controllers\Api\Owner\CheckinController as OwnerCheckinController;
 use App\Http\Controllers\Api\Owner\CourtBlockController as OwnerCourtBlockController;
 use App\Http\Controllers\Api\Owner\ReportController as OwnerReportController;
+use App\Http\Controllers\Api\Owner\CouponController as OwnerCouponController;
 use App\Http\Controllers\Api\Owner\CourtController as OwnerCourtController;
 use App\Http\Controllers\Api\Owner\CrmController as OwnerCrmController;
 use App\Http\Controllers\Api\Owner\CustomerController as OwnerCustomerController;
@@ -117,6 +119,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/wallet/topup', [WalletController::class, 'topup']);
     Route::post('/wallet/topup/{id}/slip', [WalletController::class, 'topupSlip']);
     Route::post('/reviews', [ReviewController::class, 'store']);
+    // What a code is worth, before committing to the booking.
+    Route::post('/coupons/preview', [CouponController::class, 'preview']);
 
     // --- Packages: browse already public; purchase + redeem here ---
     Route::get('/my-packages', [PackageController::class, 'myPackages']);
@@ -243,6 +247,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/settings', [OwnerSettingController::class, 'update'])->middleware('permission:settings.manage');
 
         // --- Promotions (management CRUD, org-scoped) ---
+        Route::get('/coupons', [OwnerCouponController::class, 'index'])->middleware('permission:promotion.manage');
+        Route::post('/coupons', [OwnerCouponController::class, 'store'])->middleware('permission:promotion.manage');
+        Route::put('/coupons/{id}', [OwnerCouponController::class, 'update'])->middleware('permission:promotion.manage');
+        Route::delete('/coupons/{id}', [OwnerCouponController::class, 'destroy'])->middleware('permission:promotion.manage');
         Route::get('/promotions', [OwnerPromotionController::class, 'index']);
         Route::post('/promotions', [OwnerPromotionController::class, 'store'])->middleware('permission:promotion.manage');
         Route::put('/promotions/{id}', [OwnerPromotionController::class, 'update'])->middleware('permission:promotion.manage');

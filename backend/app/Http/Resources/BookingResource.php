@@ -47,6 +47,10 @@ class BookingResource extends JsonResource
             ])->values(), []),
             // With deposits, a booking can be confirmed and still owe money, so
             // "what is left" has to be part of what a booking says about itself.
+            // Why it is cheaper than the court price. Snapshotted on the
+            // booking, so retiring a coupon cannot rewrite an old receipt.
+            'discountAmount' => (float) ($this->discount_amount ?? 0),
+            'discountLabel' => $this->discount_label,
             'depositAmount' => (float) ($this->deposit_amount ?? 0),
             'paidAmount' => (float) ($this->paid_amount ?? 0),
             'outstandingAmount' => max(0, round((float) $this->amount - (float) ($this->paid_amount ?? 0), 2)),
