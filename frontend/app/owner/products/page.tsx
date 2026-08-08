@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
+import { RowActions, rowAction } from "@/components/ui/row-action";
 
 const KEY = ["owner", "products"];
 const fmt = new Intl.NumberFormat("th-TH");
@@ -82,7 +83,7 @@ export default function OwnerProductsPage() {
                   <th className="px-4 py-3 text-right">ราคา</th>
                   <th className="px-4 py-3">คงเหลือ</th>
                   <th className="px-4 py-3">สถานะ</th>
-                  <th className="w-44 px-4 py-3 text-right">จัดการ</th>
+                  <th className="w-64 px-4 py-3 text-right">จัดการ</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5">
@@ -160,28 +161,18 @@ function ProductRow({
         <StockPill product={product} />
       </td>
       <td data-actions className="px-4 py-3">
-        <div className="flex items-center justify-end gap-1">
-          <button
-            type="button"
-            onClick={onRestock}
-            className="rounded-lg border border-input px-2.5 py-1 text-xs font-medium hover:bg-app"
-          >
+        <RowActions>
+          <button type="button" onClick={onRestock} className={rowAction()}>
             เติมของ
           </button>
-          <button
-            type="button"
-            onClick={onEdit}
-            className="rounded-lg border border-input px-2.5 py-1 text-xs font-medium hover:bg-app"
-          >
+          <button type="button" onClick={onEdit} className={rowAction()}>
             แก้ไข
           </button>
           <button
             type="button"
             onClick={() => toggle.mutate()}
             disabled={toggle.isPending}
-            className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${
-              product.isActive ? "bg-brand/10 text-brand" : "bg-app text-muted-foreground"
-            }`}
+            className={rowAction(product.isActive ? "on" : "off")}
           >
             {product.isActive ? "ขายอยู่" : "ปิดขาย"}
           </button>
@@ -194,11 +185,11 @@ function ProductRow({
             }}
             disabled={remove.isPending}
             aria-label={`ลบ ${product.name}`}
-            className="grid size-7 place-items-center rounded-lg text-muted-foreground hover:bg-brand-danger/10 hover:text-brand-danger"
+            className={rowAction("icon", "hover:bg-brand-danger/10 hover:text-brand-danger")}
           >
             <Trash2 className="size-4" />
           </button>
-        </div>
+        </RowActions>
       </td>
     </tr>
   );

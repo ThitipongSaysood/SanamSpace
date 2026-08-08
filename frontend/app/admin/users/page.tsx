@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
+import { RowActions, rowAction } from "@/components/ui/row-action";
 
 function fmtDate(iso: string | null) {
   return iso ? new Date(iso).toLocaleDateString("th-TH") : "—";
@@ -136,12 +137,8 @@ function UserRow({
       </td>
       <td data-label="เข้าร่วม" className="px-4 py-3 text-muted-foreground">{fmtDate(user.createdAt)}</td>
       <td data-actions className="px-4 py-3">
-        <div className="flex items-center justify-end gap-1">
-          <button
-            type="button"
-            onClick={onEdit}
-            className="rounded-lg border border-input px-2.5 py-1 text-xs font-medium hover:bg-app"
-          >
+        <RowActions>
+          <button type="button" onClick={onEdit} className={rowAction()}>
             แก้ไข
           </button>
           {/* Suspend rather than delete: the account keeps its name on the
@@ -150,13 +147,11 @@ function UserRow({
             type="button"
             onClick={() => toggle.mutate()}
             disabled={toggle.isPending}
-            className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
-              suspended ? "bg-brand/10 text-brand" : "bg-app text-muted-foreground hover:text-brand-danger"
-            }`}
+            className={rowAction(suspended ? "on" : "off", suspended ? "" : "hover:text-brand-danger")}
           >
             {toggle.isPending ? "..." : suspended ? "คืนสิทธิ์" : "ระงับ"}
           </button>
-        </div>
+        </RowActions>
         {toggle.isError && (
           <div className="mt-1 text-right text-xs text-brand-danger">
             {(toggle.error as Error).message}

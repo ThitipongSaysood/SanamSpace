@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { ImageLightbox } from "@/components/image-lightbox";
+import { RowActions, rowAction } from "@/components/ui/row-action";
 
 const KEY = ["owner", "welcome-banners"];
 
@@ -247,21 +248,15 @@ function BannerRow({
           onClick={() => toggle.mutate()}
           disabled={toggle.isPending}
           aria-pressed={banner.isActive}
-          className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
-            banner.isActive ? "bg-brand/10 text-brand" : "bg-app text-muted-foreground"
-          }`}
+          className={rowAction(banner.isActive ? "on" : "off")}
         >
           {banner.isActive ? "เปิดอยู่" : "ปิดอยู่"}
         </button>
       </td>
 
       <td data-actions className="px-4 py-3">
-        <div className="flex items-center justify-end gap-1">
-          <button
-            type="button"
-            onClick={onEdit}
-            className="rounded-lg border border-input px-2.5 py-1 text-xs font-medium hover:bg-app"
-          >
+        <RowActions>
+          <button type="button" onClick={onEdit} className={rowAction()}>
             แก้ไข
           </button>
           <button
@@ -271,11 +266,11 @@ function BannerRow({
             }}
             disabled={remove.isPending}
             aria-label="ลบแบนเนอร์"
-            className="grid size-7 place-items-center rounded-lg text-muted-foreground transition hover:bg-brand-danger/10 hover:text-brand-danger"
+            className={rowAction("icon", "hover:bg-brand-danger/10 hover:text-brand-danger")}
           >
             <Trash2 className="size-4" />
           </button>
-        </div>
+        </RowActions>
       </td>
     </tr>
   );

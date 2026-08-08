@@ -8,6 +8,7 @@ import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RowActions, rowAction } from "@/components/ui/row-action";
 import { BookingDialog, type Dialog } from "../booking-dialog";
 
 const BOOKINGS_KEY = ["owner", "bookings"];
@@ -213,7 +214,7 @@ export default function OwnerBookingListPage() {
                     <th className="px-4 py-3">วันและเวลา</th>
                     <th className="px-4 py-3 text-right">ยอด</th>
                     <th className="px-4 py-3">สถานะ</th>
-                    <th className="w-32 px-4 py-3 text-right">จัดการ</th>
+                    <th className="w-36 px-4 py-3 text-right">จัดการ</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/5">
@@ -266,12 +267,8 @@ function BookingRow({
         </span>
       </td>
       <td className="px-4 py-3">
-        <div className="flex items-center justify-end gap-1">
-          <button
-            type="button"
-            onClick={onEdit}
-            className="rounded-lg border border-input px-2.5 py-1 text-xs font-medium hover:bg-app"
-          >
+        <RowActions>
+          <button type="button" onClick={onEdit} className={rowAction()}>
             แก้ไข
           </button>
           <button
@@ -283,11 +280,11 @@ function BookingRow({
             }}
             disabled={remove.isPending}
             aria-label="ลบการจอง"
-            className="grid size-7 place-items-center rounded-lg text-muted-foreground transition hover:bg-brand-danger/10 hover:text-brand-danger"
+            className={rowAction("icon", "hover:bg-brand-danger/10 hover:text-brand-danger")}
           >
             <Trash2 className="size-4" />
           </button>
-        </div>
+        </RowActions>
         {remove.isError && (
           <div className="mt-1 max-w-52 text-right text-xs text-brand-danger">
             {(remove.error as Error).message}
