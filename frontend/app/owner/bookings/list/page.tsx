@@ -8,6 +8,7 @@ import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Modal } from "@/components/ui/modal";
 import { RowActions, rowAction } from "@/components/ui/row-action";
 import { BookingDialog, type Dialog } from "../booking-dialog";
 
@@ -73,6 +74,7 @@ export default function OwnerBookingListPage() {
   const [tab, setTab] = useState<string>("all");
   const [q, setQ] = useState("");
   const [dialog, setDialog] = useState<Dialog | null>(null);
+  const [viewing, setViewing] = useState<OwnerBooking | null>(null);
 
   // The date window is the server's job — the venue's whole history is not
   // something to pull down and filter in the browser.
@@ -199,7 +201,7 @@ export default function OwnerBookingListPage() {
               off the right edge, behind a sideways drag. */}
           <div className="space-y-2 md:hidden">
             {rows.map((b) => (
-              <BookingCard key={b.id} booking={b} onEdit={() => setDialog({ mode: "edit", booking: b })} />
+              <BookingCard key={b.id} booking={b} onView={() => setViewing(b)} />
             ))}
           </div>
 
@@ -214,7 +216,7 @@ export default function OwnerBookingListPage() {
                     <th className="px-4 py-3">วันและเวลา</th>
                     <th className="px-4 py-3 text-right">ยอด</th>
                     <th className="px-4 py-3">สถานะ</th>
-                    <th className="w-36 px-4 py-3 text-right">จัดการ</th>
+                    <th className="w-56 px-4 py-3 text-right">จัดการ</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/5">
@@ -222,6 +224,7 @@ export default function OwnerBookingListPage() {
                     <BookingRow
                       key={b.id}
                       booking={b}
+                      onView={() => setViewing(b)}
                       onEdit={() => setDialog({ mode: "edit", booking: b })}
                       onDone={() => qc.invalidateQueries({ queryKey: BOOKINGS_KEY })}
                     />
@@ -233,17 +236,137 @@ export default function OwnerBookingListPage() {
         </>
       )}
 
+      {viewing && (
+        <BookingDetail
+          booking={viewing}
+          onClose={() => setViewing(null)}
+          onEdit={() => {
+            setDialog({ mode: "edit", booking: viewing });
+            setViewing(null);
+          }}
+        />
+      )}
+
       {dialog && <BookingDialog dialog={dialog} courts={courts} onClose={() => setDialog(null)} />}
+    </div>
+  );
+}
+
+/**
+ * Everything on one booking, read-only.
+ *
+ * Re-fetched by id rather than rendered from the list row: the list is a
+ * snapshot from whenever it loaded, and this is the screen someone opens to
+ * check a fact before telling a customer.
+ */
+function BookingDetail({
+  booking,
+  onClose,
+  onEdit,
+}: {
+  booking: OwnerBooking;
+  onClose: () => void;
+  onEdit: () => void;
+}) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["owner", "booking", booking.id],
+    queryFn: () => ownerApi.getBooking(booking.id),
+    // The row we already have, so the panel opens with content rather than a
+    // spinner, then sharpens when the fresh copy lands.
+    placeholderData: booking,
+  });
+
+  const b = data ?? booking;
+  const rentals = b.rentals ?? [];
+  const courtAmount = b.courtAmount ?? b.amount;
+
+  return (
+    <Modal
+      title={`การจอง ${b.code}`}
+      width="max-w-lg"
+      onClose={onClose}
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose}>
+            ปิด
+          </Button>
+          <Button type="button" onClick={onEdit}>
+            แก้ไขการจอง
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-2">
+          <span className={`rounded-full px-2.5 py-1 text-sm font-medium ${statusPill(b.status)}`}>
+            {STATUS_LABEL[b.status] ?? b.status}
+          </span>
+          {isLoading && <span className="text-xs text-muted-foreground">กำลังอัปเดต…</span>}
+        </div>
+
+        <dl className="divide-y divide-black/5 rounded-xl bg-app">
+          <Field label="ลูกค้า" value={b.customerName ?? "Walk-in"} />
+          <Field label="คอร์ท" value={b.courtName} />
+          <Field label="วันที่" value={b.date} />
+          <Field label="เวลา" value={`${b.start} – ${b.end}`} />
+          {b.checkedInAt && (
+            <Field
+              label="เช็คอินแล้วเมื่อ"
+              value={new Date(b.checkedInAt).toLocaleString("th-TH", {
+                dateStyle: "medium",
+                timeStyle: "short",
+              })}
+            />
+          )}
+        </dl>
+
+        {/* The breakdown, because a total is no longer just the court. */}
+        <section className="space-y-1.5 rounded-xl border border-black/5 p-3 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">ค่าสนาม</span>
+            <span className="tabular-nums">฿{fmt.format(courtAmount)}</span>
+          </div>
+
+          {rentals.map((r) => (
+            <div key={r.id} className="flex justify-between">
+              <span className="min-w-0 truncate text-muted-foreground">
+                {r.name} × {r.quantity}
+              </span>
+              <span className="tabular-nums">฿{fmt.format(r.lineTotal)}</span>
+            </div>
+          ))}
+
+          <div className="flex items-baseline justify-between border-t border-black/5 pt-1.5">
+            <span className="font-medium">ยอดรวม</span>
+            <span className="text-xl font-bold text-brand tabular-nums">฿{fmt.format(b.amount)}</span>
+          </div>
+
+          {rentals.length === 0 && (
+            <p className="text-xs text-muted-foreground">ไม่มีการเช่าอุปกรณ์</p>
+          )}
+        </section>
+      </div>
+    </Modal>
+  );
+}
+
+function Field({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 px-3 py-2 text-sm">
+      <dt className="shrink-0 text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 truncate text-right font-medium">{value}</dd>
     </div>
   );
 }
 
 function BookingRow({
   booking,
+  onView,
   onEdit,
   onDone,
 }: {
   booking: OwnerBooking;
+  onView: () => void;
   onEdit: () => void;
   onDone: () => void;
 }) {
@@ -253,7 +376,9 @@ function BookingRow({
   });
 
   return (
-    <tr className="hover:bg-app/60">
+    // The row opens the details; the buttons stop the click so they still do
+    // their own thing.
+    <tr className="cursor-pointer hover:bg-app/60" onClick={onView}>
       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{booking.code}</td>
       <td className="px-4 py-3 font-medium">{booking.customerName ?? "Walk-in"}</td>
       <td className="px-4 py-3">{booking.courtName}</td>
@@ -266,8 +391,11 @@ function BookingRow({
           {STATUS_LABEL[booking.status] ?? booking.status}
         </span>
       </td>
-      <td className="px-4 py-3">
+      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
         <RowActions>
+          <button type="button" onClick={onView} className={rowAction()}>
+            รายละเอียด
+          </button>
           <button type="button" onClick={onEdit} className={rowAction()}>
             แก้ไข
           </button>
@@ -295,11 +423,11 @@ function BookingRow({
   );
 }
 
-function BookingCard({ booking, onEdit }: { booking: OwnerBooking; onEdit: () => void }) {
+function BookingCard({ booking, onView }: { booking: OwnerBooking; onView: () => void }) {
   return (
     <button
       type="button"
-      onClick={onEdit}
+      onClick={onView}
       className="block w-full rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-black/5 transition active:scale-[0.99]"
     >
       <div className="flex items-start justify-between gap-2">

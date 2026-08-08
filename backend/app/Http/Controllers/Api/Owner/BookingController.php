@@ -29,7 +29,7 @@ class BookingController extends Controller
 
         $bookings = Booking::query()
             ->forOrganization($orgId)
-            ->with(['branch.organization', 'court', 'customer'])
+            ->with(['branch.organization', 'court', 'customer', 'rentals'])
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
             ->when($request->filled('date'), fn ($q) => $q->where('date', $request->string('date')))
             // The calendar asks for the window it is showing. Without this the
@@ -48,7 +48,9 @@ class BookingController extends Controller
     {
         $booking = $this->findScoped($request, $id);
 
-        return new BookingResource($booking->load(['branch.organization', 'court', 'customer']));
+        // rentals: the detail panel shows what the customer was charged for,
+        // and a booking's total is no longer just the court.
+        return new BookingResource($booking->load(['branch.organization', 'court', 'customer', 'rentals']));
     }
 
     /**
