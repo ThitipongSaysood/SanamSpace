@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\CourtController;
 use App\Http\Controllers\Api\MembershipController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PackageController;
+use App\Http\Controllers\Api\PersonalDataController;
 use App\Http\Controllers\Api\PromotionController;
 use App\Http\Controllers\Api\RentalController;
 use App\Http\Controllers\Api\ReviewController;
@@ -100,6 +101,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/me/consent', [ConsentController::class, 'update']);
     Route::post('/me/unsubscribe', [ConsentController::class, 'unsubscribe']);
     Route::post('/me/resubscribe', [ConsentController::class, 'resubscribe']);
+    // PDPA data-subject rights. No id in either route — you can only ever act
+    // on yourself.
+    Route::get('/me/data', [PersonalDataController::class, 'export']);
+    Route::delete('/me', [PersonalDataController::class, 'destroy']);
 
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::put('/auth/me', [AuthController::class, 'updateMe']);

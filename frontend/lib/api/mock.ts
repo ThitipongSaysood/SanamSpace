@@ -191,6 +191,16 @@ export const mockApi = {
     };
     return { ...mockConsent };
   },
+  // PDPA rights in mock mode: shaped like the real thing so the screen can be
+  // built and tested, but nothing is erased — there is no real record to erase.
+  async exportMyData(): Promise<string> {
+    await delay();
+    return JSON.stringify({ profile: MOCK_USER, note: "ข้อมูลตัวอย่าง (โหมดสาธิต)" }, null, 2);
+  },
+  async deleteMyAccount(_confirmName: string): Promise<{ message: string }> {
+    await delay();
+    return { message: "โหมดสาธิต — ไม่มีการลบข้อมูลจริง" };
+  },
   async updateProfile(patch: Partial<User>): Promise<User> { await delay(); return { ...MOCK_USER, ...patch }; },
   // Session restore: in mock mode lineLogin never stores a token, so the
   // rehydrate path doesn't call this — returns the demo user if it ever does.

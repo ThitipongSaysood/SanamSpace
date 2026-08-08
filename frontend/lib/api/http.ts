@@ -17,17 +17,30 @@ export class ApiError extends Error {
 
 type ReqOpts = { method?: string; body?: unknown; raw?: boolean };
 
-async function req<T>(path: string, opts: ReqOpts = {}): Promise<T> {
-  const { method = "GET", body, raw = false } = opts;
+/**
+ * Who is asking, and for which venue.
+ *
+ * Extracted so a request that does not go through `req()` — the data export,
+ * which must stay a file — still carries the venue scope. Building those
+ * headers by hand at the call site is how one of them ends up missing it.
+ */
+function baseHeaders(): Record<string, string> {
   const headers: Record<string, string> = { Accept: "application/json" };
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  // Which venue's app is asking. The backend scopes every customer-facing read
-  // to this, so it goes on every request rather than being threaded through
-  // each call site — a call that forgot it would silently widen the query.
+  // The backend scopes every customer-facing read to this, so it goes on every
+  // request rather than being threaded through each call site — a call that
+  // forgot it would silently widen the query.
   const venue = getActiveVenueSlug();
   if (venue) headers["X-Venue-Slug"] = venue;
+
+  return headers;
+}
+
+async function req<T>(path: string, opts: ReqOpts = {}): Promise<T> {
+  const { method = "GET", body, raw = false } = opts;
+  const headers = baseHeaders();
 
   let payload: BodyInit | undefined;
   if (body instanceof FormData) {
@@ -133,6 +146,20 @@ export const httpApi: Api = {
   getConsent: () => req<MarketingConsent>("/me/consent"),
   setConsent: (granted: boolean) =>
     req<MarketingConsent>("/me/consent", { method: "POST", body: { granted } }),
+
+  // --- PDPA data-subject rights. Neither takes an id: only ever yourself. ---
+  /**
+   * The copy is a file, so this bypasses `req()` — that helper parses JSON into
+   * an object, and an object is exactly what a portable copy must not be
+   * reduced to. Returns the raw text to save.
+   */
+  exportMyData: async (): Promise<string> => {
+    const res = await fetch(`${BASE}/me/data`, { headers: baseHeaders() });
+    if (!res.ok) throw new ApiError(res.status, "ดาวน์โหลดข้อมูลไม่สำเร็จ");
+    return res.text();
+  },
+  deleteMyAccount: (confirmName: string) =>
+    req<{ message: string }>("/me", { method: "DELETE", body: { confirmName } }),
   updateProfile: (patch) => req<User>("/auth/me", { method: "PUT", body: patch }),
   async me(): Promise<User | null> {
     try {

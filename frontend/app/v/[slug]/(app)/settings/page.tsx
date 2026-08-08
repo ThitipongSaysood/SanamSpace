@@ -1,7 +1,8 @@
 "use client";
 import { VenueLink as Link } from "@/lib/tenant/venue-nav";
-import { Bell, Globe, Headphones, Info, ChevronRight, LogOut } from "lucide-react";
+import { Bell, Globe, Headphones, Info, ChevronRight, Download, LogOut, Trash2 } from "lucide-react";
 import type { ComponentType } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -108,6 +109,8 @@ export default function SettingsPage() {
           </Row>
         </div>
 
+        <MyDataSection />
+
         <button
           type="button"
           onClick={logout}
@@ -117,5 +120,121 @@ export default function SettingsPage() {
         </button>
       </div>
     </main>
+  );
+}
+
+/**
+ * The two PDPA rights that need a button: get a copy, and be erased.
+ *
+ * Both live here rather than behind a "legal" link, because a right nobody can
+ * find is not much of a right.
+ */
+function MyDataSection() {
+  const { user, logout } = useAuth();
+  const [confirming, setConfirming] = useState(false);
+  const [typedName, setTypedName] = useState("");
+
+  const download = useMutation({
+    mutationFn: api.exportMyData,
+    onSuccess: (json) => {
+      // Saved from a blob rather than linking at the endpoint: the request
+      // needs the auth header, and a plain <a href> cannot carry one.
+      const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ข้อมูลของฉัน-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    },
+  });
+
+  const erase = useMutation({
+    mutationFn: () => api.deleteMyAccount(typedName),
+    // Nothing is left to be signed in as.
+    onSuccess: () => logout(),
+  });
+
+  return (
+    <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
+      <button
+        type="button"
+        onClick={() => download.mutate()}
+        disabled={download.isPending}
+        className="block w-full text-left transition active:bg-black/[0.03] disabled:opacity-50"
+      >
+        <Row icon={Download} label={download.isPending ? "กำลังเตรียมไฟล์…" : "ดาวน์โหลดข้อมูลของฉัน"}>
+          <ChevronRight className="size-4 text-muted-foreground" />
+        </Row>
+      </button>
+      <p className="px-4 pb-3 text-xs text-muted-foreground">
+        ไฟล์ JSON รวมโปรไฟล์ ประวัติการจอง การชำระเงิน วอลเล็ต และแต้มสมาชิกของคุณ
+      </p>
+      {download.isError && (
+        <p className="px-4 pb-3 text-xs text-brand-danger">ดาวน์โหลดไม่สำเร็จ ลองอีกครั้ง</p>
+      )}
+
+      <div className="border-t border-black/5" />
+
+      {!confirming ? (
+        <button
+          type="button"
+          onClick={() => setConfirming(true)}
+          className="block w-full text-left transition active:bg-black/[0.03]"
+        >
+          <Row icon={Trash2} label="ลบข้อมูลส่วนบุคคลของฉัน">
+            <ChevronRight className="size-4 text-muted-foreground" />
+          </Row>
+        </button>
+      ) : (
+        <div className="space-y-3 p-4">
+          <p className="text-sm font-medium">ยืนยันการลบข้อมูล</p>
+          {/* Said plainly, because "delete my account" and "delete everything
+              about me" are not the same thing here, and finding that out later
+              would feel like a broken promise. */}
+          <p className="text-xs text-muted-foreground">
+            ชื่อ เบอร์โทร อีเมล รูปโปรไฟล์ และการเชื่อมต่อ LINE จะถูกลบถาวร
+            <br />
+            ประวัติการจองและการชำระเงินจะถูก<strong>เก็บไว้ตามกฎหมายบัญชี</strong> แต่จะไม่ผูกกับตัวคุณอีกต่อไป
+            <br />
+            ลบแล้วกู้คืนไม่ได้ และคุณจะออกจากระบบทุกเครื่องทันที
+          </p>
+          <div className="space-y-1.5">
+            <label htmlFor="confirm-name" className="text-xs text-muted-foreground">
+              พิมพ์ชื่อของคุณ “{user?.displayName}” เพื่อยืนยัน
+            </label>
+            <input
+              id="confirm-name"
+              value={typedName}
+              onChange={(e) => setTypedName(e.target.value)}
+              className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm outline-none focus:border-brand"
+              placeholder={user?.displayName ?? ""}
+            />
+          </div>
+          {erase.isError && (
+            <p className="text-xs text-brand-danger">{(erase.error as Error).message}</p>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setConfirming(false);
+                setTypedName("");
+              }}
+              className="h-11 rounded-xl text-sm font-semibold ring-1 ring-black/10"
+            >
+              ยกเลิก
+            </button>
+            <button
+              type="button"
+              disabled={erase.isPending || typedName.trim() !== (user?.displayName ?? "").trim()}
+              onClick={() => erase.mutate()}
+              className="h-11 rounded-xl bg-brand-danger text-sm font-semibold text-white disabled:opacity-40"
+            >
+              {erase.isPending ? "กำลังลบ…" : "ลบถาวร"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
