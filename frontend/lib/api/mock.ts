@@ -1,6 +1,6 @@
 import type {
   AppNotification, Booking, Court, CourtSchedule, CustomerPackage, LineConfig, Membership, Payment, PaymentInstructions,
-  MarketingConsent, OrgPublic, PackagePurchaseInstructions, Promotion, Refund, ReviewSummary, Slot, User, Venue, VenuePackage, Wallet, WalletTopupInstructions,
+  MarketingConsent, OrgPublic, RentalItem, PackagePurchaseInstructions, Promotion, Refund, ReviewSummary, Slot, User, Venue, VenuePackage, Wallet, WalletTopupInstructions,
 } from "@/lib/types";
 import {
   courts as courtsFx, venues as venuesFx,
@@ -64,7 +64,7 @@ export const mockApi = {
   async getCourtSchedule(courtId: string, date: string): Promise<CourtSchedule> {
     await delay(); return { courtId, date, slots: genSlots(date) };
   },
-  async createBooking(input: { venueId: string; courtId: string; date: string; start: string; end: string }): Promise<Booking> {
+  async createBooking(input: { venueId: string; courtId: string; date: string; start: string; end: string; rentals?: { itemId: string; quantity: number }[] }): Promise<Booking> {
     await delay();
     const venue = venuesFx.find((v) => v.id === input.venueId)!;
     const court = courtsFx.find((c) => c.id === input.courtId)!;
@@ -180,6 +180,9 @@ export const mockApi = {
   async getMembership(): Promise<Membership> { await delay(); return membershipFx; },
   async getWallet(): Promise<Wallet> { await delay(); return walletFx; },
   async getPromotions(): Promise<Promotion[]> { await delay(); return promotionsFx; },
+  // Mock mode has no catalogue — an empty list, never invented equipment.
+  async getRentals(_date: string, _start: string, _end: string): Promise<RentalItem[]> { await delay(); return []; },
+
   async getNotifications(): Promise<AppNotification[]> { await delay(); return notificationsFx; },
 
   // Consent in mock mode is in-memory only — enough for the settings screen to

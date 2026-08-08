@@ -22,6 +22,8 @@ class Booking extends Model
             // and surfaced as a plain "Y-m-d" string to match the frontend
             // Booking shape and to keep slot-overlap comparisons exact.
             'amount' => 'float',
+            'court_amount' => 'float',
+            'rental_total' => 'float',
             'checked_in_at' => 'datetime',
         ];
     }
@@ -51,6 +53,11 @@ class Booking extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
+    }
+
+    public function rentals(): HasMany
+    {
+        return $this->hasMany(BookingRental::class);
     }
 
     public function payments(): HasMany

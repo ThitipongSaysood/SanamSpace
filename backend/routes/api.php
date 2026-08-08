@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\MembershipController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PackageController;
 use App\Http\Controllers\Api\PromotionController;
+use App\Http\Controllers\Api\RentalController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\Admin\AnnouncementController as AdminAnnouncementController;
@@ -45,6 +46,7 @@ use App\Http\Controllers\Api\Owner\TimelineController as OwnerTimelineController
 use App\Http\Controllers\Api\Owner\PaymentController as OwnerPaymentController;
 use App\Http\Controllers\Api\Owner\ProductController as OwnerProductController;
 use App\Http\Controllers\Api\Owner\PromotionController as OwnerPromotionController;
+use App\Http\Controllers\Api\Owner\RentalItemController as OwnerRentalItemController;
 use App\Http\Controllers\Api\Owner\SaleController as OwnerSaleController;
 use App\Http\Controllers\Api\Owner\WelcomeBannerController as OwnerWelcomeBannerController;
 use App\Http\Controllers\Api\Owner\SettingController as OwnerSettingController;
@@ -87,6 +89,9 @@ Route::get('/courts/{id}/schedules', [CourtController::class, 'schedules']);
 Route::get('/reviews', [ReviewController::class, 'index']);
 Route::get('/packages', [PackageController::class, 'index']);
 Route::get('/promotions', [PromotionController::class, 'index']);
+// What a customer can rent for the slot they are about to book. Availability
+// only means something for a specific window, so date+start+end are required.
+Route::get('/rentals', [RentalController::class, 'index']);
 
 // --- Protected ---
 Route::middleware('auth:sanctum')->group(function () {
@@ -171,6 +176,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/refunds', [OwnerRefundController::class, 'index']);
         Route::post('/refunds/{id}/approve', [OwnerRefundController::class, 'approve'])->middleware('permission:refund.manage');
         Route::post('/refunds/{id}/reject', [OwnerRefundController::class, 'reject'])->middleware('permission:refund.manage');
+
+        // --- Rental equipment (rackets, shoes) ---
+        Route::get('/rental-items', [OwnerRentalItemController::class, 'index'])->middleware('permission:pos.sell');
+        Route::get('/rental-items/out', [OwnerRentalItemController::class, 'out'])->middleware('permission:pos.sell');
+        Route::post('/rental-items', [OwnerRentalItemController::class, 'store'])->middleware('permission:rental.manage');
+        Route::put('/rental-items/{id}', [OwnerRentalItemController::class, 'update'])->middleware('permission:rental.manage');
+        Route::delete('/rental-items/{id}', [OwnerRentalItemController::class, 'destroy'])->middleware('permission:rental.manage');
 
         // --- POS: the counter's till and the things it sells ---
         Route::get('/products', [OwnerProductController::class, 'index'])->middleware('permission:pos.sell');

@@ -1,5 +1,5 @@
 import type {
-  AppNotification, Booking, MarketingConsent, Court, CourtSchedule, CustomerPackage, LineConfig, Membership, Payment, PaymentInstructions,
+  AppNotification, Booking, MarketingConsent, RentalItem, Court, CourtSchedule, CustomerPackage, LineConfig, Membership, Payment, PaymentInstructions,
   OrgPublic, PackagePurchaseInstructions, Promotion, Refund, ReviewSummary, User, Venue, VenuePackage, Wallet, WalletTopupInstructions,
 } from "@/lib/types";
 import { getToken, setToken } from "./token";
@@ -121,6 +121,10 @@ export const httpApi: Api = {
   getMembership: () => req<Membership>("/membership"),
   getWallet: () => req<Wallet>("/wallet"),
   getPromotions: () => req<Promotion[]>("/promotions"),
+  /** What can be rented for this exact slot — availability needs a window. */
+  getRentals: (date: string, start: string, end: string) =>
+    req<RentalItem[]>(`/rentals?date=${date}&start=${start}&end=${end}`),
+
   getNotifications: () => req<AppNotification[]>("/notifications"),
 
   // --- Marketing consent / opt-out. Always the signed-in customer. ---

@@ -28,7 +28,19 @@ class BookingResource extends JsonResource
             'date' => $this->date,
             'start' => $this->start,
             'end' => $this->end,
+            // The grand total the customer transfers, plus the parts it is
+            // made of — a "why is it 550 not 500" answer, not a bare number.
             'amount' => (float) $this->amount,
+            'courtAmount' => (float) ($this->court_amount ?? $this->amount),
+            'rentalTotal' => (float) ($this->rental_total ?? 0),
+            'rentals' => $this->whenLoaded('rentals', fn () => $this->rentals->map(fn ($r) => [
+                'id' => (string) $r->id,
+                'name' => $r->name,
+                'unitPrice' => (float) $r->unit_price,
+                'priceUnit' => $r->price_unit,
+                'quantity' => (int) $r->quantity,
+                'lineTotal' => (float) $r->line_total,
+            ])->values(), []),
             'status' => $this->status,
             'createdAt' => $this->created_at?->toIso8601String(),
             // What the customer's QR encodes, and when the counter scanned it.

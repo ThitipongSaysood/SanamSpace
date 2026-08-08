@@ -2,8 +2,8 @@
 import { Suspense, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useVenueRouter as useRouter } from "@/lib/tenant/venue-nav";
-import { CheckCircle2, Circle } from "lucide-react";
-import { useCourts, useSchedule, useCreateBooking } from "@/lib/api/queries";
+import { CheckCircle2, Circle, Minus, Package, Plus } from "lucide-react";
+import { useCourts, useSchedule, useCreateBooking, useRentals } from "@/lib/api/queries";
 import { AppHeader } from "@/components/app-header";
 import { SportMedia } from "@/components/media";
 import { CourtSlotGrid, CourtSlotLegend } from "@/components/court-slot-grid";
@@ -68,15 +68,39 @@ function NewBookingInner() {
   const sorted = [...selected].sort((a, b) => a.start.localeCompare(b.start));
   const hours = totalHours(selected);
   const ready = !!court && selected.length > 0;
+  const start = sorted[0]?.start;
+  const end = sorted[sorted.length - 1]?.end;
+
+  // Equipment for THIS window. Asked only once a slot is picked, because
+  // "3 rackets left" means nothing without saying left when.
+  const { data: rentalItems } = useRentals(date, start, end);
+  const [rentals, setRentals] = useState<Record<string, number>>({});
+
+  // Changing the slot invalidates the picks — what was free at 18:00 may not be
+  // at 20:00, so keeping them would quote a basket the venue cannot equip.
+  const slotKey = `${date}|${start ?? ""}|${end ?? ""}`;
+  const [pickedFor, setPickedFor] = useState(slotKey);
+  if (pickedFor !== slotKey) {
+    setPickedFor(slotKey);
+    if (Object.keys(rentals).length > 0) setRentals({});
+  }
+
+  const rentalLines = (rentalItems ?? [])
+    .map((item) => ({ item, qty: rentals[item.id] ?? 0 }))
+    .filter((l) => l.qty > 0);
+
+  const rentalTotal = rentalLines.reduce((sum, l) => sum + (l.item.priceForBooking ?? l.item.price) * l.qty, 0);
+  const grandTotal = price + rentalTotal;
 
   async function confirm() {
-    if (!ready || !court) return;
+    if (!ready || !court || !start || !end) return;
     const booking = await create.mutateAsync({
       venueId,
       courtId: court.id,
       date,
-      start: sorted[0].start,
-      end: sorted[sorted.length - 1].end,
+      start,
+      end,
+      rentals: rentalLines.map((l) => ({ itemId: l.item.id, quantity: l.qty })),
     });
     router.push(`/payment/${booking.id}`);
   }
@@ -183,16 +207,105 @@ function NewBookingInner() {
             <Loading rows={1} />
           )}
         </section>
+
+        {/* 4. equipment — only once there is a slot to check availability against */}
+        {ready && (rentalItems?.length ?? 0) > 0 && (
+          <section>
+            <SectionTitle n={4}>เช่าอุปกรณ์ (ไม่บังคับ)</SectionTitle>
+            <div className="space-y-2.5">
+              {rentalItems!.map((item) => {
+                const qty = rentals[item.id] ?? 0;
+                const free = item.availableQty ?? 0;
+                const each = item.priceForBooking ?? item.price;
+
+                return (
+                  <div
+                    key={item.id}
+                    className={`flex items-center gap-3 rounded-2xl bg-white p-3 shadow-sm ring-1 ${
+                      qty > 0 ? "ring-brand" : "ring-black/5"
+                    } ${free === 0 ? "opacity-50" : ""}`}
+                  >
+                    {item.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={item.imageUrl} alt="" className="size-14 shrink-0 rounded-xl object-cover" />
+                    ) : (
+                      <span className="grid size-14 shrink-0 place-items-center rounded-xl bg-app text-muted-foreground">
+                        <Package className="size-6" />
+                      </span>
+                    )}
+
+                    <div className="min-w-0 flex-1">
+                      <div className="font-semibold">{item.name}</div>
+                      <div className="text-sm font-medium text-brand">
+                        ฿{each}
+                        <span className="text-xs font-normal text-muted-foreground">
+                          {item.priceUnit === "per_hour" ? ` / ${hours} ชม.` : " / ครั้ง"}
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {free === 0 ? "ช่วงเวลานี้ถูกเช่าหมดแล้ว" : `ว่าง ${free} ชิ้น`}
+                        {item.note ? ` · ${item.note}` : ""}
+                      </div>
+                    </div>
+
+                    <div className="flex shrink-0 items-center gap-1">
+                      <button
+                        type="button"
+                        aria-label={`ลด ${item.name}`}
+                        disabled={qty === 0}
+                        onClick={() => setRentals((r) => ({ ...r, [item.id]: Math.max(0, qty - 1) }))}
+                        className="grid size-9 place-items-center rounded-lg bg-app text-muted-foreground disabled:opacity-40"
+                      >
+                        <Minus className="size-4" />
+                      </button>
+                      <span className="w-6 text-center font-semibold tabular-nums">{qty}</span>
+                      <button
+                        type="button"
+                        aria-label={`เพิ่ม ${item.name}`}
+                        disabled={qty >= free}
+                        onClick={() => setRentals((r) => ({ ...r, [item.id]: qty + 1 }))}
+                        className="grid size-9 place-items-center rounded-lg bg-app text-muted-foreground disabled:opacity-40"
+                      >
+                        <Plus className="size-4" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
       </div>
 
       {/* sticky summary + single CTA */}
       <div className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-md border-t border-black/5 bg-white/95 p-3 backdrop-blur">
         {ready && (
-          <div className="mb-2 flex items-center justify-between gap-2 text-sm">
-            <div className="min-w-0 truncate text-muted-foreground">
-              {court!.name} · {formatThaiDate(date)} · {sorted[0].start}–{sorted[sorted.length - 1].end} ({hours} ชม.)
+          <div className="mb-2 space-y-1 text-sm">
+            {/* Itemised: the customer is about to transfer this, and a bare
+                number invites "why is it 550 and not 500?" at the counter. */}
+            <div className="truncate text-xs text-muted-foreground">{formatThaiDate(date)}</div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="min-w-0 truncate text-muted-foreground">
+                {court!.name} · {sorted[0].start}–{sorted[sorted.length - 1].end} ({hours} ชม.)
+              </span>
+              <span className="shrink-0 tabular-nums">฿{price}</span>
             </div>
-            <div className="shrink-0 text-lg font-bold text-brand">฿{price}</div>
+
+            {rentalLines.map((l) => (
+              <div key={l.item.id} className="flex items-center justify-between gap-2">
+                <span className="min-w-0 truncate text-muted-foreground">
+                  {l.item.name} × {l.qty}
+                </span>
+                <span className="shrink-0 tabular-nums">
+                  ฿{(l.item.priceForBooking ?? l.item.price) * l.qty}
+                </span>
+              </div>
+            ))}
+
+            <div className="flex items-center justify-between gap-2 border-t border-black/5 pt-1">
+              <span className="font-medium">ยอดที่ต้องโอน</span>
+              <span className="text-lg font-bold text-brand tabular-nums">฿{grandTotal}</span>
+            </div>
           </div>
         )}
         <Button

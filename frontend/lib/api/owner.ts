@@ -23,6 +23,9 @@ import type {
   CheckinResult,
   OwnerCustomerDetail,
   OwnerProduct,
+  OwnerRentalOut,
+  RentalItem,
+  RentalItemInput,
   OwnerSale,
   OwnerSalesSummary,
   ProductInput,
@@ -354,6 +357,24 @@ export const ownerApi = {
   checkin: (token: string) => req<CheckinResult>("/owner/checkin", { method: "POST", body: { token }, raw: true }),
 
   getRecentCheckins: () => req<CheckinBooking[]>("/owner/checkin/recent"),
+
+  // --- Rental equipment ---
+  getRentalItems: () => req<RentalItem[]>("/owner/rental-items"),
+
+  createRentalItem: (body: RentalItemInput) =>
+    req<RentalItem>("/owner/rental-items", { method: "POST", body }),
+
+  updateRentalItem: (id: string, body: RentalItemInput) =>
+    req<RentalItem>(`/owner/rental-items/${id}`, { method: "PUT", body }),
+
+  deleteRentalItem: (id: string) => req<void>(`/owner/rental-items/${id}`, { method: "DELETE" }),
+
+  /** What is out on a given day, and with whom. */
+  getRentalsOut: (date?: string) =>
+    req<{ date: string; data: OwnerRentalOut[] }>(
+      `/owner/rental-items/out${date ? `?date=${date}` : ""}`,
+      { raw: true },
+    ),
 
   // --- POS: the counter's till ---
   /** `sellable` narrows to what the till may show (active, in the venue's order). */

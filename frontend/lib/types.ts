@@ -46,6 +46,43 @@ export type CourtSchedule = { courtId: string; date: string; slots: Slot[] };
 
 export type BookingStatus = "pending_payment" | "confirmed" | "cancelled" | "completed";
 
+/** One equipment line on a booking — name and price as quoted. */
+export type BookingRental = {
+  id: string;
+  name: string;
+  unitPrice: number;
+  priceUnit: "per_session" | "per_hour";
+  quantity: number;
+  lineTotal: number;
+};
+
+/** Something the venue lends out. availableQty/priceForBooking are per time window. */
+export type RentalItem = {
+  id: string;
+  name: string;
+  category: string | null;
+  price: number;
+  priceUnit: "per_session" | "per_hour";
+  stockQty: number;
+  imageUrl: string | null;
+  note: string | null;
+  isActive: boolean;
+  sortOrder: number;
+  availableQty?: number;
+  priceForBooking?: number;
+};
+
+export type RentalItemInput = {
+  name?: string;
+  category?: string | null;
+  price?: number;
+  priceUnit?: "per_session" | "per_hour";
+  stockQty?: number;
+  imageUrl?: string | null;
+  note?: string | null;
+  isActive?: boolean;
+};
+
 export type Booking = {
   id: string;
   code: string;          // "BK240S250012"
@@ -56,7 +93,11 @@ export type Booking = {
   date: string;          // "2026-06-20"
   start: string;
   end: string;
-  amount: number;        // THB total
+  amount: number;        // THB grand total (court + rentals)
+  /** The parts of `amount`, so the customer sees why it is what it is. */
+  courtAmount?: number;
+  rentalTotal?: number;
+  rentals?: BookingRental[];
   status: BookingStatus;
   createdAt: string;
   /** What the check-in QR encodes. Not the code — that is guessable. */
@@ -987,3 +1028,16 @@ export type OwnerSalesSummary = {
 
 /** A PromptPay QR for one sale's total. */
 export type SalePromptPay = { amount: number; payload: string; payTo: string | null };
+
+/** One equipment line currently out, as the counter sees it. */
+export type OwnerRentalOut = {
+  id: string;
+  name: string;
+  quantity: number;
+  bookingCode: string | null;
+  customerName: string | null;
+  courtName: string | null;
+  start: string | null;
+  end: string | null;
+  status: string | null;
+};

@@ -16,13 +16,15 @@ use Illuminate\Validation\ValidationException;
 
 class BookingController extends Controller
 {
+    public function __construct(private \App\Services\RentalService $rentals) {}
+
     /**
      * GET /bookings -> Booking[] (current customer's bookings, newest first).
      */
     public function index(Request $request): AnonymousResourceCollection
     {
         $bookings = Booking::query()
-            ->with(['branch.organization', 'court'])
+            ->with(['branch.organization', 'court', 'rentals'])
             ->where('customer_id', $request->user()->id)
             ->orderByDesc('created_at')
             ->get();
@@ -41,6 +43,11 @@ class BookingController extends Controller
             'date' => ['required', 'date_format:Y-m-d'],
             'start' => ['required', 'date_format:H:i'],
             'end' => ['required', 'date_format:H:i', 'after:start'],
+            // Equipment picked on the booking screen, priced and checked for
+            // availability against this same time window.
+            'rentals' => ['sometimes', 'array'],
+            'rentals.*.itemId' => ['required', 'string'],
+            'rentals.*.quantity' => ['required', 'integer', 'min:1', 'max:99'],
         ]);
 
         $customer = $request->user();
@@ -78,8 +85,8 @@ class BookingController extends Controller
         // capable). block(5) waits up to 5s for a slot rather than failing fast.
         $lock = Cache::lock("booking:court:{$court->id}:{$data['date']}", 10);
 
-        $booking = $lock->block(5, function () use ($court, $customer, $data, $amount) {
-            return DB::transaction(function () use ($court, $customer, $data, $amount) {
+        $booking = $lock->block(5, function () use ($court, $customer, $data, $amount, $hours) {
+            return DB::transaction(function () use ($court, $customer, $data, $amount, $hours) {
                 // Reject overlap with an existing non-cancelled booking on this court/date.
                 // Overlap iff existing.start < new.end AND existing.end > new.start.
                 $overlaps = Booking::query()
@@ -109,7 +116,18 @@ class BookingController extends Controller
                     ]);
                 }
 
-                return Booking::create([
+                // Priced and checked BEFORE the booking row exists, so a
+                // basket the venue cannot equip takes no court slot either.
+                $quote = $this->rentals->quote(
+                    $court->organization_id,
+                    $data['rentals'] ?? [],
+                    $data['date'],
+                    $data['start'],
+                    $data['end'],
+                    $hours,
+                );
+
+                $booking = Booking::create([
                     'organization_id' => $court->organization_id,
                     'branch_id' => $court->branch_id,
                     'court_id' => $court->id,
@@ -118,14 +136,21 @@ class BookingController extends Controller
                     'date' => $data['date'],
                     'start' => $data['start'],
                     'end' => $data['end'],
+                    'court_amount' => $amount,
+                    'rental_total' => 0,
+                    // Grand total; attach() adds the rentals to it below.
                     'amount' => $amount,
                     'status' => 'pending_payment',
                     'channel' => 'application',
                 ]);
+
+                $this->rentals->attach($booking, $quote['rows'], $quote['total']);
+
+                return $booking->fresh();
             });
         });
 
-        $booking->load(['branch.organization', 'court']);
+        $booking->load(['branch.organization', 'court', 'rentals']);
 
         return (new BookingResource($booking))
             ->response()
@@ -198,7 +223,7 @@ class BookingController extends Controller
     private function findOwned(Request $request, string $id): Booking
     {
         return Booking::query()
-            ->with(['branch.organization', 'court'])
+            ->with(['branch.organization', 'court', 'rentals'])
             ->where('id', $id)
             ->where('customer_id', $request->user()->id)
             ->firstOrFail();

@@ -207,6 +207,24 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
           <>
             <div className="rounded-2xl bg-white p-4 text-center shadow-sm ring-1 ring-black/5">
               <p className="text-sm text-muted-foreground">ยอดที่ต้องชำระ</p>
+              {(booking.rentals?.length ?? 0) > 0 && (
+                // What the number is made of, right where they are about to
+                // transfer it.
+                <div className="mx-auto mt-2 max-w-xs space-y-1 text-left text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">ค่าสนาม</span>
+                    <span className="tabular-nums">฿{booking.courtAmount ?? booking.amount}</span>
+                  </div>
+                  {booking.rentals!.map((r) => (
+                    <div key={r.id} className="flex justify-between">
+                      <span className="min-w-0 truncate text-muted-foreground">
+                        {r.name} × {r.quantity}
+                      </span>
+                      <span className="tabular-nums">฿{r.lineTotal}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
               <p className="mt-1 text-3xl font-bold text-brand">฿{booking.amount}</p>
               <p className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-amber-600">
                 <Clock className="size-4" /> โอนแล้วแนบสลิปเพื่อยืนยัน

@@ -86,9 +86,29 @@ export default function BookingDetailPage({ params }: { params: Promise<{ bookin
                 <Clock className="size-4 shrink-0" /> {booking.start}–{booking.end}
               </div>
             </div>
-            <div className="mt-3 flex items-baseline justify-between border-t border-black/5 pt-3">
-              <span className="text-sm text-muted-foreground">ยอดรวม</span>
-              <span className="text-2xl font-bold text-brand">฿{booking.amount}</span>
+            {/* Itemised whenever there is more than the court, so the total is
+                explained here too and not only at the moment of booking. */}
+            <div className="mt-3 space-y-1 border-t border-black/5 pt-3 text-sm">
+              {(booking.rentals?.length ?? 0) > 0 && (
+                <>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-muted-foreground">ค่าสนาม</span>
+                    <span className="tabular-nums">฿{booking.courtAmount ?? booking.amount}</span>
+                  </div>
+                  {booking.rentals!.map((r) => (
+                    <div key={r.id} className="flex items-baseline justify-between">
+                      <span className="min-w-0 truncate text-muted-foreground">
+                        {r.name} × {r.quantity}
+                      </span>
+                      <span className="tabular-nums">฿{r.lineTotal}</span>
+                    </div>
+                  ))}
+                </>
+              )}
+              <div className="flex items-baseline justify-between pt-1">
+                <span className="text-muted-foreground">ยอดรวม</span>
+                <span className="text-2xl font-bold text-brand tabular-nums">฿{booking.amount}</span>
+              </div>
             </div>
           </div>
         </div>

@@ -17,6 +17,15 @@ export const useWallet = () => useQuery({ queryKey: ["wallet"], queryFn: api.get
 export const usePromotions = () => useQuery({ queryKey: ["promotions"], queryFn: api.getPromotions });
 export const useNotifications = () => useQuery({ queryKey: ["notifications"], queryFn: api.getNotifications });
 
+/** Equipment for one slot. Idle until a court and time are chosen. */
+export function useRentals(date: string, start?: string, end?: string) {
+  return useQuery({
+    queryKey: ["rentals", date, start, end],
+    queryFn: () => api.getRentals(date, start!, end!),
+    enabled: Boolean(date && start && end),
+  });
+}
+
 export function useCreateBooking() {
   const qc = useQueryClient();
   return useMutation({

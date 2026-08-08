@@ -31,6 +31,7 @@ final class RolePermissions
         'pos.sell' => ['Sell at the counter', 'pos'],
         'pos.void' => ['Void a sale', 'pos'],
         'product.manage' => ['Manage products and stock', 'pos'],
+        'rental.manage' => ['Manage rental equipment', 'pos'],
         'customer.view' => ['View customers', 'customer'],
         'crm.view' => ['View CRM, segments and broadcasts', 'customer'],
         'crm.manage' => ['Adjust membership points', 'customer'],
@@ -54,7 +55,7 @@ final class RolePermissions
     public const DEFAULTS = [
         'manager' => [
             'booking.view', 'booking.create', 'booking.cancel', 'booking.checkin', 'payment.verify', 'refund.manage',
-            'wallet.manage', 'court.manage', 'pos.sell', 'pos.void', 'product.manage',
+            'wallet.manage', 'court.manage', 'pos.sell', 'pos.void', 'product.manage', 'rental.manage',
             'customer.view', 'crm.view', 'crm.manage',
             'segment.manage', 'broadcast.send', 'promotion.manage', 'report.view',
         ],
