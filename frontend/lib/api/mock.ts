@@ -1,6 +1,6 @@
 import type {
   AppNotification, Booking, Court, CourtSchedule, CustomerPackage, LineConfig, Membership, Payment, PaymentInstructions,
-  OrgPublic, PackagePurchaseInstructions, Promotion, Refund, ReviewSummary, Slot, User, Venue, VenuePackage, Wallet, WalletTopupInstructions,
+  MarketingConsent, OrgPublic, PackagePurchaseInstructions, Promotion, Refund, ReviewSummary, Slot, User, Venue, VenuePackage, Wallet, WalletTopupInstructions,
 } from "@/lib/types";
 import {
   courts as courtsFx, venues as venuesFx,
@@ -22,6 +22,10 @@ const delay = (ms = 250) => new Promise((r) => setTimeout(r, ms));
 const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
 const db = { bookings: new Map<string, Booking>(), payments: new Map<string, Payment>(), refunds: new Map<string, Refund>() };
 let seq = 1;
+
+let mockConsent: MarketingConsent = {
+  consent: null, consentAt: null, unsubscribedAt: null, marketingAllowed: true,
+};
 
 const MOCK_USER: User = {
   id: "u1", displayName: "คุณสมชาย", lineId: "Uxxxx", email: "example@email.com", phone: "081-234-5678",
@@ -177,6 +181,20 @@ export const mockApi = {
   async getWallet(): Promise<Wallet> { await delay(); return walletFx; },
   async getPromotions(): Promise<Promotion[]> { await delay(); return promotionsFx; },
   async getNotifications(): Promise<AppNotification[]> { await delay(); return notificationsFx; },
+
+  // Consent in mock mode is in-memory only — enough for the settings screen to
+  // behave, never a claim that anyone's preference was recorded.
+  async getConsent(): Promise<MarketingConsent> { await delay(); return { ...mockConsent }; },
+  async setConsent(granted: boolean): Promise<MarketingConsent> {
+    await delay();
+    mockConsent = {
+      consent: granted,
+      consentAt: new Date().toISOString(),
+      unsubscribedAt: granted ? null : new Date().toISOString(),
+      marketingAllowed: granted,
+    };
+    return { ...mockConsent };
+  },
   async updateProfile(patch: Partial<User>): Promise<User> { await delay(); return { ...MOCK_USER, ...patch }; },
   // Session restore: in mock mode lineLogin never stores a token, so the
   // rehydrate path doesn't call this — returns the demo user if it ever does.

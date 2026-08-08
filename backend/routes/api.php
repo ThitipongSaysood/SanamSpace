@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
+use App\Http\Controllers\Api\ConsentController;
 use App\Http\Controllers\Api\BranchController;
 use App\Http\Controllers\Api\CourtController;
 use App\Http\Controllers\Api\MembershipController;
@@ -87,6 +88,12 @@ Route::get('/promotions', [PromotionController::class, 'index']);
 
 // --- Protected ---
 Route::middleware('auth:sanctum')->group(function () {
+    // --- Marketing consent / opt-out (PDPA). Always the authed customer. ---
+    Route::get('/me/consent', [ConsentController::class, 'show']);
+    Route::post('/me/consent', [ConsentController::class, 'update']);
+    Route::post('/me/unsubscribe', [ConsentController::class, 'unsubscribe']);
+    Route::post('/me/resubscribe', [ConsentController::class, 'resubscribe']);
+
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::put('/auth/me', [AuthController::class, 'updateMe']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
@@ -184,7 +191,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/checkin', [OwnerCheckinController::class, 'store'])->middleware('permission:booking.checkin');
         Route::get('/checkin/recent', [OwnerCheckinController::class, 'recent'])->middleware('permission:booking.checkin');
 
-        Route::get('/customers', [OwnerCustomerController::class, 'index']);
+        Route::get('/customers', [OwnerCustomerController::class, 'index'])->middleware('permission:customer.view');
         Route::get('/customers/{id}', [OwnerCustomerController::class, 'show'])->middleware('permission:customer.view');
 
         // --- Settings (org settings + org name) ---
@@ -214,8 +221,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/roles', [OwnerStaffController::class, 'roles']);
 
         // --- Memberships (read list + points adjust) ---
-        Route::get('/memberships', [OwnerMembershipController::class, 'index']);
-        Route::post('/memberships/{id}/points', [OwnerMembershipController::class, 'adjustPoints']);
+        Route::get('/memberships', [OwnerMembershipController::class, 'index'])->middleware('permission:crm.view');
+        Route::post('/memberships/{id}/points', [OwnerMembershipController::class, 'adjustPoints'])->middleware('permission:crm.manage');
 
         // --- Wallets (read list + topup) ---
         Route::get('/wallets', [OwnerWalletController::class, 'index']);
@@ -229,20 +236,20 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/package-purchases/{id}/reject', [OwnerPackagePurchaseController::class, 'reject']);
 
         // --- CRM (overview + segments + timeline + broadcasts) ---
-        Route::get('/crm/overview', [OwnerCrmController::class, 'overview']);
+        Route::get('/crm/overview', [OwnerCrmController::class, 'overview'])->middleware('permission:crm.view');
 
-        Route::get('/segments', [OwnerSegmentController::class, 'index']);
-        Route::post('/segments', [OwnerSegmentController::class, 'store']);
-        Route::delete('/segments/{id}', [OwnerSegmentController::class, 'destroy']);
+        Route::get('/segments', [OwnerSegmentController::class, 'index'])->middleware('permission:crm.view');
+        Route::post('/segments', [OwnerSegmentController::class, 'store'])->middleware('permission:segment.manage');
+        Route::delete('/segments/{id}', [OwnerSegmentController::class, 'destroy'])->middleware('permission:segment.manage');
 
-        Route::get('/timeline/{customerId}', [OwnerTimelineController::class, 'show']);
+        Route::get('/timeline/{customerId}', [OwnerTimelineController::class, 'show'])->middleware('permission:crm.view');
 
-        Route::get('/broadcasts', [OwnerBroadcastController::class, 'index']);
-        Route::get('/broadcasts/audience-preview', [OwnerBroadcastController::class, 'audiencePreview']);
-        Route::post('/broadcasts', [OwnerBroadcastController::class, 'store']);
-        Route::put('/broadcasts/{id}', [OwnerBroadcastController::class, 'update']);
-        Route::delete('/broadcasts/{id}', [OwnerBroadcastController::class, 'destroy']);
-        Route::post('/broadcasts/{id}/send', [OwnerBroadcastController::class, 'send']);
+        Route::get('/broadcasts', [OwnerBroadcastController::class, 'index'])->middleware('permission:crm.view');
+        Route::get('/broadcasts/audience-preview', [OwnerBroadcastController::class, 'audiencePreview'])->middleware('permission:crm.view');
+        Route::post('/broadcasts', [OwnerBroadcastController::class, 'store'])->middleware('permission:broadcast.send');
+        Route::put('/broadcasts/{id}', [OwnerBroadcastController::class, 'update'])->middleware('permission:broadcast.send');
+        Route::delete('/broadcasts/{id}', [OwnerBroadcastController::class, 'destroy'])->middleware('permission:broadcast.send');
+        Route::post('/broadcasts/{id}/send', [OwnerBroadcastController::class, 'send'])->middleware('permission:broadcast.send');
     });
 
     // --- Super Admin / Platform (super.admin middleware, NOT org-scoped) ---

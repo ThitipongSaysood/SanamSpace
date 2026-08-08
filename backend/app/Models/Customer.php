@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToOrganization;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -23,7 +24,30 @@ class Customer extends Authenticatable
         return [
             'total_spending' => 'float',
             'visits' => 'integer',
+            'marketing_consent' => 'boolean',
+            'consent_at' => 'datetime',
+            'unsubscribed_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Customers a marketing message may still be sent to.
+     *
+     * The one place suppression is expressed, so a new audience cannot forget
+     * it. Opting out is the hard rule; `marketing_consent` is recorded but not
+     * required here, because customers who predate the consent screen have
+     * `null` and silencing them would be a business decision this scope does
+     * not make. See the migration for why the two are separate.
+     */
+    public function scopeMarketingReachable(Builder $query): Builder
+    {
+        return $query->whereNull('unsubscribed_at');
+    }
+
+    /** Has this person opted out of marketing? */
+    public function isUnsubscribed(): bool
+    {
+        return $this->unsubscribed_at !== null;
     }
 
     public function lineProfiles(): HasMany

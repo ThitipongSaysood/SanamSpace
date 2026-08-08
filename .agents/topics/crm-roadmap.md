@@ -10,13 +10,22 @@ migrations, `RolePermissions.php`, `routes/api.php`, or `NotificationService` is
 `active.md → Shared changes`. Every WP needs tests; WP1/WP3 are compliance/money paths.
 
 ## PHASE 0 — Compliance & correctness (do first)
-- **WP1 — PDPA consent + opt-out + suppression** `[L]` (Owner + App). Migration: `customers.marketing_consent`,
-  `consent_at`, `unsubscribed_at`. `BroadcastController::resolveAudience` must filter out `unsubscribed_at`
-  on every audience. App: `POST /me/unsubscribe` + `/me/consent`, customer-facing unsubscribe UI, data-subject
-  export/delete. **Biggest gap — legal risk** (marketing with no consent/opt-out).
-- **WP2 — Permission-gate the CRM** `[S]` (Owner). Add `crm.view`, `segment.manage`, `broadcast.send` to
-  `RolePermissions.php`; put `permission:` on crm/overview, segments*, broadcasts* (esp. send/store/delete),
-  memberships/points, and `GET /customers` (list currently ungated while detail is gated).
+- **WP1 — PDPA consent + opt-out + suppression** `[L]` (Owner + App) — ✅ **DONE 2026-08-08**, except
+  data-subject export/delete (see below). Migration added `marketing_consent` (**nullable** — null means
+  nobody ever asked, which is not "said no"), `consent_at`, `unsubscribed_at`.
+  `Customer::scopeMarketingReachable()` is the single place suppression is expressed, applied on the base
+  query in `resolveAudience` **and** to segment members, so a new audience preset inherits it instead of
+  having to remember. The customer app's "แจ้งเตือนโปรโมชั่น" switch was `useState(true)` wired to nothing
+  — now `GET/POST /me/consent`, `POST /me/unsubscribe|resubscribe`. Owner sees a read-only consent badge on
+  the customer detail and a "ไม่รวมลูกค้า N คน" note on the broadcast audience step.
+  **Still open:** data-subject export + delete (the roadmap's other WP1 half).
+  **Open decision:** suppression is opt-**out** (`unsubscribed_at`). Strict PDPA marketing is opt-**in**,
+  which would silence every pre-existing customer until they consent — a business call, not a code one.
+- **WP2 — Permission-gate the CRM** `[S]` (Owner) — ✅ **DONE 2026-08-08**. Added `crm.view`, `crm.manage`,
+  `segment.manage`, `broadcast.send`; gated crm/overview, segments*, broadcasts*, timeline,
+  memberships(+points) and `GET /customers`. A migration grants them to existing roles, or gating would
+  have taken the CRM away from everyone but the owner. reception/viewer/accountant get `crm.view` only —
+  reading is front-desk work, sending marketing is not.
 - **WP3 — Persist broadcast delivery + audit** `[M]` (Owner). New `broadcast_recipients` table +
   `broadcasts.sent_by` / `delivery_stats`. Stop throwing away the transient `delivery`.
 

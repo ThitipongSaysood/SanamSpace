@@ -201,6 +201,59 @@ class RolePermissionTest extends TestCase
             ->assertJsonPath('data.permissionCount', 1);
     }
 
+    /**
+     * The CRM was entirely ungated until WP2 — anyone who could reach the owner
+     * portal could read every customer and fire a marketing blast.
+     */
+    public function test_the_crm_is_gated_by_role(): void
+    {
+        // Cashier has customer.view but no CRM permissions at all.
+        $cashier = $this->staffToken('cashier');
+
+        $this->as($cashier)->getJson('/api/v1/owner/crm/overview')->assertForbidden();
+        $this->as($cashier)->getJson('/api/v1/owner/broadcasts')->assertForbidden();
+        $this->as($cashier)->postJson('/api/v1/owner/segments', ['name' => 'x'])->assertForbidden();
+    }
+
+    /** Reading the CRM is front-desk work; sending marketing is not. */
+    public function test_reception_can_read_the_crm_but_not_broadcast(): void
+    {
+        $reception = $this->staffToken('reception');
+
+        $this->as($reception)->getJson('/api/v1/owner/crm/overview')->assertOk();
+        $this->as($reception)->getJson('/api/v1/owner/broadcasts')->assertOk();
+
+        $this->as($reception)->postJson('/api/v1/owner/broadcasts', [
+            'title' => 'ห้ามยิง',
+            'message' => 'x',
+            'channel' => 'app',
+            'audience' => 'all',
+        ])->assertForbidden();
+    }
+
+    /** Marketing is the role that exists to do this. */
+    public function test_the_marketing_role_can_send_a_broadcast(): void
+    {
+        $marketing = $this->staffToken('marketing');
+
+        $this->as($marketing)->postJson('/api/v1/owner/broadcasts', [
+            'title' => 'โปรเดือนนี้',
+            'message' => 'ลด 20%',
+            'channel' => 'app',
+            'audience' => 'all',
+        ])->assertCreated();
+    }
+
+    /** Adjusting someone's points is a separate, higher bar than reading the CRM. */
+    public function test_points_adjustment_needs_more_than_crm_view(): void
+    {
+        $viewer = $this->staffToken('viewer');
+
+        $this->as($viewer)->getJson('/api/v1/owner/memberships')->assertOk();
+        $this->as($viewer)->postJson('/api/v1/owner/memberships/any-id/points', ['points' => 100])
+            ->assertForbidden();
+    }
+
     /** Someone with no membership at the venue gets nothing. */
     public function test_a_user_who_is_not_staff_here_is_denied(): void
     {

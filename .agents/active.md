@@ -1,6 +1,6 @@
 # Active Task
 
-_Last updated: 2026-08-07 (evening) · Last agent: Claude (Opus 4.8, 1M ctx)_
+_Last updated: 2026-08-08 · Last agent: Claude (Opus 5)_
 
 ## ✅ Done 2026-08-02 — "รายการจอง" as its own menu + demo data reset
 - **New sidebar menu `/owner/bookings/list`.** First attempt put it as a 4th tab inside the calendar; the
@@ -161,8 +161,27 @@ _Last updated: 2026-08-07 (evening) · Last agent: Claude (Opus 4.8, 1M ctx)_
   (the 1 is the pre-existing `admin.spec.ts` "MRR" bug). New `e2e/branding.spec.ts` proves a colour
   change reaches a signed-in customer and never leaks into owner/admin.
 
+## ✅ Done 2026-08-08 — PDPA consent + opt-out, and the CRM is no longer ungated (WP1, WP2)
+- **The customer app's "แจ้งเตือนโปรโมชั่น" switch was `useState(true)`** — a marketing opt-out wired to
+  nothing. Now real: `GET/POST /me/consent`, `POST /me/unsubscribe|resubscribe`, no id in any route so one
+  customer cannot touch another's.
+- `customers.marketing_consent` is **nullable on purpose** — `null` = nobody ever asked, which is not
+  "said no". Suppression filters on `unsubscribed_at` via `Customer::scopeMarketingReachable()`, applied on
+  the **base query** in `resolveAudience` and to segment members, so a future audience preset inherits it.
+- **CRM gated**: new `crm.view` / `crm.manage` / `segment.manage` / `broadcast.send` on crm/overview,
+  segments, timeline, broadcasts, memberships(+points) and `GET /customers` (list was open while detail was
+  gated). A migration grants them to existing roles, or gating would have locked everyone but the owner out.
+- Owner sees a read-only 3-state consent badge on the customer detail, and "ไม่รวมลูกค้า N คน" on the
+  broadcast audience step.
+- **Open decision:** suppression is opt-**out**. Strict PDPA marketing is opt-**in**, which silences every
+  existing customer until they consent — a business call. `marketing_consent` is recorded so the switch is
+  one clause away.
+- Verified live end-to-end, not just unit-tested. backend **260/260** (+14) · tsc clean · vitest 24/24 ·
+  lint 13 = baseline · e2e 37/38. Detail: `sessions/2026-08-08-1100-pdpa-consent-crm-gating.md`.
+
 ## Current Task
-Session 2026-08-07 is closed. All work is **local only — not committed, not deployed.** This session did:
+Sessions 2026-08-07 and 2026-08-08. The 08-07 work **is committed** (`cc23b92`, pushed); the 08-08 PDPA
+work above is **not committed yet**. Neither is deployed — see the deploy blocker below. 08-07 did:
 (a) closed audit risks **#1, #2, #3, #6, #7** (+ scheduler #5 now exists for the expiry job); (b) built the
 **"ยิงโปร" / Broadcast** feature end-to-end — the Owner blasts a promo over **LINE or in-app**, targeting
 smart audiences (churned/regulars/one-timers/new/all/segment), with **message templates, a live phone
@@ -218,7 +237,7 @@ backup + migration check, and (for real LINE sending) a venue that has actually 
 `line_messaging_token` (dev has none, so LINE sends report `noToken`).
 
 ## Next Steps
-1. **Commit this session's work** (nothing is committed yet) — then unblock the deploy (`DEPLOY_PATH` on the
+1. **Commit the 2026-08-08 PDPA work** (08-07 is already committed as `cc23b92`) — then unblock the deploy (`DEPLOY_PATH` on the
    server), back up prod DB, verify the migrations (esp. the column-drop) on a MySQL copy, re-run #63.
    Remember `php artisan storage:link` + real SMTP/LINE env on the server.
 2. **Remaining audit risks #5 (partial) & #8** — the scheduler only runs the expiry job; still no
@@ -230,7 +249,8 @@ backup + migration check, and (for real LINE sending) a venue that has actually 
 4. **CRM upgrade to standard/PDPA** — reviewed this session; the roadmap (11 work packages, P0/P1/P2, split
    for parallel agents) is in **`topics/crm-roadmap.md`**. P0 = PDPA consent+opt-out+suppression,
    permission-gate the CRM routes, persist broadcast delivery. Nothing built yet.
-5. **Finish the responsive pass** — 12 table pages still have no mobile layout (carried over).
+5. ~~Finish the responsive pass~~ — **done 2026-08-02** (`.stack-table` in `globals.css` + 13 pages);
+   verified at session start that no `<table>` page is left without a mobile layout.
 6. **Pre-existing**: `composer audit` flags 9 advisories in `guzzlehttp/guzzle` 7.11.1 + `psr7`.
 
 ## ✅ Done 2026-08-07 — Four audit risks closed (#1, #3, #6, #7)

@@ -66,6 +66,13 @@ class BroadcastController extends Controller
         return response()->json([
             'recipientCount' => $recipients->count(),
             'reachableCount' => $this->line->reachableCount($recipients),
+            // Said out loud rather than left as an unexplained shortfall: the
+            // owner should know the audience is smaller because people opted
+            // out, not wonder whether the filter is broken.
+            'suppressedCount' => Customer::query()
+                ->forOrganization($orgId)
+                ->whereNotNull('unsubscribed_at')
+                ->count(),
         ]);
     }
 
@@ -251,13 +258,18 @@ class BroadcastController extends Controller
         if ($audience === 'segment') {
             $segment = CustomerSegment::query()
                 ->forOrganization($orgId)
-                ->with('members.lineProfiles')
+                ->with(['members' => fn ($q) => $q->marketingReachable()->with('lineProfiles')])
                 ->find($segmentId);
 
+            // A segment is a hand-picked list, which makes it exactly the place
+            // an opt-out would otherwise be missed.
             return $segment ? $segment->members : collect();
         }
 
-        $query = Customer::query()->forOrganization($orgId)->with('lineProfiles');
+        // Suppression applies to every audience, before any of them narrows
+        // further. Putting it here rather than in each branch is what stops the
+        // next audience anyone adds from quietly skipping it.
+        $query = Customer::query()->forOrganization($orgId)->marketingReachable()->with('lineProfiles');
         $active = fn ($q) => $q->where('status', '!=', 'cancelled');
 
         switch ($audience) {

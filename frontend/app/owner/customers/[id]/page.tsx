@@ -2,7 +2,17 @@
 import { use } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, CalendarClock, Crown, Mail, Phone, Wallet } from "lucide-react";
+import {
+  ArrowLeft,
+  BellOff,
+  CalendarClock,
+  Crown,
+  Mail,
+  Phone,
+  ShieldCheck,
+  ShieldQuestion,
+  Wallet,
+} from "lucide-react";
 import { ownerApi } from "@/lib/api/owner";
 import { Loading, ErrorState } from "@/components/states";
 import { StatusBadge } from "@/components/status-badge";
@@ -64,6 +74,14 @@ export default function OwnerCustomerDetailPage({ params }: { params: Promise<{ 
             <span>ลูกค้าตั้งแต่ {thaiDate(data.joinedAt)}</span>
           </div>
         </div>
+
+        {/* Staff see the answer before they market to someone. Read-only on
+            purpose: there is no endpoint for a venue to tick this for a
+            customer, because that would not be consent. */}
+        <ConsentBadge
+          consent={data.marketingConsent}
+          unsubscribedAt={data.unsubscribedAt}
+        />
 
         {data.membership?.tier && (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-accent/15 px-3 py-1 text-sm font-semibold text-brand">
@@ -137,6 +155,37 @@ export default function OwnerCustomerDetailPage({ params }: { params: Promise<{ 
         )}
       </section>
     </div>
+  );
+}
+
+/** Three states, said plainly — "never asked" is not "said no". */
+function ConsentBadge({
+  consent,
+  unsubscribedAt,
+}: {
+  consent: boolean | null;
+  unsubscribedAt: string | null;
+}) {
+  if (unsubscribedAt) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-3 py-1 text-sm font-semibold text-rose-700">
+        <BellOff className="size-4" /> ขอไม่รับข่าวโปรโมชั่น
+      </span>
+    );
+  }
+
+  if (consent === true) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700">
+        <ShieldCheck className="size-4" /> ยินยอมรับข่าวสาร
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-app px-3 py-1 text-sm text-muted-foreground">
+      <ShieldQuestion className="size-4" /> ยังไม่ได้ถามเรื่องความยินยอม
+    </span>
   );
 }
 

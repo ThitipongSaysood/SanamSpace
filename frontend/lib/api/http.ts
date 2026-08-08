@@ -1,5 +1,5 @@
 import type {
-  AppNotification, Booking, Court, CourtSchedule, CustomerPackage, LineConfig, Membership, Payment, PaymentInstructions,
+  AppNotification, Booking, MarketingConsent, Court, CourtSchedule, CustomerPackage, LineConfig, Membership, Payment, PaymentInstructions,
   OrgPublic, PackagePurchaseInstructions, Promotion, Refund, ReviewSummary, User, Venue, VenuePackage, Wallet, WalletTopupInstructions,
 } from "@/lib/types";
 import { getToken, setToken } from "./token";
@@ -122,6 +122,11 @@ export const httpApi: Api = {
   getWallet: () => req<Wallet>("/wallet"),
   getPromotions: () => req<Promotion[]>("/promotions"),
   getNotifications: () => req<AppNotification[]>("/notifications"),
+
+  // --- Marketing consent / opt-out. Always the signed-in customer. ---
+  getConsent: () => req<MarketingConsent>("/me/consent"),
+  setConsent: (granted: boolean) =>
+    req<MarketingConsent>("/me/consent", { method: "POST", body: { granted } }),
   updateProfile: (patch) => req<User>("/auth/me", { method: "PUT", body: patch }),
   async me(): Promise<User | null> {
     try {

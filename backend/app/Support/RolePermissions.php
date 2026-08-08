@@ -29,6 +29,10 @@ final class RolePermissions
         'wallet.manage' => ['Adjust customer wallets', 'payment'],
         'court.manage' => ['Manage courts and branches', 'court'],
         'customer.view' => ['View customers', 'customer'],
+        'crm.view' => ['View CRM, segments and broadcasts', 'customer'],
+        'crm.manage' => ['Adjust membership points', 'customer'],
+        'segment.manage' => ['Create and delete segments', 'marketing'],
+        'broadcast.send' => ['Send marketing broadcasts', 'marketing'],
         'promotion.manage' => ['Manage promotions and banners', 'marketing'],
         'report.view' => ['View reports', 'report'],
         'staff.manage' => ['Manage staff', 'settings'],
@@ -47,13 +51,19 @@ final class RolePermissions
     public const DEFAULTS = [
         'manager' => [
             'booking.view', 'booking.create', 'booking.cancel', 'booking.checkin', 'payment.verify', 'refund.manage',
-            'wallet.manage', 'court.manage', 'customer.view', 'promotion.manage', 'report.view',
+            'wallet.manage', 'court.manage', 'customer.view', 'crm.view', 'crm.manage',
+            'segment.manage', 'broadcast.send', 'promotion.manage', 'report.view',
         ],
-        'reception' => ['booking.view', 'booking.create', 'booking.cancel', 'booking.checkin', 'customer.view'],
+        'reception' => [
+            'booking.view', 'booking.create', 'booking.cancel', 'booking.checkin', 'customer.view', 'crm.view',
+        ],
         'cashier' => ['booking.view', 'booking.checkin', 'payment.verify', 'customer.view'],
-        'marketing' => ['booking.view', 'customer.view', 'promotion.manage', 'report.view'],
+        'marketing' => [
+            'booking.view', 'customer.view', 'crm.view', 'segment.manage', 'broadcast.send',
+            'promotion.manage', 'report.view',
+        ],
         'accountant' => ['booking.view', 'payment.verify', 'report.view', 'customer.view'],
-        'viewer' => ['booking.view', 'customer.view', 'report.view'],
+        'viewer' => ['booking.view', 'customer.view', 'crm.view', 'report.view'],
     ];
 
     /**

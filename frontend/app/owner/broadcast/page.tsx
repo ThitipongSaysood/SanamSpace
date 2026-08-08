@@ -14,6 +14,7 @@ import {
   Pencil,
   Search,
   Send,
+  ShieldCheck,
   Signal,
   Smartphone,
   Trash2,
@@ -423,6 +424,15 @@ export default function BroadcastPage() {
                   {(segments.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </Select>
               </div>
+            )}
+
+            {/* Said out loud, so a shrinking audience reads as the law working
+                rather than as a broken filter. */}
+            {(preview.data?.suppressedCount ?? 0) > 0 && (
+              <p className="inline-flex items-center gap-1.5 rounded-lg bg-app px-3 py-2 text-xs text-muted-foreground">
+                <ShieldCheck className="size-4 shrink-0" />
+                ไม่รวมลูกค้า {fmt.format(preview.data!.suppressedCount)} คนที่ขอไม่รับข่าวโปรโมชั่น
+              </p>
             )}
 
             {isLine && preview.data && preview.data.reachableCount === 0 && (

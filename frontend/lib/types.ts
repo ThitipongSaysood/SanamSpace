@@ -212,6 +212,15 @@ export type WalletTopupInstructions = {
 
 export type Promotion = { id: string; title: string; subtitle: string; tag: "ส่วนลด" | "แพ็กเกจ" };
 
+/** The customer's own marketing consent (PDPA). `consent: null` = never asked. */
+export type MarketingConsent = {
+  consent: boolean | null;
+  consentAt: string | null;
+  unsubscribedAt: string | null;
+  /** The one the broadcast audience actually filters on. */
+  marketingAllowed: boolean;
+};
+
 export type AppNotification = {
   id: string;
   kind: "booking" | "reminder" | "promo" | "points";
@@ -512,6 +521,8 @@ export type OwnerBroadcast = {
 export type OwnerAudiencePreview = {
   recipientCount: number;
   reachableCount: number;
+  /** How many of this venue's customers have opted out of marketing (PDPA). */
+  suppressedCount: number;
 };
 
 // --- Super Admin (Platform) Portal ---
@@ -660,6 +671,10 @@ export type OwnerCustomerDetail = {
   visits: number;
   bookingsCount: number;
   joinedAt: string | null;
+  /** PDPA. `marketingConsent: null` = never asked, which is not the same as no. */
+  marketingConsent: boolean | null;
+  consentAt: string | null;
+  unsubscribedAt: string | null;
   membership: { tier: string | null; points: number } | null;
   walletBalance: number;
   recentBookings: {

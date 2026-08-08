@@ -29,6 +29,13 @@ class OwnerCustomerDetailResource extends JsonResource
             'bookingsCount' => (int) ($this->bookings_count ?? 0),
             'joinedAt' => $this->created_at?->toIso8601String(),
 
+            // PDPA. Shown so staff can see the answer before marketing to
+            // someone, not so they can change it — consent someone else ticked
+            // for you is not consent, and there is no endpoint for that.
+            'marketingConsent' => $this->marketing_consent,
+            'consentAt' => $this->consent_at?->toIso8601String(),
+            'unsubscribedAt' => $this->unsubscribed_at?->toIso8601String(),
+
             'membership' => $this->relationLoaded('membership') && $this->membership ? [
                 'tier' => $this->membership->tier,
                 'points' => (int) $this->membership->points,
