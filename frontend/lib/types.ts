@@ -539,11 +539,47 @@ export type OwnerCrmOverview = {
   segmentDistribution: OwnerCrmSegmentSlice[];
 };
 
+/**
+ * A saved question (dynamic) or a hand-picked list (static).
+ *
+ * `memberCount` for a dynamic segment is computed when asked, so it moves as
+ * customers do — which is the point, and why the UI has to say which kind it is.
+ */
+export type SegmentCriteria = {
+  minBookings?: number;
+  maxBookings?: number;
+  minSpend?: number;
+  maxSpend?: number;
+  lastBookingWithinDays?: number;
+  notBookedForDays?: number;
+  joinedWithinDays?: number;
+  tier?: string;
+  rfmLabel?: string[];
+};
+
 export type OwnerSegment = {
   id: string;
   name: string;
   description: string;
   memberCount: number;
+  dynamic?: boolean;
+  criteria?: SegmentCriteria | null;
+};
+
+export type OwnerSegmentMember = {
+  id: string;
+  displayName: string;
+  phone?: string | null;
+  totalSpending: number;
+  visits: number;
+};
+
+/** Recency/Frequency/Monetary, grouped into names staff can act on. */
+export type OwnerRfm = {
+  total: number;
+  groups: Record<string, number>;
+  atRisk: { id: string; name: string | null; lastSeenDays: number | null; spend: number }[];
+  champions: { id: string; name: string | null; lastSeenDays: number | null; spend: number }[];
 };
 
 export type OwnerTimelineEntry = {

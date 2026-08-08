@@ -2,6 +2,14 @@
 
 namespace App\Providers;
 
+use App\Models\Booking;
+use App\Models\Customer;
+use App\Models\Membership;
+use App\Models\Payment;
+use App\Observers\BookingObserver;
+use App\Observers\CustomerObserver;
+use App\Observers\MembershipObserver;
+use App\Observers\PaymentObserver;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -20,6 +28,25 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerThaiPdfFont();
+        $this->registerTimelineObservers();
+    }
+
+    /**
+     * Keep the CRM timeline written by what happens, not by the seeder.
+     *
+     * Before this the only thing that ever wrote `customer_timeline` was demo
+     * data: a real customer's history was empty while a seeded one looked full,
+     * so the CRM screen was showing fixtures to anyone who trusted it.
+     *
+     * Observers rather than explicit calls at each site, because "record this
+     * too" is exactly the line a future controller forgets.
+     */
+    private function registerTimelineObservers(): void
+    {
+        Booking::observe(BookingObserver::class);
+        Customer::observe(CustomerObserver::class);
+        Membership::observe(MembershipObserver::class);
+        Payment::observe(PaymentObserver::class);
     }
 
     /**

@@ -23,6 +23,7 @@ import type {
   OwnerCrmOverview,
   OwnerSegment,
   OwnerTimelineEntry,
+  SegmentCriteria,
 } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
@@ -148,7 +149,67 @@ function OverviewBody({ d }: { d: OwnerCrmOverview }) {
           </ul>
         )}
       </section>
+
+      <RfmPanel />
     </div>
+  );
+}
+
+/** RFM group names, in the order a venue would work through them. */
+const RFM_LABELS: { key: string; label: string; tint: string }[] = [
+  { key: "champions", label: "ลูกค้าชั้นดี", tint: "bg-emerald-100 text-emerald-700" },
+  { key: "loyal", label: "ขาประจำ", tint: "bg-brand/10 text-brand" },
+  { key: "promising", label: "มีแวว", tint: "bg-sky-100 text-sky-700" },
+  { key: "new", label: "ลูกค้าใหม่", tint: "bg-blue-100 text-blue-700" },
+  { key: "needs_attention", label: "ต้องดูแล", tint: "bg-amber-100 text-amber-700" },
+  { key: "at_risk", label: "เสี่ยงหลุด", tint: "bg-orange-100 text-orange-700" },
+  { key: "lost", label: "หายไปแล้ว", tint: "bg-rose-100 text-rose-700" },
+  { key: "never_booked", label: "ยังไม่เคยจอง", tint: "bg-slate-100 text-slate-600" },
+];
+
+/**
+ * Customers sorted by how they actually behave, with names attached.
+ *
+ * A distribution on its own is a chart nobody acts on, so the two groups worth
+ * doing something about come with the people in them.
+ */
+function RfmPanel() {
+  const { data } = useQuery({ queryKey: ["owner", "crm", "rfm"], queryFn: ownerApi.getRfm });
+
+  if (!data || data.total === 0) return null;
+
+  return (
+    <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
+      <h2 className="text-sm font-semibold">พฤติกรรมลูกค้า (RFM)</h2>
+      <p className="mt-0.5 text-xs text-muted-foreground">
+        จัดกลุ่มจากความถี่ · ความสดใหม่ · ยอดใช้จ่าย — เทียบกันเองภายในสนามนี้
+      </p>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        {RFM_LABELS.filter((l) => data.groups[l.key]).map((l) => (
+          <span key={l.key} className={`rounded-full px-3 py-1 text-sm font-medium ${l.tint}`}>
+            {l.label} {fmt.format(data.groups[l.key])}
+          </span>
+        ))}
+      </div>
+
+      {data.atRisk.length > 0 && (
+        <div className="mt-4">
+          <h3 className="text-sm font-medium text-orange-700">เสี่ยงหลุด — ควรติดต่อกลับ</h3>
+          <ul className="mt-1.5 divide-y divide-black/5 rounded-xl bg-app">
+            {data.atRisk.slice(0, 5).map((c) => (
+              <li key={c.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                <span className="min-w-0 truncate">{c.name ?? "ลูกค้า"}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {c.lastSeenDays === null ? "ไม่เคยจอง" : `ไม่มา ${fmt.format(c.lastSeenDays)} วัน`} · ฿
+                  {fmt.format(c.spend)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -188,12 +249,61 @@ function SegmentsTab() {
   );
 }
 
+/**
+ * The rules a dynamic segment is built from.
+ *
+ * Presets rather than a free rule builder: these are the questions venues
+ * actually ask, and each one is a criterion the backend already understands.
+ * "Choose your own" stays available underneath.
+ */
+const PRESETS: { id: string; label: string; hint: string; criteria: SegmentCriteria }[] = [
+  {
+    id: "regulars",
+    label: "ขาประจำ",
+    hint: "จองตั้งแต่ 5 ครั้งขึ้นไป",
+    criteria: { minBookings: 5 },
+  },
+  {
+    id: "lapsed",
+    label: "หายไปนาน",
+    hint: "เคยจอง แต่ไม่กลับมา 60 วัน",
+    criteria: { notBookedForDays: 60 },
+  },
+  {
+    id: "new",
+    label: "ลูกค้าใหม่",
+    hint: "สมัครภายใน 30 วัน",
+    criteria: { joinedWithinDays: 30 },
+  },
+  {
+    id: "one_time",
+    label: "มาครั้งเดียว",
+    hint: "จองแค่ครั้งเดียว",
+    criteria: { maxBookings: 1, minBookings: 1 },
+  },
+  {
+    id: "big_spender",
+    label: "ยอดใช้จ่ายสูง",
+    hint: "ใช้จ่ายรวมตั้งแต่ ฿5,000",
+    criteria: { minSpend: 5000 },
+  },
+  {
+    id: "at_risk",
+    label: "เสี่ยงหลุด (RFM)",
+    hint: "เคยเป็นลูกค้าดี แต่เริ่มเงียบ",
+    criteria: { rfmLabel: ["at_risk"] },
+  },
+];
+
 function SegmentForm({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
   const [form, setForm] = useState({ name: "", description: "" });
+  const [preset, setPreset] = useState<string | null>(null);
+
+  const criteria = PRESETS.find((p) => p.id === preset)?.criteria;
 
   const mutation = useMutation({
-    mutationFn: () => ownerApi.createSegment(form),
+    mutationFn: () => ownerApi.createSegment({ ...form, ...(criteria ? { criteria } : {}) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: SEGMENTS_KEY });
       qc.invalidateQueries({ queryKey: OVERVIEW_KEY });
@@ -244,6 +354,32 @@ function SegmentForm({ onClose }: { onClose: () => void }) {
         />
       </div>
 
+      <div className="space-y-1.5">
+        <Label>เงื่อนไข</Label>
+        <p className="text-xs text-muted-foreground">
+          เลือกเงื่อนไขแล้วกลุ่มจะอัปเดตสมาชิกเองตลอด — ไม่เลือกก็ได้ จะเป็นกลุ่มที่เลือกรายชื่อเอง
+        </p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {PRESETS.map((p) => {
+            const on = preset === p.id;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                aria-pressed={on}
+                onClick={() => setPreset(on ? null : p.id)}
+                className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
+                  on ? "border-brand bg-brand/5" : "border-black/10 hover:bg-app"
+                }`}
+              >
+                <div className="font-medium">{p.label}</div>
+                <div className="text-xs text-muted-foreground">{p.hint}</div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {mutation.isError && (
         <p className="text-sm text-brand-danger">บันทึกไม่สำเร็จ ลองอีกครั้ง</p>
       )}
@@ -286,7 +422,16 @@ function SegmentCard({ segment }: { segment: OwnerSegment }) {
       </div>
 
       <div className="mt-3 flex-1">
-        <div className="font-semibold">{segment.name}</div>
+        <div className="flex items-center gap-1.5">
+          <span className="font-semibold">{segment.name}</span>
+          {/* Said out loud: a member count nobody can edit reads as a bug
+              unless the segment says it maintains itself. */}
+          {segment.dynamic && (
+            <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-medium text-brand">
+              อัปเดตอัตโนมัติ
+            </span>
+          )}
+        </div>
         {segment.description && (
           <p className="mt-0.5 text-sm text-muted-foreground">{segment.description}</p>
         )}

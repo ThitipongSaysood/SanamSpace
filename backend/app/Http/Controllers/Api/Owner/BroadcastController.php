@@ -5,15 +5,18 @@ namespace App\Http\Controllers\Api\Owner;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\OwnerBroadcastResource;
 use App\Models\Broadcast;
+use App\Models\BroadcastRecipient;
 use App\Models\Customer;
 use App\Models\CustomerSegment;
 use App\Models\OrganizationSetting;
 use App\Services\LineMessagingService;
 use App\Services\NotificationService;
+use App\Services\SegmentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class BroadcastController extends Controller
@@ -27,6 +30,7 @@ class BroadcastController extends Controller
     public function __construct(
         private LineMessagingService $line,
         private NotificationService $notifications,
+        private SegmentService $segments,
     ) {}
 
     /**
@@ -145,7 +149,13 @@ class BroadcastController extends Controller
             $broadcast->segment_id,
         );
 
-        $delivery = ['sent' => 0, 'failed' => 0, 'skipped' => $recipients->count(), 'noToken' => false];
+        $delivery = [
+            'sent' => 0,
+            'failed' => 0,
+            'skipped' => $recipients->count(),
+            'noToken' => false,
+            'results' => [],
+        ];
 
         if ($broadcast->channel === 'line') {
             $settings = OrganizationSetting::query()->where('organization_id', $orgId)->first();
@@ -153,21 +163,56 @@ class BroadcastController extends Controller
         } elseif ($broadcast->channel === 'app') {
             // "แสดงในแอป" — drop a promo into each targeted customer's bell. Every
             // targeted customer is reachable in-app (no LINE profile needed).
+            $results = [];
             foreach ($recipients as $customer) {
                 $this->notifications->promo($orgId, $customer->id, $broadcast->title, $broadcast->message, $broadcast->image_url);
+                $results[$customer->id] = ['status' => 'sent', 'reason' => null];
             }
-            $delivery = ['sent' => $recipients->count(), 'failed' => 0, 'skipped' => 0, 'noToken' => false];
+            $delivery = [
+                'sent' => $recipients->count(),
+                'failed' => 0,
+                'skipped' => 0,
+                'noToken' => false,
+                'results' => $results,
+            ];
+        }
+
+        $sentAt = now();
+
+        // One row per person. This is what makes "have we already messaged
+        // them" and later per-customer attribution answerable — a count cannot.
+        $rows = [];
+        foreach ($delivery['results'] ?? [] as $customerId => $outcome) {
+            $rows[] = [
+                'id' => (string) Str::uuid(),
+                'broadcast_id' => $broadcast->id,
+                'customer_id' => $customerId,
+                'status' => $outcome['status'],
+                'reason' => $outcome['reason'],
+                'sent_at' => $outcome['status'] === 'sent' ? $sentAt : null,
+                'created_at' => $sentAt,
+                'updated_at' => $sentAt,
+            ];
+        }
+
+        if ($rows !== []) {
+            foreach (array_chunk($rows, 500) as $chunk) {
+                BroadcastRecipient::insert($chunk);
+            }
         }
 
         $broadcast->update([
             'status' => 'sent',
-            'sent_at' => now(),
+            'sent_at' => $sentAt,
+            'sent_by' => $request->user()?->id,
             'recipient_count' => $recipients->count(),
+            // The summary, kept. It used to be shown once and thrown away, so
+            // reopening a broadcast could not say whether it had gone out.
+            'delivery_stats' => collect($delivery)->except('results')->all(),
         ]);
 
         $fresh = $broadcast->fresh()->load('segment');
-        // Transient (never persisted) — surfaced to the UI via the resource.
-        $fresh->setAttribute('delivery', $delivery);
+        $fresh->setAttribute('delivery', collect($delivery)->except('results')->all());
 
         return new OwnerBroadcastResource($fresh);
     }
@@ -258,12 +303,12 @@ class BroadcastController extends Controller
         if ($audience === 'segment') {
             $segment = CustomerSegment::query()
                 ->forOrganization($orgId)
-                ->with(['members' => fn ($q) => $q->marketingReachable()->with('lineProfiles')])
                 ->find($segmentId);
 
-            // A segment is a hand-picked list, which makes it exactly the place
+            // Hand-picked or criteria-driven — the service knows which, and
+            // suppression is applied either way. A segment is exactly the place
             // an opt-out would otherwise be missed.
-            return $segment ? $segment->members : collect();
+            return $segment ? $this->segments->membersOf($segment) : collect();
         }
 
         // Suppression applies to every audience, before any of them narrows

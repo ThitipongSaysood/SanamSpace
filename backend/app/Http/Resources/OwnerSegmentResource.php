@@ -22,6 +22,11 @@ class OwnerSegmentResource extends JsonResource
             'name' => $this->name,
             'description' => $this->description,
             'memberCount' => (int) ($this->members_count ?? $this->whenLoaded('members', fn () => $this->members->count(), 0)),
+            // A dynamic segment is a saved question; a static one is a list.
+            // The UI has to say which, or a member count nobody can edit reads
+            // as a bug.
+            'dynamic' => filled($this->criteria),
+            'criteria' => $this->criteria,
         ];
     }
 }

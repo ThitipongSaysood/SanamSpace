@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\Customer;
 use App\Models\CustomerSegment;
 use Illuminate\Http\JsonResponse;
+use App\Services\SegmentService;
 use Illuminate\Http\Request;
 
 class CrmController extends Controller
@@ -26,6 +27,59 @@ class CrmController extends Controller
      *   chosen so it lines up with segmentDistribution and the seed).
      * - segmentDistribution: each org segment's name + its member count.
      */
+    /**
+     * GET /owner/crm/rfm — the venue's customers scored by Recency, Frequency
+     * and Monetary value, grouped into names staff can act on.
+     *
+     * Scored by rank within this venue, not against fixed thresholds: "spends a
+     * lot" means something different at a two-court venue than a twenty-court
+     * one.
+     */
+    public function rfm(Request $request, SegmentService $segments): JsonResponse
+    {
+        $orgId = $request->attributes->get('currentOrganizationId');
+        $scores = $segments->rfm($orgId);
+
+        $groups = [];
+        foreach ($scores as $row) {
+            $groups[$row['label']] = ($groups[$row['label']] ?? 0) + 1;
+        }
+
+        arsort($groups);
+
+        return response()->json([
+            'total' => count($scores),
+            'groups' => $groups,
+            // A distribution alone is not actionable — these are the ones worth
+            // a phone call, so they come with names attached.
+            'atRisk' => $this->named($orgId, $scores, 'at_risk'),
+            'champions' => $this->named($orgId, $scores, 'champions'),
+        ]);
+    }
+
+    /** @return array<int,array{id:string,name:?string,lastSeenDays:?int,spend:float}> */
+    private function named(string $orgId, array $scores, string $label): array
+    {
+        $ids = array_keys(array_filter($scores, fn ($r) => $r['label'] === $label));
+
+        if ($ids === []) {
+            return [];
+        }
+
+        return \App\Models\Customer::query()
+            ->forOrganization($orgId)
+            ->whereIn('id', array_slice($ids, 0, 20))
+            ->get()
+            ->map(fn ($c) => [
+                'id' => (string) $c->id,
+                'name' => $c->display_name,
+                'lastSeenDays' => $scores[$c->id]['recencyDays'] ?? null,
+                'spend' => (float) $c->total_spending,
+            ])
+            ->values()
+            ->all();
+    }
+
     public function overview(Request $request): JsonResponse
     {
         $orgId = $request->attributes->get('currentOrganizationId');

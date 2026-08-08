@@ -19,6 +19,9 @@ import type {
   OwnerRefund,
   OwnerRole,
   OwnerSegment,
+  OwnerSegmentMember,
+  OwnerRfm,
+  SegmentCriteria,
   CheckinBooking,
   CheckinResult,
   OwnerCustomerDetail,
@@ -554,8 +557,14 @@ export const ownerApi = {
 
   getSegments: () => req<OwnerSegment[]>("/owner/segments"),
 
-  createSegment: (body: { name: string; description: string }) =>
+  createSegment: (body: { name: string; description: string; criteria?: SegmentCriteria }) =>
     req<OwnerSegment>("/owner/segments", { method: "POST", body }),
+
+  /** Who is in it right now — the answer moves for a dynamic segment. */
+  getSegmentMembers: (id: string) =>
+    req<{ data: OwnerSegmentMember[]; dynamic: boolean }>(`/owner/segments/${id}/members`, { raw: true }),
+
+  getRfm: () => req<OwnerRfm>("/owner/crm/rfm", { raw: true }),
 
   deleteSegment: (id: string) =>
     req<void>(`/owner/segments/${id}`, { method: "DELETE" }),

@@ -285,6 +285,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/segments/{id}', [OwnerSegmentController::class, 'destroy'])->middleware('permission:segment.manage');
 
         Route::get('/timeline/{customerId}', [OwnerTimelineController::class, 'show'])->middleware('permission:crm.view');
+        // Who a segment contains right now — the answer moves for a dynamic one.
+        Route::get('/segments/{id}/members', [OwnerSegmentController::class, 'members'])->middleware('permission:crm.view');
+        Route::get('/crm/rfm', [OwnerCrmController::class, 'rfm'])->middleware('permission:crm.view');
 
         Route::get('/broadcasts', [OwnerBroadcastController::class, 'index'])->middleware('permission:crm.view');
         Route::get('/broadcasts/audience-preview', [OwnerBroadcastController::class, 'audiencePreview'])->middleware('permission:crm.view');

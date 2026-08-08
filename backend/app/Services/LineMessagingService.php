@@ -26,23 +26,40 @@ class LineMessagingService
 
     /**
      * @param  Collection<int,\App\Models\Customer>  $customers
-     * @return array{sent:int, failed:int, skipped:int, noToken:bool}
+     * @return array{sent:int, failed:int, skipped:int, noToken:bool, results:array<string,array{status:string,reason:?string}>}
+     *
+     * `results` is per customer id, so the caller can keep a record of who was
+     * actually reached rather than only how many were. Aggregate counts alone
+     * cannot answer "have we already messaged this person".
      */
     public function pushText(?OrganizationSetting $settings, Collection $customers, string $text, ?string $imageUrl = null): array
     {
-        $recipients = $this->recipientLineIds($customers);
-        $skipped = $customers->count() - $recipients->count();
+        // customer id => line user id, for the ones that have a profile.
+        $byCustomer = $this->recipientIdsByCustomer($customers);
+        $recipients = collect($byCustomer)->values()->unique()->values();
+        $skipped = $customers->count() - count($byCustomer);
+
+        $results = [];
+        foreach ($customers as $customer) {
+            if (! isset($byCustomer[$customer->id])) {
+                $results[$customer->id] = ['status' => 'skipped', 'reason' => 'ไม่มีบัญชี LINE ที่ผูกไว้'];
+            }
+        }
 
         $token = $settings?->line_messaging_token;
 
         if (blank($token)) {
             // No channel token — nothing can be delivered, but this is not a
             // failure: the caller still records the broadcast.
-            return ['sent' => 0, 'failed' => 0, 'skipped' => $customers->count(), 'noToken' => true];
+            foreach ($customers as $customer) {
+                $results[$customer->id] = ['status' => 'skipped', 'reason' => 'สนามยังไม่ได้ตั้งค่า LINE token'];
+            }
+
+            return ['sent' => 0, 'failed' => 0, 'skipped' => $customers->count(), 'noToken' => true, 'results' => $results];
         }
 
         if ($recipients->isEmpty()) {
-            return ['sent' => 0, 'failed' => 0, 'skipped' => $skipped, 'noToken' => false];
+            return ['sent' => 0, 'failed' => 0, 'skipped' => $skipped, 'noToken' => false, 'results' => $results];
         }
 
         $url = config('services.line.push_url', 'https://api.line.me/v2/bot/message/multicast');
@@ -57,6 +74,21 @@ class LineMessagingService
         }
         $messages[] = ['type' => 'text', 'text' => $text];
 
+        // LINE reports per request, not per recipient, so everyone in a chunk
+        // shares that chunk's outcome. Recorded that way rather than guessed.
+        $lineIdToCustomers = [];
+        foreach ($byCustomer as $customerId => $lineId) {
+            $lineIdToCustomers[$lineId][] = $customerId;
+        }
+
+        $mark = function (array $ids, string $status, ?string $reason) use (&$results, $lineIdToCustomers) {
+            foreach ($ids as $lineId) {
+                foreach ($lineIdToCustomers[$lineId] ?? [] as $customerId) {
+                    $results[$customerId] = ['status' => $status, 'reason' => $reason];
+                }
+            }
+        };
+
         foreach ($recipients->chunk(self::MULTICAST_CHUNK) as $chunk) {
             $ids = $chunk->values()->all();
 
@@ -70,17 +102,20 @@ class LineMessagingService
 
                 if ($response->successful()) {
                     $sent += count($ids);
+                    $mark($ids, 'sent', null);
                 } else {
                     $failed += count($ids);
+                    $mark($ids, 'failed', "LINE ตอบกลับ {$response->status()}");
                     Log::warning('LINE multicast failed', ['status' => $response->status(), 'body' => $response->body()]);
                 }
             } catch (\Throwable $e) {
                 $failed += count($ids);
+                $mark($ids, 'failed', 'ส่งไม่สำเร็จ');
                 Log::warning('LINE multicast threw', ['error' => $e->getMessage()]);
             }
         }
 
-        return ['sent' => $sent, 'failed' => $failed, 'skipped' => $skipped, 'noToken' => false];
+        return ['sent' => $sent, 'failed' => $failed, 'skipped' => $skipped, 'noToken' => false, 'results' => $results];
     }
 
     /**
@@ -103,12 +138,32 @@ class LineMessagingService
      */
     private function recipientLineIds(Collection $customers): Collection
     {
-        return $customers
-            ->map(fn ($customer) => $customer->relationLoaded('lineProfiles')
+        return collect($this->recipientIdsByCustomer($customers))->values()->unique()->values();
+    }
+
+    /**
+     * customer id => LINE user id, for customers that have a profile.
+     *
+     * Keeping the association (rather than only the ids) is what lets a send be
+     * recorded per person; two customers sharing a LINE id both get a row.
+     *
+     * @param  Collection<int,\App\Models\Customer>  $customers
+     * @return array<string,string>
+     */
+    private function recipientIdsByCustomer(Collection $customers): array
+    {
+        $map = [];
+
+        foreach ($customers as $customer) {
+            $lineId = $customer->relationLoaded('lineProfiles')
                 ? optional($customer->lineProfiles->sortByDesc('created_at')->first())->line_user_id
-                : optional($customer->lineProfiles()->latest()->first())->line_user_id)
-            ->filter()
-            ->unique()
-            ->values();
+                : optional($customer->lineProfiles()->latest()->first())->line_user_id;
+
+            if ($lineId) {
+                $map[$customer->id] = $lineId;
+            }
+        }
+
+        return $map;
     }
 }

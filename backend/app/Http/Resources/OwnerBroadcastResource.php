@@ -32,7 +32,11 @@ class OwnerBroadcastResource extends JsonResource
             'segmentName' => $this->segment?->name,
             // Present only on the send response (set transiently by the
             // controller): what actually went out over LINE.
-            'delivery' => $this->delivery ?? null,
+            // Falls back to what was stored, so reopening a sent broadcast
+            // still says what happened. Before, `delivery` existed only in the
+            // response to the send itself and was gone on the next read.
+            'delivery' => $this->delivery ?? $this->delivery_stats ?? null,
+            'sentBy' => $this->whenLoaded('sender', fn () => $this->sender?->display_name ?? $this->sender?->name),
         ];
     }
 }

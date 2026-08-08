@@ -189,15 +189,23 @@ class OwnerCrmApiTest extends TestCase
     {
         $customerId = $this->demoCustomerId();
 
-        $response = $this->withToken($this->ownerToken())
+        $rows = $this->withToken($this->ownerToken())
             ->getJson("/api/v1/owner/timeline/{$customerId}")
             ->assertOk()
-            ->assertJsonCount(4, 'data')
-            ->assertJsonStructure(['data' => [['id', 'type', 'title', 'description', 'occurredAt']]]);
+            ->assertJsonStructure(['data' => [['id', 'type', 'title', 'description', 'occurredAt']]])
+            ->json('data');
 
-        // Newest first: the "points" entry (occurred 19d ago) leads, "signup" (40d) last.
-        $response->assertJsonPath('data.0.type', 'points');
-        $response->assertJsonPath('data.3.type', 'signup');
+        // Ordering, not a count: real events now write here too (observers), so
+        // a fixed number would only be asserting how much demo data the seeder
+        // happens to make.
+        $times = array_column($rows, 'occurredAt');
+        $sorted = $times;
+        rsort($sorted);
+        $this->assertSame($sorted, $times, 'newest first');
+
+        // The seeded story is still in there, oldest last.
+        $this->assertSame('signup', $rows[count($rows) - 1]['type']);
+        $this->assertContains('points', array_column($rows, 'type'));
     }
 
     public function test_timeline_for_cross_org_customer_is_404(): void
