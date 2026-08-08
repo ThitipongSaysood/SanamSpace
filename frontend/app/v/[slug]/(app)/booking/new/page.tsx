@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useVenueRouter as useRouter } from "@/lib/tenant/venue-nav";
 import { CheckCircle2, Circle, Minus, Package, Plus } from "lucide-react";
@@ -55,6 +55,29 @@ function NewBookingInner() {
 
   const dateRef = useRef<HTMLElement>(null);
   const timeRef = useRef<HTMLElement>(null);
+
+  // The sticky bar grows with every rental line added, so a fixed `pb-28` left
+  // the last item hidden underneath it. Measured and written straight to a CSS
+  // variable — no state, so adding a line cannot cause a render loop.
+  //
+  // A ref *callback*, not useEffect + useRef: this screen returns <Loading />
+  // until the courts arrive, so an effect with `[]` deps runs once while the bar
+  // is not in the DOM yet and then never again. The callback fires when the node
+  // actually mounts.
+  const barRef = useCallback((el: HTMLDivElement | null) => {
+    if (!el) {
+      document.documentElement.style.removeProperty("--booking-bar-h");
+      return;
+    }
+
+    const apply = () =>
+      document.documentElement.style.setProperty("--booking-bar-h", `${el.offsetHeight}px`);
+    apply();
+
+    const observer = new ResizeObserver(apply);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
   const scrollTo = (ref: React.RefObject<HTMLElement | null>) =>
     requestAnimationFrame(() => ref.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
 
@@ -109,7 +132,12 @@ function NewBookingInner() {
   if (courts.length === 0) return <EmptyState message="สนามนี้ยังไม่มีคอร์ทให้จอง" />;
 
   return (
-    <main className="pb-28">
+    <main
+      className="pb-28"
+      // Reserve the bar's real height plus a thumb's worth of breathing room,
+      // falling back to the old fixed padding before the measurement lands.
+      style={{ paddingBottom: "calc(var(--booking-bar-h, 7rem) + 1.5rem)" }}
+    >
       <AppHeader title="จองสนาม" />
       <div className="space-y-6 p-4">
         {/* 1. court */}
@@ -278,7 +306,10 @@ function NewBookingInner() {
       </div>
 
       {/* sticky summary + single CTA */}
-      <div className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-md border-t border-black/5 bg-white/95 p-3 backdrop-blur">
+      <div
+        ref={barRef}
+        className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-md border-t border-black/5 bg-white/95 p-3 backdrop-blur"
+      >
         {ready && (
           <div className="mb-2 space-y-1 text-sm">
             {/* Itemised: the customer is about to transfer this, and a bare
