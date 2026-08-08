@@ -40,6 +40,10 @@ class BookingResource extends JsonResource
                 'priceUnit' => $r->price_unit,
                 'quantity' => (int) $r->quantity,
                 'lineTotal' => (float) $r->line_total,
+                // Whether the venue got it back. Partial by design: two out,
+                // one back is a real counter moment.
+                'returnedQty' => (int) ($r->returned_qty ?? 0),
+                'returnedAt' => $r->returned_at?->toIso8601String(),
             ])->values(), []),
             'status' => $this->status,
             'createdAt' => $this->created_at?->toIso8601String(),

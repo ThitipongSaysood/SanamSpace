@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2, X } from "lucide-react";
 import type { OwnerBooking, OwnerCourt } from "@/lib/types";
@@ -39,9 +39,14 @@ export function BookingDialog({ dialog, courts, onClose }: { dialog: NonNullable
   const [customerId, setCustomerId] = useState<string>("");
   const [walkin, setWalkin] = useState(editing?.customerName ?? "");
   const [status, setStatus] = useState<string>(editing?.status ?? "confirmed");
+  const [rentals, setRentals] = useState<Record<string, number>>({});
 
   const save = useMutation({
     mutationFn: () => {
+      const picked = Object.entries(rentals)
+        .filter(([, qty]) => qty > 0)
+        .map(([itemId, quantity]) => ({ itemId, quantity }));
+
       const body: BookingInput = {
         courtId,
         date,
@@ -50,6 +55,7 @@ export function BookingDialog({ dialog, courts, onClose }: { dialog: NonNullable
         customerId: customerId || null,
         customerName: customerId ? null : walkin.trim() || null,
         status,
+        ...(editing ? {} : { rentals: picked }),
       };
       return editing ? ownerApi.updateBooking(editing.id, body) : ownerApi.createBooking(body);
     },
@@ -127,6 +133,19 @@ export function BookingDialog({ dialog, courts, onClose }: { dialog: NonNullable
           )}
         </div>
 
+        {/* Only when creating. Changing the equipment on an existing booking
+            would have to reprice a booking someone may already have paid, so
+            that stays a separate job rather than a half-done one here. */}
+        {!editing && (
+          <RentalPicker
+            date={date}
+            start={start}
+            end={end}
+            picks={rentals}
+            onChange={setRentals}
+          />
+        )}
+
         {save.isError && <p className="text-sm text-brand-danger">{(save.error as Error)?.message || "บันทึกไม่สำเร็จ"}</p>}
 
         <div className="flex items-center gap-2 pt-1">
@@ -147,6 +166,94 @@ export function BookingDialog({ dialog, courts, onClose }: { dialog: NonNullable
             </button>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Equipment for a walk-in, priced for the slot being booked.
+ *
+ * Availability is asked of the same endpoint the customer app uses, for the
+ * same window — so the counter and the app cannot promise the same racket to
+ * two people. Re-queried whenever the slot changes, because "3 free" is only
+ * true of the hours it was asked about.
+ */
+function RentalPicker({
+  date,
+  start,
+  end,
+  picks,
+  onChange,
+}: {
+  date: string;
+  start: string;
+  end: string;
+  picks: Record<string, number>;
+  onChange: (next: Record<string, number>) => void;
+}) {
+  const ready = Boolean(date && start && end && start < end);
+
+  const { data } = useQuery({
+    queryKey: ["owner", "rental-offer", date, start, end],
+    queryFn: () => ownerApi.getRentalOffer(date, start, end),
+    enabled: ready,
+  });
+
+  // A slot change can invalidate what was picked, so the picks reset with it
+  // rather than silently carrying a quantity that is no longer free.
+  useEffect(() => {
+    onChange({});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, start, end]);
+
+  const items = data ?? [];
+  if (!ready || items.length === 0) return null;
+
+  const total = items.reduce((sum, i) => sum + (picks[i.id] ?? 0) * i.priceForBooking, 0);
+
+  return (
+    <div className="space-y-2 rounded-xl border border-black/10 p-3">
+      <div className="flex items-baseline justify-between">
+        <Label>เช่าอุปกรณ์ (ไม่บังคับ)</Label>
+        {total > 0 && <span className="text-sm font-semibold text-brand">+฿{total.toLocaleString("th-TH")}</span>}
+      </div>
+
+      <div className="space-y-1.5">
+        {items.map((item) => {
+          const qty = picks[item.id] ?? 0;
+          const free = item.availableQty;
+
+          return (
+            <div key={item.id} className="flex items-center gap-2 text-sm">
+              <span className="min-w-0 flex-1 truncate">
+                {item.name}
+                <span className="ml-1 text-xs text-muted-foreground">
+                  ฿{item.priceForBooking} · ว่าง {free}
+                </span>
+              </span>
+              <button
+                type="button"
+                aria-label={`ลด ${item.name}`}
+                disabled={qty === 0}
+                onClick={() => onChange({ ...picks, [item.id]: qty - 1 })}
+                className="grid size-7 place-items-center rounded-lg ring-1 ring-black/10 disabled:opacity-30"
+              >
+                −
+              </button>
+              <span className="w-5 text-center tabular-nums">{qty}</span>
+              <button
+                type="button"
+                aria-label={`เพิ่ม ${item.name}`}
+                disabled={qty >= free}
+                onClick={() => onChange({ ...picks, [item.id]: qty + 1 })}
+                className="grid size-7 place-items-center rounded-lg ring-1 ring-black/10 disabled:opacity-30"
+              >
+                +
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

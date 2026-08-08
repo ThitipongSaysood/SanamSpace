@@ -9,6 +9,7 @@ use App\Models\Booking;
 use App\Models\Court;
 use App\Models\Customer;
 use App\Services\NotificationService;
+use App\Services\RentalService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -19,6 +20,8 @@ use Illuminate\Validation\ValidationException;
 class BookingController extends Controller
 {
     use PaginatesLists;
+
+    public function __construct(private RentalService $rentals) {}
 
     /**
      * GET /owner/bookings?status=&date= — all org bookings (newest first).
@@ -75,6 +78,12 @@ class BookingController extends Controller
             'customerId' => ['nullable', 'string', Rule::exists('customers', 'id')->where('organization_id', $orgId)],
             'customerName' => ['nullable', 'string', 'max:255'],
             'status' => ['sometimes', Rule::in(['pending_payment', 'confirmed', 'completed', 'cancelled'])],
+            // A walk-in wants a racket too. Customers could rent from the app
+            // since day one; the counter could not, which meant staff had to
+            // take the booking here and the equipment somewhere else.
+            'rentals' => ['sometimes', 'array'],
+            'rentals.*.itemId' => ['required', 'string'],
+            'rentals.*.quantity' => ['required', 'integer', 'min:1', 'max:99'],
         ]);
 
         $court = Court::query()->forOrganization($orgId)->with('branch')->findOrFail($data['courtId']);
@@ -82,6 +91,17 @@ class BookingController extends Controller
         $customer = $this->resolveCustomer($orgId, $data);
 
         $hours = $this->hoursBetween($data['start'], $data['end']);
+
+        // Priced and checked before anything is written, so a booking whose
+        // equipment is unavailable is refused rather than half-created.
+        $quote = $this->rentals->quote(
+            $orgId,
+            $data['rentals'] ?? [],
+            $data['date'],
+            $data['start'],
+            $data['end'],
+            $hours,
+        );
 
         $booking = Booking::create([
             'organization_id' => $orgId,
@@ -101,7 +121,15 @@ class BookingController extends Controller
             'channel' => 'walk_in', // created at the counter by staff
         ]);
 
-        return (new BookingResource($booking->load(['branch.organization', 'court', 'customer'])))
+        if ($quote['rows'] !== []) {
+            // Rewrites `amount` to court + rentals, so the counter charges the
+            // same grand total the app would have.
+            $this->rentals->attach($booking, $quote['rows'], $quote['total']);
+        }
+
+        return (new BookingResource($booking->fresh()->load([
+            'branch.organization', 'court', 'customer', 'rentals',
+        ])))
             ->response()
             ->setStatusCode(201);
     }

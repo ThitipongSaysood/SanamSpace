@@ -50,6 +50,7 @@ const NAV: NavItem[] = [
   { label: "รายการจอง", href: "/owner/bookings/list", icon: ListChecks },
   { label: "เช็คอิน", href: "/owner/checkin", icon: QrCode },
   { label: "ขายหน้าร้าน", href: "/owner/pos", icon: ShoppingCart },
+  { label: "ประวัติการขาย", href: "/owner/pos/sales", icon: ReceiptText },
   { label: "สินค้า", href: "/owner/products", icon: Package },
   { label: "อุปกรณ์ให้เช่า", href: "/owner/rentals", icon: Dumbbell },
   { label: "สนาม", href: "/owner/branches", icon: Store },

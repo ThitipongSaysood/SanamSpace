@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\RentalItemResource;
 use App\Models\BookingRental;
 use App\Models\RentalItem;
+use App\Services\RentalService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -23,6 +24,34 @@ class RentalItemController extends Controller
             ->get();
 
         return RentalItemResource::collection($items);
+    }
+
+    /**
+     * GET /owner/rental-items/offer?date&start&end — what the counter can rent
+     * for a slot, priced for it.
+     *
+     * The customer app has the same thing at GET /rentals, but that route is
+     * authenticated as a customer, so staff cannot call it. Both go through
+     * RentalService::offer, so the counter and the app can never promise the
+     * same racket to two people.
+     */
+    public function offer(Request $request, RentalService $rentals): AnonymousResourceCollection
+    {
+        $data = $request->validate([
+            'date' => ['required', 'date_format:Y-m-d'],
+            'start' => ['required', 'date_format:H:i'],
+            'end' => ['required', 'date_format:H:i', 'after:start'],
+        ]);
+
+        $hours = (strtotime($data['end']) - strtotime($data['start'])) / 3600;
+
+        return RentalItemResource::collection($rentals->offer(
+            $request->attributes->get('currentOrganizationId'),
+            $data['date'],
+            $data['start'],
+            $data['end'],
+            $hours,
+        ));
     }
 
     /**

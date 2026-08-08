@@ -48,6 +48,7 @@ use App\Http\Controllers\Api\Owner\PaymentController as OwnerPaymentController;
 use App\Http\Controllers\Api\Owner\ProductController as OwnerProductController;
 use App\Http\Controllers\Api\Owner\PromotionController as OwnerPromotionController;
 use App\Http\Controllers\Api\Owner\RentalItemController as OwnerRentalItemController;
+use App\Http\Controllers\Api\Owner\RentalReturnController as OwnerRentalReturnController;
 use App\Http\Controllers\Api\Owner\SaleController as OwnerSaleController;
 use App\Http\Controllers\Api\Owner\WelcomeBannerController as OwnerWelcomeBannerController;
 use App\Http\Controllers\Api\Owner\SettingController as OwnerSettingController;
@@ -187,9 +188,14 @@ Route::middleware('auth:sanctum')->group(function () {
         // --- Rental equipment (rackets, shoes) ---
         Route::get('/rental-items', [OwnerRentalItemController::class, 'index'])->middleware('permission:pos.sell');
         Route::get('/rental-items/out', [OwnerRentalItemController::class, 'out'])->middleware('permission:pos.sell');
+        Route::get('/rental-items/offer', [OwnerRentalItemController::class, 'offer'])->middleware('permission:booking.create');
         Route::post('/rental-items', [OwnerRentalItemController::class, 'store'])->middleware('permission:rental.manage');
         Route::put('/rental-items/{id}', [OwnerRentalItemController::class, 'update'])->middleware('permission:rental.manage');
         Route::delete('/rental-items/{id}', [OwnerRentalItemController::class, 'destroy'])->middleware('permission:rental.manage');
+        // Taking gear back is counter work, so it rides with check-in rather
+        // than with rental.manage, which is for changing what the venue owns.
+        Route::get('/rentals/outstanding', [OwnerRentalReturnController::class, 'outstanding'])->middleware('permission:booking.view');
+        Route::post('/bookings/{bookingId}/rentals/{rentalId}/return', [OwnerRentalReturnController::class, 'store'])->middleware('permission:booking.checkin');
 
         // --- POS: the counter's till and the things it sells ---
         Route::get('/products', [OwnerProductController::class, 'index'])->middleware('permission:pos.sell');

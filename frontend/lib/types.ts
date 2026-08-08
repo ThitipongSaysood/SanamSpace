@@ -54,6 +54,25 @@ export type BookingRental = {
   priceUnit: "per_session" | "per_hour";
   quantity: number;
   lineTotal: number;
+  /** How many came back. Partial by design — two out, one back is real. */
+  returnedQty?: number;
+  returnedAt?: string | null;
+};
+
+/** A rental line whose booking is over and whose gear is still not back. */
+export type OutstandingRental = {
+  id: string;
+  bookingId: string;
+  bookingCode: string;
+  customerName: string;
+  courtName: string;
+  date: string;
+  start: string;
+  end: string;
+  name: string;
+  quantity: number;
+  returnedQty: number;
+  outstandingQty: number;
 };
 
 /** Something the venue lends out. availableQty/priceForBooking are per time window. */

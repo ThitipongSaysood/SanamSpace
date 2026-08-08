@@ -2,7 +2,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Maximize2, Plus, Search, Trash2, X } from "lucide-react";
-import type { OwnerBooking } from "@/lib/types";
+import type { BookingRental, OwnerBooking } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
@@ -364,12 +364,7 @@ function BookingDetail({
           </div>
 
           {rentals.map((r) => (
-            <div key={r.id} className="flex justify-between">
-              <span className="min-w-0 truncate text-muted-foreground">
-                {r.name} × {r.quantity}
-              </span>
-              <span className="tabular-nums">฿{fmt.format(r.lineTotal)}</span>
-            </div>
+            <RentalLine key={r.id} bookingId={b.id} rental={r} />
           ))}
 
           <div className="flex items-baseline justify-between border-t border-black/5 pt-1.5">
@@ -383,6 +378,78 @@ function BookingDetail({
         </section>
       </div>
     </Modal>
+  );
+}
+
+/**
+ * A rented line, and the button that takes it back.
+ *
+ * The return control lives on the charge it belongs to rather than on a
+ * separate screen: the person handing a racket over the counter is looking at
+ * this booking, and a second screen to record it is a step that gets skipped.
+ */
+function RentalLine({ bookingId, rental }: { bookingId: string; rental: BookingRental }) {
+  const qc = useQueryClient();
+  const returnedQty = rental.returnedQty ?? 0;
+  const outstanding = Math.max(0, rental.quantity - returnedQty);
+
+  const take = useMutation({
+    mutationFn: (quantity?: number) => ownerApi.returnRental(bookingId, rental.id, quantity),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: BOOKINGS_KEY });
+      qc.invalidateQueries({ queryKey: ["owner", "booking", bookingId] });
+      qc.invalidateQueries({ queryKey: ["owner", "rentals", "outstanding"] });
+    },
+  });
+
+  return (
+    <div>
+      <div className="flex justify-between">
+        <span className="min-w-0 truncate text-muted-foreground">
+          {rental.name} × {rental.quantity}
+        </span>
+        <span className="tabular-nums">฿{fmt.format(rental.lineTotal)}</span>
+      </div>
+
+      <div className="mt-0.5 flex items-center justify-between gap-2">
+        {outstanding === 0 ? (
+          <span className="text-xs text-emerald-700">รับคืนครบแล้ว</span>
+        ) : (
+          <span className="text-xs text-amber-700">
+            ยังไม่ได้คืน {outstanding} ชิ้น
+            {returnedQty > 0 && ` (คืนแล้ว ${returnedQty})`}
+          </span>
+        )}
+
+        {outstanding > 0 && (
+          <span className="flex gap-1.5">
+            {/* Only worth offering when there is more than one to split. */}
+            {outstanding > 1 && (
+              <button
+                type="button"
+                disabled={take.isPending}
+                onClick={() => take.mutate(1)}
+                className={rowAction()}
+              >
+                คืน 1
+              </button>
+            )}
+            <button
+              type="button"
+              disabled={take.isPending}
+              onClick={() => take.mutate(undefined)}
+              className={rowAction()}
+            >
+              {take.isPending ? "..." : `รับคืน ${outstanding}`}
+            </button>
+          </span>
+        )}
+      </div>
+
+      {take.isError && (
+        <p className="text-xs text-brand-danger">{(take.error as Error).message}</p>
+      )}
+    </div>
   );
 }
 

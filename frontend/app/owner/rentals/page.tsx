@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ImageOff, Package, Plus, Trash2 } from "lucide-react";
-import type { RentalItem, RentalItemInput } from "@/lib/types";
+import type { OutstandingRental, RentalItem, RentalItemInput } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
 import { Loading, ErrorState } from "@/components/states";
 import { Button } from "@/components/ui/button";
@@ -85,6 +85,8 @@ export default function OwnerRentalsPage() {
         </div>
       )}
 
+      <NotBackYet />
+
       <OutToday />
 
       {editing && (
@@ -95,6 +97,89 @@ export default function OwnerRentalsPage() {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * Gear whose booking has ended and which never came back.
+ *
+ * Different question from OutToday: that one is "what is in use right now",
+ * this one is "who do we have to call". Only shown when there is something to
+ * chase, so a clean counter never sees an empty scary panel.
+ */
+function NotBackYet() {
+  const qc = useQueryClient();
+  const { data } = useQuery({
+    queryKey: ["owner", "rentals", "outstanding"],
+    queryFn: ownerApi.getOutstandingRentals,
+  });
+
+  const take = useMutation({
+    mutationFn: (row: OutstandingRental) => ownerApi.returnRental(row.bookingId, row.id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["owner", "rentals", "outstanding"] });
+      qc.invalidateQueries({ queryKey: ["owner", "bookings"] });
+    },
+  });
+
+  const rows = data ?? [];
+  if (rows.length === 0) return null;
+
+  return (
+    <section className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
+      <header className="flex items-center gap-2 border-b border-black/5 px-4 py-3">
+        <h2 className="font-semibold">ยังไม่ได้คืน</h2>
+        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+          {rows.length}
+        </span>
+        <span className="text-xs text-muted-foreground">— เลยเวลาจองแล้วแต่อุปกรณ์ยังไม่กลับมา</span>
+      </header>
+
+      <div className="overflow-x-auto">
+        <table className="stack-table w-full md:min-w-[720px] text-sm">
+          <thead className="bg-app text-left text-xs font-medium text-muted-foreground">
+            <tr>
+              <th className="px-4 py-3">อุปกรณ์</th>
+              <th className="px-4 py-3">ลูกค้า</th>
+              <th className="px-4 py-3">การจอง</th>
+              <th className="px-4 py-3 text-right">ค้างอยู่</th>
+              <th className="w-40 px-4 py-3 text-right">จัดการ</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-black/5">
+            {rows.map((r) => (
+              <tr key={r.id} className="hover:bg-app/60">
+                <td data-label="อุปกรณ์" className="px-4 py-3 font-medium">{r.name}</td>
+                <td data-label="ลูกค้า" className="px-4 py-3">{r.customerName}</td>
+                <td data-label="การจอง" className="px-4 py-3 text-muted-foreground">
+                  <div className="font-mono text-xs">{r.bookingCode}</div>
+                  <div>{r.date} · {r.start}–{r.end}</div>
+                </td>
+                <td data-label="ค้างอยู่" className="px-4 py-3 text-right font-semibold text-amber-700">
+                  {r.outstandingQty} / {r.quantity}
+                </td>
+                <td className="px-4 py-3">
+                  <RowActions>
+                    <button
+                      type="button"
+                      disabled={take.isPending}
+                      onClick={() => take.mutate(r)}
+                      className={rowAction()}
+                    >
+                      รับคืนครบ
+                    </button>
+                  </RowActions>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {take.isError && (
+        <p className="px-4 py-2 text-sm text-brand-danger">{(take.error as Error).message}</p>
+      )}
+    </section>
   );
 }
 

@@ -25,7 +25,20 @@ class BookingRental extends Model
             'hours' => 'float',
             'line_total' => 'float',
             'quantity' => 'integer',
+            'returned_qty' => 'integer',
+            'returned_at' => 'datetime',
         ];
+    }
+
+    /** How many of this line are still with the customer. */
+    public function outstandingQty(): int
+    {
+        return max(0, $this->quantity - (int) $this->returned_qty);
+    }
+
+    public function isFullyReturned(): bool
+    {
+        return $this->outstandingQty() === 0;
     }
 
     public function booking(): BelongsTo

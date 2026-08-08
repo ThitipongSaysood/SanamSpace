@@ -24,6 +24,7 @@ import type {
   OwnerCustomerDetail,
   OwnerProduct,
   OwnerRentalOut,
+  OutstandingRental,
   RentalItem,
   RentalItemInput,
   OwnerSale,
@@ -73,6 +74,8 @@ export type BookingInput = {
   customerId?: string | null;
   customerName?: string | null;
   status?: string;
+  /** Create only: equipment to rent alongside the court. */
+  rentals?: { itemId: string; quantity: number }[];
 };
 
 export type CourtInput = {
@@ -375,6 +378,29 @@ export const ownerApi = {
       `/owner/rental-items/out${date ? `?date=${date}` : ""}`,
       { raw: true },
     ),
+
+  /**
+   * Gear whose booking is over and which is still not back — the chase list.
+   * Separate from `getRentalsOut`, which answers "what is in use today".
+   */
+  getOutstandingRentals: () => req<OutstandingRental[]>("/owner/rentals/outstanding"),
+
+  /**
+   * What the counter can rent for a slot, priced for it. Same service as the
+   * customer app's GET /rentals — that one is authenticated as a customer, so
+   * staff cannot call it.
+   */
+  getRentalOffer: (date: string, start: string, end: string) =>
+    req<Array<RentalItem & { availableQty: number; priceForBooking: number }>>(
+      `/owner/rental-items/offer?date=${date}&start=${start}&end=${end}`,
+    ),
+
+  /** Omitting quantity takes back everything still outstanding on the line. */
+  returnRental: (bookingId: string, rentalId: string, quantity?: number) =>
+    req<OwnerBooking>(`/owner/bookings/${bookingId}/rentals/${rentalId}/return`, {
+      method: "POST",
+      body: quantity === undefined ? {} : { quantity },
+    }),
 
   // --- POS: the counter's till ---
   /** `sellable` narrows to what the till may show (active, in the venue's order). */
