@@ -162,6 +162,35 @@ export const superAdminApi = {
   changeOrgPlan: (id: string, planId: string) =>
     req<AdminOrganizationDetail>(`/admin/organizations/${id}/plan`, { method: "PUT", body: { planId } }),
 
+  /**
+   * Renew from the screen that shows the expiry date.
+   *
+   * `markPaid` is for money that arrived before the paperwork. It still issues
+   * the invoice and the receipt — the alternative an admin reaches for is
+   * editing the expiry date, and then the payment exists nowhere.
+   *
+   * `reusedOutstanding` says the venue already owed this invoice, so the UI can
+   * avoid implying it just billed them a second time.
+   */
+  renewOrg: (id: string, body: { months: number; markPaid?: boolean; planId?: string }) =>
+    req<{ data: AdminOrganizationDetail; invoice: AdminInvoice; reusedOutstanding: boolean }>(
+      `/admin/organizations/${id}/renew`,
+      { method: "POST", body, raw: true },
+    ),
+
+  /** The escape hatch: no money moves, so the reason is required and recorded. */
+  setOrgExpiry: (id: string, endsAt: string, reason: string) =>
+    req<AdminOrganizationDetail>(`/admin/organizations/${id}/expiry`, {
+      method: "PUT",
+      body: { endsAt, reason },
+    }),
+
+  startOrgTrial: (id: string, planId: string, days: number) =>
+    req<AdminOrganizationDetail>(`/admin/organizations/${id}/trial`, {
+      method: "POST",
+      body: { planId, days },
+    }),
+
   // Per-venue LINE override. Secrets are write-only: send a value to set it, omit
   // or send "" to keep the existing one. The response never echoes raw secrets.
   updateOrganizationSettings: (
@@ -327,7 +356,11 @@ export const superAdminApi = {
   deleteAnnouncement: (id: string) =>
     req<void>(`/admin/announcements/${id}`, { method: "DELETE" }),
 
-  getAuditLogs: () => req<AdminAuditLog[]>("/admin/audit-logs"),
+  /** `organizationId` accepts a slug — every admin screen addresses venues that way. */
+  getAuditLogs: (organizationId?: string) =>
+    req<AdminAuditLog[]>(
+      organizationId ? `/admin/audit-logs?organizationId=${encodeURIComponent(organizationId)}` : "/admin/audit-logs",
+    ),
 
   getSettings: () => req<PlatformSettings>("/admin/settings"),
 

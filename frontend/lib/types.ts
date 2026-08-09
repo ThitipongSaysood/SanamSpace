@@ -998,6 +998,8 @@ export type AdminOrganizationDetail = {
     lineMessagingTokenSet?: boolean;
   } | null;
   subscription: {
+    id: string;
+    planId: string | null;
     planName: string | null;
     status: string;
     interval: string | null;
@@ -1007,6 +1009,16 @@ export type AdminOrganizationDetail = {
     daysRemaining: number | null;
   } | null;
   subscriptionStatus: string | null;
+  /**
+   * A trial is an ordinary active subscription with an end date, so nothing
+   * else on this record distinguishes a venue that has paid nothing from one
+   * that pays every month.
+   */
+  trial: {
+    onTrial: boolean;
+    startedAt: string | null;
+    endsAt: string | null;
+  };
   counts: { branches: number; courts: number; customers: number };
   plan?: Plan | null;
 };
@@ -1020,6 +1032,8 @@ export type AdminOrganization = {
   status: string;
   planName: string | null;
   subscriptionStatus: string | null;
+  /** On a free trial — otherwise indistinguishable from a paying venue here. */
+  onTrial?: boolean;
   branchCount: number;
   courtCount: number;
   customerCount: number;
@@ -1273,6 +1287,8 @@ export type AdminAnnouncement = {
 
 export type AdminAuditLog = {
   id: string;
+  /** Which venue it was done to — null for platform-wide actions. */
+  organizationId: string | null;
   userName: string;
   action: string;
   detail: string | null;

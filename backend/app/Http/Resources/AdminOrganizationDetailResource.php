@@ -54,6 +54,10 @@ class AdminOrganizationDetailResource extends JsonResource
                 ? new PlanResource($subscription->plan->loadMissing('enabledFeatures'))
                 : null,
             'subscription' => $subscription ? [
+                // The drawer renews and re-plans by subscription id as well as
+                // by organisation, so it needs the id it is acting on.
+                'id' => (string) $subscription->id,
+                'planId' => $subscription->plan?->id,
                 'planName' => $subscription->plan?->name,
                 'status' => $subscription->status,
                 'interval' => $subscription->plan?->interval,
@@ -65,6 +69,14 @@ class AdminOrganizationDetailResource extends JsonResource
                     : null,
             ] : null,
             'subscriptionStatus' => $subscription?->status,
+            // A trial looks like any other active subscription from the
+            // outside — same plan, same expiry, same lockout. This is the only
+            // thing that says the venue has not paid anything yet.
+            'trial' => [
+                'onTrial' => $this->resource->onTrial(),
+                'startedAt' => $this->trial_start_at?->toIso8601String(),
+                'endsAt' => $this->trial_end_at?->toIso8601String(),
+            ],
             'counts' => [
                 'branches' => (int) ($this->branches_count ?? 0),
                 'courts' => (int) ($this->courts_count ?? 0),

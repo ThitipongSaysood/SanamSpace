@@ -379,6 +379,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/organizations/{id}/activate', [AdminOrganizationController::class, 'activate']);
         Route::post('/organizations/{id}/impersonate', [AdminOrganizationController::class, 'impersonate']);
         Route::put('/organizations/{id}/plan', [AdminOrganizationController::class, 'changePlan']);
+        // Managing the subscription from the screen that shows its expiry date.
+        // Renewal raises (or reuses) an invoice and can close it in one step for
+        // money that arrived before the paperwork; the manual expiry date is the
+        // escape hatch and demands a reason. See OrganizationController.
+        Route::post('/organizations/{id}/renew', [AdminOrganizationController::class, 'renew']);
+        Route::put('/organizations/{id}/expiry', [AdminOrganizationController::class, 'setExpiry']);
+        Route::post('/organizations/{id}/trial', [AdminOrganizationController::class, 'startTrial']);
         Route::put('/organizations/{id}/settings', [AdminOrganizationController::class, 'updateSettings']);
         Route::delete('/organizations/{id}', [AdminOrganizationController::class, 'destroy']);
 

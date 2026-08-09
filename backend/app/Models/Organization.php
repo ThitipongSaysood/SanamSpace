@@ -22,6 +22,19 @@ class Organization extends Model
         ];
     }
 
+    /**
+     * Still inside a free trial.
+     *
+     * A past `trial_end_at` reads as "the trial is over", which is also how a
+     * trial that converted is recorded — paying sets the end date to the day
+     * the money arrived rather than clearing it, so when a venue started
+     * trying the product survives its becoming a customer.
+     */
+    public function onTrial(): bool
+    {
+        return $this->trial_end_at !== null && $this->trial_end_at->isFuture();
+    }
+
     public function settings(): HasOne
     {
         return $this->hasOne(OrganizationSetting::class);

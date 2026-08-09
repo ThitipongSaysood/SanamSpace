@@ -8,6 +8,7 @@ use App\Models\Plan;
 use App\Models\PlatformSetting;
 use App\Models\PlatformTransaction;
 use App\Models\Subscription;
+use App\Support\PlanFeatures;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -162,6 +163,96 @@ class SubscriptionRenewalService
         return $invoice->fresh();
     }
 
+    /**
+     * Move a venue onto a different package, in either direction, at once.
+     *
+     * The one implementation of the rule. There were two — one addressed by
+     * organisation and one by subscription — and they disagreed: the older one
+     * created a subscription with NO end date when the venue had none, and
+     * `isExpired()` reads a null `ends_at` as "never expires". Changing a
+     * plan could hand a venue the platform free, forever, with no invoice
+     * anyone would ever see.
+     *
+     * A venue that had nothing gets the same 30 days a newly created one does,
+     * so the next renewal is a normal renewal rather than a rescue.
+     */
+    public function changePlan(Organization $org, Plan $plan): Subscription
+    {
+        $sub = $this->currentSubscription($org);
+
+        if ($sub) {
+            $sub->update(['plan_id' => $plan->id]);
+        } else {
+            $sub = Subscription::create([
+                'organization_id' => $org->id,
+                'plan_id' => $plan->id,
+                'status' => 'active',
+                'started_at' => now(),
+                'ends_at' => now()->addDays(30),
+            ]);
+        }
+
+        // The entitlement resolver memoises per request; without this the
+        // venue's own next call in the same process still sees the old plan.
+        PlanFeatures::flush();
+
+        return $sub->fresh(['plan']);
+    }
+
+    /**
+     * Put a venue on a free trial of a plan for `$days`.
+     *
+     * The subscription stays `active` and the trial lives on the organisation.
+     * A separate `trialing` status would read better in the table and break
+     * half the platform: `activeSubscription()` filters on `active`, so every
+     * screen that reads a venue's plan through it would show no plan at all.
+     * Every lockout path already goes through `ends_at`, so a trial that runs
+     * out locks the portal exactly like a lapsed subscription — nothing extra
+     * to remember, and nothing extra to forget.
+     */
+    public function startTrial(Organization $org, Plan $plan, int $days): Subscription
+    {
+        $now = CarbonImmutable::now();
+        $endsAt = $now->addDays($days);
+        $sub = $this->currentSubscription($org);
+
+        if ($sub) {
+            $sub->update(['plan_id' => $plan->id, 'status' => 'active', 'ends_at' => $endsAt]);
+        } else {
+            $sub = Subscription::create([
+                'organization_id' => $org->id,
+                'plan_id' => $plan->id,
+                'status' => 'active',
+                'started_at' => $now,
+                'ends_at' => $endsAt,
+            ]);
+        }
+
+        $org->update(['trial_start_at' => $now, 'trial_end_at' => $endsAt]);
+        PlanFeatures::flush();
+
+        return $sub->fresh(['plan']);
+    }
+
+    /**
+     * Set the end date by hand — the escape hatch, not the renewal path.
+     *
+     * For fixing a date entered wrong, or honouring something agreed off the
+     * system. It moves no money and issues no document, which is exactly why
+     * the caller has to give a reason: this is the one action that can hand a
+     * venue months of service with nothing in the ledger to show for it.
+     */
+    public function setEndsAt(Subscription $sub, CarbonImmutable $endsAt): Subscription
+    {
+        // A plan suspended by mistake has a past date AND a cancelled status;
+        // giving it a future date without clearing the status would leave the
+        // admin screens saying "ยกเลิก" about a venue that is working.
+        $sub->update(['ends_at' => $endsAt, 'status' => 'active']);
+        PlanFeatures::flush();
+
+        return $sub->fresh(['plan']);
+    }
+
     /** The org's subscription — the active one if there is one, else the newest. */
     public function currentSubscription(Organization $org): ?Subscription
     {
@@ -208,6 +299,13 @@ class SubscriptionRenewalService
         $org = Organization::find($invoice->organization_id);
         $sub = $org ? $this->currentSubscription($org) : null;
         $months = max(1, (int) $invoice->period_months);
+
+        // Money changed hands, so the trial is over whatever date it was going
+        // to run to. Ended rather than erased: when the venue started trying
+        // the product is worth keeping.
+        if ($org?->trial_end_at?->isFuture()) {
+            $org->update(['trial_end_at' => $now]);
+        }
 
         if (! $sub) {
             Subscription::create([

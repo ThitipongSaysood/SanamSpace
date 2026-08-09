@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api\Owner;
 
 use App\Http\Controllers\Controller;
 use App\Models\Announcement;
-use App\Models\Subscription;
+use App\Models\Organization;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -18,11 +18,11 @@ class AnnouncementController extends Controller
     {
         $orgId = $request->attributes->get('currentOrganizationId');
 
-        $status = Subscription::query()
-            ->where('organization_id', $orgId)
-            ->orderByDesc('created_at')
-            ->value('status');
-        $tier = $status === 'active' ? 'paid' : 'trial';
+        // "trial" used to mean "the subscription is not active", which called a
+        // venue whose plan had simply lapsed a trial and a venue actually on a
+        // free trial a paying customer — exactly backwards for an announcement
+        // aimed at people who have not paid yet.
+        $tier = Organization::find($orgId)?->onTrial() ? 'trial' : 'paid';
 
         $rows = Announcement::query()
             ->where('status', 'published')

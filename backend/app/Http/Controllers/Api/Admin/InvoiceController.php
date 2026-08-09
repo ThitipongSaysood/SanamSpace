@@ -10,6 +10,7 @@ use App\Models\Organization;
 use App\Models\Plan;
 use App\Services\BillingDocumentService;
 use App\Services\SubscriptionRenewalService;
+use App\Support\AdminAudit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -81,10 +82,15 @@ class InvoiceController extends Controller
     {
         $invoice = Invoice::findOrFail($id);
         $method = $request->input('method', $invoice->slip_url ? 'transfer' : 'manual');
+        $paid = $this->renewals->approve($invoice, $method);
 
-        return new AdminInvoiceResource(
-            $this->renewals->approve($invoice, $method)->loadMissing('plan'),
+        AdminAudit::record(
+            'อนุมัติการชำระเงิน',
+            "{$paid->number} · ฿".number_format((float) $paid->amount, 2)." · {$method}",
+            $paid->organization_id,
         );
+
+        return new AdminInvoiceResource($paid->loadMissing('plan'));
     }
 
     /**
@@ -98,10 +104,15 @@ class InvoiceController extends Controller
         ]);
 
         $invoice = Invoice::findOrFail($id);
+        $rejected = $this->renewals->reject($invoice, $data['reason'] ?? null);
 
-        return new AdminInvoiceResource(
-            $this->renewals->reject($invoice, $data['reason'] ?? null)->loadMissing('plan'),
+        AdminAudit::record(
+            'ปฏิเสธสลิป',
+            trim("{$rejected->number} · ".($data['reason'] ?? 'ไม่ระบุเหตุผล')),
+            $rejected->organization_id,
         );
+
+        return new AdminInvoiceResource($rejected->loadMissing('plan'));
     }
 
     /**

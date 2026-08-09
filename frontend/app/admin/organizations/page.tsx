@@ -223,6 +223,13 @@ export default function AdminOrganizationsPage() {
                         <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700">
                           {o.planName ?? "—"}
                         </span>
+                        {/* A trial is an ordinary active subscription, so without
+                            this a venue paying nothing reads as a paying one. */}
+                        {o.onTrial && (
+                          <span className="ml-1 rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700">
+                            ทดลอง
+                          </span>
+                        )}
                       </td>
                       <td data-label="สถานะ" className="px-4 py-3">
                         <span className={`inline-flex items-center gap-1.5 text-sm font-medium ${st.text}`}>

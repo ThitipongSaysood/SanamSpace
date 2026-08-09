@@ -8,6 +8,7 @@ class AdminAuditLogResource extends JsonResource
     {
         return [
             'id' => (string) $this->id,
+            'organizationId' => $this->organization_id,
             'userName' => $this->user_name,
             'action' => $this->action,
             'detail' => $this->detail,

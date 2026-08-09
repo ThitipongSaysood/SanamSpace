@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\AdminInvoiceResource;
 use App\Http\Resources\AdminOrganizationDetailResource;
 use App\Http\Resources\AdminOrganizationResource;
 use App\Http\Resources\UserResource;
@@ -12,6 +13,9 @@ use App\Models\Plan;
 use App\Models\Role;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Services\SubscriptionRenewalService;
+use App\Support\AdminAudit;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -21,6 +25,8 @@ use Illuminate\Validation\ValidationException;
 
 class OrganizationController extends Controller
 {
+    public function __construct(private SubscriptionRenewalService $renewals) {}
+
     /**
      * GET /admin/organizations — ALL organizations (platform-level, no scoping).
      */
@@ -78,6 +84,8 @@ class OrganizationController extends Controller
             ['role_id' => Role::where('code', 'owner')->value('id'), 'display_name' => $data['ownerName'], 'status' => 'active', 'joined_at' => now()],
         );
 
+        AdminAudit::record('สร้างสนามใหม่', "{$org->name} · เจ้าของ {$data['email']}", $org->id);
+
         return (new AdminOrganizationDetailResource($this->load($org->fresh())))
             ->response()
             ->setStatusCode(201);
@@ -108,6 +116,7 @@ class OrganizationController extends Controller
     {
         $org = $this->find($id);
         $org->update(['status' => 'suspended']);
+        AdminAudit::record('ระงับการใช้งานสนาม', $org->name, $org->id);
 
         return new AdminOrganizationDetailResource($this->load($org));
     }
@@ -117,6 +126,7 @@ class OrganizationController extends Controller
     {
         $org = $this->find($id);
         $org->update(['status' => 'active']);
+        AdminAudit::record('เปิดใช้งานสนาม', $org->name, $org->id);
 
         return new AdminOrganizationDetailResource($this->load($org));
     }
@@ -168,18 +178,129 @@ class OrganizationController extends Controller
         ]);
 
         $org = $this->find($id);
-        $subscription = $org->activeSubscription ?? $org->subscriptions()->latest('created_at')->first();
+        $was = $this->renewals->currentSubscription($org)?->plan?->name;
+        $plan = Plan::findOrFail($data['planId']);
 
-        if ($subscription) {
-            $subscription->update(['plan_id' => $data['planId']]);
+        $this->renewals->changePlan($org, $plan);
+        AdminAudit::record('เปลี่ยนแพ็กเกจ', trim(($was ? "{$was} → " : '').$plan->name), $org->id);
+
+        return new AdminOrganizationDetailResource($this->load($org->fresh()));
+    }
+
+    /**
+     * POST /admin/organizations/{id}/renew { months, markPaid, planId? }
+     *
+     * Renewal from the screen that shows the expiry date, because that is
+     * where an admin is standing when they find out a venue is about to lapse.
+     * It used to mean three screens: read the date here, raise the invoice on
+     * the billing page, come back and approve it.
+     *
+     * `markPaid` is for money that arrived before the paperwork — a transfer
+     * the venue phoned about, cash at a meeting. The invoice and the receipt
+     * are still issued and the payment still lands in the platform ledger; it
+     * just closes in one step instead of two. Without it an admin fixes the
+     * expiry date by hand and that money never appears anywhere.
+     *
+     * An unpaid invoice already outstanding is used rather than a second one
+     * raised beside it: two open invoices and one transfer is a puzzle nobody
+     * can solve later.
+     */
+    public function renew(Request $request, string $id): JsonResponse
+    {
+        $data = $request->validate([
+            'months' => ['required', 'integer', 'min:1', 'max:36'],
+            'markPaid' => ['sometimes', 'boolean'],
+            'planId' => ['sometimes', 'nullable', 'string', Rule::exists('plans', 'id')],
+        ]);
+
+        $org = $this->find($id);
+        $plan = ! empty($data['planId']) ? Plan::find($data['planId']) : null;
+
+        $existing = $this->renewals->outstandingInvoice($org);
+        $invoice = $this->renewals->raiseInvoice($org, (int) $data['months'], 'admin', $plan);
+        $reused = $existing !== null && $existing->id === $invoice->id;
+
+        if ($data['markPaid'] ?? false) {
+            $invoice = $this->renewals->approve($invoice, 'manual');
+            AdminAudit::record(
+                'ต่ออายุ (รับเงินแล้ว)',
+                "{$data['months']} เดือน · ฿".number_format((float) $invoice->amount, 2)." · {$invoice->number}",
+                $org->id,
+            );
         } else {
-            Subscription::create([
-                'organization_id' => $org->id,
-                'plan_id' => $data['planId'],
-                'status' => 'active',
-                'started_at' => now(),
+            AdminAudit::record(
+                $reused ? 'ออกใบแจ้งหนี้ (ใช้ใบที่ค้างอยู่)' : 'ออกใบแจ้งหนี้ต่ออายุ',
+                "{$invoice->period_months} เดือน · ฿".number_format((float) $invoice->amount, 2)." · {$invoice->number}",
+                $org->id,
+            );
+        }
+
+        return response()->json([
+            'data' => new AdminOrganizationDetailResource($this->load($org->fresh())),
+            'invoice' => new AdminInvoiceResource($invoice->loadMissing('plan')),
+            // The UI has to be able to say "this is the invoice you already
+            // had" rather than implying it just billed them again.
+            'reusedOutstanding' => $reused,
+        ]);
+    }
+
+    /**
+     * PUT /admin/organizations/{id}/expiry { endsAt, reason } — set the end
+     * date by hand.
+     *
+     * The escape hatch for a date typed wrong or a deal agreed off the system.
+     * It moves no money and issues no document, which is why the reason is
+     * required and recorded: this is the one action that can hand a venue
+     * months of service with nothing in the ledger to explain it.
+     */
+    public function setExpiry(Request $request, string $id): AdminOrganizationDetailResource
+    {
+        $data = $request->validate([
+            'endsAt' => ['required', 'date'],
+            'reason' => ['required', 'string', 'max:200'],
+        ]);
+
+        $org = $this->find($id);
+        $sub = $this->renewals->currentSubscription($org);
+
+        if (! $sub) {
+            throw ValidationException::withMessages([
+                'endsAt' => 'สนามนี้ยังไม่มีแพ็กเกจ กรุณาเลือกแพ็กเกจก่อน',
             ]);
         }
+
+        $was = $sub->ends_at?->toDateString() ?? '—';
+        $this->renewals->setEndsAt($sub, CarbonImmutable::parse($data['endsAt']));
+
+        AdminAudit::record(
+            'แก้วันหมดอายุด้วยมือ',
+            "{$was} → ".CarbonImmutable::parse($data['endsAt'])->toDateString()." · เหตุผล: {$data['reason']}",
+            $org->id,
+        );
+
+        return new AdminOrganizationDetailResource($this->load($org->fresh()));
+    }
+
+    /**
+     * POST /admin/organizations/{id}/trial { planId, days } — start a free trial.
+     *
+     * The columns for this have been on the organisations table since the
+     * first migration with nothing reading or writing them, so every venue
+     * being shown the product was either given a real subscription or handled
+     * outside the system.
+     */
+    public function startTrial(Request $request, string $id): AdminOrganizationDetailResource
+    {
+        $data = $request->validate([
+            'planId' => ['required', 'string', Rule::exists('plans', 'id')],
+            'days' => ['required', 'integer', 'min:1', 'max:90'],
+        ]);
+
+        $org = $this->find($id);
+        $plan = Plan::findOrFail($data['planId']);
+
+        $this->renewals->startTrial($org, $plan, (int) $data['days']);
+        AdminAudit::record('เริ่มทดลองใช้', "{$plan->name} · {$data['days']} วัน", $org->id);
 
         return new AdminOrganizationDetailResource($this->load($org->fresh()));
     }
@@ -187,7 +308,9 @@ class OrganizationController extends Controller
     /** DELETE /admin/organizations/{id} — soft-delete the organization. */
     public function destroy(string $id): JsonResponse
     {
-        $this->find($id)->delete();
+        $org = $this->find($id);
+        $org->delete();
+        AdminAudit::record('ลบสนาม', $org->name, $org->id);
 
         return response()->json(null, 204);
     }
@@ -212,6 +335,11 @@ class OrganizationController extends Controller
         }
 
         $token = $user->createToken('impersonate-token')->plainTextToken;
+
+        // The entry that matters most on this page: for a stretch afterwards,
+        // anything done in that venue's portal was done by a platform admin
+        // wearing the owner's face, and only this row says so.
+        AdminAudit::record('สวมสิทธิ์เจ้าของสนาม', "{$org->name} · ในนาม {$user->email}", $org->id);
 
         return response()->json([
             'token' => $token,

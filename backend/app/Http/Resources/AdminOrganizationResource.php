@@ -34,6 +34,10 @@ class AdminOrganizationResource extends JsonResource
             'status' => $this->status,
             'planName' => $subscription?->plan?->name,
             'subscriptionStatus' => $subscription?->status,
+            // A trial is an ordinary active subscription with an end date, so
+            // the list would otherwise show a venue that has paid nothing
+            // exactly like one that pays every month.
+            'onTrial' => $this->resource->onTrial(),
             'branchCount' => (int) ($this->branches_count ?? 0),
             'courtCount' => (int) ($this->courts_count ?? 0),
             'customerCount' => (int) ($this->customers_count ?? 0),

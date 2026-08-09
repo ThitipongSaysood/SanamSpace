@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Clock, ExternalLink, History, MessageCircle, Power, RefreshCw, Trash2, UserCog, X } from "lucide-react";
 import { superAdminApi } from "@/lib/api/superadmin";
 import { setOwnerToken } from "@/lib/api/owner";
+import type { AdminOrganizationDetail } from "@/lib/types";
 import { Loading, ErrorState } from "@/components/states";
 import { CustomerLink, customerLinkFor, useOrigin } from "@/components/customer-link";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,319 @@ function Bar({ label, used, limit }: { label: string; used: number; limit: numbe
         <div className={`h-2 rounded-full ${pct != null && pct >= 90 ? "bg-rose-500" : "bg-brand"}`} style={{ width: pct != null ? `${pct}%` : "10%" }} />
       </div>
     </div>
+  );
+}
+
+/** The lengths a venue actually buys. */
+const RENEW_MONTHS = [1, 3, 6, 12] as const;
+const TRIAL_DAYS = [7, 14, 30] as const;
+
+/**
+ * Everything about a venue's subscription, on the screen that shows its expiry
+ * date — which is where an admin is standing when they find out it is about to
+ * lapse. Renewing used to mean three: read the date here, raise the invoice on
+ * the billing page, come back and approve it.
+ */
+function SubscriptionTab({ org, onDone }: { org: AdminOrganizationDetail; onDone: () => void }) {
+  const sub = org.subscription;
+  const plans = useQuery({ queryKey: ["admin", "plans"], queryFn: superAdminApi.getPlans });
+
+  const [months, setMonths] = useState<number>(1);
+  const [markPaid, setMarkPaid] = useState(false);
+  const [planId, setPlanId] = useState("");
+  const [trialPlanId, setTrialPlanId] = useState("");
+  const [trialDays, setTrialDays] = useState<number>(14);
+  const [showExpiry, setShowExpiry] = useState(false);
+  const [endsAt, setEndsAt] = useState(sub?.endsAt ? sub.endsAt.slice(0, 10) : "");
+  const [reason, setReason] = useState("");
+  const [note, setNote] = useState<string | null>(null);
+
+  function fail(e: Error) {
+    window.alert(e.message);
+  }
+
+  const renewM = useMutation({
+    mutationFn: () => superAdminApi.renewOrg(org.id, { months, markPaid }),
+    onSuccess: (res) => {
+      onDone();
+      setNote(
+        res.reusedOutstanding
+          ? `ใช้ใบแจ้งหนี้ที่ค้างอยู่ ${res.invoice.number} (${res.invoice.periodMonths ?? "?"} เดือน) — ไม่ได้ออกใบใหม่`
+          : markPaid
+            ? `ต่ออายุแล้ว · ใบเสร็จ ${res.invoice.receiptNumber ?? res.invoice.number}`
+            : `ออกใบแจ้งหนี้ ${res.invoice.number} แล้ว — จะต่ออายุเมื่อชำระเงิน`,
+      );
+    },
+    onError: fail,
+  });
+
+  const planM = useMutation({
+    mutationFn: () => superAdminApi.changeOrgPlan(org.id, planId),
+    onSuccess: () => {
+      onDone();
+      setPlanId("");
+      setNote("เปลี่ยนแพ็กเกจแล้ว");
+    },
+    onError: fail,
+  });
+
+  const trialM = useMutation({
+    mutationFn: () => superAdminApi.startOrgTrial(org.id, trialPlanId, trialDays),
+    onSuccess: () => {
+      onDone();
+      setNote(`เริ่มทดลองใช้ ${trialDays} วันแล้ว`);
+    },
+    onError: fail,
+  });
+
+  const expiryM = useMutation({
+    mutationFn: () => superAdminApi.setOrgExpiry(org.id, endsAt, reason),
+    onSuccess: () => {
+      onDone();
+      setShowExpiry(false);
+      setReason("");
+      setNote("แก้วันหมดอายุแล้ว — บันทึกไว้ในประวัติการจัดการ");
+    },
+    onError: fail,
+  });
+
+  const perMonth = sub?.interval === "year" && sub.price != null ? sub.price / 12 : sub?.price ?? null;
+  const total = perMonth != null ? perMonth * months : null;
+  const days = sub?.daysRemaining;
+
+  return (
+    <div className="space-y-5">
+      {/* Where this venue stands, in one line. */}
+      <section className="rounded-xl bg-app/60 p-4">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <span className="text-lg font-semibold">{sub?.planName ?? "ยังไม่มีแพ็กเกจ"}</span>
+          {org.trial.onTrial && (
+            <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-700">ทดลองใช้</span>
+          )}
+          {sub?.status === "cancelled" && (
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">ยกเลิกแล้ว</span>
+          )}
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {sub?.endsAt ? (
+            <>
+              หมดอายุ {fmtDate(sub.endsAt)}
+              {days != null && (
+                <span className={days < 0 ? "text-rose-600" : days < 7 ? "text-amber-700" : "text-emerald-600"}>
+                  {" "}
+                  · {days < 0 ? `เลยมา ${Math.abs(days)} วัน` : `เหลือ ${days} วัน`}
+                </span>
+              )}
+            </>
+          ) : (
+            "ไม่มีวันหมดอายุ"
+          )}
+        </p>
+      </section>
+
+      {note && (
+        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800" role="status">
+          {note}
+        </p>
+      )}
+
+      {/* --- Renew --- */}
+      <section className="space-y-3">
+        <h3 className="text-sm font-semibold">ต่ออายุ</h3>
+        <div className="flex flex-wrap gap-2">
+          {RENEW_MONTHS.map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMonths(m)}
+              aria-pressed={months === m}
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium ring-1 transition ${
+                months === m ? "bg-brand text-brand-foreground ring-brand" : "ring-black/10 hover:bg-app"
+              }`}
+            >
+              {m} เดือน
+            </button>
+          ))}
+        </div>
+
+        {total != null && (
+          <p className="text-sm text-muted-foreground">
+            ฿{fmt.format(Math.round(perMonth ?? 0))} × {months} ={" "}
+            <span className="font-semibold text-foreground">฿{fmt.format(Math.round(total))}</span>
+          </p>
+        )}
+
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={markPaid}
+            onChange={(e) => setMarkPaid(e.target.checked)}
+            className="mt-0.5 size-4 rounded border-input"
+          />
+          <span>
+            รับเงินแล้ว — ต่ออายุทันที
+            <span className="block text-xs text-muted-foreground">
+              ออกใบแจ้งหนี้และใบเสร็จให้เหมือนเดิม แค่ปิดในขั้นตอนเดียว สำหรับเงินที่โอนมาก่อนแล้ว
+            </span>
+          </span>
+        </label>
+
+        <Button type="button" onClick={() => renewM.mutate()} disabled={renewM.isPending || !sub}>
+          {renewM.isPending ? "กำลังดำเนินการ..." : markPaid ? `ต่ออายุ ${months} เดือน` : `ออกใบแจ้งหนี้ ${months} เดือน`}
+        </Button>
+        {!sub && <p className="text-xs text-muted-foreground">เลือกแพ็กเกจให้สนามนี้ก่อนจึงจะต่ออายุได้</p>}
+      </section>
+
+      {/* --- Change plan --- */}
+      <section className="space-y-2 border-t border-black/5 pt-4">
+        <h3 className="text-sm font-semibold">เปลี่ยนแพ็กเกจ</h3>
+        <p className="text-xs text-muted-foreground">มีผลทันทีทั้งขึ้นและลง · วันหมดอายุเดิมไม่เปลี่ยน</p>
+        <div className="flex flex-wrap gap-2">
+          <select
+            value={planId}
+            onChange={(e) => setPlanId(e.target.value)}
+            className="h-9 min-w-44 flex-1 rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
+          >
+            <option value="">— เลือกแพ็กเกจ —</option>
+            {(plans.data ?? []).map((p) => (
+              <option key={p.id} value={p.id} disabled={p.id === sub?.planId}>
+                {p.name} (฿{fmt.format(p.price)}){p.id === sub?.planId ? " · ใช้อยู่" : ""}
+              </option>
+            ))}
+          </select>
+          <Button type="button" variant="outline" onClick={() => planM.mutate()} disabled={!planId || planM.isPending}>
+            {planM.isPending ? "กำลังบันทึก..." : "เปลี่ยน"}
+          </Button>
+        </div>
+      </section>
+
+      {/* --- Trial --- */}
+      <section className="space-y-2 border-t border-black/5 pt-4">
+        <h3 className="text-sm font-semibold">ทดลองใช้</h3>
+        <p className="text-xs text-muted-foreground">
+          ใช้ได้เต็มแพ็กเกจจนครบกำหนด แล้วล็อกเองเหมือนแพ็กเกจหมดอายุ · เมื่อชำระเงินครั้งแรกจะถือว่าจบการทดลอง
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <select
+            value={trialPlanId}
+            onChange={(e) => setTrialPlanId(e.target.value)}
+            className="h-9 min-w-40 flex-1 rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
+          >
+            <option value="">— เลือกแพ็กเกจ —</option>
+            {(plans.data ?? []).map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+          <select
+            value={trialDays}
+            onChange={(e) => setTrialDays(Number(e.target.value))}
+            className="h-9 rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
+          >
+            {TRIAL_DAYS.map((d) => (
+              <option key={d} value={d}>
+                {d} วัน
+              </option>
+            ))}
+          </select>
+          <Button type="button" variant="outline" onClick={() => trialM.mutate()} disabled={!trialPlanId || trialM.isPending}>
+            {trialM.isPending ? "กำลังเริ่ม..." : "เริ่มทดลอง"}
+          </Button>
+        </div>
+      </section>
+
+      {/* --- The escape hatch, deliberately last and deliberately plain. --- */}
+      <section className="border-t border-black/5 pt-4">
+        {showExpiry ? (
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold">แก้วันหมดอายุด้วยมือ</h3>
+            <p className="text-xs text-muted-foreground">
+              ไม่มีการออกใบแจ้งหนี้และไม่มีเงินเข้าระบบ จึงต้องระบุเหตุผล — และจะถูกบันทึกไว้ในประวัติการจัดการ
+            </p>
+            <input
+              type="date"
+              value={endsAt}
+              onChange={(e) => setEndsAt(e.target.value)}
+              className="h-9 w-full rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
+            />
+            <input
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="เหตุผล เช่น ชดเชยระบบล่ม / ตกลงกันทางโทรศัพท์"
+              maxLength={200}
+              className="h-9 w-full rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
+            />
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => expiryM.mutate()}
+                disabled={!endsAt || !reason.trim() || expiryM.isPending}
+              >
+                {expiryM.isPending ? "กำลังบันทึก..." : "บันทึก"}
+              </Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => setShowExpiry(false)}>
+                ยกเลิก
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowExpiry(true)}
+            disabled={!sub}
+            className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground disabled:opacity-50"
+          >
+            แก้วันหมดอายุด้วยมือ
+          </button>
+        )}
+      </section>
+    </div>
+  );
+}
+
+/**
+ * What has been done to this venue, and by whom.
+ *
+ * Nothing in the codebase wrote an audit entry until now, so this page showed
+ * the same six seeded rows to everyone. The entries that matter are the ones
+ * where a platform admin reached into somebody else's business: suspending it,
+ * moving it between packages, extending it for free, logging in as its owner.
+ */
+function HistoryTab({ slug }: { slug: string }) {
+  const logs = useQuery({
+    queryKey: ["admin", "audit-logs", slug],
+    queryFn: () => superAdminApi.getAuditLogs(slug),
+  });
+
+  if (logs.isLoading) return <Loading />;
+  if (logs.isError) return <ErrorState onRetry={() => logs.refetch()} />;
+
+  const rows = logs.data ?? [];
+
+  if (rows.length === 0) {
+    return (
+      <div className="grid place-items-center rounded-xl bg-app/50 py-12 text-center text-sm text-muted-foreground">
+        ยังไม่มีการจัดการสนามนี้จากฝั่งแอดมิน
+      </div>
+    );
+  }
+
+  return (
+    <ol className="space-y-3">
+      {rows.map((log) => (
+        <li key={log.id} className="border-l-2 border-brand/30 pl-3">
+          <div className="text-sm font-medium">{log.action}</div>
+          {log.detail && <div className="text-sm text-muted-foreground">{log.detail}</div>}
+          <div className="mt-0.5 text-xs text-muted-foreground">
+            {log.userName}
+            {log.createdAt && ` · ${new Date(log.createdAt).toLocaleString("th-TH")}`}
+            {log.ipAddress && ` · ${log.ipAddress}`}
+          </div>
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -260,7 +574,7 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
                       </div>
                     </div>
                   ) : (
-                    <button type="button" onClick={() => setShowPlans(true)} className="mt-3 w-full rounded-lg border border-brand py-2 text-sm font-semibold text-brand hover:bg-brand/10">
+                    <button type="button" onClick={() => setTab("การสมัครใช้งาน")} className="mt-3 w-full rounded-lg border border-brand py-2 text-sm font-semibold text-brand hover:bg-brand/10">
                       จัดการการสมัครใช้งาน
                     </button>
                   )}
@@ -284,8 +598,8 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
                     <button type="button" onClick={() => setShowPlans(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-black/10 hover:bg-app">
                       <RefreshCw className="size-4" /> เปลี่ยนแพ็กเกจ
                     </button>
-                    <button type="button" onClick={() => window.alert("ฟีเจอร์นี้กำลังพัฒนา")} className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-black/10 hover:bg-app">
-                      <History className="size-4" /> ดูประวัติการใช้งาน
+                    <button type="button" onClick={() => setTab("ประวัติ")} className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-black/10 hover:bg-app">
+                      <History className="size-4" /> ดูประวัติการจัดการ
                     </button>
                   </div>
                   <button
@@ -389,10 +703,10 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
                 <Bar label="คอร์ท" used={data.counts.courts} limit={data.plan?.courtLimit ?? null} />
                 <Bar label="ลูกค้า" used={data.counts.customers} limit={null} />
               </section>
+            ) : tab === "การสมัครใช้งาน" ? (
+              <SubscriptionTab org={data} onDone={invalidate} />
             ) : (
-              <div className="grid place-items-center rounded-xl bg-app/50 py-12 text-center text-sm text-muted-foreground">
-                ส่วน “{tab}” กำลังพัฒนา
-              </div>
+              <HistoryTab slug={data.id} />
             )}
           </div>
         )}

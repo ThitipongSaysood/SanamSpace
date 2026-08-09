@@ -4,7 +4,10 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\SubscriptionResource;
+use App\Models\Plan;
 use App\Models\Subscription;
+use App\Services\SubscriptionRenewalService;
+use App\Support\AdminAudit;
 use App\Support\PlanFeatures;
 use Illuminate\Validation\Rule;
 use Illuminate\Http\Request;
@@ -26,6 +29,8 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
  */
 class SubscriptionController extends Controller
 {
+    public function __construct(private SubscriptionRenewalService $renewals) {}
+
     /** GET /admin/subscriptions — ALL subscriptions across every organization. */
     public function index(): AnonymousResourceCollection
     {
@@ -42,6 +47,11 @@ class SubscriptionController extends Controller
     {
         $subscription = $this->find($id);
         $subscription->update(['status' => 'cancelled']);
+        AdminAudit::record(
+            'ยกเลิกแพ็กเกจ (ใช้ได้ถึงวันหมดอายุ)',
+            $subscription->organization?->name,
+            $subscription->organization_id,
+        );
 
         return $this->fresh($subscription);
     }
@@ -57,6 +67,10 @@ class SubscriptionController extends Controller
      * Takes effect immediately, in both directions. A downgrade is deliberately
      * not "at the end of the period": that is a billing policy, and inventing
      * one here would be worse than the venue and the platform agreeing on it.
+     *
+     * The same move addressed by organisation lives on
+     * `PUT /admin/organizations/{id}/plan`; both hand the decision to
+     * SubscriptionRenewalService so the two entry points cannot drift.
      */
     public function changePlan(Request $request, string $id): SubscriptionResource
     {
@@ -65,11 +79,16 @@ class SubscriptionController extends Controller
         ]);
 
         $subscription = $this->find($id);
-        $subscription->update(['plan_id' => $data['planId']]);
+        $org = $subscription->organization;
+        $was = $subscription->plan?->name;
+        $plan = Plan::findOrFail($data['planId']);
 
-        // The resolver memoises per request; without this the venue's own next
-        // request in the same process would still see the old entitlements.
+        $subscription = $org
+            ? $this->renewals->changePlan($org, $plan)
+            : tap($subscription)->update(['plan_id' => $plan->id]);
+
         PlanFeatures::flush();
+        AdminAudit::record('เปลี่ยนแพ็กเกจ', trim(($was ? "{$was} → " : '').$plan->name), $org?->id);
 
         return $this->fresh($subscription);
     }
@@ -79,6 +98,7 @@ class SubscriptionController extends Controller
     {
         $subscription = $this->find($id);
         $subscription->update(['status' => 'cancelled', 'ends_at' => now()]);
+        AdminAudit::record('ระงับแพ็กเกจทันที', $subscription->organization?->name, $subscription->organization_id);
 
         return $this->fresh($subscription);
     }
@@ -106,6 +126,11 @@ class SubscriptionController extends Controller
                 : now()->addMonth());
 
         $subscription->update(['status' => 'active', 'ends_at' => $endsAt]);
+        AdminAudit::record(
+            'เปิดใช้แพ็กเกจอีกครั้ง',
+            'ถึง '.$endsAt->toDateString(),
+            $subscription->organization_id,
+        );
 
         return $this->fresh($subscription);
     }

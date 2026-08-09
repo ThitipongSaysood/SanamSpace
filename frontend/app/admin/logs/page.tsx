@@ -12,7 +12,9 @@ function fmtDate(iso: string | null) {
 export default function AdminLogsPage() {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["admin", "audit-logs"],
-    queryFn: superAdminApi.getAuditLogs,
+    // Wrapped rather than passed by reference: the call takes an optional venue
+    // filter, and React Query would hand it the query context as that argument.
+    queryFn: () => superAdminApi.getAuditLogs(),
   });
 
   return (
