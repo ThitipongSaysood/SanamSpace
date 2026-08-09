@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import type {
   BookingStatus,
+  CourtBoard,
   OwnerDashboard,
   OwnerRevenuePoint,
 } from "@/lib/types";
@@ -317,6 +318,8 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
 
   return (
     <div className="space-y-5">
+      <CourtBoardPanel />
+
       {/* Stat cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {stats.map((s) => (
@@ -620,6 +623,114 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
           </>
         )}
       </CardShell>
+    </div>
+  );
+}
+
+/**
+ * The floor, right now.
+ *
+ * The question staff ask standing at the counter — which courts have someone on
+ * them, how much longer, who is next — used to need reading the day's booking
+ * list and doing the arithmetic. It sits above the charts because it is about
+ * the next ten minutes, and everything below it is about the last seven days.
+ *
+ * Refreshes itself: a board that is right only when you reload is a board
+ * nobody trusts. The clock it is reading is printed in the header, because the
+ * server runs on UTC and the venue does not.
+ */
+function CourtBoardPanel() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["owner", "courts", "live"],
+    queryFn: ownerApi.getCourtBoard,
+    // Half a minute: a court's remaining time is shown in whole minutes, so
+    // anything slower would visibly lag the wall clock.
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+  });
+
+  if (isLoading) return <Loading rows={2} />;
+  if (!data || data.branches.length === 0) return null;
+
+  const courts = data.branches.flatMap((b) => b.courts);
+  const playing = courts.filter((c) => c.status === "playing").length;
+
+  return (
+    <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="font-semibold">
+          สถานะสด
+          <span className="ml-2 text-sm font-normal text-muted-foreground">
+            กำลังเล่น {playing} / {courts.length} คอร์ท
+          </span>
+        </h2>
+        <span className="text-xs text-muted-foreground">
+          เวลาสนาม {data.now} น. · อัปเดตทุก 30 วินาที
+        </span>
+      </div>
+
+      <div className="space-y-4">
+        {data.branches.map((branch) => (
+          <div key={branch.id}>
+            {/* Only worth naming when there is more than one place to be. */}
+            {data.branches.length > 1 && (
+              <h3 className="mb-2 text-xs font-semibold text-muted-foreground">{branch.name ?? "—"}</h3>
+            )}
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {branch.courts.map((court) => (
+                <CourtTile key={court.id} court={court} />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CourtTile({ court }: { court: CourtBoard["branches"][number]["courts"][number] }) {
+  const playing = court.status === "playing";
+  // Booked but nobody scanned in: the one the desk should walk over and check.
+  const unchecked = playing && !court.current?.checkedIn;
+
+  return (
+    <div
+      className={`rounded-xl p-3 ring-1 ${
+        playing ? "bg-brand/5 ring-brand/20" : "bg-app ring-black/5"
+      }`}
+    >
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="truncate text-sm font-semibold">{court.name}</span>
+        {playing ? (
+          <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white tabular-nums">
+            เหลือ {court.current!.minutesLeft} น.
+          </span>
+        ) : (
+          <span className="shrink-0 text-[11px] font-medium text-muted-foreground">ว่าง</span>
+        )}
+      </div>
+
+      {court.current ? (
+        <div className="mt-1 truncate text-xs text-muted-foreground">
+          {court.current.customerName ?? "—"} · {court.current.start}–{court.current.end}
+          {unchecked && <span className="text-brand-warning"> · ยังไม่เช็คอิน</span>}
+        </div>
+      ) : (
+        <div className="mt-1 text-xs text-muted-foreground">ไม่มีใครใช้อยู่</div>
+      )}
+
+      {/* The queue. On a free court this is what stops staff selling an hour
+          that is already sold. */}
+      {court.next ? (
+        <div className="mt-2 border-t border-black/5 pt-2 text-[11px] text-muted-foreground">
+          คิวถัดไป {court.next.start} · {court.next.customerName ?? "—"}
+          <span className="text-foreground"> (อีก {court.next.minutesUntil} น.)</span>
+        </div>
+      ) : (
+        <div className="mt-2 border-t border-black/5 pt-2 text-[11px] text-muted-foreground">
+          ไม่มีคิวถัดไป
+        </div>
+      )}
     </div>
   );
 }

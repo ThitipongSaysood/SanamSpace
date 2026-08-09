@@ -39,6 +39,7 @@ use App\Http\Controllers\Api\Owner\ScanController as OwnerScanController;
 use App\Http\Controllers\Api\Owner\CourtBlockController as OwnerCourtBlockController;
 use App\Http\Controllers\Api\Owner\ReportController as OwnerReportController;
 use App\Http\Controllers\Api\Owner\CouponController as OwnerCouponController;
+use App\Http\Controllers\Api\Owner\CourtBoardController as OwnerCourtBoardController;
 use App\Http\Controllers\Api\Owner\CourtController as OwnerCourtController;
 use App\Http\Controllers\Api\Owner\CrmController as OwnerCrmController;
 use App\Http\Controllers\Api\Owner\CustomerController as OwnerCustomerController;
@@ -247,6 +248,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/branches/{id}', [OwnerBranchController::class, 'destroy'])->middleware('permission:court.manage');
 
         // --- Courts (คอร์ท) management CRUD ---
+        // The floor right now — what is on each court and who is next. Above
+        // the {id} routes so "live" is not read as a court id.
+        Route::get('/courts/live', [OwnerCourtBoardController::class, 'index'])->middleware('permission:booking.view');
         Route::get('/courts', [OwnerCourtController::class, 'index']);
         Route::post('/courts', [OwnerCourtController::class, 'store'])->middleware('permission:court.manage');
         Route::put('/courts/{id}', [OwnerCourtController::class, 'update'])->middleware('permission:court.manage');

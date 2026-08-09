@@ -12,4 +12,12 @@ test("owner can log in and reach the dashboard", async ({ page }) => {
   // Lands on the redesigned owner dashboard (stat cards + sidebar).
   await expect(page).toHaveURL(/\/owner$/);
   await expect(page.getByText("รายได้วันนี้").first()).toBeVisible();
+
+  // The live floor, above the charts. Asserted on the venue clock it prints:
+  // the board is only useful if it agrees with the clock on the wall, and the
+  // server runs on UTC.
+  const board = page.locator("section", { hasText: "สถานะสด" }).first();
+  await expect(board).toBeVisible();
+  await expect(board.getByText(/เวลาสนาม \d{2}:\d{2}/)).toBeVisible();
+  await expect(board.getByText(/กำลังเล่น \d+ \/ \d+ คอร์ท/)).toBeVisible();
 });

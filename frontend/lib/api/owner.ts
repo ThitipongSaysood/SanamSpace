@@ -27,6 +27,7 @@ import type {
   CheckinResult,
   ScanResult,
   DuplicateGroup,
+  CourtBoard,
   OwnerCustomerDetail,
   OwnerCustomerCredit,
   OwnerCreditMovement,
@@ -473,6 +474,9 @@ export const ownerApi = {
    */
   scan: (code: string) =>
     req<ScanResult>("/owner/scan", { method: "POST", body: { code }, raw: true }),
+  /** What is on each court right now, and who is next. */
+  getCourtBoard: () => req<CourtBoard>("/owner/courts/live"),
+
   /** People who are in the list more than once, grouped by phone. */
   getDuplicateCustomers: () => req<DuplicateGroup[]>("/owner/customers/duplicates"),
 

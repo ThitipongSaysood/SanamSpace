@@ -237,6 +237,43 @@ export type DuplicateGroup = {
   }[];
 };
 
+/**
+ * The venue floor as it stands this minute.
+ *
+ * `now` is the VENUE's clock, sent so the screen can show which clock it is
+ * reading — the server runs on UTC and bookings hold wall-clock times.
+ */
+export type CourtBoard = {
+  now: string;
+  timezone: string;
+  branches: {
+    id: string;
+    name: string | null;
+    courts: {
+      id: string;
+      name: string;
+      sport: string | null;
+      status: "playing" | "free";
+      current: {
+        bookingId: string;
+        code: string;
+        customerName: string | null;
+        start: string;
+        end: string;
+        minutesLeft: number;
+        checkedIn: boolean;
+      } | null;
+      next: {
+        bookingId: string;
+        customerName: string | null;
+        start: string;
+        end: string;
+        minutesUntil: number;
+      } | null;
+    }[];
+  }[];
+};
+
 /** Something points can be spent on. */
 export type OwnerReward = {
   id: string;
