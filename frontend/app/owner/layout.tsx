@@ -28,6 +28,7 @@ import {
   Ticket,
   Menu,
   MessageSquare,
+  FileCheck2,
   ReceiptText,
   Send,
   Settings,
@@ -45,37 +46,100 @@ import {
 import type { User } from "@/lib/types";
 import { getOwnerToken, ownerApi } from "@/lib/api/owner";
 
-type NavItem = { label: string; href: string; icon: LucideIcon; count?: string };
+type NavItem = {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+  count?: string;
+};
 
-const NAV: NavItem[] = [
-  { label: "ภาพรวม", href: "/owner", icon: LayoutDashboard },
-  { label: "ศูนย์ปฏิบัติการ", href: "/owner/operations", icon: Activity, count: "6" },
-  { label: "การจอง", href: "/owner/bookings", icon: CalendarCheck },
-  { label: "รายการจอง", href: "/owner/bookings/list", icon: ListChecks },
-  { label: "เช็คอิน", href: "/owner/checkin", icon: QrCode },
-  { label: "ขายหน้าร้าน", href: "/owner/pos", icon: ShoppingCart },
-  { label: "ประวัติการขาย", href: "/owner/pos/sales", icon: ReceiptText },
-  { label: "สินค้า", href: "/owner/products", icon: Package },
-  { label: "อุปกรณ์ให้เช่า", href: "/owner/rentals", icon: Dumbbell },
-  { label: "สนาม", href: "/owner/branches", icon: Store },
-  { label: "คอร์ท", href: "/owner/courts", icon: LayoutGrid },
-  { label: "ลูกค้า", href: "/owner/customers", icon: Users },
-  { label: "เครดิตลูกค้า", href: "/owner/customer-credit", icon: Coins },
-  { label: "CRM", href: "/owner/crm", icon: HeartHandshake },
-  { label: "ยิงโปร LINE", href: "/owner/broadcast", icon: Send },
-  { label: "สมาชิก", href: "/owner/membership", icon: Crown },
-  { label: "คะแนนสะสม", href: "/owner/points", icon: Sparkles },
-  { label: "แพ็กเกจชั่วโมง", href: "/owner/packages", icon: Ticket },
-  { label: "โปรโมชั่น", href: "/owner/promotions", icon: Tag },
-  { label: "คูปองส่วนลด", href: "/owner/coupons", icon: BadgePercent },
-  { label: "แบนเนอร์/ต้อนรับ", href: "/owner/banner", icon: Megaphone },
-  { label: "การชำระเงิน", href: "/owner/payments", icon: ReceiptText },
-  { label: "คืนเงิน", href: "/owner/refunds", icon: Undo2 },
-  { label: "รายงาน", href: "/owner/reports", icon: BarChart3 },
-  { label: "พนักงาน", href: "/owner/staff", icon: UserCog },
-  { label: "ค่าบริการระบบ", href: "/owner/billing", icon: CreditCard },
-  { label: "ตั้งค่า", href: "/owner/settings", icon: Settings },
+/**
+ * The menu, in groups.
+ *
+ * Twenty-seven destinations in one flat column meant reading the whole list to
+ * find anything. Grouping is by **how often the venue touches it**, not by
+ * tidiness: the counter's work sits at the top, and the things set up once and
+ * left alone sit at the bottom.
+ *
+ * Nothing is nested behind a click and nothing was merged into tabs — every
+ * page still has its own entry, because that is how this back office is meant
+ * to be navigated. The headings are the only new thing.
+ */
+type NavGroup = { title?: string; items: NavItem[] };
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    // No heading: these two are where the day starts, and a label above them
+    // would only push them down.
+    items: [
+      { label: "ภาพรวม", href: "/owner", icon: LayoutDashboard },
+      { label: "ศูนย์ปฏิบัติการ", href: "/owner/operations", icon: Activity, count: "6" },
+    ],
+  },
+  {
+    title: "หน้างานประจำวัน",
+    items: [
+      { label: "การจอง", href: "/owner/bookings", icon: CalendarCheck },
+      { label: "รายการจอง", href: "/owner/bookings/list", icon: ListChecks },
+      // Named after what staff do here, not after the category it belongs to.
+      // As "การชำระเงิน" it read like month-end admin and got filed with the
+      // money pages — while the screen itself is titled "ตรวจสลิป" and is
+      // opened all day between a customer paying and being let onto a court.
+      { label: "ตรวจสลิป", href: "/owner/payments", icon: FileCheck2 },
+      { label: "สแกน / เช็คอิน", href: "/owner/checkin", icon: QrCode },
+      { label: "ขายหน้าร้าน", href: "/owner/pos", icon: ShoppingCart },
+      { label: "ประวัติการขาย", href: "/owner/pos/sales", icon: ReceiptText },
+    ],
+  },
+  {
+    title: "ลูกค้า",
+    items: [
+      { label: "ลูกค้า", href: "/owner/customers", icon: Users },
+      { label: "เครดิตลูกค้า", href: "/owner/customer-credit", icon: Coins },
+      { label: "สมาชิก", href: "/owner/membership", icon: Crown },
+      { label: "คะแนนสะสม", href: "/owner/points", icon: Sparkles },
+      { label: "CRM", href: "/owner/crm", icon: HeartHandshake },
+    ],
+  },
+  {
+    title: "การตลาด",
+    items: [
+      { label: "โปรโมชั่น", href: "/owner/promotions", icon: Tag },
+      { label: "คูปองส่วนลด", href: "/owner/coupons", icon: BadgePercent },
+      { label: "แพ็กเกจชั่วโมง", href: "/owner/packages", icon: Ticket },
+      { label: "ยิงโปร LINE", href: "/owner/broadcast", icon: Send },
+      { label: "แบนเนอร์/ต้อนรับ", href: "/owner/banner", icon: Megaphone },
+    ],
+  },
+  {
+    title: "เงิน",
+    items: [
+      { label: "คืนเงิน", href: "/owner/refunds", icon: Undo2 },
+      { label: "รายงาน", href: "/owner/reports", icon: BarChart3 },
+    ],
+  },
+  {
+    // Set up once, then rarely opened again — so it sits below the daily work.
+    title: "สนาม & สินค้า",
+    items: [
+      { label: "สนาม", href: "/owner/branches", icon: Store },
+      { label: "คอร์ท", href: "/owner/courts", icon: LayoutGrid },
+      { label: "สินค้า", href: "/owner/products", icon: Package },
+      { label: "อุปกรณ์ให้เช่า", href: "/owner/rentals", icon: Dumbbell },
+    ],
+  },
+  {
+    title: "ระบบ",
+    items: [
+      { label: "พนักงาน", href: "/owner/staff", icon: UserCog },
+      { label: "ค่าบริการระบบ", href: "/owner/billing", icon: CreditCard },
+      { label: "ตั้งค่า", href: "/owner/settings", icon: Settings },
+    ],
+  },
 ];
+
+/** Every destination, for the "which one is active" question below. */
+const NAV: NavItem[] = NAV_GROUPS.flatMap((g) => g.items);
 
 /**
  * The most specific menu item that matches, and only that one.
@@ -121,34 +185,46 @@ function SidebarContent({
 
       {/* Nav */}
       <nav className="flex-1 space-y-1 overflow-y-auto px-3" aria-label="เมนูหลัก">
-        {NAV.map((item) => {
-          const active = isActive(pathname, item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onNavigate}
-              aria-current={active ? "page" : undefined}
-              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                active
-                  ? "bg-brand text-brand-foreground shadow-sm"
-                  : "text-muted-foreground hover:bg-app hover:text-foreground"
-              }`}
-            >
-              <item.icon className="size-5 shrink-0" />
-              <span className="flex-1">{item.label}</span>
-              {item.count != null && (
-                <span
-                  className={`min-w-5 rounded-full px-1.5 text-center text-xs font-bold ${
-                    active ? "bg-white/25 text-white" : "bg-brand/10 text-brand"
-                  }`}
-                >
-                  {item.count}
-                </span>
-              )}
-            </Link>
-          );
-        })}
+        {NAV_GROUPS.map((group, i) => (
+          <div key={group.title ?? "top"} className={group.title ? "pt-3" : undefined}>
+            {group.title && (
+              <h2 className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/70">
+                {group.title}
+              </h2>
+            )}
+            <div className="space-y-1">
+              {group.items.map((item) => {
+                const active = isActive(pathname, item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={onNavigate}
+                    aria-current={active ? "page" : undefined}
+                    className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+                      active
+                        ? "bg-brand text-brand-foreground shadow-sm"
+                        : "text-muted-foreground hover:bg-app hover:text-foreground"
+                    }`}
+                  >
+                    <item.icon className="size-5 shrink-0" />
+                    <span className="flex-1">{item.label}</span>
+                    {item.count != null && (
+                      <span
+                        className={`min-w-5 rounded-full px-1.5 text-center text-xs font-bold ${
+                          active ? "bg-white/25 text-white" : "bg-brand/10 text-brand"
+                        }`}
+                      >
+                        {item.count}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+            {i === 0 && <div className="mx-3 mt-3 border-t border-black/5" />}
+          </div>
+        ))}
       </nav>
 
       {/* Org card + support */}
