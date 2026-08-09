@@ -7,6 +7,7 @@ import type {
   OwnerBranch,
   OwnerAudiencePreview,
   OwnerBroadcast,
+  OwnerSupportTicket,
   OwnerBroadcastAudience,
   OwnerBroadcastChannel,
   OwnerCoupon,
@@ -701,6 +702,15 @@ export const ownerApi = {
     req<OwnerTimelineEntry[]>(`/owner/timeline/${customerId}`),
 
   getBroadcasts: () => req<OwnerBroadcast[]>("/owner/broadcasts"),
+
+  // --- Support: the venue's side of the platform's help desk ---
+  getSupportTickets: () => req<OwnerSupportTicket[]>("/owner/support-tickets"),
+
+  createSupportTicket: (body: { subject: string; body: string; priority?: string }) =>
+    req<OwnerSupportTicket>("/owner/support-tickets", { method: "POST", body }),
+
+  replyToSupportTicket: (id: string, body: string) =>
+    req<OwnerSupportTicket>(`/owner/support-tickets/${id}/replies`, { method: "POST", body: { body } }),
 
   previewAudience: (params: {
     audience: OwnerBroadcastAudience;

@@ -287,8 +287,10 @@ function SidebarContent({
             </div>
           </div>
         </div>
+        {/* Went to the settings page until support tickets existed — a help
+            link that led anywhere but help. */}
         <Link
-          href="/owner/settings"
+          href="/owner/support"
           onClick={onNavigate}
           className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition hover:bg-app hover:text-foreground"
         >

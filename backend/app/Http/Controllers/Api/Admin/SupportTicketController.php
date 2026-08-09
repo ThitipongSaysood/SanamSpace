@@ -104,7 +104,14 @@ class SupportTicketController extends Controller
      */
     private function emailReply(SupportTicket $ticket, string $body): bool
     {
-        $email = Organization::where('name', $ticket->organization_name)->first()?->settings?->email;
+        // By id where we have one. Matching on the name was the only option
+        // while tickets carried nothing else, and it would mail the answer to
+        // the wrong venue the day two venues are called the same thing.
+        $org = $ticket->organization_id
+            ? Organization::find($ticket->organization_id)
+            : Organization::where('name', $ticket->organization_name)->first();
+
+        $email = $org?->settings?->email;
 
         if (! $email) {
             return false;

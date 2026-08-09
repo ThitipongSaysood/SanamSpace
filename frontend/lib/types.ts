@@ -1275,6 +1275,32 @@ export type AdminSupportReply = {
   createdAt: string | null;
 };
 
+/**
+ * A support thread as the venue sees it.
+ *
+ * No `assignedTo`: which of the platform's people picked it up is the desk's
+ * own note, not the venue's business.
+ */
+export type OwnerSupportTicket = {
+  id: string;
+  ticketNo: string;
+  subject: string;
+  status: "open" | "pending" | "resolved" | "closed";
+  priority: "low" | "medium" | "high";
+  body: string | null;
+  resolvedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  replies: {
+    id: string;
+    authorName: string;
+    /** "organization" = the venue · "platform" = us. */
+    authorSide: "organization" | "platform";
+    body: string;
+    createdAt: string | null;
+  }[];
+};
+
 export type AdminSupportTicket = {
   id: string;
   ticketNo: string;

@@ -61,6 +61,7 @@ use App\Http\Controllers\Api\Owner\WelcomeBannerController as OwnerWelcomeBanner
 use App\Http\Controllers\Api\Owner\SettingController as OwnerSettingController;
 use App\Http\Controllers\Api\Owner\StaffController as OwnerStaffController;
 use App\Http\Controllers\Api\Owner\SubscriptionController as OwnerSubscriptionController;
+use App\Http\Controllers\Api\Owner\SupportTicketController as OwnerSupportTicketController;
 use App\Http\Controllers\Api\Owner\UploadController as OwnerUploadController;
 use App\Http\Controllers\Api\Owner\VenuePackageController as OwnerVenuePackageController;
 use App\Http\Controllers\Api\Owner\WalletController as OwnerWalletController;
@@ -335,6 +336,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/staff/{userId}', [OwnerStaffController::class, 'update'])->middleware('permission:staff.manage');
         Route::delete('/staff/{userId}', [OwnerStaffController::class, 'destroy'])->middleware('permission:staff.manage');
         Route::get('/roles', [OwnerStaffController::class, 'roles']);
+
+        // --- Support (the venue's side of the platform's help desk) ---
+        // Core, never plan-gated: a venue that cannot ask for help is a venue
+        // whose only remaining option is to leave.
+        Route::get('/support-tickets', [OwnerSupportTicketController::class, 'index']);
+        Route::post('/support-tickets', [OwnerSupportTicketController::class, 'store']);
+        Route::post('/support-tickets/{id}/replies', [OwnerSupportTicketController::class, 'reply']);
 
         // --- Memberships (read list + points adjust) ---
         Route::get('/memberships', [OwnerMembershipController::class, 'index'])->middleware('permission:crm.view')->middleware('feature:membership');
