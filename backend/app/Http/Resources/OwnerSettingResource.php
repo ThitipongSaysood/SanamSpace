@@ -53,6 +53,9 @@ class OwnerSettingResource extends JsonResource
             'pointsEnabled' => (bool) ($this->points_enabled ?? false),
             'pointsPerBooking' => (int) ($this->points_per_booking ?? 10),
             'tierThresholds' => $this->tier_thresholds ?? \App\Services\PointsService::DEFAULT_TIERS,
+            'pointsExpiryEnabled' => (bool) ($this->points_expiry_enabled ?? false),
+            'pointsValidMonths' => (int) ($this->points_valid_months ?? 12),
+            'pointsExpiryWarnDays' => (int) ($this->points_expiry_warn_days ?? 14),
             // Payment (where this venue receives booking money)
             'promptpayId' => $this->promptpay_id,
             'promptpayName' => $this->promptpay_name,

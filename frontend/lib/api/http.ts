@@ -3,6 +3,7 @@ import type {
   OrgPublic, PackagePurchaseInstructions, Promotion, Refund, ReviewSummary, User, Venue, VenuePackage, Wallet, WalletTopupInstructions,
   CouponPreview,
   CustomerReward,
+  PointMovement,
 } from "@/lib/types";
 import { clearToken, getToken, setToken } from "./token";
 import { getActiveVenueSlug } from "@/lib/tenant/active-venue";
@@ -157,6 +158,8 @@ export const httpApi: Api = {
   getMembership: () => req<Membership>("/membership"),
   /** What points buy here. A balance means nothing without this. */
   getRewards: () => req<CustomerReward[]>("/rewards"),
+  /** Where my points came from and went. The venue could already see this. */
+  getPointsHistory: () => req<PointMovement[]>("/me/points"),
   getCredit: () => req<Wallet>("/credit"),
   getPromotions: () => req<Promotion[]>("/promotions"),
   /** What can be rented for this exact slot — availability needs a window. */

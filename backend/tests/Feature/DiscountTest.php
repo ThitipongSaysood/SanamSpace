@@ -290,7 +290,7 @@ class DiscountTest extends TestCase
             'tier' => 'Gold',
             'member_id' => 'MB-D-1',
             'points' => 0,
-            'expires_at' => now()->addYear(),
+            'expires_on' => now()->addYear(),
         ]);
 
         $booking = $this->book($token);
@@ -315,7 +315,7 @@ class DiscountTest extends TestCase
             'tier' => 'GOLD',
             'member_id' => 'MB-D-2',
             'points' => 0,
-            'expires_at' => now()->addYear(),
+            'expires_on' => now()->addYear(),
         ]);
 
         $this->assertSame(50.0, (float) $this->book($token)['discountAmount']);
@@ -341,7 +341,7 @@ class DiscountTest extends TestCase
             'tier' => 'Gold',
             'member_id' => 'MB-D-3',
             'points' => 0,
-            'expires_at' => now()->addYear(),
+            'expires_on' => now()->addYear(),
         ]);
 
         $booking = $this->book($token, ['couponCode' => 'SMALL']);

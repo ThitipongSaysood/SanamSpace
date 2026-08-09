@@ -17,7 +17,7 @@ class MembershipController extends Controller
      * just registered via LINE) gets a default Silver one created on first read
      * instead of a 404.
      */
-    public function show(Request $request): MembershipResource
+    public function show(Request $request): JsonResponse
     {
         $customer = $request->user();
 
@@ -28,12 +28,40 @@ class MembershipController extends Controller
                 'tier' => 'Silver',
                 'member_id' => $this->generateMemberId($customer),
                 'points' => 0,
-                'expires_at' => $this->defaultExpiry(),
+                'expires_on' => now()->addYear(),
                 'benefits' => [],
             ],
         );
 
-        return new MembershipResource($membership);
+        // Status set explicitly: Laravel answers 201 when the resource's model
+        // was created during the request, so a GET that happens to create the
+        // membership row would return "Created". Same trap as GET /credit.
+        return (new MembershipResource($membership))->response()->setStatusCode(200);
+    }
+
+    /**
+     * GET /me/points — the customer's own history.
+     *
+     * A balance with no history is a number you cannot check. The venue could
+     * already see this; the person whose points they are could not.
+     */
+    public function pointsHistory(Request $request): JsonResponse
+    {
+        $rows = \App\Models\PointTransaction::query()
+            ->where('customer_id', $request->user()->id)
+            ->orderByDesc('created_at')
+            ->limit(100)
+            ->get();
+
+        return response()->json([
+            'data' => $rows->map(fn ($t) => [
+                'id' => (string) $t->id,
+                'points' => (int) $t->points,
+                'source' => $t->source,
+                'label' => $t->label,
+                'createdAt' => $t->created_at?->toIso8601String(),
+            ])->values(),
+        ]);
     }
 
     /**
@@ -79,12 +107,4 @@ class MembershipController extends Controller
         return 'SM-'.str_pad((string) $seq, 7, '0', STR_PAD_LEFT);
     }
 
-    /** Default expiry one year out, as the pre-formatted Thai date the UI shows. */
-    private function defaultExpiry(): string
-    {
-        $months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
-        $d = now()->addYear();
-
-        return $d->day.' '.$months[$d->month - 1].' '.($d->year + 543);
-    }
 }

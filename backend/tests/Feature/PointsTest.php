@@ -391,7 +391,7 @@ class PointsTest extends TestCase
         $this->book($token, '2027-11-02');
         $membership = Membership::firstOrCreate(
             ['customer_id' => $this->customer()->id],
-            ['organization_id' => $this->org()->id, 'tier' => 'Silver', 'member_id' => 'SM-X', 'points' => 0, 'expires_at' => ''],
+            ['organization_id' => $this->org()->id, 'tier' => 'Silver', 'member_id' => 'SM-X', 'points' => 0, 'expires_on' => now()->addYear()],
         );
 
         $this->withToken($this->ownerToken())
@@ -406,6 +406,184 @@ class PointsTest extends TestCase
         $this->assertSame('adjustment', $rows[0]['source']);
         $this->assertSame('ชดเชยคอร์ทเสีย', $rows[0]['label']);
         $this->assertSame('Everyday Owner', $rows[0]['byName']);
+    }
+
+    // ---- expiry --------------------------------------------------------------
+
+    /** Off unless the venue asks: expiry removes value a customer earned. */
+    public function test_points_do_not_expire_unless_the_venue_turns_it_on(): void
+    {
+        $token = $this->token();
+        $booking = $this->book($token, '2027-12-10');
+        $this->payFromCredit($token, $booking['id']);
+
+        Membership::where('customer_id', $this->customer()->id)
+            ->update(['expires_on' => now()->subDay()]);
+
+        $this->artisan('points:expire')->assertSuccessful();
+
+        $this->assertSame(10, $this->points(), 'nobody asked for expiry');
+    }
+
+    /** Once on, points past their date go — and the ledger says why. */
+    public function test_due_points_expire_and_are_recorded(): void
+    {
+        OrganizationSetting::query()->updateOrCreate(
+            ['organization_id' => $this->org()->id],
+            ['points_enabled' => true, 'points_per_booking' => 10, 'points_expiry_enabled' => true, 'points_valid_months' => 12],
+        );
+
+        $token = $this->token();
+        $booking = $this->book($token, '2027-12-11');
+        $this->payFromCredit($token, $booking['id']);
+
+        Membership::where('customer_id', $this->customer()->id)->update(['expires_on' => now()->subDay()]);
+
+        $this->artisan('points:expire')->assertSuccessful();
+
+        $this->assertSame(0, $this->points());
+
+        $row = PointTransaction::where('customer_id', $this->customer()->id)
+            ->where('source', 'expiry')->first();
+
+        $this->assertNotNull($row);
+        $this->assertSame(-10, (int) $row->points);
+    }
+
+    /**
+     * Expiry must not demote. Those points WERE earned — a customer punished
+     * for the passage of time has been punished for waiting.
+     */
+    public function test_expiry_does_not_demote(): void
+    {
+        OrganizationSetting::query()->updateOrCreate(
+            ['organization_id' => $this->org()->id],
+            [
+                'points_enabled' => true, 'points_per_booking' => 10,
+                'points_expiry_enabled' => true,
+                'tier_thresholds' => ['Silver' => 0, 'Gold' => 20, 'Platinum' => 200],
+            ],
+        );
+
+        $token = $this->token();
+        for ($i = 0; $i < 2; $i++) {
+            $booking = $this->book($token, '2027-12-2'.$i, courtIndex: $i);
+            $this->payFromCredit($token, $booking['id']);
+        }
+        $this->assertSame('Gold', Membership::where('customer_id', $this->customer()->id)->value('tier'));
+
+        Membership::where('customer_id', $this->customer()->id)->update(['expires_on' => now()->subDay()]);
+        $this->artisan('points:expire')->assertSuccessful();
+
+        $membership = Membership::where('customer_id', $this->customer()->id)->firstOrFail();
+        $this->assertSame(0, (int) $membership->points);
+        $this->assertSame('Gold', $membership->tier, 'they earned it; time passing does not unearn it');
+    }
+
+    /** Expiring restarts the clock, or the next cycle has nothing to count to. */
+    public function test_expiry_sets_the_next_date(): void
+    {
+        OrganizationSetting::query()->updateOrCreate(
+            ['organization_id' => $this->org()->id],
+            ['points_enabled' => true, 'points_per_booking' => 10, 'points_expiry_enabled' => true, 'points_valid_months' => 6],
+        );
+
+        $token = $this->token();
+        $booking = $this->book($token, '2027-12-12');
+        $this->payFromCredit($token, $booking['id']);
+        Membership::where('customer_id', $this->customer()->id)->update(['expires_on' => now()->subDay()]);
+
+        $this->artisan('points:expire')->assertSuccessful();
+
+        $next = Membership::where('customer_id', $this->customer()->id)->value('expires_on');
+        $this->assertTrue(now()->addMonths(5)->lt($next), 'the clock restarted');
+    }
+
+    /** Warned before, not after — silent expiry reads as the venue taking something. */
+    public function test_customers_are_warned_before_their_points_expire(): void
+    {
+        OrganizationSetting::query()->updateOrCreate(
+            ['organization_id' => $this->org()->id],
+            ['points_enabled' => true, 'points_per_booking' => 10, 'points_expiry_enabled' => true, 'points_expiry_warn_days' => 14],
+        );
+
+        $token = $this->token();
+        $booking = $this->book($token, '2027-12-13');
+        $this->payFromCredit($token, $booking['id']);
+
+        Membership::where('customer_id', $this->customer()->id)->update(['expires_on' => now()->addDays(7)]);
+
+        $this->artisan('points:expire')->assertSuccessful();
+
+        $notice = \App\Models\Notification::where('customer_id', $this->customer()->id)
+            ->where('title', 'like', '%หมดอายุ%')->first();
+
+        $this->assertNotNull($notice, 'they should hear about it before it happens');
+        // Still there — a warning is not a taking.
+        $this->assertSame(10, $this->points());
+    }
+
+    // ---- being told ----------------------------------------------------------
+
+    /** Reaching a tier is the one points event worth interrupting someone for. */
+    public function test_the_customer_is_told_when_they_are_upgraded(): void
+    {
+        OrganizationSetting::query()->updateOrCreate(
+            ['organization_id' => $this->org()->id],
+            ['points_enabled' => true, 'points_per_booking' => 10, 'tier_thresholds' => ['Silver' => 0, 'Gold' => 20]],
+        );
+
+        $token = $this->token();
+        for ($i = 0; $i < 2; $i++) {
+            $booking = $this->book($token, '2027-12-3'.$i, courtIndex: $i);
+            $this->payFromCredit($token, $booking['id']);
+        }
+
+        $notice = \App\Models\Notification::where('customer_id', $this->customer()->id)
+            ->where('title', 'like', '%Gold%')->first();
+
+        $this->assertNotNull($notice);
+    }
+
+    /** Earning on every booking is not news, and must not become spam. */
+    public function test_earning_alone_does_not_notify(): void
+    {
+        $token = $this->token();
+        $booking = $this->book($token, '2027-12-14');
+        $this->payFromCredit($token, $booking['id']);
+
+        $this->assertSame(
+            0,
+            \App\Models\Notification::where('customer_id', $this->customer()->id)
+                ->where('title', 'like', '%คะแนน%')->count(),
+        );
+    }
+
+    /** The person whose points they are can see where they came from. */
+    public function test_a_customer_can_read_their_own_points_history(): void
+    {
+        $token = $this->token();
+        $booking = $this->book($token, '2027-12-15');
+        $this->payFromCredit($token, $booking['id']);
+
+        $this->app['auth']->forgetGuards();
+        $rows = $this->withToken($token)->getJson('/api/v1/me/points')->assertOk()->json('data');
+
+        $this->assertSame(10, (int) $rows[0]['points']);
+        $this->assertSame('booking', $rows[0]['source']);
+    }
+
+    /** The card shows a real date, formatted — not a string nothing can compare. */
+    public function test_the_expiry_is_a_real_date(): void
+    {
+        $token = $this->token();
+
+        $this->app['auth']->forgetGuards();
+        $body = $this->withToken($token)->getJson('/api/v1/membership')->assertOk()->json('data');
+
+        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}$/', $body['expiresOn']);
+        // And the display string is derived from it, not stored.
+        $this->assertMatchesRegularExpression('/\d{1,2} .+ 25\d{2}/', $body['expiresAt']);
     }
 
     /** A walk-in with no customer attached must not crash the award. */

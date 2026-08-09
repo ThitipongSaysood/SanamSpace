@@ -269,7 +269,7 @@ class SanamSpaceSeeder extends Seeder
             'tier' => 'Gold',
             'member_id' => 'ED-0001234',
             'points' => 820,
-            'expires_at' => '31 ธ.ค. 2567',
+            'expires_on' => '2024-12-31',
             'benefits' => [
                 'ส่วนลด 10% ทุกการจอง',
                 'สะสมแต้ม 1 บาท = 1 คะแนน',

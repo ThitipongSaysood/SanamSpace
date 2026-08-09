@@ -134,7 +134,7 @@ class OwnerMutationsApiTest extends TestCase
             'tier' => 'Silver',
             'member_id' => 'TSR-0002',
             'points' => 10,
-            'expires_at' => '31 ธ.ค. 2567',
+            'expires_on' => '2024-12-31',
         ]);
 
         $this->withToken($this->ownerToken())

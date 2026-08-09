@@ -120,6 +120,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/membership', [MembershipController::class, 'show']);
     // The price list for points — what makes a balance mean anything.
     Route::get('/rewards', [MembershipController::class, 'rewards']);
+    // The customer's own points history — the venue could already see it.
+    Route::get('/me/points', [MembershipController::class, 'pointsHistory']);
     // Credit: one balance, in baht. The venue used to call this a wallet and
     // also sell hour packages, which meant a customer had two balances in two
     // units and staff had to know which one a question was about.

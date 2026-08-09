@@ -71,6 +71,11 @@ class SettingController extends Controller
             'pointsPerBooking' => ['sometimes', 'integer', 'min:0', 'max:10000'],
             'tierThresholds' => ['sometimes', 'nullable', 'array'],
             'tierThresholds.*' => ['integer', 'min:0'],
+            // Off unless asked for: expiring points removes value a customer
+            // earned, so it is never a default.
+            'pointsExpiryEnabled' => ['sometimes', 'boolean'],
+            'pointsValidMonths' => ['sometimes', 'integer', 'min:1', 'max:120'],
+            'pointsExpiryWarnDays' => ['sometimes', 'integer', 'min:1', 'max:180'],
 
             // --- Payment (where this venue receives booking money) ---
             'promptpayId' => ['sometimes', 'nullable', 'string', 'max:50'],
@@ -120,6 +125,9 @@ class SettingController extends Controller
             'pointsEnabled' => 'points_enabled',
             'pointsPerBooking' => 'points_per_booking',
             'tierThresholds' => 'tier_thresholds',
+            'pointsExpiryEnabled' => 'points_expiry_enabled',
+            'pointsValidMonths' => 'points_valid_months',
+            'pointsExpiryWarnDays' => 'points_expiry_warn_days',
             'promptpayId' => 'promptpay_id',
             'promptpayName' => 'promptpay_name',
             'bankName' => 'bank_name',

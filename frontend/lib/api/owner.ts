@@ -30,6 +30,7 @@ import type {
   OwnerCreditMovement,
   OwnerPointMovement,
   OwnerReward,
+  OwnerRedemption,
   OwnerVenuePackage,
   OwnerProduct,
   OwnerRentalOut,
@@ -457,6 +458,8 @@ export const ownerApi = {
       method: "POST",
       body: { customerId },
     }),
+
+  getRedemptions: () => req<OwnerRedemption[]>("/owner/rewards/redemptions"),
 
   /** The points ledger: earned, clawed back, adjusted — and by whom. */
   getPointsHistory: (customerId: string) =>

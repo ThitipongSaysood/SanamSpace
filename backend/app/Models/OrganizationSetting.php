@@ -21,5 +21,8 @@ class OrganizationSetting extends Model
         'tier_thresholds' => 'array',
         'points_enabled' => 'boolean',
         'points_per_booking' => 'integer',
+        'points_expiry_enabled' => 'boolean',
+        'points_valid_months' => 'integer',
+        'points_expiry_warn_days' => 'integer',
     ];
 }

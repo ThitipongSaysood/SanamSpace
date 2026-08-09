@@ -106,7 +106,7 @@ class RewardTest extends TestCase
                 'member_id' => 'SM-REWARD',
                 'points' => $points,
                 'lifetime_points' => $points,
-                'expires_at' => '',
+                'expires_on' => now()->addYear(),
             ],
         );
     }

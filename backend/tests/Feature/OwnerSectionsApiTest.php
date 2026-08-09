@@ -216,7 +216,7 @@ class OwnerSectionsApiTest extends TestCase
             'tier' => 'Silver',
             'member_id' => 'TSR-0001',
             'points' => 10,
-            'expires_at' => '31 ธ.ค. 2567',
+            'expires_on' => '2024-12-31',
         ]);
         Wallet::create([
             'organization_id' => $tsr->id,

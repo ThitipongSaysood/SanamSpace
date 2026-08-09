@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Booking;
+use App\Models\Customer;
 use App\Models\Notification;
 use App\Models\Payment;
 use App\Models\Refund;
@@ -147,6 +148,48 @@ class NotificationService
     public function promo(string $organizationId, string $customerId, string $title, string $body, ?string $imageUrl = null): void
     {
         $this->create($organizationId, $customerId, $title, $body, 'promo', $imageUrl);
+    }
+
+    /**
+     * Reaching a tier — the only points event worth interrupting someone for.
+     *
+     * Earning 10 points on a booking is not news; being upgraded is, and it is
+     * the reason the tier exists.
+     */
+    public function tierUpgraded(Customer $customer, string $tier): void
+    {
+        $this->create(
+            $customer->organization_id,
+            $customer->id,
+            "ยินดีด้วย! คุณเป็นสมาชิกระดับ {$tier} แล้ว",
+            "ตั้งแต่นี้ไปคุณจะได้สิทธิพิเศษของระดับ {$tier} อัตโนมัติทุกครั้งที่จอง",
+            'promo',
+        );
+    }
+
+    /** Warned before, not after — expiry that arrives silently reads as a taking. */
+    public function pointsExpiringSoon(Customer $customer, int $points, \DateTimeInterface $on): void
+    {
+        $when = \App\Support\ThaiDate::short($on);
+
+        $this->create(
+            $customer->organization_id,
+            $customer->id,
+            'คะแนนของคุณกำลังจะหมดอายุ',
+            "คุณมี {$points} คะแนน ใช้ได้ถึง {$when} — แลกของรางวัลได้ที่เคาน์เตอร์",
+            'promo',
+        );
+    }
+
+    public function pointsExpired(Customer $customer, int $points): void
+    {
+        $this->create(
+            $customer->organization_id,
+            $customer->id,
+            'คะแนนหมดอายุแล้ว',
+            "{$points} คะแนนหมดอายุตามกำหนด · เริ่มสะสมรอบใหม่ได้ทุกครั้งที่จอง",
+            'promo',
+        );
     }
 
     private function create(string $organizationId, ?string $customerId, string $title, string $body, string $kind = 'booking', ?string $imageUrl = null): void

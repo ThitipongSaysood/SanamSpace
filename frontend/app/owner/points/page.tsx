@@ -48,6 +48,8 @@ export default function OwnerPointsPage() {
       />
 
       <Rewards />
+
+      <Redemptions />
     </div>
   );
 }
@@ -59,6 +61,9 @@ function EarningSettings({ settings, onSaved }: { settings: OwnerSettings; onSav
     pointsPerBooking: settings.pointsPerBooking ?? 10,
     tierThresholds: settings.tierThresholds ?? DEFAULT_TIERS,
     memberDiscounts: settings.memberDiscounts ?? {},
+    pointsExpiryEnabled: settings.pointsExpiryEnabled ?? false,
+    pointsValidMonths: settings.pointsValidMonths ?? 12,
+    pointsExpiryWarnDays: settings.pointsExpiryWarnDays ?? 14,
   });
 
   // Re-seed when the server copy lands, so an in-flight edit is not overwritten
@@ -69,6 +74,9 @@ function EarningSettings({ settings, onSaved }: { settings: OwnerSettings; onSav
       pointsPerBooking: settings.pointsPerBooking ?? 10,
       tierThresholds: settings.tierThresholds ?? DEFAULT_TIERS,
       memberDiscounts: settings.memberDiscounts ?? {},
+      pointsExpiryEnabled: settings.pointsExpiryEnabled ?? false,
+      pointsValidMonths: settings.pointsValidMonths ?? 12,
+      pointsExpiryWarnDays: settings.pointsExpiryWarnDays ?? 14,
     });
   }, [settings]);
 
@@ -175,6 +183,49 @@ function EarningSettings({ settings, onSaved }: { settings: OwnerSettings; onSav
             <p className="text-xs text-muted-foreground">
               ส่วนลดจะใช้อัตโนมัติตอนลูกค้าจอง · ถ้าลูกค้ามีคูปองด้วย ระบบเลือกอันที่ลดมากกว่าให้ (ไม่ซ้อนกัน)
             </p>
+          </div>
+          <div className="space-y-2 rounded-xl border border-black/10 p-3">
+            <label className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                checked={form.pointsExpiryEnabled}
+                onChange={(e) => setForm((f) => ({ ...f, pointsExpiryEnabled: e.target.checked }))}
+                className="mt-0.5 size-4 accent-[var(--brand-primary)]"
+              />
+              <span className="text-sm">
+                ให้คะแนนหมดอายุ
+                {/* Off by default and said plainly: this removes value the
+                    customer earned, so it must never be a quiet default. */}
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  คะแนนที่หมดอายุจะถูกล้างเป็น 0 · ระดับสมาชิกไม่ลดลง · ระบบแจ้งลูกค้าล่วงหน้าให้อัตโนมัติ
+                </span>
+              </span>
+            </label>
+
+            {form.pointsExpiryEnabled && (
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="valid-months">คะแนนใช้ได้กี่เดือน</Label>
+                  <Input
+                    id="valid-months"
+                    type="number"
+                    min={1}
+                    value={form.pointsValidMonths}
+                    onChange={(e) => setForm((f) => ({ ...f, pointsValidMonths: Number(e.target.value) }))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="warn-days">แจ้งเตือนล่วงหน้ากี่วัน</Label>
+                  <Input
+                    id="warn-days"
+                    type="number"
+                    min={1}
+                    value={form.pointsExpiryWarnDays}
+                    onChange={(e) => setForm((f) => ({ ...f, pointsExpiryWarnDays: Number(e.target.value) }))}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}
@@ -457,5 +508,64 @@ function RewardEditor({
         )}
       </div>
     </Modal>
+  );
+}
+
+/**
+ * What has been handed over.
+ *
+ * The endpoint existed with no screen reading it — the same shape of gap as the
+ * POS sales history: a venue could give rewards away and never see a list of
+ * them. Points are value, and value leaving needs a page.
+ */
+function Redemptions() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["owner", "rewards", "redemptions"],
+    queryFn: ownerApi.getRedemptions,
+  });
+
+  const rows = data ?? [];
+
+  return (
+    <section className="space-y-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+      <div>
+        <h2 className="text-sm font-semibold">ประวัติการแลก</h2>
+        <p className="text-xs text-muted-foreground">ใครแลกอะไรไป ใช้กี่คะแนน และพนักงานคนไหนเป็นคนกด</p>
+      </div>
+
+      {isLoading && <Loading rows={2} />}
+      {!isLoading && rows.length === 0 && <EmptyState message="ยังไม่มีการแลกของรางวัล" />}
+
+      {rows.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="stack-table w-full md:min-w-[620px] text-sm">
+            <thead className="bg-app text-left text-xs font-medium text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2">เมื่อไหร่</th>
+                <th className="px-3 py-2">ลูกค้า</th>
+                <th className="px-3 py-2">ของรางวัล</th>
+                <th className="px-3 py-2 text-right">คะแนน</th>
+                <th className="px-3 py-2">พนักงาน</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-black/5">
+              {rows.map((r) => (
+                <tr key={r.id} className="hover:bg-app/60">
+                  <td data-label="เมื่อไหร่" className="px-3 py-2 text-muted-foreground">
+                    {new Date(r.createdAt).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}
+                  </td>
+                  <td data-label="ลูกค้า" className="px-3 py-2 font-medium">{r.customerName ?? "—"}</td>
+                  <td data-label="ของรางวัล" className="px-3 py-2">{r.name}</td>
+                  <td data-label="คะแนน" className="px-3 py-2 text-right font-semibold text-brand tabular-nums">
+                    −{fmt.format(r.pointsSpent)}
+                  </td>
+                  <td data-label="พนักงาน" className="px-3 py-2 text-muted-foreground">{r.byName ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }

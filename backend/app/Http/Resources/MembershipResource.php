@@ -22,7 +22,11 @@ class MembershipResource extends JsonResource
             'lifetimePoints' => (int) ($this->lifetime_points ?? 0),
             'nextTier' => app(\App\Services\PointsService::class)->progress($this->resource)['nextTier'],
             'pointsToNextTier' => app(\App\Services\PointsService::class)->progress($this->resource)['pointsToNextTier'],
-            'expiresAt' => $this->expires_at,
+            // Formatted here, stored as a date. The column used to BE the Thai
+            // string, which meant nothing could compare or query it — and the
+            // seeded rows sat two years expired without anything noticing.
+            'expiresAt' => $this->expires_on ? \App\Support\ThaiDate::short($this->expires_on) : null,
+            'expiresOn' => $this->expires_on?->toDateString(),
             'benefits' => $this->benefits ?? [],
         ];
     }

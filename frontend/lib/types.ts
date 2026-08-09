@@ -167,6 +167,25 @@ export type OwnerCustomerCredit = {
   packages: { id: string; name: string; totalHours: number; remainingHours: number; expiresAt: string | null }[];
 };
 
+/** One reward handed over at the counter. */
+export type OwnerRedemption = {
+  id: string;
+  name: string;
+  pointsSpent: number;
+  customerName: string | null;
+  byName: string | null;
+  createdAt: string;
+};
+
+/** A customer's own points movement. */
+export type PointMovement = {
+  id: string;
+  points: number;
+  source: string;
+  label: string | null;
+  createdAt: string;
+};
+
 /** Something points can be spent on. */
 export type OwnerReward = {
   id: string;
@@ -399,7 +418,9 @@ export type Membership = {
   lifetimePoints?: number;
   nextTier?: string | null;
   pointsToNextTier?: number | null;
-  expiresAt: string;
+  /** Formatted for display; `expiresOn` is the real date behind it. */
+  expiresAt: string | null;
+  expiresOn?: string | null;
   benefits: string[];
 };
 
@@ -543,6 +564,10 @@ export type OwnerSettings = {
    */
   pointsEnabled?: boolean;
   pointsPerBooking?: number;
+  /** Off by default: expiring points removes value a customer earned. */
+  pointsExpiryEnabled?: boolean;
+  pointsValidMonths?: number;
+  pointsExpiryWarnDays?: number;
   tierThresholds?: Record<string, number> | null;
   /** Percent off the court, per tier. Keyed by the SAME names as the ladder. */
   memberDiscounts?: Record<string, number> | null;

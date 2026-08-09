@@ -22,7 +22,9 @@ class OwnerMembershipResource extends JsonResource
             'tier' => $this->tier,
             'memberId' => $this->member_id,
             'points' => (int) $this->points,
-            'expiresAt' => $this->expires_at,
+            'expiresAt' => $this->expires_on ? \App\Support\ThaiDate::short($this->expires_on) : null,
+            'expiresOn' => $this->expires_on?->toDateString(),
+            'lifetimePoints' => (int) ($this->lifetime_points ?? 0),
         ];
     }
 }

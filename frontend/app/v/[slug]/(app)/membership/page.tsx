@@ -90,6 +90,8 @@ export default function MembershipPage() {
               they buy. */}
           <Rewards />
 
+          <PointsHistory />
+
           <p className="rounded-2xl bg-white p-4 text-sm text-muted-foreground shadow-sm ring-1 ring-black/5">
             สะสมคะแนนอัตโนมัติทุกครั้งที่จองและชำระเงินเรียบร้อย · ยกเลิกการจองคะแนนจะถูกหักคืน
           </p>
@@ -135,6 +137,55 @@ function Rewards() {
               }`}
             >
               {r.pointsCost.toLocaleString()} คะแนน
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+const SOURCE_LABEL: Record<string, string> = {
+  booking: "จองสำเร็จ",
+  cancellation: "ยกเลิกการจอง",
+  adjustment: "ปรับโดยสนาม",
+  redemption: "แลกของรางวัล",
+  expiry: "หมดอายุ",
+};
+
+/**
+ * Where the points came from, and where they went.
+ *
+ * The venue could already see this; the person whose points they are could not
+ * — so a balance that changed had no explanation available to the one person
+ * most likely to ask.
+ */
+function PointsHistory() {
+  const { data } = useQuery({ queryKey: ["points-history"], queryFn: api.getPointsHistory });
+  const rows = data ?? [];
+
+  if (rows.length === 0) return null;
+
+  return (
+    <section className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
+      <header className="border-b border-black/5 px-4 py-3">
+        <h2 className="font-semibold">ประวัติคะแนน</h2>
+      </header>
+
+      <ul className="divide-y divide-black/5">
+        {rows.slice(0, 20).map((t) => (
+          <li key={t.id} className="flex items-center justify-between gap-3 px-4 py-3">
+            <div className="min-w-0">
+              <div className="truncate text-sm">{t.label ?? SOURCE_LABEL[t.source] ?? t.source}</div>
+              <div className="text-xs text-muted-foreground">
+                {new Date(t.createdAt).toLocaleDateString("th-TH", { dateStyle: "medium" })}
+                {` · ${SOURCE_LABEL[t.source] ?? t.source}`}
+              </div>
+            </div>
+            <span
+              className={`shrink-0 font-semibold tabular-nums ${t.points < 0 ? "text-brand-danger" : "text-emerald-700"}`}
+            >
+              {t.points < 0 ? "−" : "+"}{Math.abs(t.points).toLocaleString()}
             </span>
           </li>
         ))}

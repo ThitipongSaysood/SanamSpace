@@ -133,6 +133,114 @@ class PointsService
     }
 
     /**
+     * Expire the points of memberships whose date has passed.
+     *
+     * Off unless the venue turns it on: expiring points removes value a
+     * customer earned, and doing that on a default nobody chose is worse than
+     * never doing it. The ledger keeps the row, so "where did 500 points go"
+     * still has an answer after they are gone.
+     *
+     * The tier is NOT reset — those points were genuinely earned, and a
+     * customer demoted for the passage of time has been punished for waiting.
+     *
+     * @return int how many memberships were expired
+     */
+    public function expireDue(string $orgId, ?\DateTimeInterface $asOf = null): int
+    {
+        $settings = $this->settings($orgId);
+
+        if (! $settings?->points_expiry_enabled) {
+            return 0;
+        }
+
+        $asOf ??= now();
+        $expired = 0;
+
+        $due = Membership::query()
+            ->forOrganization($orgId)
+            ->where('points', '>', 0)
+            ->whereNotNull('expires_on')
+            ->whereDate('expires_on', '<', $asOf)
+            ->with('customer')
+            ->get();
+
+        foreach ($due as $membership) {
+            if (! $membership->customer) {
+                continue;
+            }
+
+            $points = (int) $membership->points;
+
+            DB::transaction(function () use ($membership, $points, $settings) {
+                PointTransaction::create([
+                    'organization_id' => $membership->organization_id,
+                    'customer_id' => $membership->customer_id,
+                    'points' => -$points,
+                    'source' => 'expiry',
+                    'label' => 'คะแนนหมดอายุ',
+                ]);
+
+                // Balance to zero, ladder untouched, and the clock restarted so
+                // the next cycle has a date to count towards.
+                $membership->update([
+                    'points' => 0,
+                    'expires_on' => now()->addMonths(max(1, (int) $settings->points_valid_months)),
+                ]);
+            });
+
+            app(NotificationService::class)->pointsExpired($membership->customer, $points);
+            $expired++;
+        }
+
+        return $expired;
+    }
+
+    /**
+     * Tell customers their points are about to go, before they go.
+     *
+     * Expiry that arrives without warning reads as the venue taking something.
+     *
+     * @return int how many were warned
+     */
+    public function warnExpiring(string $orgId, ?\DateTimeInterface $asOf = null): int
+    {
+        $settings = $this->settings($orgId);
+
+        if (! $settings?->points_expiry_enabled) {
+            return 0;
+        }
+
+        $asOf ??= now();
+        $warnFrom = (clone $asOf);
+        $deadline = now()->parse($warnFrom)->addDays(max(1, (int) $settings->points_expiry_warn_days));
+
+        $soon = Membership::query()
+            ->forOrganization($orgId)
+            ->where('points', '>', 0)
+            ->whereNotNull('expires_on')
+            ->whereDate('expires_on', '>=', $asOf)
+            ->whereDate('expires_on', '<=', $deadline)
+            ->with('customer')
+            ->get();
+
+        $warned = 0;
+        foreach ($soon as $membership) {
+            if (! $membership->customer) {
+                continue;
+            }
+
+            app(NotificationService::class)->pointsExpiringSoon(
+                $membership->customer,
+                (int) $membership->points,
+                $membership->expires_on,
+            );
+            $warned++;
+        }
+
+        return $warned;
+    }
+
+    /**
      * A staff adjustment, with the person who made it.
      *
      * The old endpoint took a `note` and threw it away — its own comment said
@@ -303,13 +411,33 @@ class PointsService
             LifetimeEffect::Spent => (int) $membership->lifetime_points,
         };
 
+        $before = $membership->tier;
+        $after = $this->tierFor($customer->organization_id, $lifetime);
+
         $membership->update([
             'points' => $points,
             'lifetime_points' => $lifetime,
-            'tier' => $this->tierFor($customer->organization_id, $lifetime),
+            'tier' => $after,
         ]);
 
+        // Reaching a tier is the only thing here worth interrupting someone
+        // for. Earning 10 points on every booking is not news; being upgraded
+        // is, and it is the reason a tier exists at all.
+        if ($after !== $before && $this->rankOf($customer->organization_id, $after) > $this->rankOf($customer->organization_id, $before)) {
+            app(NotificationService::class)->tierUpgraded($customer, $after);
+        }
+
         return $membership->fresh();
+    }
+
+    /** Where a tier sits on the ladder, so an upgrade can be told from a demotion. */
+    private function rankOf(string $orgId, ?string $tier): int
+    {
+        if (! $tier) {
+            return -1;
+        }
+
+        return array_search($tier, array_keys($this->tiers($orgId)), true) ?: 0;
     }
 
     /**
@@ -380,7 +508,7 @@ class PointsService
                 ),
                 'points' => 0,
                 'lifetime_points' => 0,
-                'expires_at' => '',
+                'expires_on' => now()->addYear(),
                 'benefits' => [],
             ],
         );

@@ -184,7 +184,7 @@ class CustomerTimelineTest extends TestCase
             'tier' => 'silver',
             'member_id' => 'MB-TL-001',
             'points' => 0,
-            'expires_at' => now()->addYear(),
+            'expires_on' => now()->addYear(),
         ]);
 
         $membership->update(['points' => 120]);

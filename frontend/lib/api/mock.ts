@@ -3,6 +3,7 @@ import type {
   MarketingConsent, OrgPublic, RentalItem, PackagePurchaseInstructions, Promotion, Refund, ReviewSummary, Slot, User, Venue, VenuePackage, Wallet, WalletTopupInstructions,
   CouponPreview,
   CustomerReward,
+  PointMovement,
 } from "@/lib/types";
 import {
   courts as courtsFx, venues as venuesFx,
@@ -186,6 +187,7 @@ export const mockApi = {
   async getPackages(): Promise<VenuePackage[]> { await delay(); return packagesFx; },
   async getMembership(): Promise<Membership> { await delay(); return membershipFx; },
   async getRewards(): Promise<CustomerReward[]> { await delay(); return []; },
+  async getPointsHistory(): Promise<PointMovement[]> { await delay(); return []; },
   async getCredit(): Promise<Wallet> { await delay(); return walletFx; },
   async getPromotions(): Promise<Promotion[]> { await delay(); return promotionsFx; },
   // Mock mode has no catalogue — an empty list, never invented equipment.
