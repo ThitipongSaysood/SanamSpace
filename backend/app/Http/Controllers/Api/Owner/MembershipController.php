@@ -28,10 +28,12 @@ class MembershipController extends Controller
     }
 
     /**
-     * POST /owner/memberships/{id}/points — adjust a membership's points by
-     * `delta` (can be negative). Result is floored at 0. Org-scoped (404 cross-org).
-     * The optional `note` is accepted for audit intent but not persisted (no
-     * points-ledger table yet).
+     * POST /owner/memberships/{id}/points — adjust by `delta`, with a reason.
+     *
+     * The `note` used to be accepted and thrown away — this method's own comment
+     * said so. It is a ledger row now, with the staff member who made it, for
+     * the same reason credit adjustments are: points are value staff can create
+     * by hand.
      */
     public function adjustPoints(Request $request, string $id): OwnerMembershipResource
     {
@@ -47,9 +49,12 @@ class MembershipController extends Controller
             ->where('id', $id)
             ->firstOrFail();
 
-        $membership->update([
-            'points' => max(0, (int) $membership->points + $validated['delta']),
-        ]);
+        app(\App\Services\PointsService::class)->adjust(
+            $membership->customer,
+            (int) $validated['delta'],
+            $validated['note'] ?? null,
+            $request->user()?->id,
+        );
 
         return new OwnerMembershipResource($membership->fresh()->load('customer'));
     }

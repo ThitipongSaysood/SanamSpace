@@ -318,8 +318,69 @@ function CreditEditor({ customer, onClose }: { customer: OwnerCustomerCredit; on
         {error && <p className="text-sm text-brand-danger">{error.message}</p>}
 
         <CreditHistory customerId={customer.id} />
+
+        <PointsHistory customerId={customer.id} />
       </div>
     </Modal>
+  );
+}
+
+const POINT_SOURCE_LABEL: Record<string, string> = {
+  booking: "จองสำเร็จ",
+  cancellation: "ยกเลิกการจอง",
+  adjustment: "ปรับโดยพนักงาน",
+  redemption: "แลกของรางวัล",
+  expiry: "หมดอายุ",
+};
+
+/**
+ * The points ledger.
+ *
+ * Same reason the credit one exists: a balance cannot say where 500 points came
+ * from. The `note` on a points adjustment used to be accepted and discarded —
+ * the controller's own comment admitted it.
+ */
+function PointsHistory({ customerId }: { customerId: string }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["owner", "customer-credit", customerId, "points"],
+    queryFn: () => ownerApi.getPointsHistory(customerId),
+  });
+
+  const rows = data ?? [];
+
+  return (
+    <section className="space-y-2 rounded-xl border border-black/10 p-3">
+      <h3 className="text-sm font-semibold">ประวัติคะแนน</h3>
+
+      {isLoading && <p className="text-xs text-muted-foreground">กำลังโหลด…</p>}
+      {!isLoading && rows.length === 0 && (
+        <p className="text-xs text-muted-foreground">ยังไม่มีคะแนน</p>
+      )}
+
+      {rows.length > 0 && (
+        <ul className="max-h-56 divide-y divide-black/5 overflow-y-auto">
+          {rows.map((t) => (
+            <li key={t.id} className="flex items-start justify-between gap-3 py-2 text-sm">
+              <div className="min-w-0">
+                <div className="truncate">{t.label ?? POINT_SOURCE_LABEL[t.source] ?? t.source}</div>
+                <div className="text-xs text-muted-foreground">
+                  {new Date(t.createdAt).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}
+                  {` · ${POINT_SOURCE_LABEL[t.source] ?? t.source}`}
+                  {/* No name = the system awarded it from a booking, which is
+                      not an action anyone has to answer for. */}
+                  {t.byName ? ` · โดย ${t.byName}` : ""}
+                </div>
+              </div>
+              <span
+                className={`shrink-0 font-semibold tabular-nums ${t.points < 0 ? "text-brand-danger" : "text-emerald-700"}`}
+              >
+                {t.points < 0 ? "−" : "+"}{fmt.format(Math.abs(t.points))}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

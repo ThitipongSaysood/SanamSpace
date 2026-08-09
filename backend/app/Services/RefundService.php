@@ -58,8 +58,11 @@ class RefundService
                 'processed_at' => now(),
             ]);
 
-            // A refunded booking is no longer active.
-            $refund->booking?->update(['status' => 'cancelled']);
+            // A refunded booking is no longer active, and its points go with it.
+            if ($refund->booking) {
+                $refund->booking->update(['status' => 'cancelled']);
+                app(\App\Services\PointsService::class)->revokeForBooking($refund->booking);
+            }
 
             $this->notifications->refundApproved($refund);
 

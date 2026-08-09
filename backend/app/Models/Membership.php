@@ -18,6 +18,8 @@ class Membership extends Model
     {
         return [
             'points' => 'integer',
+            'lifetime_points' => 'integer',
+            'expires_on' => 'date',
             'benefits' => 'array',
         ];
     }

@@ -78,6 +78,16 @@ class DepositService
      */
     public function applyPayment(Booking $booking, float $amount): void
     {
+        $this->creditPayment($booking, $amount);
+
+        // Points hang off here rather than off each caller: slip approval, the
+        // counter settle, a credit payment and a package redemption all end up
+        // in this method, and one of them would eventually forget.
+        app(PointsService::class)->awardForBooking($booking->fresh());
+    }
+
+    private function creditPayment(Booking $booking, float $amount): void
+    {
         $paid = round((float) $booking->paid_amount + $amount, 2);
 
         $updates = ['paid_amount' => $paid];

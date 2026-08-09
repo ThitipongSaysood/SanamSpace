@@ -33,9 +33,40 @@ export default function MembershipPage() {
               <div className="mt-0.5 text-xs text-muted-foreground">
                 ใช้ได้ถึง {membership.expiresAt}
               </div>
+
+              {/* A tier badge with no way to understand it is decoration. This
+                  is the sentence that makes the number mean something. */}
+              {membership.nextTier && membership.pointsToNextTier != null && (
+                <div className="mt-3 border-t border-black/5 pt-2.5">
+                  <div className="flex items-baseline justify-between text-xs">
+                    <span className="text-muted-foreground">
+                      อีก <strong className="text-foreground">{membership.pointsToNextTier}</strong> คะแนน
+                      ถึงระดับ {membership.nextTier}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-black/10">
+                    <div
+                      className="h-full rounded-full bg-brand transition-all"
+                      style={{
+                        width: `${Math.min(
+                          100,
+                          Math.round(
+                            ((membership.lifetimePoints ?? 0) /
+                              ((membership.lifetimePoints ?? 0) + membership.pointsToNextTier)) * 100,
+                          ),
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
+          {/* Only when the venue actually filled some in — the list used to
+              render an empty box for everyone, because `benefits` is `[]` by
+              default and nothing ever writes it. */}
+          {membership.benefits.length > 0 && (
           <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
             {membership.benefits.map((b, i) => (
               <div
@@ -49,13 +80,14 @@ export default function MembershipPage() {
               </div>
             ))}
           </div>
+          )}
 
-          <button
-            type="button"
-            className="w-full rounded-full border border-brand bg-white py-2.5 text-sm font-semibold text-brand transition active:scale-[0.99]"
-          >
-            ดูสิทธิพิเศษทั้งหมด
-          </button>
+          {/* The "ดูสิทธิพิเศษทั้งหมด" button that used to sit here had no
+              onClick at all — it did nothing when tapped. Replaced with the one
+              thing a customer actually wants to know: how points are earned. */}
+          <p className="rounded-2xl bg-white p-4 text-sm text-muted-foreground shadow-sm ring-1 ring-black/5">
+            สะสมคะแนนอัตโนมัติทุกครั้งที่จองและชำระเงินเรียบร้อย · ยกเลิกการจองคะแนนจะถูกหักคืน
+          </p>
         </div>
       )}
     </main>

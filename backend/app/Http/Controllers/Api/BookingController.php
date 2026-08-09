@@ -228,6 +228,10 @@ class BookingController extends Controller
         // review queue, where approving it would revive the booking.
         $booking->closeOutstandingPayments();
 
+        // Points go back with the money. Without this the farm is: pay, collect
+        // the points, cancel, take the money back as credit, keep the points.
+        app(\App\Services\PointsService::class)->revokeForBooking($booking);
+
         if ($refundable > 0) {
             $credit->add(
                 $request->user(),

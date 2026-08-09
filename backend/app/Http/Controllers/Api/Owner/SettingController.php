@@ -65,6 +65,12 @@ class SettingController extends Controller
             // { "Gold": 10, "Platinum": 15 } — a standing rate per tier.
             'memberDiscounts' => ['sometimes', 'nullable', 'array'],
             'memberDiscounts.*' => ['numeric', 'min:0', 'max:100'],
+            // Points: a flat number per booking, and the ladder tiers are
+            // judged on. Tier names must match `memberDiscounts`.
+            'pointsEnabled' => ['sometimes', 'boolean'],
+            'pointsPerBooking' => ['sometimes', 'integer', 'min:0', 'max:10000'],
+            'tierThresholds' => ['sometimes', 'nullable', 'array'],
+            'tierThresholds.*' => ['integer', 'min:0'],
 
             // --- Payment (where this venue receives booking money) ---
             'promptpayId' => ['sometimes', 'nullable', 'string', 'max:50'],
@@ -111,6 +117,9 @@ class SettingController extends Controller
             'depositType' => 'deposit_type',
             'depositValue' => 'deposit_value',
             'memberDiscounts' => 'member_discounts',
+            'pointsEnabled' => 'points_enabled',
+            'pointsPerBooking' => 'points_per_booking',
+            'tierThresholds' => 'tier_thresholds',
             'promptpayId' => 'promptpay_id',
             'promptpayName' => 'promptpay_name',
             'bankName' => 'bank_name',

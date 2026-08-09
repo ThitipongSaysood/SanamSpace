@@ -167,6 +167,16 @@ export type OwnerCustomerCredit = {
   packages: { id: string; name: string; totalHours: number; remainingHours: number; expiresAt: string | null }[];
 };
 
+/** One movement of a customer's points. No name = the system awarded it. */
+export type OwnerPointMovement = {
+  id: string;
+  points: number;
+  source: string;
+  label: string | null;
+  byName: string | null;
+  createdAt: string;
+};
+
 /**
  * An hour package the venue sells to its customers.
  *
@@ -354,9 +364,17 @@ export type PackagePurchaseInstructions = {
 };
 
 export type Membership = {
-  tier: "Silver" | "Gold" | "Platinum";
+  /** Free text: the ladder is the venue's own, so the tiers are its names. */
+  tier: string;
   memberId: string;
   points: number;
+  /**
+   * What the TIER is judged on. Separate from `points`, because spending must
+   * not demote someone who already reached Gold.
+   */
+  lifetimePoints?: number;
+  nextTier?: string | null;
+  pointsToNextTier?: number | null;
   expiresAt: string;
   benefits: string[];
 };
@@ -494,6 +512,14 @@ export type OwnerSettings = {
   orgName: string;
   /** Whether staff scan customers in at the counter. */
   checkinEnabled?: boolean;
+  /**
+   * Points. A flat number per booking (the venue chose that over per-baht), and
+   * the ladder tiers are judged on — tier names must match `memberDiscounts`,
+   * or a tier customers can reach earns them no discount.
+   */
+  pointsEnabled?: boolean;
+  pointsPerBooking?: number;
+  tierThresholds?: Record<string, number> | null;
   /** Deposits: hold the slot for part of the money, take the rest at the desk. */
   depositEnabled?: boolean;
   depositType?: "percent" | "fixed";

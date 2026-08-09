@@ -114,6 +114,36 @@ class CustomerCreditController extends Controller
     }
 
     /**
+     * GET /owner/customer-credit/{customerId}/points — the points ledger.
+     *
+     * Same reason the credit history exists: a balance cannot answer "where did
+     * 500 points come from". A row with no name is one the system caused —
+     * earning from a booking is not an action anyone answers for.
+     */
+    public function pointsHistory(Request $request, string $customerId): JsonResponse
+    {
+        $customer = $this->find($request, $customerId);
+
+        $rows = \App\Models\PointTransaction::query()
+            ->where('customer_id', $customer->id)
+            ->with('actor')
+            ->orderByDesc('created_at')
+            ->limit(200)
+            ->get();
+
+        return response()->json([
+            'data' => $rows->map(fn ($t) => [
+                'id' => (string) $t->id,
+                'points' => (int) $t->points,
+                'source' => $t->source,
+                'label' => $t->label,
+                'byName' => $t->actor?->display_name ?? $t->actor?->name,
+                'createdAt' => $t->created_at?->toIso8601String(),
+            ])->values(),
+        ]);
+    }
+
+    /**
      * POST /owner/customer-credit/{customerId}/hours — grant court-time credit.
      *
      * A grant is its own package rather than an edit to an existing one, so the

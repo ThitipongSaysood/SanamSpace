@@ -100,14 +100,24 @@ class OwnerMutationsApiTest extends TestCase
         $this->assertSame($original + 50, (int) $membership->fresh()->points);
     }
 
-    public function test_membership_points_floored_at_zero(): void
+    /**
+     * Deducting more than a customer has is refused, not silently floored.
+     *
+     * It used to clamp to 0 and answer 200, so "take 100,000 from someone with
+     * 820" looked like it worked — the staff member had no way to know they had
+     * mistyped, and the customer's balance was wrong by 820.
+     */
+    public function test_deducting_more_points_than_the_customer_has_is_refused(): void
     {
         $membership = Membership::firstOrFail();
+        $before = (int) $membership->points;
 
         $this->withToken($this->ownerToken())
             ->postJson("/api/v1/owner/memberships/{$membership->id}/points", ['delta' => -100000])
-            ->assertOk()
-            ->assertJsonPath('data.points', 0);
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('delta');
+
+        $this->assertSame($before, (int) $membership->fresh()->points);
     }
 
     public function test_membership_points_adjust_cross_org_is_404(): void

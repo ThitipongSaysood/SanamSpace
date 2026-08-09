@@ -28,6 +28,7 @@ import type {
   OwnerCustomerDetail,
   OwnerCustomerCredit,
   OwnerCreditMovement,
+  OwnerPointMovement,
   OwnerVenuePackage,
   OwnerProduct,
   OwnerRentalOut,
@@ -442,6 +443,10 @@ export const ownerApi = {
       method: "POST",
       body: { amount, label },
     }),
+
+  /** The points ledger: earned, clawed back, adjusted — and by whom. */
+  getPointsHistory: (customerId: string) =>
+    req<OwnerPointMovement[]>(`/owner/customer-credit/${customerId}/points`),
 
   /** Every movement with the staff member behind it — the audit trail. */
   getCreditHistory: (customerId: string) =>

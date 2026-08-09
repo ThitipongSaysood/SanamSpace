@@ -253,6 +253,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // wallet.manage, not customer.view — giving away money is not a read.
         Route::get('/customer-credit', [OwnerCustomerCreditController::class, 'index'])->middleware('permission:customer.view');
         Route::get('/customer-credit/{customerId}/history', [OwnerCustomerCreditController::class, 'history'])->middleware('permission:customer.view');
+        Route::get('/customer-credit/{customerId}/points', [OwnerCustomerCreditController::class, 'pointsHistory'])->middleware('permission:customer.view');
         Route::post('/customer-credit/{customerId}/hours', [OwnerCustomerCreditController::class, 'grantHours'])->middleware('permission:wallet.manage');
         Route::post('/customer-credit/{customerId}/hours/deduct', [OwnerCustomerCreditController::class, 'deductHours'])->middleware('permission:wallet.manage');
         Route::post('/customer-credit/{customerId}/adjust', [OwnerCustomerCreditController::class, 'adjustCredit'])->middleware('permission:wallet.manage');

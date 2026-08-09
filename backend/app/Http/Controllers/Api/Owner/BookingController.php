@@ -263,6 +263,7 @@ class BookingController extends Controller
         $booking = $this->findScoped($request, $id);
         $booking->update(['status' => 'cancelled']);
         $booking->closeOutstandingPayments();
+        app(\App\Services\PointsService::class)->revokeForBooking($booking);
 
         $notifications->bookingCancelled($booking);
 

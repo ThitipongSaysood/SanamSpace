@@ -18,5 +18,8 @@ class OrganizationSetting extends Model
         'line_messaging_token' => 'encrypted',
         // { "Gold": 10 } — a standing discount rate per membership tier.
         'member_discounts' => 'array',
+        'tier_thresholds' => 'array',
+        'points_enabled' => 'boolean',
+        'points_per_booking' => 'integer',
     ];
 }

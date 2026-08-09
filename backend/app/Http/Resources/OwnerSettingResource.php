@@ -50,6 +50,9 @@ class OwnerSettingResource extends JsonResource
             'depositType' => $this->deposit_type ?? 'percent',
             'depositValue' => (float) ($this->deposit_value ?? 0),
             'memberDiscounts' => $this->member_discounts ?? null,
+            'pointsEnabled' => (bool) ($this->points_enabled ?? false),
+            'pointsPerBooking' => (int) ($this->points_per_booking ?? 10),
+            'tierThresholds' => $this->tier_thresholds ?? \App\Services\PointsService::DEFAULT_TIERS,
             // Payment (where this venue receives booking money)
             'promptpayId' => $this->promptpay_id,
             'promptpayName' => $this->promptpay_name,
