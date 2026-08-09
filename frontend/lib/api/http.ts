@@ -2,6 +2,7 @@ import type {
   AppNotification, Booking, MarketingConsent, RentalItem, Court, CourtSchedule, CustomerPackage, LineConfig, Membership, Payment, PaymentInstructions,
   OrgPublic, PackagePurchaseInstructions, Promotion, Refund, ReviewSummary, User, Venue, VenuePackage, Wallet, WalletTopupInstructions,
   CouponPreview,
+  CustomerReward,
 } from "@/lib/types";
 import { clearToken, getToken, setToken } from "./token";
 import { getActiveVenueSlug } from "@/lib/tenant/active-venue";
@@ -154,6 +155,8 @@ export const httpApi: Api = {
     }),
   getPackages: () => req<VenuePackage[]>("/packages"),
   getMembership: () => req<Membership>("/membership"),
+  /** What points buy here. A balance means nothing without this. */
+  getRewards: () => req<CustomerReward[]>("/rewards"),
   getCredit: () => req<Wallet>("/credit"),
   getPromotions: () => req<Promotion[]>("/promotions"),
   /** What can be rented for this exact slot — availability needs a window. */

@@ -52,6 +52,7 @@ use App\Http\Controllers\Api\Owner\ProductController as OwnerProductController;
 use App\Http\Controllers\Api\Owner\PromotionController as OwnerPromotionController;
 use App\Http\Controllers\Api\Owner\RentalItemController as OwnerRentalItemController;
 use App\Http\Controllers\Api\Owner\RentalReturnController as OwnerRentalReturnController;
+use App\Http\Controllers\Api\Owner\RewardController as OwnerRewardController;
 use App\Http\Controllers\Api\Owner\SaleController as OwnerSaleController;
 use App\Http\Controllers\Api\Owner\WelcomeBannerController as OwnerWelcomeBannerController;
 use App\Http\Controllers\Api\Owner\SettingController as OwnerSettingController;
@@ -117,6 +118,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // --- Customer account (scoped to the authenticated Customer) ---
     Route::get('/membership', [MembershipController::class, 'show']);
+    // The price list for points — what makes a balance mean anything.
+    Route::get('/rewards', [MembershipController::class, 'rewards']);
     // Credit: one balance, in baht. The venue used to call this a wallet and
     // also sell hour packages, which meant a customer had two balances in two
     // units and staff had to know which one a question was about.
@@ -269,6 +272,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/packages', [OwnerVenuePackageController::class, 'store'])->middleware('permission:promotion.manage');
         Route::put('/packages/{id}', [OwnerVenuePackageController::class, 'update'])->middleware('permission:promotion.manage');
         Route::delete('/packages/{id}', [OwnerVenuePackageController::class, 'destroy'])->middleware('permission:promotion.manage');
+        // What points are worth, and handing it over at the counter.
+        Route::get('/rewards', [OwnerRewardController::class, 'index'])->middleware('permission:crm.view');
+        Route::get('/rewards/redemptions', [OwnerRewardController::class, 'redemptions'])->middleware('permission:crm.view');
+        Route::post('/rewards', [OwnerRewardController::class, 'store'])->middleware('permission:promotion.manage');
+        Route::put('/rewards/{id}', [OwnerRewardController::class, 'update'])->middleware('permission:promotion.manage');
+        Route::delete('/rewards/{id}', [OwnerRewardController::class, 'destroy'])->middleware('permission:promotion.manage');
+        // Handing a reward over spends a customer's points, so it rides with the
+        // other things that move value, not with "view the CRM".
+        Route::post('/rewards/{id}/redeem', [OwnerRewardController::class, 'redeem'])->middleware('permission:crm.manage');
         Route::get('/coupons', [OwnerCouponController::class, 'index'])->middleware('permission:promotion.manage');
         Route::post('/coupons', [OwnerCouponController::class, 'store'])->middleware('permission:promotion.manage');
         Route::put('/coupons/{id}', [OwnerCouponController::class, 'update'])->middleware('permission:promotion.manage');

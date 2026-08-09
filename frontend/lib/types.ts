@@ -167,6 +167,30 @@ export type OwnerCustomerCredit = {
   packages: { id: string; name: string; totalHours: number; remainingHours: number; expiresAt: string | null }[];
 };
 
+/** Something points can be spent on. */
+export type OwnerReward = {
+  id: string;
+  name: string;
+  pointsCost: number;
+  type: "product" | "credit" | "hours";
+  productId: string | null;
+  productName: string | null;
+  productStock: number | null;
+  creditAmount: number | null;
+  hours: number | null;
+  isActive: boolean;
+};
+
+/** What a customer's points buy here, and whether they can afford it. */
+export type CustomerReward = {
+  id: string;
+  name: string;
+  pointsCost: number;
+  type: string;
+  affordable: boolean;
+  outOfStock: boolean;
+};
+
 /** One movement of a customer's points. No name = the system awarded it. */
 export type OwnerPointMovement = {
   id: string;
@@ -520,6 +544,8 @@ export type OwnerSettings = {
   pointsEnabled?: boolean;
   pointsPerBooking?: number;
   tierThresholds?: Record<string, number> | null;
+  /** Percent off the court, per tier. Keyed by the SAME names as the ladder. */
+  memberDiscounts?: Record<string, number> | null;
   /** Deposits: hold the slot for part of the money, take the rest at the desk. */
   depositEnabled?: boolean;
   depositType?: "percent" | "fixed";

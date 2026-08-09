@@ -29,6 +29,7 @@ import type {
   OwnerCustomerCredit,
   OwnerCreditMovement,
   OwnerPointMovement,
+  OwnerReward,
   OwnerVenuePackage,
   OwnerProduct,
   OwnerRentalOut,
@@ -442,6 +443,19 @@ export const ownerApi = {
     req<{ balance: number }>(`/owner/customer-credit/${customerId}/adjust`, {
       method: "POST",
       body: { amount, label },
+    }),
+
+  // --- Rewards: what points are worth ---
+  getRewards: () => req<OwnerReward[]>("/owner/rewards"),
+  createReward: (body: Partial<OwnerReward>) => req<OwnerReward>("/owner/rewards", { method: "POST", body }),
+  updateReward: (id: string, body: Partial<OwnerReward>) =>
+    req<OwnerReward>(`/owner/rewards/${id}`, { method: "PUT", body }),
+  deleteReward: (id: string) => req<void>(`/owner/rewards/${id}`, { method: "DELETE" }),
+  /** Hand it over at the counter — spends the customer's points. */
+  redeemReward: (rewardId: string, customerId: string) =>
+    req<{ id: string; name: string; pointsSpent: number }>(`/owner/rewards/${rewardId}/redeem`, {
+      method: "POST",
+      body: { customerId },
     }),
 
   /** The points ledger: earned, clawed back, adjusted — and by whom. */

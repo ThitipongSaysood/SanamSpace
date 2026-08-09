@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\MembershipResource;
 use App\Models\Membership;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class MembershipController extends Controller
@@ -33,6 +34,41 @@ class MembershipController extends Controller
         );
 
         return new MembershipResource($membership);
+    }
+
+    /**
+     * GET /rewards — what this venue lets points buy.
+     *
+     * Public to a signed-in customer because it is a price list: knowing "50
+     * คะแนน แลกน้ำ" is the only thing that makes a points balance mean anything.
+     * Redeeming is still done at the counter.
+     */
+    public function rewards(Request $request): JsonResponse
+    {
+        $customer = $request->user();
+
+        $rewards = \App\Models\Reward::query()
+            ->forOrganization($customer->organization_id)
+            ->where('is_active', true)
+            ->with('product')
+            ->orderBy('sort_order')
+            ->orderBy('points_cost')
+            ->get();
+
+        $points = (int) (Membership::where('customer_id', $customer->id)->value('points') ?? 0);
+
+        return response()->json([
+            'data' => $rewards->map(fn ($r) => [
+                'id' => (string) $r->id,
+                'name' => $r->name,
+                'pointsCost' => (int) $r->points_cost,
+                'type' => $r->type,
+                // So the app can show "แลกได้" rather than letting someone walk
+                // to the counter to be told no.
+                'affordable' => $points >= (int) $r->points_cost,
+                'outOfStock' => $r->type === 'product' && (int) ($r->product?->stock_qty ?? 0) < 1,
+            ])->values(),
+        ]);
     }
 
     /** Sequential, human-readable member id, e.g. SM-0000123. */

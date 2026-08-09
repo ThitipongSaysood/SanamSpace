@@ -4,6 +4,9 @@ namespace App\Services;
 
 use App\Models\Booking;
 use App\Models\Customer;
+use App\Models\CustomerPackage;
+use App\Models\Reward;
+use App\Models\RewardRedemption;
 use App\Models\Membership;
 use App\Models\OrganizationSetting;
 use App\Models\PointTransaction;
@@ -171,6 +174,112 @@ class PointsService
                 $delta > 0 ? LifetimeEffect::Earned : LifetimeEffect::Spent,
             );
         });
+    }
+
+    /**
+     * Spend points on a reward, and hand the reward over.
+     *
+     * Points, stock and the record move together inside one transaction: a
+     * customer whose points were taken and whose water never left the fridge is
+     * worse off than one who was refused.
+     *
+     * Spending never demotes — the tier was earned, and using what you earned is
+     * the point of earning it.
+     */
+    public function redeem(Customer $customer, Reward $reward, ?string $actorId = null): RewardRedemption
+    {
+        if (! $reward->is_active) {
+            throw ValidationException::withMessages(['reward' => 'ของรางวัลนี้ปิดการแลกอยู่']);
+        }
+
+        return DB::transaction(function () use ($customer, $reward, $actorId) {
+            $membership = $this->membershipFor($customer);
+            $cost = (int) $reward->points_cost;
+
+            if ((int) $membership->points < $cost) {
+                $short = $cost - (int) $membership->points;
+                throw ValidationException::withMessages([
+                    'reward' => "คะแนนไม่พอ ขาดอีก {$short} คะแนน",
+                ]);
+            }
+
+            // Whatever the reward actually is, handed over before the points are
+            // taken — so a failure here refuses instead of charging for nothing.
+            $this->deliver($customer, $reward);
+
+            $redemption = RewardRedemption::create([
+                'organization_id' => $customer->organization_id,
+                'customer_id' => $customer->id,
+                'reward_id' => $reward->id,
+                // Snapshots: repricing tomorrow must not rewrite this.
+                'name' => $reward->name,
+                'points_spent' => $cost,
+                'type' => $reward->type,
+                'redeemed_by' => $actorId,
+            ]);
+
+            PointTransaction::create([
+                'organization_id' => $customer->organization_id,
+                'customer_id' => $customer->id,
+                'points' => -$cost,
+                'source' => 'redemption',
+                'label' => 'แลก '.$reward->name,
+                'created_by' => $actorId,
+            ]);
+
+            $this->apply($customer, -$cost, LifetimeEffect::Spent);
+
+            return $redemption;
+        });
+    }
+
+    /** Give the customer whatever this reward is made of. */
+    private function deliver(Customer $customer, Reward $reward): void
+    {
+        match ($reward->type) {
+            'product' => $this->deliverProduct($reward),
+            'credit' => app(CreditService::class)->add(
+                $customer,
+                (float) $reward->credit_amount,
+                'แลกคะแนนเป็นเครดิต · '.$reward->name,
+                'adjustment',
+            ),
+            'hours' => CustomerPackage::create([
+                'organization_id' => $customer->organization_id,
+                'customer_id' => $customer->id,
+                'name' => $reward->name,
+                'total_hours' => (float) $reward->hours,
+                'remaining_hours' => (float) $reward->hours,
+                'price' => 0, // redeemed, not sold — revenue must not count it
+                'status' => 'active',
+            ]),
+            default => null,
+        };
+    }
+
+    /**
+     * Take the item off the shelf.
+     *
+     * A reward pointing at a product the venue has run out of is refused rather
+     * than handed over on paper: the counter has nothing to give.
+     */
+    private function deliverProduct(Reward $reward): void
+    {
+        $product = $reward->product()->lockForUpdate()->first();
+
+        if (! $product) {
+            throw ValidationException::withMessages([
+                'reward' => 'ของรางวัลนี้ไม่ได้ผูกกับสินค้า หรือสินค้าถูกลบไปแล้ว',
+            ]);
+        }
+
+        if ((int) $product->stock_qty < 1) {
+            throw ValidationException::withMessages([
+                'reward' => "{$product->name} หมดสต็อก แลกไม่ได้",
+            ]);
+        }
+
+        $product->decrement('stock_qty');
     }
 
     /**
