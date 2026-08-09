@@ -10,6 +10,7 @@ use App\Models\Payment;
 use App\Models\Wallet;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use App\Support\VenueClock;
 use Illuminate\Support\Carbon;
 
 class DashboardController extends Controller
@@ -41,7 +42,10 @@ class DashboardController extends Controller
     public function index(Request $request): JsonResponse
     {
         $orgId = $request->attributes->get('currentOrganizationId');
-        $now = now();
+
+        // The venue's clock, not the server's. Bookings hold wall-clock times,
+        // so a UTC "today" reports yesterday's numbers until 07:00 in Bangkok.
+        $now = VenueClock::now($orgId);
         $today = $now->toDateString();
 
         // --- Existing top-line stats ---
