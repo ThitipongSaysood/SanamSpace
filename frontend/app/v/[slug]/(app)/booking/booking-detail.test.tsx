@@ -48,8 +48,18 @@ describe("BookingDetailPage status-aware UI (#14)", () => {
   it("pending_payment: shows รอชำระเงิน + pay link, no QR check-in", async () => {
     renderDetail(makeBooking("pending_payment"));
     expect(await screen.findByText("รอชำระเงิน")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "ไปชำระเงิน" })).toBeInTheDocument();
+    // The button carries the amount: a customer should know what they are
+    // about to pay before the payment screen tells them.
+    expect(screen.getByRole("link", { name: "ไปชำระเงิน ฿200" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /QR Check-in/ })).not.toBeInTheDocument();
+  });
+
+  it("pending_payment with a deposit: asks for the deposit, not the whole price", async () => {
+    renderDetail({ ...makeBooking("pending_payment"), depositAmount: 100 });
+    // ฿100 now and the rest at the venue — showing ฿200 here would read as the
+    // price having changed.
+    expect(await screen.findByRole("link", { name: "ไปชำระเงิน ฿100" })).toBeInTheDocument();
+    expect(screen.getByText(/จ่ายมัดจำ ฿100/)).toBeInTheDocument();
   });
 
   it("confirmed: shows ยืนยันแล้ว + QR Check-in link + cancel, and is not the success screen", async () => {

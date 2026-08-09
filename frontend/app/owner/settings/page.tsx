@@ -71,7 +71,15 @@ export default function OwnerSettingsPage() {
 function useOwnerSettingsForm(settings: OwnerSettings) {
   const qc = useQueryClient();
   const [form, setForm] = useState<OwnerSettings>(settings);
-  useEffect(() => setForm(settings), [settings]);
+
+  // Re-seed during render, not in an effect, so the fields never paint a frame
+  // of stale values after a save. React Query's structural sharing keeps the
+  // reference stable when nothing changed, so typing is not interrupted.
+  const [seeded, setSeeded] = useState(settings);
+  if (seeded !== settings) {
+    setSeeded(settings);
+    setForm(settings);
+  }
 
   const mutation = useMutation({
     mutationFn: () => ownerApi.updateSettings(form),
@@ -525,7 +533,15 @@ function BrandPreview({ form }: { form: OwnerSettings }) {
 function PaymentTab({ settings }: { settings: OwnerSettings }) {
   const qc = useQueryClient();
   const [form, setForm] = useState<OwnerSettings>(settings);
-  useEffect(() => setForm(settings), [settings]);
+
+  // Re-seed during render, not in an effect, so the fields never paint a frame
+  // of stale values after a save. React Query's structural sharing keeps the
+  // reference stable when nothing changed, so typing is not interrupted.
+  const [seeded, setSeeded] = useState(settings);
+  if (seeded !== settings) {
+    setSeeded(settings);
+    setForm(settings);
+  }
 
   const mutation = useMutation({
     mutationFn: () => ownerApi.updateSettings(form),

@@ -10,6 +10,9 @@ name: Deploy to Production
 #   - a change to this workflow (or a manual run) -> deploy both, to be safe
 #   - a push that touches neither (docs, root files) -> nothing is deployed
 #
+# Every deploy waits on ci.yml (backend on MySQL, frontend, e2e). A red suite
+# stops the ship.
+#
 # Repository secrets (Settings -> Secrets and variables -> Actions):
 #   SERVER_HOST  SERVER_USER  SERVER_PASSWORD  DEPLOY_PATH
 # Optional:
@@ -26,7 +29,14 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Nothing ships until the suite is green. Before this the two were unrelated:
+  # a push went to production whether or not the tests would have passed, and
+  # nothing ran them to find out.
+  test:
+    uses: ./.github/workflows/ci.yml
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

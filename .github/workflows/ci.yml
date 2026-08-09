@@ -1,0 +1,201 @@
+name: CI
+
+# Runs the tests. Until now nothing did — deploy.yml built and shipped straight
+# to production, so a red suite reached customers just as fast as a green one.
+#
+# The backend runs against **MySQL**, not the SQLite used in development. That
+# is not a detail: the day this was written, the suite was green on SQLite and
+# 35 tests failed on MySQL, because `wallet_transactions.sort_order` was
+# unsigned and the code writes negatives into it. Every credit payment on
+# production was returning a 500 while every test passed. A CI that ran SQLite
+# would have agreed with the broken suite.
+#
+# Called by deploy.yml as a required job, so a failing test blocks the deploy
+# rather than merely reporting on it afterwards.
+
+# No `push` trigger: deploy.yml calls this as its `test` job on every push to
+# main, so triggering here as well would run the whole suite twice per push.
+on:
+  pull_request:
+  workflow_call: {}
+  workflow_dispatch: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (MySQL)
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MYSQL_DATABASE: sanamspace_test
+        ports: [ '3306:3306' ]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    env:
+      # phpunit.xml declares sqlite, but PHPUnit's <env> does not override a
+      # variable that is already set — so these win, and the suite runs on the
+      # engine production uses.
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: sanamspace_test
+      DB_USERNAME: root
+      DB_PASSWORD: ''
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'   # Laravel 13 requires php ^8.3
+          extensions: mbstring, xml, curl, zip, bcmath, intl, pdo_mysql
+          coverage: none
+
+      - name: Cache composer vendor
+        uses: actions/cache@v4
+        with:
+          path: backend/vendor
+          key: composer-test-${{ hashFiles('backend/composer.lock') }}
+          restore-keys: composer-test-
+
+      - name: Install dependencies
+        working-directory: backend
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Prepare environment
+        working-directory: backend
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      # Separate from the test run on purpose: a migration that only fails on
+      # MySQL should say "migration", not hide inside 500 test failures.
+      - name: Migrate
+        working-directory: backend
+        run: php artisan migrate --force
+
+      - name: Test
+        working-directory: backend
+        run: php artisan test
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Types
+        working-directory: frontend
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        working-directory: frontend
+        run: npm test
+
+      # Reported, never blocking. The tree carries a known set of warnings and
+      # a dozen react-hooks errors; failing the build on them would train people
+      # to ignore a red X rather than to fix the lint.
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint || true
+
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-latest
+    needs: [ backend, frontend ]
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MYSQL_DATABASE: sanamspace_e2e
+        ports: [ '3306:3306' ]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, xml, curl, zip, bcmath, intl, pdo_mysql
+          coverage: none
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Start the API on seeded data
+        working-directory: backend
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: sanamspace_e2e
+          DB_USERNAME: root
+          DB_PASSWORD: ''
+        run: |
+          composer install --no-interaction --prefer-dist
+          cp .env.example .env
+          php artisan key:generate
+          # The specs sign in as the demo venue's owner and book its courts.
+          php artisan migrate:fresh --seed --force
+          php artisan serve --host=127.0.0.1 --port=8000 > /tmp/api.log 2>&1 &
+          # A public route with no tenant header, so readiness is not confused
+          # with a mis-scoped request.
+          npx --yes wait-on http://127.0.0.1:8000/api/v1/line-config --timeout 60000 || {
+            echo "API did not come up:"; cat /tmp/api.log; exit 1;
+          }
+
+      - name: Install browsers
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run the specs
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:8000/api/v1
+          # Turns on the specs that need a real backend — without it the owner
+          # half of every flow silently skips.
+          E2E_OWNER: '1'
+        # One worker: the specs book real courts against one database, and two
+        # of them racing for the same slot is a failure that means nothing.
+        run: npx playwright test --workers=1
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: frontend/test-results/
+          retention-days: 7
