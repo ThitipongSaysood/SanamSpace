@@ -499,6 +499,23 @@ class PointsService
     }
 
     /**
+     * Re-decide the tier from lifetime points alone.
+     *
+     * For when the balance was changed by something other than earning or
+     * spending — merging two duplicate customers adds two ladders together, and
+     * the result has to be the tier that total deserves rather than either
+     * half's.
+     */
+    public function recomputeTier(Membership $membership): Membership
+    {
+        $membership->update([
+            'tier' => $this->tierFor($membership->organization_id, (int) $membership->lifetime_points),
+        ]);
+
+        return $membership->fresh();
+    }
+
+    /**
      * Move the balance and re-decide the tier.
      *
      * The three cases are named because two of them look identical from the

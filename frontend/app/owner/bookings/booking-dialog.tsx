@@ -38,6 +38,7 @@ export function BookingDialog({ dialog, courts, onClose }: { dialog: NonNullable
   const [end, setEnd] = useState(editing?.end ?? fmtMin(toMin(dialog.mode === "create" ? dialog.start : "18:00") + 60));
   const [customerId, setCustomerId] = useState<string>("");
   const [walkin, setWalkin] = useState(editing?.customerName ?? "");
+  const [walkinPhone, setWalkinPhone] = useState("");
   const [status, setStatus] = useState<string>(editing?.status ?? "confirmed");
   const [rentals, setRentals] = useState<Record<string, number>>({});
 
@@ -54,6 +55,7 @@ export function BookingDialog({ dialog, courts, onClose }: { dialog: NonNullable
         end,
         customerId: customerId || null,
         customerName: customerId ? null : walkin.trim() || null,
+        customerPhone: customerId ? null : walkinPhone.trim() || null,
         status,
         ...(editing ? {} : { rentals: picked }),
       };
@@ -94,7 +96,20 @@ export function BookingDialog({ dialog, courts, onClose }: { dialog: NonNullable
             ))}
           </select>
           {!customerId && (
-            <Input value={walkin} onChange={(e) => setWalkin(e.target.value)} placeholder="ชื่อลูกค้า walk-in" />
+            <>
+              <Input value={walkin} onChange={(e) => setWalkin(e.target.value)} placeholder="ชื่อลูกค้า walk-in" />
+              <Input
+                value={walkinPhone}
+                onChange={(e) => setWalkinPhone(e.target.value)}
+                placeholder="เบอร์โทร (แนะนำ)"
+                inputMode="tel"
+              />
+              {/* Without a number the same regular becomes a new customer on
+                  every visit, and their points end up split across the rows. */}
+              <p className="text-xs text-muted-foreground">
+                ใส่เบอร์ไว้ ระบบจะจำได้ว่าเป็นลูกค้าคนเดิม แต้มกับเครดิตจะไม่กระจายหลายใบ
+              </p>
+            </>
           )}
           {editing && <p className="text-xs text-muted-foreground">ลูกค้าเดิม: {editing.customerName ?? "—"} (เลือกใหม่เพื่อเปลี่ยน)</p>}
         </div>

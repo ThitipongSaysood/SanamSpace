@@ -8,6 +8,7 @@ use App\Http\Resources\BookingResource;
 use App\Models\Booking;
 use App\Models\Court;
 use App\Models\Customer;
+use App\Support\ThaiPhone;
 use App\Models\Payment;
 use App\Services\NotificationService;
 use App\Services\RentalService;
@@ -78,6 +79,9 @@ class BookingController extends Controller
             'end' => ['required', 'date_format:H:i', 'after:start'],
             'customerId' => ['nullable', 'string', Rule::exists('customers', 'id')->where('organization_id', $orgId)],
             'customerName' => ['nullable', 'string', 'max:255'],
+            // The one thing that tells two walk-ins apart, and the same
+            // customer's second visit from a new person.
+            'customerPhone' => ['nullable', 'string', 'max:32'],
             'status' => ['sometimes', Rule::in(['pending_payment', 'confirmed', 'completed', 'cancelled'])],
             // A walk-in wants a racket too. Customers could rent from the app
             // since day one; the counter could not, which meant staff had to
@@ -159,6 +163,7 @@ class BookingController extends Controller
             'end' => ['sometimes', 'date_format:H:i'],
             'customerId' => ['sometimes', 'nullable', 'string', Rule::exists('customers', 'id')->where('organization_id', $orgId)],
             'customerName' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'customerPhone' => ['sometimes', 'nullable', 'string', 'max:32'],
             'status' => ['sometimes', Rule::in(['pending_payment', 'confirmed', 'completed', 'cancelled'])],
         ]);
 
@@ -309,17 +314,52 @@ class BookingController extends Controller
         return Booking::query()->forOrganization($orgId)->where('id', $id)->firstOrFail();
     }
 
+    /**
+     * The customer this booking belongs to.
+     *
+     * A walk-in used to create a new row every single time, so the regular who
+     * comes in every week and is booked by name became a new "customer" each
+     * visit — each with their own points, credit and history, none of them
+     * usable. With a phone number we look for the person who is already here.
+     *
+     * Matching is on the phone alone. Names are not identifying: two customers
+     * called สมชาย are two people, and merging them on a name match would move
+     * one stranger's credit to another.
+     */
     private function resolveCustomer(?string $orgId, array $data): Customer
     {
         if (! empty($data['customerId'])) {
             return Customer::query()->forOrganization($orgId)->findOrFail($data['customerId']);
         }
+
+        $phone = ThaiPhone::normalize($data['customerPhone'] ?? null);
+
+        if ($phone !== null) {
+            $existing = Customer::query()
+                ->forOrganization($orgId)
+                ->where('phone_normalized', $phone)
+                ->orderBy('created_at')
+                ->first();
+
+            if ($existing) {
+                // Staff often know the name before the phone; fill in a blank
+                // rather than overwrite what the customer set themselves.
+                if (! $existing->display_name && ! empty($data['customerName'])) {
+                    $existing->update(['display_name' => $data['customerName']]);
+                }
+
+                return $existing;
+            }
+        }
+
         if (! empty($data['customerName'])) {
             return Customer::create([
                 'organization_id' => $orgId,
                 'display_name' => $data['customerName'],
+                'phone' => $data['customerPhone'] ?? null,
             ]);
         }
+
         throw ValidationException::withMessages([
             'customerName' => 'ต้องเลือกลูกค้า หรือกรอกชื่อลูกค้า (walk-in)',
         ]);

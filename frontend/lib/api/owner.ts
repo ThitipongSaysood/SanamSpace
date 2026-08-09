@@ -26,6 +26,7 @@ import type {
   CheckinBooking,
   CheckinResult,
   ScanResult,
+  DuplicateGroup,
   OwnerCustomerDetail,
   OwnerCustomerCredit,
   OwnerCreditMovement,
@@ -84,6 +85,8 @@ export type BookingInput = {
   end: string;
   customerId?: string | null;
   customerName?: string | null;
+  /** Walk-ins only. What makes the same regular one customer instead of ten. */
+  customerPhone?: string | null;
   status?: string;
   /** Create only: equipment to rent alongside the court. */
   rentals?: { itemId: string; quantity: number }[];
@@ -470,6 +473,16 @@ export const ownerApi = {
    */
   scan: (code: string) =>
     req<ScanResult>("/owner/scan", { method: "POST", body: { code }, raw: true }),
+  /** People who are in the list more than once, grouped by phone. */
+  getDuplicateCustomers: () => req<DuplicateGroup[]>("/owner/customers/duplicates"),
+
+  /** Fold `duplicateId` into `keepId`; everything moves to the row that stays. */
+  mergeCustomers: (keepId: string, duplicateId: string) =>
+    req<{ id: string; displayName: string; phone: string | null }>(`/owner/customers/${keepId}/merge`, {
+      method: "POST",
+      body: { duplicateId },
+    }),
+
   /** Close a promise the customer made in the app, by the code on their phone. */
   collectRedemption: (code: string) =>
     req<{ id: string; name: string; customerName: string | null }>("/owner/rewards/collect", {

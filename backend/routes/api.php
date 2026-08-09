@@ -262,6 +262,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/checkin/recent', [OwnerCheckinController::class, 'recent'])->middleware('permission:booking.checkin');
 
         Route::get('/customers', [OwnerCustomerController::class, 'index'])->middleware('permission:customer.view');
+        // Who is in here twice, and folding them back into one person. Merging
+        // moves points and credit, so it rides with the other things that move
+        // value rather than with "view customers".
+        Route::get('/customers/duplicates', [OwnerCustomerController::class, 'duplicates'])->middleware('permission:customer.view');
+        Route::post('/customers/{id}/merge', [OwnerCustomerController::class, 'merge'])->middleware('permission:crm.manage');
         Route::get('/customers/{id}', [OwnerCustomerController::class, 'show'])->middleware('permission:customer.view');
         // What a customer holds, and how staff change it. Granting credit is
         // wallet.manage, not customer.view — giving away money is not a read.

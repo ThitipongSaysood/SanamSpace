@@ -216,6 +216,27 @@ export type PointMovement = {
   createdAt: string;
 };
 
+/**
+ * One person who is in the customer list more than once.
+ *
+ * Grouped by phone because that is the only identifying thing on the record —
+ * two customers with the same name are two people.
+ */
+export type DuplicateGroup = {
+  phone: string;
+  customers: {
+    id: string;
+    displayName: string;
+    phone: string | null;
+    email: string | null;
+    hasLine: boolean;
+    bookingsCount: number;
+    points: number;
+    credit: number;
+    createdAt: string;
+  }[];
+};
+
 /** Something points can be spent on. */
 export type OwnerReward = {
   id: string;
