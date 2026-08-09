@@ -114,6 +114,30 @@ class CheckinService
     }
 
     /** The clock the venue actually runs on; the app's own is UTC. */
+    /**
+     * The booking as the desk needs to read it back.
+     *
+     * Lives here because two endpoints answer with it now — the check-in screen
+     * and the universal scanner — and a second copy would drift into a second
+     * shape the frontend had to branch on.
+     */
+    public function summary(Booking $booking): array
+    {
+        $booking->loadMissing(['court', 'customer']);
+
+        return [
+            'id' => (string) $booking->id,
+            'code' => $booking->code,
+            'customerName' => $booking->customer?->display_name,
+            'courtName' => $booking->court?->name,
+            'date' => $booking->date,
+            'start' => $booking->start,
+            'end' => $booking->end,
+            'status' => $booking->status,
+            'checkedInAt' => $booking->checked_in_at?->toIso8601String(),
+        ];
+    }
+
     private function timezoneFor(Booking $booking): string
     {
         $booking->loadMissing('organization.settings');

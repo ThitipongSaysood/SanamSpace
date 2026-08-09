@@ -180,6 +180,21 @@ export type OwnerRedemption = {
   createdAt: string;
 };
 
+/**
+ * What the counter's scanner made of a code.
+ *
+ * `kind` is the whole point: the desk needs to know whether it just let someone
+ * onto a court or handed over a bottle of water, not merely that "it worked".
+ */
+export type ScanResult = {
+  kind: "checkin" | "reward" | "unknown";
+  ok: boolean;
+  code: string;
+  message: string;
+  booking?: CheckinResult["booking"];
+  reward?: { id: string; name: string; pointsSpent: number; customerName: string | null } | null;
+};
+
 /** A reward the customer redeemed. `code` is what the counter asks for. */
 export type MyRedemption = {
   id: string;

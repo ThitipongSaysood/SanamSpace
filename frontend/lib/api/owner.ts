@@ -25,6 +25,7 @@ import type {
   SegmentCriteria,
   CheckinBooking,
   CheckinResult,
+  ScanResult,
   OwnerCustomerDetail,
   OwnerCustomerCredit,
   OwnerCreditMovement,
@@ -460,6 +461,15 @@ export const ownerApi = {
     }),
 
   getRedemptions: () => req<OwnerRedemption[]>("/owner/rewards/redemptions"),
+  /**
+   * The one scanner. The server decides what the code is, so the desk does not
+   * have to pick a menu before it knows what it is holding.
+   *
+   * Refusals come back as 404/403 with the same body shape, and they are
+   * information for the person at the counter — not an exception to swallow.
+   */
+  scan: (code: string) =>
+    req<ScanResult>("/owner/scan", { method: "POST", body: { code }, raw: true }),
   /** Close a promise the customer made in the app, by the code on their phone. */
   collectRedemption: (code: string) =>
     req<{ id: string; name: string; customerName: string | null }>("/owner/rewards/collect", {

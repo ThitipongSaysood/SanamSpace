@@ -117,12 +117,12 @@ test("the counter checks a customer in, and a second scan is not an error", asyn
     .code as string;
 
   await page.locator("#manual-code").fill(code);
-  await page.getByRole("button", { name: "เช็คอิน", exact: true }).click();
+  await page.getByRole("button", { name: "ตรวจสอบ", exact: true }).click();
   await expect(page.getByText("เช็คอินสำเร็จ")).toBeVisible();
 
   // Scanning twice is a normal thing to do at a busy counter.
   await page.locator("#manual-code").fill(code);
-  await page.getByRole("button", { name: "เช็คอิน", exact: true }).click();
+  await page.getByRole("button", { name: "ตรวจสอบ", exact: true }).click();
   await expect(page.getByText(/เช็คอินแล้วเมื่อ/)).toBeVisible();
 
   // …and they appear in the arrivals list.

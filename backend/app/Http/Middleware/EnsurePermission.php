@@ -2,7 +2,7 @@
 
 namespace App\Http\Middleware;
 
-use App\Models\OrganizationUser;
+use App\Support\StaffPermissions;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -24,30 +24,9 @@ class EnsurePermission
 {
     public function handle(Request $request, Closure $next, string $permission): Response
     {
-        $user = $request->user();
-
-        if ($user?->is_super_admin) {
-            return $next($request);
-        }
-
-        // Runs after owner.org, so the organization is already resolved.
-        $membership = OrganizationUser::query()
-            ->where('organization_id', $request->attributes->get('currentOrganizationId'))
-            ->where('user_id', $user?->id)
-            ->with('role.permissions')
-            ->first();
-
-        if (! $membership) {
-            return $this->deny();
-        }
-
-        if ($membership->role?->code === 'owner') {
-            return $next($request);
-        }
-
-        $allowed = $membership->role?->permissions->contains('code', $permission) ?? false;
-
-        return $allowed ? $next($request) : $this->deny();
+        // Runs after owner.org, so the organization is already resolved. The
+        // rule itself lives in StaffPermissions, which the scanner also asks.
+        return StaffPermissions::allows($request, $permission) ? $next($request) : $this->deny();
     }
 
     private function deny(): Response

@@ -35,6 +35,7 @@ use App\Http\Controllers\Api\Owner\AnnouncementController as OwnerAnnouncementCo
 use App\Http\Controllers\Api\Owner\BillingController as OwnerBillingController;
 use App\Http\Controllers\Api\Owner\BroadcastController as OwnerBroadcastController;
 use App\Http\Controllers\Api\Owner\CheckinController as OwnerCheckinController;
+use App\Http\Controllers\Api\Owner\ScanController as OwnerScanController;
 use App\Http\Controllers\Api\Owner\CourtBlockController as OwnerCourtBlockController;
 use App\Http\Controllers\Api\Owner\ReportController as OwnerReportController;
 use App\Http\Controllers\Api\Owner\CouponController as OwnerCouponController;
@@ -253,6 +254,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/courts/{id}', [OwnerCourtController::class, 'destroy'])->middleware('permission:court.manage');
 
         // --- QR check-in (the counter scans; the customer shows) ---
+        // One scanner for the counter: it decides what the code is, then checks
+        // the permission for that. Deliberately not permission-gated on the
+        // route — see ScanController.
+        Route::post('/scan', [OwnerScanController::class, 'store']);
         Route::post('/checkin', [OwnerCheckinController::class, 'store'])->middleware('permission:booking.checkin');
         Route::get('/checkin/recent', [OwnerCheckinController::class, 'recent'])->middleware('permission:booking.checkin');
 

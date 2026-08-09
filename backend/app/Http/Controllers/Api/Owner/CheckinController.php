@@ -50,7 +50,7 @@ class CheckinController extends Controller
             'ok' => $result['ok'],
             'code' => $result['code'],
             'message' => $result['message'],
-            'booking' => $this->summary($result['booking']),
+            'booking' => $this->checkins->summary($result['booking']),
         ]);
     }
 
@@ -73,22 +73,7 @@ class CheckinController extends Controller
             ->get();
 
         return response()->json([
-            'data' => $bookings->map(fn ($b) => $this->summary($b))->values(),
+            'data' => $bookings->map(fn ($b) => $this->checkins->summary($b))->values(),
         ]);
-    }
-
-    private function summary(\App\Models\Booking $booking): array
-    {
-        return [
-            'id' => (string) $booking->id,
-            'code' => $booking->code,
-            'customerName' => $booking->customer?->display_name,
-            'courtName' => $booking->court?->name,
-            'date' => $booking->date,
-            'start' => $booking->start,
-            'end' => $booking->end,
-            'status' => $booking->status,
-            'checkedInAt' => $booking->checked_in_at?->toIso8601String(),
-        ];
     }
 }

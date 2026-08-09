@@ -1,13 +1,13 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import jsQR from "jsqr";
-import { Camera, CameraOff, CheckCircle2, Keyboard, Power, QrCode, XCircle } from "lucide-react";
-import type { CheckinResult } from "@/lib/types";
+import { CheckCircle2, Keyboard, Power, XCircle } from "lucide-react";
+import type { ScanResult } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { QrScanner } from "@/components/qr-scanner";
 
 const RECENT_KEY = ["owner", "checkin", "recent"];
 
@@ -16,29 +16,39 @@ function thaiTime(iso: string | null) {
 }
 
 /**
- * The counter's scanner.
+ * The counter's scanner — all of it, in one place.
  *
- * Two ways in, because a camera is not always an option: point it at the
- * customer's QR, or type the booking code off their screen. Both go through the
- * same endpoint, so both get the same answers.
+ * Staff used to have to know which menu to open before they knew what the
+ * customer was holding: a booking QR meant this screen, a reward code meant
+ * Points. Now everything scannable lands here and the server decides what it
+ * is, so the desk just scans.
+ *
+ * Two ways in, because a camera is not always an option: point it at the QR, or
+ * type the code off their screen. Both go through the same endpoint, so both
+ * get the same answers.
  */
-export default function OwnerCheckinPage() {
+export default function OwnerScanPage() {
   const qc = useQueryClient();
-  const [result, setResult] = useState<CheckinResult | null>(null);
+  const [result, setResult] = useState<ScanResult | null>(null);
   const [manual, setManual] = useState("");
 
   const { data: settings } = useQuery({ queryKey: ["owner", "settings"], queryFn: ownerApi.getSettings });
   const { data: recent } = useQuery({ queryKey: RECENT_KEY, queryFn: ownerApi.getRecentCheckins });
 
   const submit = useMutation({
-    mutationFn: (token: string) => ownerApi.checkin(token),
+    mutationFn: (code: string) => ownerApi.scan(code),
     onSuccess: (res) => {
       setResult(res);
       setManual("");
       qc.invalidateQueries({ queryKey: RECENT_KEY });
+      // A handed-over reward changes the points queue, which is a different
+      // screen — invalidate it so it is not stale when someone opens it.
+      if (res.kind === "reward") qc.invalidateQueries({ queryKey: ["owner", "rewards", "redemptions"] });
     },
+    // A code this venue does not know, or a role that may not do this: both come
+    // back as errors, and both are things to say out loud rather than throw away.
     onError: (e) => {
-      setResult({ ok: false, code: "error", message: (e as Error).message, booking: null });
+      setResult({ kind: "unknown", ok: false, code: "error", message: (e as Error).message });
     },
   });
 
@@ -69,9 +79,9 @@ export default function OwnerCheckinPage() {
     <div className="space-y-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">เช็คอินลูกค้า</h1>
+          <h1 className="text-2xl font-bold tracking-tight">สแกน</h1>
           <p className="text-sm text-muted-foreground">
-            สแกน QR จากแอปลูกค้า หรือพิมพ์รหัสการจองที่ลูกค้าแสดงให้ดู
+            สแกนได้ทุกอย่างที่นี่ · QR เช็คอิน และ รหัสรับของรางวัล — ระบบแยกให้เอง
           </p>
         </div>
 
@@ -107,11 +117,11 @@ export default function OwnerCheckinPage() {
 
       <div className="grid gap-5 lg:grid-cols-2">
         <div className="space-y-4">
-          <Scanner onScan={onScan} />
+          <QrScanner onScan={onScan} />
 
           <section className="space-y-2 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
             <Label htmlFor="manual-code" className="flex items-center gap-1.5">
-              <Keyboard className="size-4" /> พิมพ์รหัสการจอง
+              <Keyboard className="size-4" /> พิมพ์รหัส
             </Label>
             <form
               className="flex gap-2"
@@ -124,12 +134,12 @@ export default function OwnerCheckinPage() {
                 id="manual-code"
                 value={manual}
                 onChange={(e) => setManual(e.target.value)}
-                placeholder="เช่น BK260614MKNPUC"
+                placeholder="เช่น BK260614MKNPUC หรือ R7K2M9"
                 autoComplete="off"
                 className="font-mono"
               />
               <Button type="submit" disabled={!manual.trim() || submit.isPending}>
-                {submit.isPending ? "..." : "เช็คอิน"}
+                {submit.isPending ? "..." : "ตรวจสอบ"}
               </Button>
             </form>
             <p className="text-xs text-muted-foreground">ใช้เมื่อกล้องใช้ไม่ได้ หรือลูกค้าเปิดแอปไม่ได้</p>
@@ -169,116 +179,12 @@ export default function OwnerCheckinPage() {
 }
 
 /**
- * Camera scanning, decoded in the browser with jsQR.
+ * The answer to the last scan, in the language the desk needs it.
  *
- * A library rather than the built-in BarcodeDetector: that API is Chromium-only,
- * and a counter running an iPad would have had no scanner at all.
+ * Says WHAT it was as well as whether it worked: "เช็คอินสำเร็จ" and "จ่ายของ
+ * รางวัลแล้ว" are not interchangeable when someone is standing there waiting.
  */
-function Scanner({ onScan }: { onScan: (token: string) => void }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [on, setOn] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!on) return;
-
-    let stream: MediaStream | null = null;
-    let frame = 0;
-    let cancelled = false;
-
-    async function start() {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" }, // the back camera at a counter
-        });
-        if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-        const video = videoRef.current;
-        if (!video) return;
-        video.srcObject = stream;
-        await video.play();
-        tick();
-      } catch {
-        setError("เปิดกล้องไม่ได้ — อนุญาตการใช้กล้องในเบราว์เซอร์ หรือใช้ช่องพิมพ์รหัสแทน");
-        setOn(false);
-      }
-    }
-
-    function tick() {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      if (!video || !canvas || video.readyState !== video.HAVE_ENOUGH_DATA) {
-        frame = requestAnimationFrame(tick);
-        return;
-      }
-
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
-      if (ctx) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const found = jsQR(image.data, image.width, image.height, { inversionAttempts: "dontInvert" });
-        if (found?.data) onScan(found.data.trim());
-      }
-      frame = requestAnimationFrame(tick);
-    }
-
-    start();
-
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(frame);
-      stream?.getTracks().forEach((t) => t.stop());
-    };
-  }, [on, onScan]);
-
-  return (
-    <section className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
-      <div className="relative aspect-square w-full bg-black/90">
-        <video ref={videoRef} playsInline muted className={`size-full object-cover ${on ? "" : "hidden"}`} />
-        <canvas ref={canvasRef} className="hidden" />
-
-        {!on && (
-          <div className="absolute inset-0 grid place-items-center text-center text-white/70">
-            <div>
-              <QrCode className="mx-auto size-12" />
-              <p className="mt-2 text-sm">กดเปิดกล้องเพื่อสแกน</p>
-            </div>
-          </div>
-        )}
-
-        {on && (
-          // A frame to aim at — a bare video feed gives no clue where to hold it.
-          <div className="pointer-events-none absolute inset-0 grid place-items-center">
-            <div className="size-48 rounded-2xl border-4 border-white/80 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />
-          </div>
-        )}
-      </div>
-
-      <div className="flex items-center justify-between gap-2 p-3">
-        <Button type="button" variant={on ? "outline" : "default"} onClick={() => setOn((v) => !v)}>
-          {on ? (
-            <>
-              <CameraOff className="size-4" /> ปิดกล้อง
-            </>
-          ) : (
-            <>
-              <Camera className="size-4" /> เปิดกล้อง
-            </>
-          )}
-        </Button>
-        {error && <span className="text-xs text-brand-danger">{error}</span>}
-      </div>
-    </section>
-  );
-}
-
-/** The answer to the last scan, in the language the desk needs it. */
-function ResultCard({ result }: { result: CheckinResult | null }) {
+function ResultCard({ result }: { result: ScanResult | null }) {
   if (!result) {
     return (
       <section className="grid min-h-40 place-items-center rounded-2xl border border-dashed border-black/15 p-6 text-center text-sm text-muted-foreground">
@@ -288,6 +194,7 @@ function ResultCard({ result }: { result: CheckinResult | null }) {
   }
 
   const good = result.ok;
+  const KIND_LABEL: Record<string, string> = { checkin: "เช็คอิน", reward: "ของรางวัล", unknown: "ไม่รู้จัก" };
 
   return (
     <section
@@ -300,7 +207,11 @@ function ResultCard({ result }: { result: CheckinResult | null }) {
           {good ? <CheckCircle2 className="size-7" /> : <XCircle className="size-7" />}
         </span>
         <div className="min-w-0">
+          <span className="mb-1 inline-block rounded-full bg-black/5 px-2 py-0.5 text-xs font-medium text-muted-foreground">
+            {KIND_LABEL[result.kind] ?? result.kind}
+          </span>
           <p className={`font-semibold ${good ? "text-brand" : "text-brand-danger"}`}>{result.message}</p>
+
           {result.booking && (
             <div className="mt-2 space-y-0.5 text-sm">
               <div className="font-semibold">{result.booking.customerName ?? "—"}</div>
@@ -309,6 +220,15 @@ function ResultCard({ result }: { result: CheckinResult | null }) {
                 {result.booking.end}
               </div>
               <div className="font-mono text-xs text-muted-foreground">{result.booking.code}</div>
+            </div>
+          )}
+
+          {result.reward && (
+            <div className="mt-2 space-y-0.5 text-sm">
+              <div className="font-semibold">{result.reward.name}</div>
+              <div className="text-muted-foreground">
+                {result.reward.customerName ?? "—"} · ใช้ {result.reward.pointsSpent.toLocaleString()} คะแนน
+              </div>
             </div>
           )}
         </div>
