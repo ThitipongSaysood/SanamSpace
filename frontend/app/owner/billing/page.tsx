@@ -9,7 +9,7 @@ import { Loading, ErrorState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { BillingDocument, OpenPdfButton } from "@/components/billing-document";
-import type { AdminInvoice } from "@/lib/types";
+import type { AdminInvoice, AdminSubscription } from "@/lib/types";
 
 const fmt = new Intl.NumberFormat("th-TH");
 const PERIODS = [
@@ -35,6 +35,58 @@ const STATUS: Record<string, { label: string; cls: string }> = {
 function StatusChip({ status }: { status: string }) {
   const m = STATUS[status] ?? { label: status, cls: "bg-slate-100 text-slate-600" };
   return <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${m.cls}`}>{m.label}</span>;
+}
+
+/**
+ * What this venue has used against what its plan allows.
+ *
+ * Here rather than buried in settings because this is the page where the answer
+ * to "we are full" is one scroll away. A venue should meet its ceiling on a bar
+ * long before it meets it as a refusal on the afternoon it needs another court.
+ *
+ * The monthly booking row is marked because it behaves differently: it is
+ * counted and shown, never enforced. Blocking a booking would take the venue's
+ * revenue to settle the platform's bill, against a customer who has no idea a
+ * plan exists.
+ */
+function PlanUsage({ limits }: { limits?: AdminSubscription["limits"] }) {
+  const rows = Object.entries(limits ?? {}).filter(([, v]) => v.limit != null);
+
+  if (rows.length === 0) return null;
+
+  return (
+    <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+      <h2 className="text-sm font-semibold">การใช้งานตามแพ็กเกจ</h2>
+      <div className="mt-3 space-y-3">
+        {rows.map(([key, row]) => {
+          const pct = Math.min(100, Math.round((row.used / (row.limit || 1)) * 100));
+          const full = row.used >= (row.limit ?? Infinity);
+          return (
+            <div key={key}>
+              <div className="flex items-baseline justify-between text-sm">
+                <span className="text-muted-foreground">
+                  {row.label}
+                  {!row.enforced && <span className="ml-1 text-xs">(นับไว้ดู ไม่ได้ปิดกั้น)</span>}
+                </span>
+                <span className={`font-medium ${full && row.enforced ? "text-rose-600" : ""}`}>
+                  {fmt.format(row.used)} / {fmt.format(row.limit ?? 0)}
+                </span>
+              </div>
+              <div className="mt-1 h-2 overflow-hidden rounded-full bg-app">
+                <div
+                  className={`h-2 rounded-full ${pct >= 100 ? "bg-rose-500" : pct >= 80 ? "bg-amber-400" : "bg-brand"}`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              {full && row.enforced && (
+                <p className="mt-1 text-xs text-rose-600">ใช้ครบแล้ว — เพิ่มอีกไม่ได้จนกว่าจะอัปเกรดแพ็กเกจ</p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
 }
 
 export default function OwnerBillingPage() {
@@ -135,6 +187,8 @@ export default function OwnerBillingPage() {
           </p>
         )}
       </section>
+
+      <PlanUsage limits={sub?.limits} />
 
       {/* --- Renew / pay --- */}
       {invoice ? (

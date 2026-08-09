@@ -191,7 +191,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/dashboard', [OwnerDashboardController::class, 'index']);
         Route::get('/subscription', [OwnerSubscriptionController::class, 'show']);
         Route::get('/announcements', [OwnerAnnouncementController::class, 'index']);
-        Route::get('/reports/bookings.csv', [OwnerReportController::class, 'exportBookings'])->middleware('permission:report.view');
+        // Reading the reports is core — a venue that cannot see its own numbers
+        // has no reason to pay at all. Taking them away as a file is the part
+        // the catalogue sells, so that is what "รายงานขั้นสูง + ส่งออก" gates.
+        Route::get('/reports/bookings.csv', [OwnerReportController::class, 'exportBookings'])->middleware('permission:report.view')->middleware('feature:advanced_reports');
 
         Route::get('/court-blocks', [OwnerCourtBlockController::class, 'index']);
         Route::post('/court-blocks', [OwnerCourtBlockController::class, 'store'])->middleware('permission:court.manage');
@@ -247,7 +250,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // --- Branches (สนาม/สาขา) management CRUD ---
         Route::get('/branches', [OwnerBranchController::class, 'index']);
-        Route::post('/branches', [OwnerBranchController::class, 'store'])->middleware('permission:court.manage');
+        Route::post('/branches', [OwnerBranchController::class, 'store'])->middleware('permission:court.manage')->middleware('limit:branch');
         Route::put('/branches/{id}', [OwnerBranchController::class, 'update'])->middleware('permission:court.manage');
         Route::post('/branches/{id}/toggle', [OwnerBranchController::class, 'toggle'])->middleware('permission:court.manage');
         Route::delete('/branches/{id}', [OwnerBranchController::class, 'destroy'])->middleware('permission:court.manage');
@@ -257,7 +260,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // the {id} routes so "live" is not read as a court id.
         Route::get('/courts/live', [OwnerCourtBoardController::class, 'index'])->middleware('permission:booking.view');
         Route::get('/courts', [OwnerCourtController::class, 'index']);
-        Route::post('/courts', [OwnerCourtController::class, 'store'])->middleware('permission:court.manage');
+        Route::post('/courts', [OwnerCourtController::class, 'store'])->middleware('permission:court.manage')->middleware('limit:court');
         Route::put('/courts/{id}', [OwnerCourtController::class, 'update'])->middleware('permission:court.manage');
         Route::post('/courts/{id}/toggle', [OwnerCourtController::class, 'toggle'])->middleware('permission:court.manage');
         Route::delete('/courts/{id}', [OwnerCourtController::class, 'destroy'])->middleware('permission:court.manage');
@@ -328,7 +331,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // --- Staff & roles (read + invite) ---
         Route::get('/staff', [OwnerStaffController::class, 'index']);
-        Route::post('/staff', [OwnerStaffController::class, 'store'])->middleware('permission:staff.manage');
+        Route::post('/staff', [OwnerStaffController::class, 'store'])->middleware('permission:staff.manage')->middleware('limit:staff');
         Route::put('/staff/{userId}', [OwnerStaffController::class, 'update'])->middleware('permission:staff.manage');
         Route::delete('/staff/{userId}', [OwnerStaffController::class, 'destroy'])->middleware('permission:staff.manage');
         Route::get('/roles', [OwnerStaffController::class, 'roles']);

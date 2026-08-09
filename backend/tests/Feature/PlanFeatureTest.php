@@ -78,6 +78,51 @@ class PlanFeatureTest extends TestCase
         $this->as($token)->getJson('/api/v1/owner/broadcasts')->assertOk();
     }
 
+    /**
+     * Reading the numbers is core; carrying them out as a file is what the
+     * catalogue sells as "รายงานขั้นสูง + ส่งออก".
+     *
+     * This is here because advanced_reports was the one code in the catalogue
+     * with no route behind it — listed on the pricing matrix, toggleable in the
+     * admin grid, and enforced nowhere. Exactly the decoration the gating was
+     * built to end.
+     */
+    public function test_exporting_reports_is_the_pro_half_of_reporting(): void
+    {
+        $this->onPlan('starter');
+        $token = $this->login();
+
+        // The reports themselves stay open — a venue that cannot see its own
+        // numbers has no reason to pay at all.
+        $this->as($token)->getJson('/api/v1/owner/dashboard')->assertOk();
+        $this->as($token)->getJson('/api/v1/owner/reports/bookings.csv')
+            ->assertStatus(402)
+            ->assertJsonPath('code', 'feature_not_in_plan');
+
+        $this->onPlan('pro');
+        $this->as($this->login())->getJson('/api/v1/owner/reports/bookings.csv')->assertOk();
+    }
+
+    /**
+     * Every code in the catalogue must be attached to something.
+     *
+     * A feature with no route is a line on the pricing page that a venue can
+     * pay for and receive nothing for, and nothing else in the suite would
+     * notice — the gap this test exists to close was found by hand, once.
+     */
+    public function test_every_catalogue_feature_actually_gates_a_route(): void
+    {
+        $routes = file_get_contents(base_path('routes/api.php'));
+
+        foreach (\App\Support\PlanCatalogue::codes() as $code) {
+            $this->assertStringContainsString(
+                "feature:{$code}'",
+                $routes,
+                "the plan catalogue sells '{$code}' but no route enforces it",
+            );
+        }
+    }
+
     // ---- the core is never gated -------------------------------------------
 
     /**

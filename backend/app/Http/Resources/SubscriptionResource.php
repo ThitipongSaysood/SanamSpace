@@ -25,6 +25,10 @@ class SubscriptionResource extends JsonResource
             // What this plan includes. Sent so the owner portal can hide what
             // it cannot use — a menu that always 402s is worse than no menu.
             'features' => \App\Support\PlanFeatures::for($this->organization_id),
+            // How much of each ceiling is used. A venue should meet its limit on
+            // a usage bar long before it meets it as a refusal on the one day it
+            // needs another court.
+            'limits' => \App\Support\PlanLimits::summary($this->organization_id),
             'price' => $this->plan ? (float) $this->plan->price : null,
             'status' => $this->status,
             'startedAt' => $this->started_at?->toIso8601String(),

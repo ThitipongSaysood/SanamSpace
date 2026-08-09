@@ -1060,6 +1060,18 @@ export type AdminSubscription = {
    * "withheld" for codes the catalogue actually gates.
    */
   features?: string[];
+  /**
+   * How much of each ceiling this venue has used.
+   *
+   * `enforced` is the honest half: branches, courts and staff are refused past
+   * the limit, but a monthly booking cap is counted and shown and never blocks
+   * a booking — that would take the venue's revenue to enforce the platform's
+   * billing, against a customer who does not know a plan exists.
+   */
+  limits?: Record<
+    string,
+    { used: number; limit: number | null; label: string; enforced: boolean }
+  >;
   price: number;
   status: string;
   startedAt: string | null;
@@ -1194,6 +1206,8 @@ export type OwnerBilling = {
     /** Negative once the plan has lapsed; null when there is no end date. */
     daysRemaining: number | null;
     isExpired: boolean;
+    /** Ceilings and what is used against them — see AdminSubscription.limits. */
+    limits?: AdminSubscription["limits"];
   } | null;
   outstandingInvoice: AdminInvoice | null;
   payTo: string | null;

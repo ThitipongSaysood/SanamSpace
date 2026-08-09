@@ -9,8 +9,19 @@ import { Button } from "@/components/ui/button";
 
 const fmt = new Intl.NumberFormat("th-TH");
 
+/**
+ * Reading the reports is core; taking them away as a file is what the plan
+ * sells. The button is removed rather than greyed for the same reason the
+ * menus are: a control that answers 402 is a dead end, and the venue should
+ * hear about the difference from the pricing page.
+ *
+ * Nothing is hidden while the subscription is still loading — showing the
+ * button and then removing it reads as a bug.
+ */
 function ExportButton() {
   const [busy, setBusy] = useState(false);
+  const { data: sub } = useQuery({ queryKey: ["owner", "subscription"], queryFn: ownerApi.getSubscription });
+
   async function run() {
     setBusy(true);
     try {
@@ -21,6 +32,9 @@ function ExportButton() {
       setBusy(false);
     }
   }
+
+  if (sub?.features && !sub.features.includes("advanced_reports")) return null;
+
   return (
     <Button type="button" variant="outline" onClick={run} disabled={busy}>
       <Download className="size-4" /> {busy ? "กำลังส่งออก..." : "ส่งออก CSV"}

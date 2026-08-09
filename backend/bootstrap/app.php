@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnsurePermission;
 use App\Http\Middleware\EnsurePlanFeature;
+use App\Http\Middleware\EnsurePlanLimit;
 use App\Http\Middleware\EnsureSubscriptionActive;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\ResolveOwnerOrganization;
@@ -28,6 +29,9 @@ return Application::configure(basePath: dirname(__DIR__))
             // feature:pos — the venue's PLAN must include it. Separate from
             // permission on purpose: one is about the person, one about the bill.
             'feature' => EnsurePlanFeature::class,
+            // limit:court — the venue's plan must allow ANOTHER one. Only on
+            // create routes; editing what already exists stays open.
+            'limit' => EnsurePlanLimit::class,
             'super.admin' => EnsureSuperAdmin::class,
         ]);
     })

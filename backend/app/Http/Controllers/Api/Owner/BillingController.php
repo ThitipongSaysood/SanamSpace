@@ -45,6 +45,10 @@ class BillingController extends Controller
                     'endsAt' => $sub->ends_at?->toIso8601String(),
                     'daysRemaining' => $this->renewals->daysRemaining($sub),
                     'isExpired' => $this->renewals->isExpired($sub),
+                    // What the plan's ceilings are and how much is used. This is
+                    // the page a venue lands on when it runs out of courts to
+                    // add, so it is the page that has to explain why.
+                    'limits' => \App\Support\PlanLimits::summary($sub->organization_id),
                 ] : null,
                 'outstandingInvoice' => $outstanding
                     ? (new AdminInvoiceResource($outstanding->loadMissing('plan')))->toArray($request)
