@@ -40,6 +40,7 @@ use App\Http\Controllers\Api\Owner\CourtBlockController as OwnerCourtBlockContro
 use App\Http\Controllers\Api\Owner\ReportController as OwnerReportController;
 use App\Http\Controllers\Api\Owner\CouponController as OwnerCouponController;
 use App\Http\Controllers\Api\Owner\CourtBoardController as OwnerCourtBoardController;
+use App\Http\Controllers\Api\Owner\OperationsController as OwnerOperationsController;
 use App\Http\Controllers\Api\Owner\CourtController as OwnerCourtController;
 use App\Http\Controllers\Api\Owner\CrmController as OwnerCrmController;
 use App\Http\Controllers\Api\Owner\CustomerController as OwnerCustomerController;
@@ -183,6 +184,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/billing/invoices/{id}/document.pdf', [OwnerBillingController::class, 'documentPdf']);
         Route::post('/billing/invoices/{id}/slip', [OwnerBillingController::class, 'uploadSlip']);
 
+        // Today's floor: the timeline and the things that need doing. Its own
+        // endpoint rather than the dashboard aggregate — this screen refreshes
+        // and has no use for seven days of revenue series.
+        Route::get('/operations', [OwnerOperationsController::class, 'index'])->middleware('permission:booking.view');
         Route::get('/dashboard', [OwnerDashboardController::class, 'index']);
         Route::get('/subscription', [OwnerSubscriptionController::class, 'show']);
         Route::get('/announcements', [OwnerAnnouncementController::class, 'index']);

@@ -28,6 +28,7 @@ import type {
   ScanResult,
   DuplicateGroup,
   CourtBoard,
+  OwnerOperations,
   OwnerCustomerDetail,
   OwnerCustomerCredit,
   OwnerCreditMovement,
@@ -474,6 +475,9 @@ export const ownerApi = {
    */
   scan: (code: string) =>
     req<ScanResult>("/owner/scan", { method: "POST", body: { code }, raw: true }),
+  /** Today's timeline and the things that need doing. */
+  getOperations: () => req<OwnerOperations>("/owner/operations"),
+
   /** What is on each court right now, and who is next. */
   getCourtBoard: () => req<CourtBoard>("/owner/courts/live"),
 

@@ -274,6 +274,68 @@ export type CourtBoard = {
   }[];
 };
 
+/**
+ * Today at the venue: what is happening, and what needs somebody.
+ *
+ * Deliberately not the dashboard aggregate — this screen is read at the counter
+ * and refreshes; seven days of revenue series is not what it is for.
+ */
+export type OwnerOperations = {
+  now: string;
+  today: string;
+  tiles: {
+    todayBookings: number;
+    pendingSlips: number;
+    noShow: number;
+    cancelledToday: number;
+    /** Money still to collect at the counter today. */
+    outstanding: number;
+  };
+  attention: {
+    noShow: {
+      id: string;
+      code: string;
+      courtName: string | null;
+      customerName: string | null;
+      phone: string | null;
+      start: string;
+      lateMinutes: number;
+    }[];
+    unpaid: {
+      id: string;
+      code: string;
+      courtName: string | null;
+      customerName: string | null;
+      start: string;
+      end: string;
+      amount: number;
+      paidAmount: number;
+      outstanding: number;
+    }[];
+    equipmentOut: {
+      id: string;
+      code: string;
+      courtName: string | null;
+      customerName: string | null;
+      end: string;
+      items: { name: string; qty: number }[];
+    }[];
+  };
+  timeline: {
+    id: string;
+    code: string;
+    courtName: string | null;
+    customerName: string | null;
+    start: string;
+    end: string;
+    status: string;
+    amount: number;
+    outstanding: number;
+    checkedIn: boolean;
+    phase: "done" | "now" | "upcoming" | "cancelled";
+  }[];
+};
+
 /** Something points can be spent on. */
 export type OwnerReward = {
   id: string;

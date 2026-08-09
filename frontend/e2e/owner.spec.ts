@@ -21,3 +21,28 @@ test("owner can log in and reach the dashboard", async ({ page }) => {
   await expect(board.getByText(/เวลาสนาม \d{2}:\d{2}/)).toBeVisible();
   await expect(board.getByText(/กำลังเล่น \d+ \/ \d+ คอร์ท/)).toBeVisible();
 });
+
+/**
+ * The day's operations screen.
+ *
+ * The assertion that matters is the clock: the timeline is today on the
+ * VENUE's clock, and the server runs on UTC. A screen built on the server's
+ * "today" reports yesterday until 07:00 in Bangkok.
+ */
+test("the operations centre shows today on the venue's clock", async ({ page }) => {
+  test.skip(!process.env.E2E_OWNER, "requires backend + NEXT_PUBLIC_API_URL (run with E2E_OWNER=1)");
+  await page.goto("/owner/login");
+  await page.locator('input[type="email"]').fill("owner@everyday.test");
+  await page.locator('input[type="password"]').fill("password");
+  await page.getByRole("button", { name: "เข้าสู่ระบบ" }).click();
+  await expect(page).toHaveURL(/\/owner$/);
+
+  await page.goto("/owner/operations");
+  await expect(page.getByRole("heading", { name: "Operations Center" })).toBeVisible();
+  await expect(page.getByText(/เวลาสนาม \d{2}:\d{2}/)).toBeVisible();
+
+  // Either there is work to do or there explicitly is not — never a silent gap.
+  await expect(page.getByText(/ต้องจัดการ \d+ รายการ|ไม่มีอะไรค้าง/)).toBeVisible();
+
+  await expect(page.getByRole("heading", { name: /Timeline วันนี้/ })).toBeVisible();
+});
