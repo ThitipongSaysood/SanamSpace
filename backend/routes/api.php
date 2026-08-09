@@ -122,6 +122,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/rewards', [MembershipController::class, 'rewards']);
     // The customer's own points history — the venue could already see it.
     Route::get('/me/points', [MembershipController::class, 'pointsHistory']);
+    // Redeeming from the app. A product becomes a pending promise with a code
+    // the counter asks for; credit and hours land immediately.
+    Route::post('/rewards/{id}/redeem', [MembershipController::class, 'redeem']);
+    Route::get('/me/redemptions', [MembershipController::class, 'myRedemptions']);
     // Credit: one balance, in baht. The venue used to call this a wallet and
     // also sell hour packages, which meant a customer had two balances in two
     // units and staff had to know which one a question was about.
@@ -283,6 +287,8 @@ Route::middleware('auth:sanctum')->group(function () {
         // Handing a reward over spends a customer's points, so it rides with the
         // other things that move value, not with "view the CRM".
         Route::post('/rewards/{id}/redeem', [OwnerRewardController::class, 'redeem'])->middleware('permission:crm.manage');
+        // Handing over what a customer redeemed in the app.
+        Route::post('/rewards/collect', [OwnerRewardController::class, 'collect'])->middleware('permission:crm.manage');
         Route::get('/coupons', [OwnerCouponController::class, 'index'])->middleware('permission:promotion.manage');
         Route::post('/coupons', [OwnerCouponController::class, 'store'])->middleware('permission:promotion.manage');
         Route::put('/coupons/{id}', [OwnerCouponController::class, 'update'])->middleware('permission:promotion.manage');

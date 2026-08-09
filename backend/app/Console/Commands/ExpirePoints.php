@@ -26,12 +26,17 @@ class ExpirePoints extends Command
         $expired = 0;
         $warned = 0;
 
+        $released = 0;
+
         foreach (Organization::query()->pluck('id') as $orgId) {
             $warned += $points->warnExpiring($orgId);
             $expired += $points->expireDue($orgId);
+            // Uncollected app redemptions go back — points to the customer,
+            // stock to the shelf. Without this the pending queue only grows.
+            $released += $points->releaseUncollected($orgId);
         }
 
-        $this->info("Points: expired {$expired} membership(s), warned {$warned}.");
+        $this->info("Points: expired {$expired} membership(s), warned {$warned}, released {$released} uncollected reward(s).");
 
         return self::SUCCESS;
     }

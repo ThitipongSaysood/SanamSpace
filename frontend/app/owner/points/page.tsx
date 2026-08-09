@@ -1,9 +1,10 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, QrCode } from "lucide-react";
 import type { OwnerReward, OwnerSettings } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
+import Link from "next/link";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,14 +50,15 @@ export default function OwnerPointsPage() {
 
       <Rewards />
 
+      <PendingCollections />
+
       <Redemptions />
     </div>
   );
 }
 
-/** The earn rate, the ladder, and what each tier is worth — together. */
-function EarningSettings({ settings, onSaved }: { settings: OwnerSettings; onSaved: () => void }) {
-  const [form, setForm] = useState({
+function seed(settings: OwnerSettings) {
+  return {
     pointsEnabled: settings.pointsEnabled ?? false,
     pointsPerBooking: settings.pointsPerBooking ?? 10,
     tierThresholds: settings.tierThresholds ?? DEFAULT_TIERS,
@@ -64,21 +66,24 @@ function EarningSettings({ settings, onSaved }: { settings: OwnerSettings; onSav
     pointsExpiryEnabled: settings.pointsExpiryEnabled ?? false,
     pointsValidMonths: settings.pointsValidMonths ?? 12,
     pointsExpiryWarnDays: settings.pointsExpiryWarnDays ?? 14,
-  });
+    selfRedeemEnabled: settings.selfRedeemEnabled ?? false,
+    redeemCollectHours: settings.redeemCollectHours ?? 48,
+  };
+}
 
-  // Re-seed when the server copy lands, so an in-flight edit is not overwritten
-  // by a stale render.
-  useEffect(() => {
-    setForm({
-      pointsEnabled: settings.pointsEnabled ?? false,
-      pointsPerBooking: settings.pointsPerBooking ?? 10,
-      tierThresholds: settings.tierThresholds ?? DEFAULT_TIERS,
-      memberDiscounts: settings.memberDiscounts ?? {},
-      pointsExpiryEnabled: settings.pointsExpiryEnabled ?? false,
-      pointsValidMonths: settings.pointsValidMonths ?? 12,
-      pointsExpiryWarnDays: settings.pointsExpiryWarnDays ?? 14,
-    });
-  }, [settings]);
+/** The earn rate, the ladder, and what each tier is worth — together. */
+function EarningSettings({ settings, onSaved }: { settings: OwnerSettings; onSaved: () => void }) {
+  const [form, setForm] = useState(() => seed(settings));
+
+  // Re-seed when a new server copy lands. Done during render rather than in an
+  // effect so the form never paints one frame of stale values; the reference
+  // check is React Query's structural sharing, so an unchanged refetch does not
+  // wipe what the owner is halfway through typing.
+  const [seeded, setSeeded] = useState(settings);
+  if (seeded !== settings) {
+    setSeeded(settings);
+    setForm(seed(settings));
+  }
 
   const save = useMutation({
     mutationFn: () => ownerApi.updateSettings(form),
@@ -188,6 +193,38 @@ function EarningSettings({ settings, onSaved }: { settings: OwnerSettings; onSav
             <label className="flex items-start gap-3">
               <input
                 type="checkbox"
+                checked={form.selfRedeemEnabled}
+                onChange={(e) => setForm((f) => ({ ...f, selfRedeemEnabled: e.target.checked }))}
+                className="mt-0.5 size-4 accent-[var(--brand-primary)]"
+              />
+              <span className="text-sm">
+                ให้ลูกค้ากดแลกเองในแอปได้
+                {/* Off until asked for: a code nobody at the counter is
+                    expecting is worse than no button at all. */}
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  เครดิตกับชั่วโมงเข้าให้ทันที · ของในร้านจะได้รหัสมารับที่เคาน์เตอร์ ถ้าไม่มารับตามเวลา คะแนนคืนอัตโนมัติ
+                </span>
+              </span>
+            </label>
+
+            {form.selfRedeemEnabled && (
+              <div className="space-y-1.5 sm:max-w-[16rem]">
+                <Label htmlFor="collect-hours">ต้องมารับภายในกี่ชั่วโมง</Label>
+                <Input
+                  id="collect-hours"
+                  type="number"
+                  min={1}
+                  value={form.redeemCollectHours}
+                  onChange={(e) => setForm((f) => ({ ...f, redeemCollectHours: Number(e.target.value) }))}
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2 rounded-xl border border-black/10 p-3">
+            <label className="flex items-start gap-3">
+              <input
+                type="checkbox"
                 checked={form.pointsExpiryEnabled}
                 onChange={(e) => setForm((f) => ({ ...f, pointsExpiryEnabled: e.target.checked }))}
                 className="mt-0.5 size-4 accent-[var(--brand-primary)]"
@@ -238,6 +275,20 @@ function EarningSettings({ settings, onSaved }: { settings: OwnerSettings; onSav
     </section>
   );
 }
+
+const REDEMPTIONS_KEY = ["owner", "rewards", "redemptions"];
+
+const STATUS_LABEL: Record<string, string> = {
+  pending: "รอมารับ",
+  collected: "รับแล้ว",
+  expired: "เลยเวลา (คืนคะแนนแล้ว)",
+};
+
+const STATUS_CLASS: Record<string, string> = {
+  pending: "text-brand-warning font-medium",
+  collected: "text-muted-foreground",
+  expired: "text-brand-danger",
+};
 
 const TYPE_LABEL: Record<string, string> = {
   product: "สินค้าในร้าน",
@@ -440,9 +491,9 @@ function RewardEditor({
             onChange={(e) => set("type", e.target.value as OwnerReward["type"])}
             className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
           >
-            <option value="product">สินค้าในร้าน</option>
-            <option value="credit">เครดิต (บาท)</option>
-            <option value="hours">ชั่วโมงเล่นฟรี</option>
+            {Object.entries(TYPE_LABEL).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
           </select>
         </div>
 
@@ -512,6 +563,95 @@ function RewardEditor({
 }
 
 /**
+ * What customers redeemed in the app and have not picked up yet.
+ *
+ * This is the half of in-app redemption that makes it safe to switch on: the
+ * points and the stock have already moved, so somebody at the counter has to be
+ * able to see what is owed and close it. Without this screen the codes would
+ * arrive on staff who had no list to check them against.
+ */
+function PendingCollections() {
+  const qc = useQueryClient();
+  const [code, setCode] = useState("");
+  const [done, setDone] = useState<string | null>(null);
+
+  const { data, isLoading } = useQuery({
+    queryKey: REDEMPTIONS_KEY,
+    queryFn: ownerApi.getRedemptions,
+  });
+
+  const collect = useMutation({
+    mutationFn: (value: string) => ownerApi.collectRedemption(value),
+    onSuccess: (r) => {
+      setCode("");
+      setDone(`ส่ง ${r.name} ให้ ${r.customerName ?? "ลูกค้า"} แล้ว`);
+      qc.invalidateQueries({ queryKey: REDEMPTIONS_KEY });
+    },
+  });
+
+  const pending = (data ?? []).filter((r) => r.status === "pending");
+
+  return (
+    <section className="space-y-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+      <div>
+        <h2 className="text-sm font-semibold">รอลูกค้ามารับ</h2>
+        <p className="text-xs text-muted-foreground">ลูกค้ากดแลกในแอปแล้ว · กรอกรหัสจากมือถือลูกค้าเพื่อตัดออกจากรายการ</p>
+      </div>
+
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="collect-code">รหัสรับของ</Label>
+          <Input
+            id="collect-code"
+            value={code}
+            onChange={(e) => { setCode(e.target.value); setDone(null); }}
+            placeholder="R7K2M9"
+            className="w-40 font-mono uppercase tracking-widest"
+          />
+        </div>
+        <Button
+          type="button"
+          onClick={() => collect.mutate(code.trim())}
+          disabled={code.trim().length === 0 || collect.isPending}
+        >
+          {collect.isPending ? "กำลังตัด…" : "ตัดรายการ"}
+        </Button>
+        {/* The camera lives in one place for the whole system — a second
+            scanner here would be a second thing to keep working. */}
+        <Link
+          href="/owner/checkin"
+          className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-brand hover:bg-brand/5"
+        >
+          <QrCode className="size-4" /> สแกน QR ที่หน้าสแกน
+        </Link>
+      </div>
+
+      {collect.isError && <p className="text-sm text-brand-danger">{(collect.error as Error).message}</p>}
+      {done && <p className="text-sm text-brand">{done}</p>}
+
+      {isLoading && <Loading rows={1} />}
+      {!isLoading && pending.length === 0 && <EmptyState message="ไม่มีรายการค้างรับ" />}
+
+      {pending.length > 0 && (
+        <ul className="divide-y divide-black/5 rounded-xl border border-black/10">
+          {pending.map((r) => (
+            <li key={r.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+              <div className="min-w-0">
+                <div className="truncate font-medium">{r.name}</div>
+                <div className="text-xs text-muted-foreground">{r.customerName ?? "—"}</div>
+              </div>
+              <span className="shrink-0 rounded-lg bg-app px-2.5 py-1 font-mono font-semibold tracking-widest">
+                {r.code}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/**
  * What has been handed over.
  *
  * The endpoint existed with no screen reading it — the same shape of gap as the
@@ -519,10 +659,7 @@ function RewardEditor({
  * them. Points are value, and value leaving needs a page.
  */
 function Redemptions() {
-  const { data, isLoading } = useQuery({
-    queryKey: ["owner", "rewards", "redemptions"],
-    queryFn: ownerApi.getRedemptions,
-  });
+  const { data, isLoading } = useQuery({ queryKey: REDEMPTIONS_KEY, queryFn: ownerApi.getRedemptions });
 
   const rows = data ?? [];
 
@@ -545,6 +682,7 @@ function Redemptions() {
                 <th className="px-3 py-2">ลูกค้า</th>
                 <th className="px-3 py-2">ของรางวัล</th>
                 <th className="px-3 py-2 text-right">คะแนน</th>
+                <th className="px-3 py-2">สถานะ</th>
                 <th className="px-3 py-2">พนักงาน</th>
               </tr>
             </thead>
@@ -558,6 +696,11 @@ function Redemptions() {
                   <td data-label="ของรางวัล" className="px-3 py-2">{r.name}</td>
                   <td data-label="คะแนน" className="px-3 py-2 text-right font-semibold text-brand tabular-nums">
                     −{fmt.format(r.pointsSpent)}
+                  </td>
+                  <td data-label="สถานะ" className="px-3 py-2">
+                    <span className={STATUS_CLASS[r.status] ?? "text-muted-foreground"}>
+                      {STATUS_LABEL[r.status] ?? r.status}
+                    </span>
                   </td>
                   <td data-label="พนักงาน" className="px-3 py-2 text-muted-foreground">{r.byName ?? "—"}</td>
                 </tr>

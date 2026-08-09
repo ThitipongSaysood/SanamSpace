@@ -4,6 +4,7 @@ import type {
   CouponPreview,
   CustomerReward,
   PointMovement,
+  MyRedemption,
 } from "@/lib/types";
 import { clearToken, getToken, setToken } from "./token";
 import { getActiveVenueSlug } from "@/lib/tenant/active-venue";
@@ -160,6 +161,10 @@ export const httpApi: Api = {
   getRewards: () => req<CustomerReward[]>("/rewards"),
   /** Where my points came from and went. The venue could already see this. */
   getPointsHistory: () => req<PointMovement[]>("/me/points"),
+  /** Redeem from the app. A product comes back with a code to collect it. */
+  redeemReward: (rewardId: string) =>
+    req<MyRedemption>(`/rewards/${rewardId}/redeem`, { method: "POST", body: {} }),
+  getMyRedemptions: () => req<MyRedemption[]>("/me/redemptions"),
   getCredit: () => req<Wallet>("/credit"),
   getPromotions: () => req<Promotion[]>("/promotions"),
   /** What can be rented for this exact slot — availability needs a window. */

@@ -181,6 +181,30 @@ class NotificationService
         );
     }
 
+    /** Never collected — so the points come back, and they hear why. */
+    public function redemptionExpired(Customer $customer, string $name, int $points): void
+    {
+        $this->create(
+            $customer->organization_id,
+            $customer->id,
+            'คืนคะแนนให้แล้ว',
+            "ไม่ได้มารับ \"{$name}\" ตามกำหนด · คืน {$points} คะแนนเข้าบัญชีของคุณแล้ว",
+            'promo',
+        );
+    }
+
+    /** Redeemed in the app — this is the code the counter asks for. */
+    public function redemptionReady(Customer $customer, string $name, string $code): void
+    {
+        $this->create(
+            $customer->organization_id,
+            $customer->id,
+            "แลก {$name} สำเร็จ",
+            "แสดงรหัส {$code} ที่เคาน์เตอร์เพื่อรับของ",
+            'promo',
+        );
+    }
+
     public function pointsExpired(Customer $customer, int $points): void
     {
         $this->create(

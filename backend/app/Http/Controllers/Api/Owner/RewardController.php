@@ -15,10 +15,14 @@ use Illuminate\Validation\ValidationException;
 /**
  * What points are worth, and handing it over.
  *
- * Redemption is a counter action: the customer says "ขอแลกน้ำ" and staff tap.
- * There is deliberately no in-app self-redemption queue — an unfulfilled
- * redemption is a promise nobody is watching, and the fridge is at the counter
- * anyway.
+ * Two ways in. Staff redeem directly at the counter — the customer says
+ * "ขอแลกน้ำ" and it is done. Or the customer redeems in the app and brings a
+ * code, which staff close here with `collect`.
+ *
+ * The app route only exists because the venue asked for it, and it is off by
+ * default: a code nobody at the counter is expecting is worse than no button at
+ * all. Uncollected ones are released by `points:expire` — points back to the
+ * customer, stock back on the shelf — so the pending queue cannot only grow.
  */
 class RewardController extends Controller
 {
@@ -114,12 +118,47 @@ class RewardController extends Controller
         ]], 201);
     }
 
+    /**
+     * POST /owner/rewards/collect — hand over what a customer redeemed in the
+     * app, by the code on their phone.
+     *
+     * The stock already left the shelf when they redeemed; this closes the
+     * promise. Codes are matched case-insensitively because staff type them by
+     * hand off a screen.
+     */
+    public function collect(Request $request, PointsService $points): JsonResponse
+    {
+        $orgId = $request->attributes->get('currentOrganizationId');
+
+        $data = $request->validate([
+            'code' => ['required', 'string', 'max:12'],
+        ]);
+
+        $redemption = RewardRedemption::query()
+            ->forOrganization($orgId)
+            ->whereRaw('UPPER(code) = ?', [mb_strtoupper(trim($data['code']))])
+            ->with('customer')
+            ->first();
+
+        if (! $redemption) {
+            throw ValidationException::withMessages(['code' => 'ไม่พบรหัสนี้']);
+        }
+
+        $points->collect($redemption, $request->user()?->id);
+
+        return response()->json(['data' => [
+            'id' => (string) $redemption->id,
+            'name' => $redemption->name,
+            'customerName' => $redemption->customer?->display_name,
+        ]]);
+    }
+
     /** GET /owner/rewards/redemptions — what has been handed over lately. */
     public function redemptions(Request $request): JsonResponse
     {
         $rows = RewardRedemption::query()
             ->forOrganization($request->attributes->get('currentOrganizationId'))
-            ->with(['customer', 'staff'])
+            ->with(['customer', 'staff', 'collector'])
             ->orderByDesc('created_at')
             ->limit(100)
             ->get();
@@ -130,7 +169,12 @@ class RewardController extends Controller
                 'name' => $r->name,
                 'pointsSpent' => (int) $r->points_spent,
                 'customerName' => $r->customer?->display_name,
-                'byName' => $r->staff?->display_name ?? $r->staff?->name,
+                // Whoever actually handled it: the counter staff who rang it
+                // up, or — for an app redemption — whoever handed it over.
+                'byName' => $r->staff?->display_name ?? $r->staff?->name
+                    ?? $r->collector?->display_name ?? $r->collector?->name,
+                'status' => $r->status,
+                'code' => $r->status === 'pending' ? $r->code : null,
                 'createdAt' => $r->created_at?->toIso8601String(),
             ])->values(),
         ]);

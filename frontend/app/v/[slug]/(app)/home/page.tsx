@@ -6,6 +6,7 @@ import {
   CalendarClock,
   CalendarPlus,
   ChevronRight,
+  Gift,
   Crown,
   History,
   MapPin,
@@ -19,6 +20,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import {
   useBookings,
   useMembership,
+  useMyRedemptions,
   useNotifications,
   usePromotions,
   useVenues,
@@ -86,9 +88,13 @@ export default function HomePage() {
   const { data: bookings } = useBookings();
   const { data: notifications } = useNotifications();
   const { data: promotions } = usePromotions();
+  const { data: redemptions } = useMyRedemptions();
   const { tenant } = useTenant();
 
   const upcoming = nextBooking(bookings);
+  // Only what is still owed. A reward already collected is history and belongs
+  // on the membership screen, not on the screen people open to see what is next.
+  const toCollect = (redemptions ?? []).filter((r) => r.status === "pending");
   const unread = notifications?.length ?? 0;
   // The banner shows the venue's OWN first promotion. It used to be a
   // hard-coded "โปรโมชั่นลด 10%" that every venue displayed whether or not it
@@ -168,6 +174,46 @@ export default function HomePage() {
             <ChevronRight className="size-4" />
           </span>
         </Link>
+
+        {/* Redeemed but not yet in hand. It sits this high because the venue
+            returns anything uncollected — the customer needs to remember before
+            the deadline, not find out afterwards. */}
+        {toCollect.length > 0 && (
+          <section aria-labelledby="to-collect-heading" className="overflow-hidden rounded-2xl bg-amber-50 shadow-sm ring-1 ring-amber-200">
+            <Link href="/membership" className="block transition active:scale-[0.99]">
+              <div className="flex items-center gap-2 border-b border-amber-200/70 px-4 py-2.5">
+                <Gift className="size-4 shrink-0 text-amber-700" />
+                <h2 id="to-collect-heading" className="flex-1 text-sm font-semibold text-amber-900">
+                  ของรางวัลที่รอรับ
+                </h2>
+                <ChevronRight className="size-4 shrink-0 text-amber-700/70" />
+              </div>
+
+              <ul className="divide-y divide-amber-200/70">
+                {toCollect.map((r) => (
+                  <li key={r.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium text-amber-900">{r.name}</div>
+                      <div className="text-[11px] text-amber-800">
+                        ใช้ {fmtNum.format(r.pointsSpent)} คะแนน
+                        {r.expiresAt &&
+                          ` · รับภายใน ${new Date(r.expiresAt).toLocaleString("th-TH", {
+                            day: "numeric",
+                            month: "short",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}`}
+                      </div>
+                    </div>
+                    <span className="shrink-0 rounded-lg bg-white px-2.5 py-1 font-mono text-sm font-bold tracking-widest text-amber-900">
+                      {r.code}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </Link>
+          </section>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           <ShortcutCard href="/bookings" icon={History} title="ประวัติการจอง" subtitle="ดูการจองทั้งหมด" />

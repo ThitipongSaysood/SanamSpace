@@ -24,5 +24,7 @@ class OrganizationSetting extends Model
         'points_expiry_enabled' => 'boolean',
         'points_valid_months' => 'integer',
         'points_expiry_warn_days' => 'integer',
+        'self_redeem_enabled' => 'boolean',
+        'redeem_collect_hours' => 'integer',
     ];
 }

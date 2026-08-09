@@ -4,6 +4,7 @@ import type {
   CouponPreview,
   CustomerReward,
   PointMovement,
+  MyRedemption,
 } from "@/lib/types";
 import {
   courts as courtsFx, venues as venuesFx,
@@ -188,6 +189,11 @@ export const mockApi = {
   async getMembership(): Promise<Membership> { await delay(); return membershipFx; },
   async getRewards(): Promise<CustomerReward[]> { await delay(); return []; },
   async getPointsHistory(): Promise<PointMovement[]> { await delay(); return []; },
+  async redeemReward(_rewardId: string): Promise<MyRedemption> {
+    await delay();
+    throw new Error("โหมดสาธิต — แลกของรางวัลไม่ได้");
+  },
+  async getMyRedemptions(): Promise<MyRedemption[]> { await delay(); return []; },
   async getCredit(): Promise<Wallet> { await delay(); return walletFx; },
   async getPromotions(): Promise<Promotion[]> { await delay(); return promotionsFx; },
   // Mock mode has no catalogue — an empty list, never invented equipment.

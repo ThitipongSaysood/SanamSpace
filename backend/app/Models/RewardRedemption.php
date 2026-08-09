@@ -21,7 +21,11 @@ class RewardRedemption extends Model
 
     protected function casts(): array
     {
-        return ['points_spent' => 'integer'];
+        return [
+            'points_spent' => 'integer',
+            'collected_at' => 'datetime',
+            'expires_at' => 'datetime',
+        ];
     }
 
     public function customer(): BelongsTo
@@ -34,9 +38,15 @@ class RewardRedemption extends Model
         return $this->belongsTo(Reward::class);
     }
 
-    /** The staff member who handed it over. */
+    /** The staff member who rang it up. Null when the customer redeemed in the app. */
     public function staff(): BelongsTo
     {
         return $this->belongsTo(User::class, 'redeemed_by');
+    }
+
+    /** The staff member who handed it over against a collection code. */
+    public function collector(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'collected_by');
     }
 }

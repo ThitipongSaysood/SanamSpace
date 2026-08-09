@@ -167,13 +167,28 @@ export type OwnerCustomerCredit = {
   packages: { id: string; name: string; totalHours: number; remainingHours: number; expiresAt: string | null }[];
 };
 
-/** One reward handed over at the counter. */
+/** One reward handed over at the counter, or waiting to be. */
 export type OwnerRedemption = {
   id: string;
   name: string;
   pointsSpent: number;
   customerName: string | null;
   byName: string | null;
+  status: "pending" | "collected" | "expired";
+  /** Only carried while pending — after that there is nothing to collect. */
+  code: string | null;
+  createdAt: string;
+};
+
+/** A reward the customer redeemed. `code` is what the counter asks for. */
+export type MyRedemption = {
+  id: string;
+  name: string;
+  pointsSpent: number;
+  type: string;
+  status: "pending" | "collected" | "expired";
+  code: string | null;
+  expiresAt: string | null;
   createdAt: string;
 };
 
@@ -568,6 +583,10 @@ export type OwnerSettings = {
   pointsExpiryEnabled?: boolean;
   pointsValidMonths?: number;
   pointsExpiryWarnDays?: number;
+  /** Off by default: a collection code nobody at the counter expects is worse
+   *  than no button at all. */
+  selfRedeemEnabled?: boolean;
+  redeemCollectHours?: number;
   tierThresholds?: Record<string, number> | null;
   /** Percent off the court, per tier. Keyed by the SAME names as the ladder. */
   memberDiscounts?: Record<string, number> | null;

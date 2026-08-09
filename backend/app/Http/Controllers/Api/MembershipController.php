@@ -40,6 +40,71 @@ class MembershipController extends Controller
     }
 
     /**
+     * POST /rewards/{id}/redeem — redeem from the app.
+     *
+     * Only when the venue has switched it on: a collection code nobody at the
+     * counter is expecting is worse than no button at all.
+     */
+    public function redeem(Request $request, string $id, \App\Services\PointsService $points): JsonResponse
+    {
+        $customer = $request->user();
+
+        $settings = \App\Models\OrganizationSetting::query()
+            ->where('organization_id', $customer->organization_id)
+            ->first();
+
+        if (! $settings?->self_redeem_enabled) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'reward' => 'สนามนี้ให้แลกของรางวัลที่เคาน์เตอร์เท่านั้น',
+            ]);
+        }
+
+        $reward = \App\Models\Reward::query()
+            ->forOrganization($customer->organization_id)
+            ->where('id', $id)
+            ->firstOrFail();
+
+        // collectLater: a product has to be handed over, so it becomes a
+        // pending promise with a code. Credit and hours land immediately.
+        $redemption = $points->redeem($customer, $reward, null, collectLater: true);
+
+        if ($redemption->code) {
+            app(\App\Services\NotificationService::class)
+                ->redemptionReady($customer, $redemption->name, $redemption->code);
+        }
+
+        return response()->json(['data' => $this->presentRedemption($redemption)], 201);
+    }
+
+    /** GET /me/redemptions — what I have redeemed, and what I still have to collect. */
+    public function myRedemptions(Request $request): JsonResponse
+    {
+        $rows = \App\Models\RewardRedemption::query()
+            ->where('customer_id', $request->user()->id)
+            ->orderByDesc('created_at')
+            ->limit(50)
+            ->get();
+
+        return response()->json(['data' => $rows->map(fn ($r) => $this->presentRedemption($r))->values()]);
+    }
+
+    private function presentRedemption(\App\Models\RewardRedemption $r): array
+    {
+        return [
+            'id' => (string) $r->id,
+            'name' => $r->name,
+            'pointsSpent' => (int) $r->points_spent,
+            'type' => $r->type,
+            'status' => $r->status,
+            // The thing the counter asks for. Null once collected — a code that
+            // has been used should stop looking like one that has not.
+            'code' => $r->status === 'pending' ? $r->code : null,
+            'expiresAt' => $r->expires_at?->toIso8601String(),
+            'createdAt' => $r->created_at?->toIso8601String(),
+        ];
+    }
+
+    /**
      * GET /me/points — the customer's own history.
      *
      * A balance with no history is a number you cannot check. The venue could

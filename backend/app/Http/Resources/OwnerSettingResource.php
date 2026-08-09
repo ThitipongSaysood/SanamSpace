@@ -56,6 +56,8 @@ class OwnerSettingResource extends JsonResource
             'pointsExpiryEnabled' => (bool) ($this->points_expiry_enabled ?? false),
             'pointsValidMonths' => (int) ($this->points_valid_months ?? 12),
             'pointsExpiryWarnDays' => (int) ($this->points_expiry_warn_days ?? 14),
+            'selfRedeemEnabled' => (bool) ($this->self_redeem_enabled ?? false),
+            'redeemCollectHours' => (int) ($this->redeem_collect_hours ?? 48),
             // Payment (where this venue receives booking money)
             'promptpayId' => $this->promptpay_id,
             'promptpayName' => $this->promptpay_name,

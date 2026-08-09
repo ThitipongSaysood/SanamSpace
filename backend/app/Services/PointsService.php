@@ -294,13 +294,21 @@ class PointsService
      * Spending never demotes — the tier was earned, and using what you earned is
      * the point of earning it.
      */
-    public function redeem(Customer $customer, Reward $reward, ?string $actorId = null): RewardRedemption
-    {
+    public function redeem(
+        Customer $customer,
+        Reward $reward,
+        ?string $actorId = null,
+        bool $collectLater = false,
+    ): RewardRedemption {
         if (! $reward->is_active) {
             throw ValidationException::withMessages(['reward' => 'ของรางวัลนี้ปิดการแลกอยู่']);
         }
 
-        return DB::transaction(function () use ($customer, $reward, $actorId) {
+        // Credit and hours arrive instantly — there is nothing to hand over, so
+        // "come and collect it" would be a queue for no reason.
+        $needsCollecting = $collectLater && $reward->type === 'product';
+
+        return DB::transaction(function () use ($customer, $reward, $actorId, $needsCollecting) {
             $membership = $this->membershipFor($customer);
             $cost = (int) $reward->points_cost;
 
@@ -315,6 +323,8 @@ class PointsService
             // taken — so a failure here refuses instead of charging for nothing.
             $this->deliver($customer, $reward);
 
+            $settings = $this->settings($customer->organization_id);
+
             $redemption = RewardRedemption::create([
                 'organization_id' => $customer->organization_id,
                 'customer_id' => $customer->id,
@@ -324,6 +334,14 @@ class PointsService
                 'points_spent' => $cost,
                 'type' => $reward->type,
                 'redeemed_by' => $actorId,
+                'status' => $needsCollecting ? 'pending' : 'collected',
+                'code' => $needsCollecting ? $this->newCollectionCode($customer->organization_id) : null,
+                'collected_at' => $needsCollecting ? null : now(),
+                'collected_by' => $needsCollecting ? null : $actorId,
+                // A deadline, so an uncollected promise cannot sit forever.
+                'expires_at' => $needsCollecting
+                    ? now()->addHours(max(1, (int) ($settings?->redeem_collect_hours ?? 48)))
+                    : null,
             ]);
 
             PointTransaction::create([
@@ -339,6 +357,96 @@ class PointsService
 
             return $redemption;
         });
+    }
+
+    /**
+     * Hand over a pending redemption at the counter.
+     *
+     * The stock already left the shelf when it was redeemed, so this only
+     * closes the promise — no points move, and collecting twice is refused
+     * rather than silently accepted.
+     */
+    public function collect(RewardRedemption $redemption, ?string $actorId = null): RewardRedemption
+    {
+        if ($redemption->status === 'collected') {
+            throw ValidationException::withMessages(['code' => 'รายการนี้รับของไปแล้ว']);
+        }
+
+        if ($redemption->status !== 'pending') {
+            throw ValidationException::withMessages(['code' => 'รายการนี้ถูกยกเลิกหรือหมดอายุแล้ว']);
+        }
+
+        $redemption->update([
+            'status' => 'collected',
+            'collected_at' => now(),
+            'collected_by' => $actorId,
+        ]);
+
+        return $redemption->fresh();
+    }
+
+    /**
+     * Give back what was never collected.
+     *
+     * The points return and the stock goes back on the shelf — the customer got
+     * nothing, so charging them for it would be taking. Without this the
+     * pending queue only grows, which is the whole objection to letting people
+     * redeem from an app.
+     *
+     * @return int how many were returned
+     */
+    public function releaseUncollected(string $orgId, ?\DateTimeInterface $asOf = null): int
+    {
+        $asOf ??= now();
+        $released = 0;
+
+        $stale = RewardRedemption::query()
+            ->forOrganization($orgId)
+            ->where('status', 'pending')
+            ->whereNotNull('expires_at')
+            ->where('expires_at', '<', $asOf)
+            ->with(['customer', 'reward.product'])
+            ->get();
+
+        foreach ($stale as $redemption) {
+            if (! $redemption->customer) {
+                continue;
+            }
+
+            DB::transaction(function () use ($redemption) {
+                $redemption->update(['status' => 'expired']);
+
+                // Back on the shelf.
+                $redemption->reward?->product?->increment('stock_qty');
+
+                PointTransaction::create([
+                    'organization_id' => $redemption->organization_id,
+                    'customer_id' => $redemption->customer_id,
+                    'points' => (int) $redemption->points_spent,
+                    'source' => 'redemption',
+                    'label' => 'คืนคะแนน · ไม่ได้มารับ '.$redemption->name,
+                ]);
+
+                // Returned, not earned: the ladder must not count these twice.
+                $this->apply($redemption->customer, (int) $redemption->points_spent, LifetimeEffect::Spent);
+            });
+
+            app(NotificationService::class)->redemptionExpired($redemption->customer, $redemption->name, (int) $redemption->points_spent);
+            $released++;
+        }
+
+        return $released;
+    }
+
+    /** Short, readable, and unique within the venue — staff type it off a screen. */
+    private function newCollectionCode(string $orgId): string
+    {
+        do {
+            // No 0/O/1/I: they are read aloud and typed in by hand.
+            $code = 'R'.substr(str_shuffle('23456789ABCDEFGHJKLMNPQRSTUVWXYZ'), 0, 5);
+        } while (RewardRedemption::query()->forOrganization($orgId)->where('code', $code)->exists());
+
+        return $code;
     }
 
     /** Give the customer whatever this reward is made of. */

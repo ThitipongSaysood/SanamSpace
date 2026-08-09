@@ -76,6 +76,8 @@ class SettingController extends Controller
             'pointsExpiryEnabled' => ['sometimes', 'boolean'],
             'pointsValidMonths' => ['sometimes', 'integer', 'min:1', 'max:120'],
             'pointsExpiryWarnDays' => ['sometimes', 'integer', 'min:1', 'max:180'],
+            'selfRedeemEnabled' => ['sometimes', 'boolean'],
+            'redeemCollectHours' => ['sometimes', 'integer', 'min:1', 'max:720'],
 
             // --- Payment (where this venue receives booking money) ---
             'promptpayId' => ['sometimes', 'nullable', 'string', 'max:50'],
@@ -128,6 +130,8 @@ class SettingController extends Controller
             'pointsExpiryEnabled' => 'points_expiry_enabled',
             'pointsValidMonths' => 'points_valid_months',
             'pointsExpiryWarnDays' => 'points_expiry_warn_days',
+            'selfRedeemEnabled' => 'self_redeem_enabled',
+            'redeemCollectHours' => 'redeem_collect_hours',
             'promptpayId' => 'promptpay_id',
             'promptpayName' => 'promptpay_name',
             'bankName' => 'bank_name',

@@ -460,6 +460,12 @@ export const ownerApi = {
     }),
 
   getRedemptions: () => req<OwnerRedemption[]>("/owner/rewards/redemptions"),
+  /** Close a promise the customer made in the app, by the code on their phone. */
+  collectRedemption: (code: string) =>
+    req<{ id: string; name: string; customerName: string | null }>("/owner/rewards/collect", {
+      method: "POST",
+      body: { code },
+    }),
 
   /** The points ledger: earned, clawed back, adjusted — and by whom. */
   getPointsHistory: (customerId: string) =>

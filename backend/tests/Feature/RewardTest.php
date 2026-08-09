@@ -340,6 +340,220 @@ class RewardTest extends TestCase
         $this->assertNotContains('ปิดอยู่', array_column($rows, 'name'));
     }
 
+    // ---- redeeming from the app ---------------------------------------------
+
+    private function allowSelfRedeem(int $collectHours = 48): void
+    {
+        OrganizationSetting::query()->where('organization_id', $this->org()->id)
+            ->update(['self_redeem_enabled' => true, 'redeem_collect_hours' => $collectHours]);
+    }
+
+    /** Off until the venue asks: a code nobody expects is worse than no button. */
+    public function test_the_app_cannot_redeem_unless_the_venue_allows_it(): void
+    {
+        $reward = $this->reward();
+        $token = $this->customerToken();
+        $this->givePoints(100);
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->postJson("/api/v1/rewards/{$reward->id}/redeem")->assertStatus(422);
+
+        $this->assertSame(100, (int) Membership::where('customer_id', $this->customer()->id)->value('points'));
+    }
+
+    /**
+     * A product still has to be handed over, so redeeming in the app makes a
+     * promise with a code — not a bottle that teleports.
+     */
+    public function test_redeeming_a_product_in_the_app_issues_a_collection_code(): void
+    {
+        $this->allowSelfRedeem();
+        $product = $this->water(stock: 10);
+        $reward = $this->reward(['product_id' => $product->id]);
+        $token = $this->customerToken();
+        $this->givePoints(100);
+
+        $this->app['auth']->forgetGuards();
+        $body = $this->withToken($token)->postJson("/api/v1/rewards/{$reward->id}/redeem")
+            ->assertCreated()->json('data');
+
+        $this->assertSame('pending', $body['status']);
+        $this->assertNotNull($body['code']);
+        $this->assertSame(50, (int) Membership::where('customer_id', $this->customer()->id)->value('points'));
+        // The bottle is set aside now — they paid points for THAT one.
+        $this->assertSame(9, (int) $product->fresh()->stock_qty);
+    }
+
+    /** Credit needs no collecting, so it must not sit in a queue. */
+    public function test_redeeming_credit_in_the_app_lands_immediately(): void
+    {
+        $this->allowSelfRedeem();
+        $reward = $this->reward([
+            'name' => 'เครดิต ฿50', 'type' => 'credit', 'product_id' => null,
+            'points_cost' => 50, 'credit_amount' => 50,
+        ]);
+        $token = $this->customerToken();
+        $this->givePoints(100);
+
+        $this->app['auth']->forgetGuards();
+        $body = $this->withToken($token)->postJson("/api/v1/rewards/{$reward->id}/redeem")
+            ->assertCreated()->json('data');
+
+        $this->assertSame('collected', $body['status']);
+        $this->assertNull($body['code'], 'nothing to collect, so no code to show');
+        $this->assertSame(50.0, (float) Wallet::where('customer_id', $this->customer()->id)->value('balance'));
+    }
+
+    /** The counter closes the promise with the code off their phone. */
+    public function test_staff_collect_it_with_the_code(): void
+    {
+        $this->allowSelfRedeem();
+        $reward = $this->reward();
+        $token = $this->customerToken();
+        $this->givePoints(100);
+
+        $this->app['auth']->forgetGuards();
+        $code = $this->withToken($token)->postJson("/api/v1/rewards/{$reward->id}/redeem")
+            ->assertCreated()->json('data.code');
+
+        // Typed by hand off a screen, so case must not matter.
+        $this->withToken($this->ownerToken())
+            ->postJson('/api/v1/owner/rewards/collect', ['code' => strtolower($code)])
+            ->assertOk()
+            ->assertJsonPath('data.name', 'น้ำเปล่า 1 ขวด');
+
+        $this->assertSame('collected', RewardRedemption::firstOrFail()->status);
+    }
+
+    /** The history must name whoever handed it over, not leave a dash. */
+    public function test_the_history_credits_the_staff_who_collected_it(): void
+    {
+        $this->allowSelfRedeem();
+        $reward = $this->reward();
+        $token = $this->customerToken();
+        $this->givePoints(100);
+
+        $this->app['auth']->forgetGuards();
+        $code = $this->withToken($token)->postJson("/api/v1/rewards/{$reward->id}/redeem")->json('data.code');
+
+        $owner = $this->ownerToken();
+        $this->withToken($owner)->postJson('/api/v1/owner/rewards/collect', ['code' => $code])->assertOk();
+
+        $row = $this->withToken($owner)->getJson('/api/v1/owner/rewards/redemptions')->assertOk()->json('data.0');
+
+        $this->assertSame('collected', $row['status']);
+        $this->assertNotNull($row['byName'], 'nobody redeemed it at the counter, but somebody handed it over');
+    }
+
+    /** Handing the same code over twice is a mistake, not a second bottle. */
+    public function test_a_code_cannot_be_collected_twice(): void
+    {
+        $this->allowSelfRedeem();
+        $reward = $this->reward();
+        $token = $this->customerToken();
+        $this->givePoints(100);
+
+        $this->app['auth']->forgetGuards();
+        $code = $this->withToken($token)->postJson("/api/v1/rewards/{$reward->id}/redeem")->json('data.code');
+
+        $owner = $this->ownerToken();
+        $this->withToken($owner)->postJson('/api/v1/owner/rewards/collect', ['code' => $code])->assertOk();
+        $this->withToken($owner)->postJson('/api/v1/owner/rewards/collect', ['code' => $code])->assertStatus(422);
+    }
+
+    /** An unknown code says so rather than doing nothing quietly. */
+    public function test_an_unknown_code_is_refused(): void
+    {
+        $this->withToken($this->ownerToken())
+            ->postJson('/api/v1/owner/rewards/collect', ['code' => 'RZZZZZ'])
+            ->assertStatus(422);
+    }
+
+    /**
+     * The objection to app redemption, answered: uncollected promises are
+     * returned rather than piling up forever.
+     */
+    public function test_an_uncollected_redemption_returns_the_points_and_the_stock(): void
+    {
+        $this->allowSelfRedeem(collectHours: 1);
+        $product = $this->water(stock: 10);
+        $reward = $this->reward(['product_id' => $product->id]);
+        $token = $this->customerToken();
+        $this->givePoints(100);
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->postJson("/api/v1/rewards/{$reward->id}/redeem")->assertCreated();
+
+        $this->assertSame(50, (int) Membership::where('customer_id', $this->customer()->id)->value('points'));
+        $this->assertSame(9, (int) $product->fresh()->stock_qty);
+
+        // Nobody came.
+        RewardRedemption::query()->update(['expires_at' => now()->subHour()]);
+        $this->artisan('points:expire')->assertSuccessful();
+
+        $this->assertSame(100, (int) Membership::where('customer_id', $this->customer()->id)->value('points'), 'points came back');
+        $this->assertSame(10, (int) $product->fresh()->stock_qty, 'the bottle went back on the shelf');
+        $this->assertSame('expired', RewardRedemption::firstOrFail()->status);
+    }
+
+    /** Returning points is not earning them — the ladder must not count twice. */
+    public function test_a_returned_redemption_does_not_inflate_the_tier(): void
+    {
+        $this->allowSelfRedeem(collectHours: 1);
+        $reward = $this->reward();
+        $token = $this->customerToken();
+        $this->givePoints(100);
+        $before = (int) Membership::where('customer_id', $this->customer()->id)->value('lifetime_points');
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->postJson("/api/v1/rewards/{$reward->id}/redeem")->assertCreated();
+
+        RewardRedemption::query()->update(['expires_at' => now()->subHour()]);
+        $this->artisan('points:expire')->assertSuccessful();
+
+        $this->assertSame(
+            $before,
+            (int) Membership::where('customer_id', $this->customer()->id)->value('lifetime_points'),
+        );
+    }
+
+    /** A collected one is never released out from under the customer. */
+    public function test_a_collected_redemption_is_left_alone(): void
+    {
+        $this->allowSelfRedeem(collectHours: 1);
+        $reward = $this->reward();
+        $token = $this->customerToken();
+        $this->givePoints(100);
+
+        $this->app['auth']->forgetGuards();
+        $code = $this->withToken($token)->postJson("/api/v1/rewards/{$reward->id}/redeem")->json('data.code');
+        $this->withToken($this->ownerToken())->postJson('/api/v1/owner/rewards/collect', ['code' => $code])->assertOk();
+
+        RewardRedemption::query()->update(['expires_at' => now()->subHour()]);
+        $this->artisan('points:expire')->assertSuccessful();
+
+        $this->assertSame('collected', RewardRedemption::firstOrFail()->status);
+        $this->assertSame(50, (int) Membership::where('customer_id', $this->customer()->id)->value('points'));
+    }
+
+    /** The customer can see the code again — a notification scrolls away. */
+    public function test_the_customer_can_look_up_their_pending_code(): void
+    {
+        $this->allowSelfRedeem();
+        $reward = $this->reward();
+        $token = $this->customerToken();
+        $this->givePoints(100);
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->postJson("/api/v1/rewards/{$reward->id}/redeem")->assertCreated();
+
+        $this->app['auth']->forgetGuards();
+        $rows = $this->withToken($token)->getJson('/api/v1/me/redemptions')->assertOk()->json('data');
+
+        $this->assertSame('pending', $rows[0]['status']);
+        $this->assertNotNull($rows[0]['code']);
+    }
+
     // ---- scoping and permissions --------------------------------------------
 
     /** Another venue's reward is not redeemable here. */
