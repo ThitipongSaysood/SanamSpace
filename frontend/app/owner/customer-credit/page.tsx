@@ -15,13 +15,16 @@ const KEY = ["owner", "customer-credit"];
 const fmt = new Intl.NumberFormat("th-TH");
 
 /**
- * What customers hold with the venue: credit, in baht.
+ * What customers hold with the venue: credit in baht, and package hours.
  *
- * There used to be two balances in two units — a "wallet" in baht and hour
- * packages — so a customer could hold both and staff had to know which one a
- * question was about. One balance now, and every movement of it is recorded
- * with the staff member behind it, because credit is money that can be created
- * by hand.
+ * Two things, on purpose, and not the two the venue removed. The old "wallet"
+ * was a second MONEY balance that nothing could spend — that is gone. What
+ * remains is money (credit) and a product bought ahead (hours of court time),
+ * which are genuinely different: credit pays for anything, hours pay for the
+ * court and are sold at a discount.
+ *
+ * Every credit movement is recorded with the staff member behind it, because
+ * credit is money that can be created by hand.
  */
 export default function OwnerCustomerCreditPage() {
   const [q, setQ] = useState("");
@@ -200,17 +203,17 @@ function CreditEditor({ customer, onClose }: { customer: OwnerCustomerCredit; on
             <div className="text-xl font-bold text-brand tabular-nums">฿{fmt.format(customer.balance)}</div>
           </div>
           <div>
-            <div className="text-xs text-muted-foreground">ชั่วโมงคงเหลือ (แพ็กเกจเดิม)</div>
+            <div className="text-xs text-muted-foreground">ชั่วโมงจากแพ็กเกจ</div>
             <div className="text-xl font-bold tabular-nums">{fmt.format(customer.creditHours)} ชม.</div>
           </div>
         </div>
 
         <section className="space-y-2 rounded-xl border border-black/10 p-3">
           <h3 className="flex items-center gap-1.5 text-sm font-semibold">
-            <Clock className="size-4 text-brand" /> ชั่วโมงคงเหลือ (แพ็กเกจเดิม)
+            <Clock className="size-4 text-brand" /> ชั่วโมงจากแพ็กเกจ
           </h3>
           <p className="text-xs text-muted-foreground">
-            ใช้กับค่าสนามเท่านั้น — ของเดิมที่ลูกค้ายังถืออยู่ ยังใช้ได้ตามปกติ
+            ใช้กับค่าสนามเท่านั้น · ลูกค้าซื้อเองได้จากแอป — ตรงนี้ไว้ให้/หักด้วยมือ เช่น ชดเชยคอร์ทเสีย
           </p>
 
           <div className="grid gap-2 sm:grid-cols-2">

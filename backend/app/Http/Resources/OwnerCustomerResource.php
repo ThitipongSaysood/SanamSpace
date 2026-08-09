@@ -24,8 +24,7 @@ class OwnerCustomerResource extends JsonResource
             'totalSpending' => (float) $this->total_spending,
             'visits' => (int) $this->visits,
             'bookingsCount' => (int) ($this->bookings_count ?? 0),
-            // Credit, in baht — the one balance. `creditHours` is what is left
-            // of the old hour packages; shown so existing hours stay visible.
+            // Money and court time, never summed — see CustomerCreditController.
             'creditBalance' => (float) ($this->wallet?->balance ?? 0),
             'creditHours' => (float) ($this->credit_hours ?? 0),
         ];

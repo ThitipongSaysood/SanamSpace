@@ -28,6 +28,7 @@ import type {
   OwnerCustomerDetail,
   OwnerCustomerCredit,
   OwnerCreditMovement,
+  OwnerVenuePackage,
   OwnerProduct,
   OwnerRentalOut,
   OutstandingRental,
@@ -445,6 +446,14 @@ export const ownerApi = {
   /** Every movement with the staff member behind it — the audit trail. */
   getCreditHistory: (customerId: string) =>
     req<OwnerCreditMovement[]>(`/owner/customer-credit/${customerId}/history`),
+
+  // --- Hour packages the venue sells ---
+  getVenuePackages: () => req<OwnerVenuePackage[]>("/owner/packages"),
+  createVenuePackage: (body: { name: string; hours: number; price: number; validDays?: number }) =>
+    req<OwnerVenuePackage>("/owner/packages", { method: "POST", body }),
+  updateVenuePackage: (id: string, body: Partial<OwnerVenuePackage>) =>
+    req<OwnerVenuePackage>(`/owner/packages/${id}`, { method: "PUT", body }),
+  deleteVenuePackage: (id: string) => req<void>(`/owner/packages/${id}`, { method: "DELETE" }),
 
   // --- Discount codes ---
   getCoupons: () => req<OwnerCoupon[]>("/owner/coupons"),

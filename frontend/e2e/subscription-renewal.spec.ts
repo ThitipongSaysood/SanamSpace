@@ -37,7 +37,9 @@ test("owner renews and the admin approves the slip", async ({ page, request }) =
   await loginOwner(page);
 
   // The portal offers the way to renew…
-  await expect(page.getByRole("link", { name: "แพ็กเกจ/ต่ออายุ" })).toHaveAttribute(
+  // Renamed from "แพ็กเกจ/ต่ออายุ": that collided with the hour packages a
+  // venue SELLS. This menu is what the venue PAYS SanamSpace.
+  await expect(page.getByRole("link", { name: "ค่าบริการระบบ" })).toHaveAttribute(
     "href",
     "/owner/billing",
   );

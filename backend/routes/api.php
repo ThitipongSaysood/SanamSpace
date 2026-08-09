@@ -58,6 +58,7 @@ use App\Http\Controllers\Api\Owner\SettingController as OwnerSettingController;
 use App\Http\Controllers\Api\Owner\StaffController as OwnerStaffController;
 use App\Http\Controllers\Api\Owner\SubscriptionController as OwnerSubscriptionController;
 use App\Http\Controllers\Api\Owner\UploadController as OwnerUploadController;
+use App\Http\Controllers\Api\Owner\VenuePackageController as OwnerVenuePackageController;
 use App\Http\Controllers\Api\Owner\WalletController as OwnerWalletController;
 use App\Http\Controllers\Api\OrganizationPublicController;
 use App\Http\Controllers\Api\PaymentController;
@@ -261,6 +262,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/settings', [OwnerSettingController::class, 'update'])->middleware('permission:settings.manage');
 
         // --- Promotions (management CRUD, org-scoped) ---
+        // The hour packages the venue sells. Priced in hours on purpose —
+        // a package is court time bought ahead, not a baht balance.
+        Route::get('/packages', [OwnerVenuePackageController::class, 'index'])->middleware('permission:crm.view');
+        Route::post('/packages', [OwnerVenuePackageController::class, 'store'])->middleware('permission:promotion.manage');
+        Route::put('/packages/{id}', [OwnerVenuePackageController::class, 'update'])->middleware('permission:promotion.manage');
+        Route::delete('/packages/{id}', [OwnerVenuePackageController::class, 'destroy'])->middleware('permission:promotion.manage');
         Route::get('/coupons', [OwnerCouponController::class, 'index'])->middleware('permission:promotion.manage');
         Route::post('/coupons', [OwnerCouponController::class, 'store'])->middleware('permission:promotion.manage');
         Route::put('/coupons/{id}', [OwnerCouponController::class, 'update'])->middleware('permission:promotion.manage');

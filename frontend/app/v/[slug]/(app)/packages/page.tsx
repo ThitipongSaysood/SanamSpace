@@ -65,7 +65,7 @@ export default function PackagesPage() {
           {packages.map((p) => (
             <div key={p.id} className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
               <div className="flex items-start justify-between gap-2">
-                <div className="font-semibold">แพ็กเกจ {p.hours} ชม.</div>
+                <div className="font-semibold">{p.name}</div>
                 <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-600">
                   คุ้มกว่า {p.savePercent}%
                 </span>
@@ -129,7 +129,7 @@ function PurchaseFlow({ pkg, onClose }: { pkg: VenuePackage; onClose: () => void
           <>
             <h2 className="text-lg font-bold">ซื้อแพ็กเกจ</h2>
             <div className="mt-3 rounded-xl bg-app/60 p-4">
-              <div className="font-semibold">แพ็กเกจ {pkg.hours} ชม.</div>
+              <div className="font-semibold">{pkg.name}</div>
               <div className="text-sm text-muted-foreground">ใช้ได้ {pkg.validDays} วัน</div>
               <div className="mt-1 text-2xl font-bold text-brand">฿{pkg.price.toLocaleString()}</div>
             </div>

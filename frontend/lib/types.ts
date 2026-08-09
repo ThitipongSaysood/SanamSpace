@@ -160,11 +160,29 @@ export type OwnerCustomerCredit = {
   id: string;
   displayName: string;
   phone: string | null;
-  /** Credit in baht — the one balance. */
+  /** Credit in baht. Pays for anything. */
   balance: number;
-  /** Legacy hour packages, still spendable on court time. */
+  /** Court time from packages. Pays for the court only. */
   creditHours: number;
   packages: { id: string; name: string; totalHours: number; remainingHours: number; expiresAt: string | null }[];
+};
+
+/**
+ * An hour package the venue sells to its customers.
+ *
+ * Not to be confused with the venue's own subscription to the platform (that is
+ * `OwnerSubscription`, under "แพ็กเกจ/ต่ออายุ"). This one is court time sold
+ * ahead at a discount, priced in HOURS — credit is the baht balance.
+ */
+export type OwnerVenuePackage = {
+  id: string;
+  name: string;
+  hours: number;
+  price: number;
+  validDays: number;
+  savePercent: number;
+  activeHolders: number;
+  pricePerHour: number;
 };
 
 /**
@@ -465,9 +483,9 @@ export type OwnerCustomer = {
   totalSpending: number;
   visits: number;
   bookingsCount: number;
-  /** Credit in baht — the one balance. */
+  /** Credit in baht: tops up, refunds, adjustments. Pays for anything. */
   creditBalance?: number;
-  /** What is left of the old hour packages, kept visible during the switch. */
+  /** Court time bought ahead as a package. Never summed with the baht. */
   creditHours?: number;
 };
 

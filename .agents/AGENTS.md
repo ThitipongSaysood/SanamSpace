@@ -53,11 +53,17 @@ Anything that moves money or a subscription goes through a shared service — `R
 transitions are guarded so the same transfer can't be counted twice. If you add a money path, add the
 double-processing test with it.
 
-- **A customer holds ONE balance: credit, in baht** (`CreditService`). The old "wallet" is gone —
-  wallet and credit were two balances in two units, and the wallet was a dead end: money went in via
-  top-ups and refunds and nothing could ever spend it. Cancelling a paid booking returns credit
-  immediately; refunds pay out as credit, never cash (`manual` survives only for money genuinely
-  returned off-system).
+- **A customer holds credit (baht) and package hours (court time) — two things, never summed.**
+  Credit (`CreditService`) is money: top-ups, refunds, staff adjustments, and it pays for anything.
+  A package is court time bought ahead at a discount and pays for the court only. Converting between
+  them needs a rate nobody has agreed on; a venue selling "10 ชม. ฿2,500" has not promised an hour is
+  worth ฿250 forever. The old **"wallet" is gone** — that was a second MONEY balance that nothing
+  could spend: money went in via top-ups and refunds and never came out. Cancelling a paid booking
+  returns credit immediately; refunds pay out as credit, never cash (`manual` survives only for money
+  genuinely returned off-system).
+- **Two different things are called "แพ็กเกจ".** `/owner/packages` = the hour packages a venue SELLS
+  to its customers. `/owner/billing` = what the venue PAYS SanamSpace (labelled "ค่าบริการระบบ" now,
+  precisely so the two stop colliding).
 - **Every credit movement records who caused it** (`wallet_transactions.created_by` + `source`).
   Credit is money staff can create by hand, so a balance alone is not enough — "who gave this
   customer ฿5,000" has to have an answer. A row with no name is one the customer caused themselves.

@@ -22,4 +22,10 @@ class VenuePackage extends Model
             'save_percent' => 'integer',
         ];
     }
+
+    /** Copies of this package that customers actually bought. */
+    public function customerPackages(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(CustomerPackage::class);
+    }
 }

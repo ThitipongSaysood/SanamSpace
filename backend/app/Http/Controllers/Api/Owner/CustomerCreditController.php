@@ -13,13 +13,12 @@ use Illuminate\Validation\ValidationException;
 /**
  * What a customer holds with the venue, and how staff change it.
  *
- * Two currencies that are deliberately not one:
- *   - credit  = hours of court time, sold as packages
- *   - wallet  = baht, which can pay for anything
+ *   - credit — baht. Tops up, refunds, staff adjustments. Pays for anything.
+ *   - hours  — court time bought ahead as a package, at a discount.
  *
- * They are shown side by side and adjusted separately, because converting hours
- * to money needs a rate nobody has agreed on — and a venue that sells "10 hours
- * for ฿2,000" has not promised that an hour is worth ฿200 forever.
+ * Shown side by side and adjusted separately, never summed: converting hours to
+ * money needs a rate nobody has agreed on, and a venue selling "10 ชม. ฿2,500"
+ * has not promised an hour is worth ฿250 forever.
  */
 class CustomerCreditController extends Controller
 {
@@ -58,9 +57,9 @@ class CustomerCreditController extends Controller
                 'id' => (string) $c->id,
                 'displayName' => $c->display_name,
                 'phone' => $c->phone,
-                // Credit in baht is THE balance. `creditHours` is what remains
-                // of the old hour packages, kept visible so nobody's existing
-                // hours silently vanish in the switch.
+                // Two different things: `balance` is money, `creditHours` is
+                // court time bought ahead. Never summed — a package is a
+                // product sold at a discount, not a baht amount.
                 'balance' => (float) ($c->wallet?->balance ?? 0),
                 'creditHours' => (float) ($c->credit_hours ?? 0),
                 'packages' => $c->packages->map(fn ($p) => [
