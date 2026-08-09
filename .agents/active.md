@@ -1,6 +1,6 @@
 # Active Task
 
-_Last updated: 2026-08-08 (19:00) · Last agent: Claude (Opus 5)_
+_Last updated: 2026-08-09 (16:00) · Last agent: Claude (Opus 5)_
 
 ## ✅ Done 2026-08-02 — "รายการจอง" as its own menu + demo data reset
 - **New sidebar menu `/owner/bookings/list`.** First attempt put it as a 4th tab inside the calendar; the
@@ -196,67 +196,88 @@ _Last updated: 2026-08-08 (19:00) · Last agent: Claude (Opus 5)_
 - Verified live end-to-end, not just unit-tested. backend **260/260** (+14) · tsc clean · vitest 24/24 ·
   lint 13 = baseline · e2e 37/38. Detail: `sessions/2026-08-08-1100-pdpa-consent-crm-gating.md`.
 
-## Current Task
-Session 2026-08-08 (afternoon/evening) — **all committed and pushed to `main`**, none of it deployed.
-Started as "the app asks me to pay again after I uploaded a slip" and turned into a rebuild of the
-customer money model. Full detail: `sessions/2026-08-08-1900-money-flow-security-and-credit.md`.
+## ✅ Done 2026-08-08 — Payment-flow security, PDPA, CRM engine, one credit balance
+Committed and pushed to `main`, not deployed. Started as "the app asks me to pay again after I
+uploaded a slip" and turned into a rebuild of the customer money model: a customer could confirm
+their own booking for free (`/payments/{id}/verify` sat unscoped on the customer route table), the
+slip queue and the booking state could disagree, the wallet was money-in-nothing-out. First MySQL run
+of the suite caught `reviews.sort_order` unsigned. backend **438/438** · e2e 38/38.
+Detail: `sessions/2026-08-08-1900-money-flow-security-and-credit.md`.
 
-The thread running through it: **things that looked finished but were not.** A payment method with no
-code behind it, a permission catalogue nothing read, a timeline only the seeder wrote, a wallet money
-could enter and never leave.
+## Current Task
+Session 2026-08-09 — **committed and pushed to `main`**, none of it deployed. Started as "finish the
+in-app reward redemption", followed the venue's asks through the owner portal, and ended in the
+platform layer. Full detail: `sessions/2026-08-09-1600-plan-became-a-product.md`.
+
+Same thread as the day before, followed further: **things that looked finished but were not.** The
+plan matrix (stored, editable, enforced nowhere), the audit log (a page, a table, and no writer), the
+trial columns (present since the first migration, never read), the support inbox (readable,
+answerable, impossible to put anything into).
 
 ## Status
-🟢 **Local: all green.** backend **438/438** · tsc **clean** · vitest **24/24** · lint **13 errors** (=
-baseline) · e2e **38/38**. The e2e suite is fully green for the first time in several sessions (the
-`admin.spec.ts` "MRR" locator was ambiguous, not a real failure).
+🟢 **Local: all green.** backend **599/599** · tsc **clean** · vitest **31/31** · e2e **44/44** ·
+`npm run build` passes on **Next 16.3** · lint **12 errors** (one below the 13 baseline).
 
-🟢 **MySQL is now measured, not guessed.** All 60 migrations + the seeder + the full suite were run
-against local MySQL 9.6. This is how `reviews.sort_order` was caught — see below.
+🟢 **Dependencies clean in everything that ships.** `composer audit` 17 advisories → **0**; frontend
+production tree 12 (8 high) → **0**. `shadcn` was in `dependencies` — a scaffolding CLI imported by
+nothing, dragging the MCP SDK and hono into the shipped tree. Moved to devDependencies. The 8
+remaining advisories are build tooling (eslint, shadcn) and never reach the server.
 
 🔴 **Deploy still blocked** (unchanged since 2026-08-07): `DEPLOY_PATH` does not exist on the server.
-Infra, not code. Production is untouched, which also means **the security fix below is not live**.
+Infra, not code. **Production is running the broken credit system** — see risk 1 below.
 
-⚠️ **~26 migrations pending on prod.** They apply cleanly to an empty MySQL database now, but one
-earlier migration **drops five columns** from `organization_settings`. **Back up the prod DB first.**
+⚠️ **~38 migrations pending on prod.** Back the database up first: an earlier one drops five columns
+from `organization_settings`.
 
-⚠️ **Resetting the dev DB signs everyone out.** `migrate:fresh` drops `personal_access_tokens`; open
-browser tabs then hold a dead token. Warn before doing it.
+⚠️ **Do not `npm install` with `next dev` running.** Swapping `node_modules` under a live dev server
+leaves it answering 500 on every page, and Playwright then cannot take the port. Stop it first.
 
 ## What's Done
-1. **🔴 Security — a customer could confirm their own booking for free.** `POST /payments/{id}/verify`
-   and `/reject` sat on the CUSTOMER route table, unscoped, with a stale `TODO: restrict to owner/staff`.
-   Reproduced end-to-end, then deleted. Two tests had been *using* the hole as a shortcut.
-2. **Payment flow** — `pending_payment` could not tell "nobody paid" from "slip is with the venue", and
-   `POST /payments` opened a new payment on every call. Idempotent now; the slip queue and the booking
-   state can no longer disagree; slip review happens in the booking panel.
-3. **MySQL run found a live prod bug** — `reviews.sort_order` was unsigned while the code writes
-   `min - 1`. Every customer review would have 500'd in production. SQLite does not enforce unsigned.
-4. **PDPA WP1 finished** — data export + erasure (anonymise the person, keep the books).
-5. **Counter gaps** — POS sales history + void, equipment returns, renting on a walk-in booking.
-6. **CRM WP3/WP4/WP5** — timeline from real events (was seeder-only), per-recipient broadcast delivery,
-   dynamic segments + RFM.
-7. **Deposits** and **coupons + member discount** (the latter replacing a first-commit `// TODO`).
-8. **Dead sessions now land on login** instead of showing "ลองอีกครั้ง" forever, in all three portals.
-9. **Wallet retired; one credit balance in baht.** The wallet was a dead end — money in, nothing out.
-   Cancelling a paid booking returns credit immediately; every movement records the staff member behind
-   it. Existing hour packages are kept, not deleted.
-10. **Demo data rebuilt** to cover every feature; the seeder is idempotent now.
+1. **🔴 `wallet_transactions.sort_order` was unsigned** while `CreditService::nextSort` writes
+   `min - 1` (= -1 for a customer's first transaction). SQLite does not enforce it; MySQL does.
+   **Every top-up, refund-to-credit and credit payment 500s on production today.** Same bug family as
+   `reviews.sort_order` the day before — that search was for the symptom, not the pattern.
+2. **🔴 Changing a plan could hand a venue the platform free, forever.** Two change-plan endpoints
+   existed that did not know about each other; the older one created a subscription with no `ends_at`,
+   and `isExpired()` reads a null end date as "never expires". Both now call one method.
+3. **Dashboard reads the venue's clock, not UTC** — "today" reported yesterday until 07:00 Bangkok.
+4. **Customers redeem rewards themselves** (slide-to-confirm, collection code, uncollected ones expire
+   and return the points and the stock) · **one scanner** for every QR the counter meets.
+5. **Walk-ins matched by phone + a merge tool** — walk-in bookings created a new customer every visit.
+   Phone only: two customers called สมชาย are two people.
+6. **Live court board** and an **operations centre that is actually today** ("Timeline วันนี้" was the
+   six most-recently-created bookings, any date). **Sidebar in seven groups.**
+7. **The plan matrix became real** — `feature:` on 58 routes (402), menus hidden not greyed, the admin
+   grid toggles a cell, venues move between packages. **Enterprise retired.** `advanced_reports` was
+   still gating nothing; a test now walks every catalogue code and fails if it enforces nothing.
+8. **Plan ceilings enforced** — `limit:` middleware on branch/court/staff creation. Volume is
+   deliberately soft: a booking comes from a customer who does not know a plan exists.
+9. **An admin can run a subscription from the venue's own screen** — renew (with "already paid" that
+   still issues invoice and receipt), change plan, start a trial, hand-edit the expiry with a reason.
+10. **The audit log has a writer.** `AuditLog::create` appeared nowhere in the codebase; the six rows
+    on screen were seeded. Every platform action against a venue is now recorded — including
+    **impersonating the owner**.
+11. **Trials work** — the columns had been unread since the first migration. **Expiry warnings** at
+    7/3/1 days, and unpaid invoices finally age into `overdue`.
+12. **A venue can open a support ticket.** Nothing in the codebase could create one; the
+    "ติดต่อฝ่ายสนับสนุน" link went to the settings page.
+13. **CI runs the suite before deploying, on MySQL.** The deploy workflow ran no tests at all.
 
 ## Blockers
 None in code. Infra only: `DEPLOY_PATH` on the server, and a prod DB backup before the migration batch.
 
 ## Next Steps
-1. **Unblock the deploy** (`DEPLOY_PATH`), back up prod, run the migrations. The MySQL risk is now
-   measured — the batch applies cleanly to an empty database and the suite passes against MySQL.
-   Remember `php artisan storage:link` + real SMTP/LINE env.
-2. **Put tests in CI.** `.github/workflows/deploy.yml` builds and deploys and **runs no tests at all**.
-   Everything green is green because someone ran it locally. Run against **MySQL**, not SQLite.
-3. **Decide the package question.** Hour packages still sell in hours while credit is now baht. Left
-   untouched on purpose: converting them changes a discount customers already paid for.
-4. **Audit risks #5 (partial) & #8** — no subscription-expiry warning, no booking reminder;
-   `MAIL_MAILER=log` + `QUEUE_CONNECTION=database` with no worker.
+1. **Deploy.** Everything above is local. The credit fix is why this is first: real customers' money
+   has been broken on production since it shipped. `php artisan storage:link` + real SMTP/LINE env.
+2. **`storage_gb`** is the one plan limit still unenforced — every upload lands in a shared `slips`
+   folder with no venue in the path, so there is no honest number to enforce. Give uploads a per-venue
+   home first.
+3. **Self-serve signup** and an **automated payment gateway** — business decisions, not backlog. Today
+   a new venue is created by an admin and every renewal is PromptPay + a slip + a human.
+4. **Lint debt: 12 errors**, reported by CI but not enforced (a gate that is red on arrival teaches
+   people to ignore the red X).
 5. **CRM WP6–WP11** — notes/tasks, broadcast analytics (needs a LINE webhook), enrichment.
-6. `composer audit`: **21** advisories (guzzle 9, psr7 2, commonmark 10) — was 9.
+6. Demo data keeps one real duplicate customer pair (`0812345678`) unmerged, to demo the merge tool.
 
 ## ✅ Done 2026-08-07 — Four audit risks closed (#1, #3, #6, #7)
 Local-only, verified: backend **233/233** (10 new) · tsc clean · vitest 24/24 · lint **13 errors** (=
