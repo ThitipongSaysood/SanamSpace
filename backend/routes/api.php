@@ -216,23 +216,23 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/refunds/{id}/reject', [OwnerRefundController::class, 'reject'])->middleware('permission:refund.manage');
 
         // --- Rental equipment (rackets, shoes) ---
-        Route::get('/rental-items', [OwnerRentalItemController::class, 'index'])->middleware('permission:pos.sell');
-        Route::get('/rental-items/out', [OwnerRentalItemController::class, 'out'])->middleware('permission:pos.sell');
-        Route::get('/rental-items/offer', [OwnerRentalItemController::class, 'offer'])->middleware('permission:booking.create');
-        Route::post('/rental-items', [OwnerRentalItemController::class, 'store'])->middleware('permission:rental.manage');
-        Route::put('/rental-items/{id}', [OwnerRentalItemController::class, 'update'])->middleware('permission:rental.manage');
-        Route::delete('/rental-items/{id}', [OwnerRentalItemController::class, 'destroy'])->middleware('permission:rental.manage');
+        Route::get('/rental-items', [OwnerRentalItemController::class, 'index'])->middleware('permission:pos.sell')->middleware('feature:rental');
+        Route::get('/rental-items/out', [OwnerRentalItemController::class, 'out'])->middleware('permission:pos.sell')->middleware('feature:rental');
+        Route::get('/rental-items/offer', [OwnerRentalItemController::class, 'offer'])->middleware('permission:booking.create')->middleware('feature:rental');
+        Route::post('/rental-items', [OwnerRentalItemController::class, 'store'])->middleware('permission:rental.manage')->middleware('feature:rental');
+        Route::put('/rental-items/{id}', [OwnerRentalItemController::class, 'update'])->middleware('permission:rental.manage')->middleware('feature:rental');
+        Route::delete('/rental-items/{id}', [OwnerRentalItemController::class, 'destroy'])->middleware('permission:rental.manage')->middleware('feature:rental');
         // Taking gear back is counter work, so it rides with check-in rather
         // than with rental.manage, which is for changing what the venue owns.
-        Route::get('/rentals/outstanding', [OwnerRentalReturnController::class, 'outstanding'])->middleware('permission:booking.view');
+        Route::get('/rentals/outstanding', [OwnerRentalReturnController::class, 'outstanding'])->middleware('permission:booking.view')->middleware('feature:rental');
         Route::post('/bookings/{bookingId}/rentals/{rentalId}/return', [OwnerRentalReturnController::class, 'store'])->middleware('permission:booking.checkin');
 
         // --- POS: the counter's till and the things it sells ---
-        Route::get('/products', [OwnerProductController::class, 'index'])->middleware('permission:pos.sell');
-        Route::post('/products', [OwnerProductController::class, 'store'])->middleware('permission:product.manage');
-        Route::put('/products/{id}', [OwnerProductController::class, 'update'])->middleware('permission:product.manage');
-        Route::post('/products/{id}/stock', [OwnerProductController::class, 'adjustStock'])->middleware('permission:product.manage');
-        Route::delete('/products/{id}', [OwnerProductController::class, 'destroy'])->middleware('permission:product.manage');
+        Route::get('/products', [OwnerProductController::class, 'index'])->middleware('permission:pos.sell')->middleware('feature:pos');
+        Route::post('/products', [OwnerProductController::class, 'store'])->middleware('permission:product.manage')->middleware('feature:pos');
+        Route::put('/products/{id}', [OwnerProductController::class, 'update'])->middleware('permission:product.manage')->middleware('feature:pos');
+        Route::post('/products/{id}/stock', [OwnerProductController::class, 'adjustStock'])->middleware('permission:product.manage')->middleware('feature:pos');
+        Route::delete('/products/{id}', [OwnerProductController::class, 'destroy'])->middleware('permission:product.manage')->middleware('feature:pos');
 
         // `summary` before `{id}` so the word is not read as an id.
         Route::get('/sales/summary', [OwnerSaleController::class, 'summary'])->middleware('permission:pos.sell');
@@ -279,12 +279,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/customers/{id}', [OwnerCustomerController::class, 'show'])->middleware('permission:customer.view');
         // What a customer holds, and how staff change it. Granting credit is
         // wallet.manage, not customer.view — giving away money is not a read.
-        Route::get('/customer-credit', [OwnerCustomerCreditController::class, 'index'])->middleware('permission:customer.view');
-        Route::get('/customer-credit/{customerId}/history', [OwnerCustomerCreditController::class, 'history'])->middleware('permission:customer.view');
-        Route::get('/customer-credit/{customerId}/points', [OwnerCustomerCreditController::class, 'pointsHistory'])->middleware('permission:customer.view');
-        Route::post('/customer-credit/{customerId}/hours', [OwnerCustomerCreditController::class, 'grantHours'])->middleware('permission:wallet.manage');
-        Route::post('/customer-credit/{customerId}/hours/deduct', [OwnerCustomerCreditController::class, 'deductHours'])->middleware('permission:wallet.manage');
-        Route::post('/customer-credit/{customerId}/adjust', [OwnerCustomerCreditController::class, 'adjustCredit'])->middleware('permission:wallet.manage');
+        Route::get('/customer-credit', [OwnerCustomerCreditController::class, 'index'])->middleware('permission:customer.view')->middleware('feature:wallet');
+        Route::get('/customer-credit/{customerId}/history', [OwnerCustomerCreditController::class, 'history'])->middleware('permission:customer.view')->middleware('feature:wallet');
+        Route::get('/customer-credit/{customerId}/points', [OwnerCustomerCreditController::class, 'pointsHistory'])->middleware('permission:customer.view')->middleware('feature:wallet');
+        Route::post('/customer-credit/{customerId}/hours', [OwnerCustomerCreditController::class, 'grantHours'])->middleware('permission:wallet.manage')->middleware('feature:wallet');
+        Route::post('/customer-credit/{customerId}/hours/deduct', [OwnerCustomerCreditController::class, 'deductHours'])->middleware('permission:wallet.manage')->middleware('feature:wallet');
+        Route::post('/customer-credit/{customerId}/adjust', [OwnerCustomerCreditController::class, 'adjustCredit'])->middleware('permission:wallet.manage')->middleware('feature:wallet');
 
         // --- Settings (org settings + org name) ---
         Route::get('/settings', [OwnerSettingController::class, 'show']);
@@ -293,25 +293,25 @@ Route::middleware('auth:sanctum')->group(function () {
         // --- Promotions (management CRUD, org-scoped) ---
         // The hour packages the venue sells. Priced in hours on purpose —
         // a package is court time bought ahead, not a baht balance.
-        Route::get('/packages', [OwnerVenuePackageController::class, 'index'])->middleware('permission:crm.view');
-        Route::post('/packages', [OwnerVenuePackageController::class, 'store'])->middleware('permission:promotion.manage');
-        Route::put('/packages/{id}', [OwnerVenuePackageController::class, 'update'])->middleware('permission:promotion.manage');
-        Route::delete('/packages/{id}', [OwnerVenuePackageController::class, 'destroy'])->middleware('permission:promotion.manage');
+        Route::get('/packages', [OwnerVenuePackageController::class, 'index'])->middleware('permission:crm.view')->middleware('feature:package');
+        Route::post('/packages', [OwnerVenuePackageController::class, 'store'])->middleware('permission:promotion.manage')->middleware('feature:package');
+        Route::put('/packages/{id}', [OwnerVenuePackageController::class, 'update'])->middleware('permission:promotion.manage')->middleware('feature:package');
+        Route::delete('/packages/{id}', [OwnerVenuePackageController::class, 'destroy'])->middleware('permission:promotion.manage')->middleware('feature:package');
         // What points are worth, and handing it over at the counter.
-        Route::get('/rewards', [OwnerRewardController::class, 'index'])->middleware('permission:crm.view');
-        Route::get('/rewards/redemptions', [OwnerRewardController::class, 'redemptions'])->middleware('permission:crm.view');
-        Route::post('/rewards', [OwnerRewardController::class, 'store'])->middleware('permission:promotion.manage');
-        Route::put('/rewards/{id}', [OwnerRewardController::class, 'update'])->middleware('permission:promotion.manage');
-        Route::delete('/rewards/{id}', [OwnerRewardController::class, 'destroy'])->middleware('permission:promotion.manage');
+        Route::get('/rewards', [OwnerRewardController::class, 'index'])->middleware('permission:crm.view')->middleware('feature:membership');
+        Route::get('/rewards/redemptions', [OwnerRewardController::class, 'redemptions'])->middleware('permission:crm.view')->middleware('feature:membership');
+        Route::post('/rewards', [OwnerRewardController::class, 'store'])->middleware('permission:promotion.manage')->middleware('feature:membership');
+        Route::put('/rewards/{id}', [OwnerRewardController::class, 'update'])->middleware('permission:promotion.manage')->middleware('feature:membership');
+        Route::delete('/rewards/{id}', [OwnerRewardController::class, 'destroy'])->middleware('permission:promotion.manage')->middleware('feature:membership');
         // Handing a reward over spends a customer's points, so it rides with the
         // other things that move value, not with "view the CRM".
-        Route::post('/rewards/{id}/redeem', [OwnerRewardController::class, 'redeem'])->middleware('permission:crm.manage');
+        Route::post('/rewards/{id}/redeem', [OwnerRewardController::class, 'redeem'])->middleware('permission:crm.manage')->middleware('feature:membership');
         // Handing over what a customer redeemed in the app.
-        Route::post('/rewards/collect', [OwnerRewardController::class, 'collect'])->middleware('permission:crm.manage');
-        Route::get('/coupons', [OwnerCouponController::class, 'index'])->middleware('permission:promotion.manage');
-        Route::post('/coupons', [OwnerCouponController::class, 'store'])->middleware('permission:promotion.manage');
-        Route::put('/coupons/{id}', [OwnerCouponController::class, 'update'])->middleware('permission:promotion.manage');
-        Route::delete('/coupons/{id}', [OwnerCouponController::class, 'destroy'])->middleware('permission:promotion.manage');
+        Route::post('/rewards/collect', [OwnerRewardController::class, 'collect'])->middleware('permission:crm.manage')->middleware('feature:membership');
+        Route::get('/coupons', [OwnerCouponController::class, 'index'])->middleware('permission:promotion.manage')->middleware('feature:coupon');
+        Route::post('/coupons', [OwnerCouponController::class, 'store'])->middleware('permission:promotion.manage')->middleware('feature:coupon');
+        Route::put('/coupons/{id}', [OwnerCouponController::class, 'update'])->middleware('permission:promotion.manage')->middleware('feature:coupon');
+        Route::delete('/coupons/{id}', [OwnerCouponController::class, 'destroy'])->middleware('permission:promotion.manage')->middleware('feature:coupon');
         Route::get('/promotions', [OwnerPromotionController::class, 'index']);
         Route::post('/promotions', [OwnerPromotionController::class, 'store'])->middleware('permission:promotion.manage');
         Route::put('/promotions/{id}', [OwnerPromotionController::class, 'update'])->middleware('permission:promotion.manage');
@@ -319,12 +319,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // --- Welcome banners (ข้อความต้อนรับ) shown on the customer home ---
         // reorder is declared before /{id} so "reorder" is not read as an id.
-        Route::get('/welcome-banners', [OwnerWelcomeBannerController::class, 'index']);
-        Route::post('/welcome-banners', [OwnerWelcomeBannerController::class, 'store'])->middleware('permission:promotion.manage');
-        Route::post('/welcome-banners/reorder', [OwnerWelcomeBannerController::class, 'reorder'])->middleware('permission:promotion.manage');
-        Route::put('/welcome-banners/{id}', [OwnerWelcomeBannerController::class, 'update'])->middleware('permission:promotion.manage');
-        Route::post('/welcome-banners/{id}/toggle', [OwnerWelcomeBannerController::class, 'toggle'])->middleware('permission:promotion.manage');
-        Route::delete('/welcome-banners/{id}', [OwnerWelcomeBannerController::class, 'destroy'])->middleware('permission:promotion.manage');
+        Route::get('/welcome-banners', [OwnerWelcomeBannerController::class, 'index'])->middleware('feature:banner');
+        Route::post('/welcome-banners', [OwnerWelcomeBannerController::class, 'store'])->middleware('permission:promotion.manage')->middleware('feature:banner');
+        Route::post('/welcome-banners/reorder', [OwnerWelcomeBannerController::class, 'reorder'])->middleware('permission:promotion.manage')->middleware('feature:banner');
+        Route::put('/welcome-banners/{id}', [OwnerWelcomeBannerController::class, 'update'])->middleware('permission:promotion.manage')->middleware('feature:banner');
+        Route::post('/welcome-banners/{id}/toggle', [OwnerWelcomeBannerController::class, 'toggle'])->middleware('permission:promotion.manage')->middleware('feature:banner');
+        Route::delete('/welcome-banners/{id}', [OwnerWelcomeBannerController::class, 'destroy'])->middleware('permission:promotion.manage')->middleware('feature:banner');
 
         // --- Staff & roles (read + invite) ---
         Route::get('/staff', [OwnerStaffController::class, 'index']);
@@ -334,38 +334,38 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/roles', [OwnerStaffController::class, 'roles']);
 
         // --- Memberships (read list + points adjust) ---
-        Route::get('/memberships', [OwnerMembershipController::class, 'index'])->middleware('permission:crm.view');
-        Route::post('/memberships/{id}/points', [OwnerMembershipController::class, 'adjustPoints'])->middleware('permission:crm.manage');
+        Route::get('/memberships', [OwnerMembershipController::class, 'index'])->middleware('permission:crm.view')->middleware('feature:membership');
+        Route::post('/memberships/{id}/points', [OwnerMembershipController::class, 'adjustPoints'])->middleware('permission:crm.manage')->middleware('feature:membership');
 
         // --- Wallets (read list + topup) ---
-        Route::get('/wallets', [OwnerWalletController::class, 'index']);
-        Route::post('/wallets/{id}/topup', [OwnerWalletController::class, 'topup']);
-        Route::get('/wallet-topups', [OwnerWalletController::class, 'topupRequests']);
-        Route::post('/wallet-topups/{id}/approve', [OwnerWalletController::class, 'approveTopup']);
-        Route::post('/wallet-topups/{id}/reject', [OwnerWalletController::class, 'rejectTopup']);
+        Route::get('/wallets', [OwnerWalletController::class, 'index'])->middleware('feature:wallet');
+        Route::post('/wallets/{id}/topup', [OwnerWalletController::class, 'topup'])->middleware('feature:wallet');
+        Route::get('/wallet-topups', [OwnerWalletController::class, 'topupRequests'])->middleware('feature:wallet');
+        Route::post('/wallet-topups/{id}/approve', [OwnerWalletController::class, 'approveTopup'])->middleware('feature:wallet');
+        Route::post('/wallet-topups/{id}/reject', [OwnerWalletController::class, 'rejectTopup'])->middleware('feature:wallet');
 
         Route::get('/package-purchases', [OwnerPackagePurchaseController::class, 'index']);
         Route::post('/package-purchases/{id}/approve', [OwnerPackagePurchaseController::class, 'approve']);
         Route::post('/package-purchases/{id}/reject', [OwnerPackagePurchaseController::class, 'reject']);
 
         // --- CRM (overview + segments + timeline + broadcasts) ---
-        Route::get('/crm/overview', [OwnerCrmController::class, 'overview'])->middleware('permission:crm.view');
+        Route::get('/crm/overview', [OwnerCrmController::class, 'overview'])->middleware('permission:crm.view')->middleware('feature:crm');
 
-        Route::get('/segments', [OwnerSegmentController::class, 'index'])->middleware('permission:crm.view');
-        Route::post('/segments', [OwnerSegmentController::class, 'store'])->middleware('permission:segment.manage');
-        Route::delete('/segments/{id}', [OwnerSegmentController::class, 'destroy'])->middleware('permission:segment.manage');
+        Route::get('/segments', [OwnerSegmentController::class, 'index'])->middleware('permission:crm.view')->middleware('feature:crm');
+        Route::post('/segments', [OwnerSegmentController::class, 'store'])->middleware('permission:segment.manage')->middleware('feature:crm');
+        Route::delete('/segments/{id}', [OwnerSegmentController::class, 'destroy'])->middleware('permission:segment.manage')->middleware('feature:crm');
 
         Route::get('/timeline/{customerId}', [OwnerTimelineController::class, 'show'])->middleware('permission:crm.view');
         // Who a segment contains right now — the answer moves for a dynamic one.
-        Route::get('/segments/{id}/members', [OwnerSegmentController::class, 'members'])->middleware('permission:crm.view');
-        Route::get('/crm/rfm', [OwnerCrmController::class, 'rfm'])->middleware('permission:crm.view');
+        Route::get('/segments/{id}/members', [OwnerSegmentController::class, 'members'])->middleware('permission:crm.view')->middleware('feature:crm');
+        Route::get('/crm/rfm', [OwnerCrmController::class, 'rfm'])->middleware('permission:crm.view')->middleware('feature:crm');
 
-        Route::get('/broadcasts', [OwnerBroadcastController::class, 'index'])->middleware('permission:crm.view');
-        Route::get('/broadcasts/audience-preview', [OwnerBroadcastController::class, 'audiencePreview'])->middleware('permission:crm.view');
-        Route::post('/broadcasts', [OwnerBroadcastController::class, 'store'])->middleware('permission:broadcast.send');
-        Route::put('/broadcasts/{id}', [OwnerBroadcastController::class, 'update'])->middleware('permission:broadcast.send');
-        Route::delete('/broadcasts/{id}', [OwnerBroadcastController::class, 'destroy'])->middleware('permission:broadcast.send');
-        Route::post('/broadcasts/{id}/send', [OwnerBroadcastController::class, 'send'])->middleware('permission:broadcast.send');
+        Route::get('/broadcasts', [OwnerBroadcastController::class, 'index'])->middleware('permission:crm.view')->middleware('feature:broadcast');
+        Route::get('/broadcasts/audience-preview', [OwnerBroadcastController::class, 'audiencePreview'])->middleware('permission:crm.view')->middleware('feature:broadcast');
+        Route::post('/broadcasts', [OwnerBroadcastController::class, 'store'])->middleware('permission:broadcast.send')->middleware('feature:broadcast');
+        Route::put('/broadcasts/{id}', [OwnerBroadcastController::class, 'update'])->middleware('permission:broadcast.send')->middleware('feature:broadcast');
+        Route::delete('/broadcasts/{id}', [OwnerBroadcastController::class, 'destroy'])->middleware('permission:broadcast.send')->middleware('feature:broadcast');
+        Route::post('/broadcasts/{id}/send', [OwnerBroadcastController::class, 'send'])->middleware('permission:broadcast.send')->middleware('feature:broadcast');
     });
 
     // --- Super Admin / Platform (super.admin middleware, NOT org-scoped) ---
@@ -384,6 +384,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/subscriptions', [AdminSubscriptionController::class, 'index']);
         // Cancel = stop at the end of the paid period; suspend = end it now.
+        // Moving a venue between packages — see SubscriptionController.
+        Route::put('/subscriptions/{id}/plan', [AdminSubscriptionController::class, 'changePlan']);
         Route::post('/subscriptions/{id}/cancel', [AdminSubscriptionController::class, 'cancel']);
         Route::post('/subscriptions/{id}/suspend', [AdminSubscriptionController::class, 'suspend']);
         Route::post('/subscriptions/{id}/resume', [AdminSubscriptionController::class, 'resume']);
@@ -394,6 +396,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/plans/{id}/features', [AdminPlanController::class, 'updateFeatures']);
 
         Route::get('/features', [AdminFeatureController::class, 'index']);
+        // One cell of the plan × feature grid. See FeatureController::setPlan.
+        Route::put('/features/{id}/plans/{planId}', [AdminFeatureController::class, 'setPlan']);
 
         Route::get('/payments', [AdminPaymentController::class, 'index']);
         // --- Refunds (platform oversight across all orgs; approve/reject override) ---

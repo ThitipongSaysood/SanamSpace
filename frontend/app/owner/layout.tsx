@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -51,6 +51,14 @@ type NavItem = {
   href: string;
   icon: LucideIcon;
   count?: string;
+  /**
+   * The plan feature this page needs, if any.
+   *
+   * Absent means core — always shown. Only the entries in the platform's
+   * feature catalogue carry one, so a new page cannot vanish for everybody
+   * because someone forgot to think about plans.
+   */
+  feature?: string;
 };
 
 /**
@@ -87,28 +95,28 @@ const NAV_GROUPS: NavGroup[] = [
       // opened all day between a customer paying and being let onto a court.
       { label: "ตรวจสลิป", href: "/owner/payments", icon: FileCheck2 },
       { label: "สแกน / เช็คอิน", href: "/owner/checkin", icon: QrCode },
-      { label: "ขายหน้าร้าน", href: "/owner/pos", icon: ShoppingCart },
-      { label: "ประวัติการขาย", href: "/owner/pos/sales", icon: ReceiptText },
+      { label: "ขายหน้าร้าน", href: "/owner/pos", icon: ShoppingCart, feature: "pos" },
+      { label: "ประวัติการขาย", href: "/owner/pos/sales", icon: ReceiptText, feature: "pos" },
     ],
   },
   {
     title: "ลูกค้า",
     items: [
       { label: "ลูกค้า", href: "/owner/customers", icon: Users },
-      { label: "เครดิตลูกค้า", href: "/owner/customer-credit", icon: Coins },
-      { label: "สมาชิก", href: "/owner/membership", icon: Crown },
-      { label: "คะแนนสะสม", href: "/owner/points", icon: Sparkles },
-      { label: "CRM", href: "/owner/crm", icon: HeartHandshake },
+      { label: "เครดิตลูกค้า", href: "/owner/customer-credit", icon: Coins, feature: "wallet" },
+      { label: "สมาชิก", href: "/owner/membership", icon: Crown, feature: "membership" },
+      { label: "คะแนนสะสม", href: "/owner/points", icon: Sparkles, feature: "membership" },
+      { label: "CRM", href: "/owner/crm", icon: HeartHandshake, feature: "crm" },
     ],
   },
   {
     title: "การตลาด",
     items: [
       { label: "โปรโมชั่น", href: "/owner/promotions", icon: Tag },
-      { label: "คูปองส่วนลด", href: "/owner/coupons", icon: BadgePercent },
-      { label: "แพ็กเกจชั่วโมง", href: "/owner/packages", icon: Ticket },
-      { label: "ยิงโปร LINE", href: "/owner/broadcast", icon: Send },
-      { label: "แบนเนอร์/ต้อนรับ", href: "/owner/banner", icon: Megaphone },
+      { label: "คูปองส่วนลด", href: "/owner/coupons", icon: BadgePercent, feature: "coupon" },
+      { label: "แพ็กเกจชั่วโมง", href: "/owner/packages", icon: Ticket, feature: "package" },
+      { label: "ยิงโปร LINE", href: "/owner/broadcast", icon: Send, feature: "broadcast" },
+      { label: "แบนเนอร์/ต้อนรับ", href: "/owner/banner", icon: Megaphone, feature: "banner" },
     ],
   },
   {
@@ -124,8 +132,8 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: "สนาม", href: "/owner/branches", icon: Store },
       { label: "คอร์ท", href: "/owner/courts", icon: LayoutGrid },
-      { label: "สินค้า", href: "/owner/products", icon: Package },
-      { label: "อุปกรณ์ให้เช่า", href: "/owner/rentals", icon: Dumbbell },
+      { label: "สินค้า", href: "/owner/products", icon: Package, feature: "pos" },
+      { label: "อุปกรณ์ให้เช่า", href: "/owner/rentals", icon: Dumbbell, feature: "rental" },
     ],
   },
   {
@@ -170,6 +178,25 @@ function SidebarContent({
     queryFn: ownerApi.getSubscription,
   });
 
+  /**
+   * The menu this venue's plan actually pays for.
+   *
+   * Pages the plan does not include are removed rather than shown greyed: a
+   * disabled menu invites a click that answers 402, and the venue learns what
+   * it is missing from the pricing page, not from a dead end in its own portal.
+   *
+   * While the subscription is still loading nothing is hidden — flashing the
+   * full menu and then removing half of it reads as a bug.
+   */
+  const groups = useMemo<NavGroup[]>(() => {
+    const features = sub?.features;
+    if (!features) return NAV_GROUPS;
+
+    return NAV_GROUPS
+      .map((g) => ({ ...g, items: g.items.filter((i) => !i.feature || features.includes(i.feature)) }))
+      .filter((g) => g.items.length > 0);
+  }, [sub]);
+
   return (
     <div className="flex h-full flex-col">
       {/* Brand */}
@@ -185,7 +212,7 @@ function SidebarContent({
 
       {/* Nav */}
       <nav className="flex-1 space-y-1 overflow-y-auto px-3" aria-label="เมนูหลัก">
-        {NAV_GROUPS.map((group, i) => (
+        {groups.map((group, i) => (
           <div key={group.title ?? "top"} className={group.title ? "pt-3" : undefined}>
             {group.title && (
               <h2 className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/70">

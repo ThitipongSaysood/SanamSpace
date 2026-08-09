@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsurePermission;
+use App\Http\Middleware\EnsurePlanFeature;
 use App\Http\Middleware\EnsureSubscriptionActive;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\ResolveOwnerOrganization;
@@ -24,6 +25,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'owner.subscribed' => EnsureSubscriptionActive::class,
             // permission:court.manage — the staff member's role must carry it.
             'permission' => EnsurePermission::class,
+            // feature:pos — the venue's PLAN must include it. Separate from
+            // permission on purpose: one is about the person, one about the bill.
+            'feature' => EnsurePlanFeature::class,
             'super.admin' => EnsureSuperAdmin::class,
         ]);
     })

@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\SubscriptionResource;
 use App\Models\Subscription;
+use App\Support\PlanFeatures;
+use Illuminate\Validation\Rule;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -40,6 +42,34 @@ class SubscriptionController extends Controller
     {
         $subscription = $this->find($id);
         $subscription->update(['status' => 'cancelled']);
+
+        return $this->fresh($subscription);
+    }
+
+    /**
+     * PUT /admin/subscriptions/{id}/plan — move a venue between packages.
+     *
+     * The missing half of feature gating. The platform could edit what each
+     * plan includes but had no way to put a venue on a different plan, so an
+     * upgrade or a downgrade meant editing the database by hand — and gating
+     * nobody can operate is gating that gets switched off.
+     *
+     * Takes effect immediately, in both directions. A downgrade is deliberately
+     * not "at the end of the period": that is a billing policy, and inventing
+     * one here would be worse than the venue and the platform agreeing on it.
+     */
+    public function changePlan(Request $request, string $id): SubscriptionResource
+    {
+        $data = $request->validate([
+            'planId' => ['required', 'string', Rule::exists('plans', 'id')],
+        ]);
+
+        $subscription = $this->find($id);
+        $subscription->update(['plan_id' => $data['planId']]);
+
+        // The resolver memoises per request; without this the venue's own next
+        // request in the same process would still see the old entitlements.
+        PlanFeatures::flush();
 
         return $this->fresh($subscription);
     }

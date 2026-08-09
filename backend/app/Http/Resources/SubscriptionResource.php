@@ -21,6 +21,10 @@ class SubscriptionResource extends JsonResource
             'organizationId' => $this->organization_id,
             'organizationName' => $this->organization?->name,
             'planName' => $this->plan?->name,
+            'planCode' => $this->plan?->code,
+            // What this plan includes. Sent so the owner portal can hide what
+            // it cannot use — a menu that always 402s is worse than no menu.
+            'features' => \App\Support\PlanFeatures::for($this->organization_id),
             'price' => $this->plan ? (float) $this->plan->price : null,
             'status' => $this->status,
             'startedAt' => $this->started_at?->toIso8601String(),

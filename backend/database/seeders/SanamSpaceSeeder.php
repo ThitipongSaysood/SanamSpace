@@ -395,9 +395,6 @@ class SanamSpaceSeeder extends Seeder
             ['code' => 'pro', 'name' => 'Pro', 'price' => 3990,
                 'branch_limit' => null, 'court_limit' => null, 'staff_limit' => null,
                 'monthly_booking_limit' => null, 'storage_gb' => 100],
-            ['code' => 'enterprise', 'name' => 'Enterprise', 'price' => 0,
-                'branch_limit' => null, 'court_limit' => null, 'staff_limit' => null,
-                'monthly_booking_limit' => null, 'storage_gb' => null],
         ];
 
         $plans = [];
@@ -408,43 +405,23 @@ class SanamSpaceSeeder extends Seeder
             ]));
         }
 
-        // Feature catalogue (code => display name).
-        $featureDefs = [
-            'crm' => 'CRM',
-            'membership' => 'Membership & Loyalty',
-            'wallet' => 'Wallet',
-            'package' => 'Package System',
-            'broadcast' => 'Broadcast LINE',
-            'payment_gateway' => 'Payment Gateway',
-            'public_api' => 'Public API',
-            'custom_domain' => 'Custom Domain',
-            'tournament' => 'Tournament',
-        ];
-
+        // The catalogue lives in one place — see PlanCatalogue. It used to be
+        // duplicated here and on the pricing page, and two lists of what a
+        // customer is paying for drift.
         $features = [];
-        foreach ($featureDefs as $code => $name) {
-            $features[$code] = Feature::create(['code' => $code, 'name' => $name]);
+        foreach (\App\Support\PlanCatalogue::FEATURES as $code => [$name, $planCodes]) {
+            // updateOrCreate, not create: migrations already write this
+            // catalogue for existing installs, so a fresh seed on top of them
+            // must not collide on the unique code.
+            $features[$code] = Feature::updateOrCreate(['code' => $code], ['name' => $name]);
         }
 
-        // plan_features mapping per the Feature Matrix (enabled by plan only;
-        // Add-on entries are NOT enabled at the plan level).
-        //   Starter   -> minimal (none of the gated features)
-        //   Business  -> membership, wallet, package
-        //   Pro       -> all
-        //   Enterprise-> all
-        $matrix = [
-            'starter' => [],
-            'business' => ['membership', 'wallet', 'package'],
-            'pro' => ['crm', 'membership', 'wallet', 'package', 'broadcast', 'payment_gateway', 'public_api', 'custom_domain', 'tournament'],
-            'enterprise' => ['crm', 'membership', 'wallet', 'package', 'broadcast', 'payment_gateway', 'public_api', 'custom_domain', 'tournament'],
-        ];
-
-        foreach ($matrix as $planCode => $featureCodes) {
+        foreach ($plans as $planCode => $plan) {
             $sync = [];
-            foreach ($featureCodes as $featureCode) {
+            foreach (\App\Support\PlanCatalogue::forPlan($planCode) as $featureCode) {
                 $sync[$features[$featureCode]->id] = ['enabled' => 1];
             }
-            $plans[$planCode]->features()->sync($sync);
+            $plan->features()->sync($sync);
         }
 
         return $plans;

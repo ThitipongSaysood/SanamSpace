@@ -202,6 +202,18 @@ export const superAdminApi = {
 
   getFeatures: () => req<PlatformFeature[]>("/admin/features"),
 
+  /**
+   * Switch one cell of the plan × feature grid.
+   *
+   * A cell rather than the whole matrix: two operators editing different plans
+   * would otherwise overwrite each other's work.
+   */
+  setFeaturePlan: (featureId: string, planId: string, enabled: boolean) =>
+    req<{ featureId: string; planId: string; enabled: boolean }>(
+      `/admin/features/${featureId}/plans/${planId}`,
+      { method: "PUT", body: { enabled } },
+    ),
+
   getPayments: () => req<AdminPayment[]>("/admin/payments"),
 
   // --- Refunds (platform oversight across all orgs; approve/reject override) ---

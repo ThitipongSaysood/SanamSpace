@@ -1036,6 +1036,16 @@ export type AdminSubscription = {
   organizationId?: string | null;
   organizationName: string;
   planName: string | null;
+  planCode?: string | null;
+  /**
+   * Feature codes this plan includes. The owner portal hides what is not here —
+   * a menu that always answers 402 is worse than no menu.
+   *
+   * Anything NOT in the platform catalogue is core and never listed: booking,
+   * check-in, customers, refunds. So "absent from this array" only means
+   * "withheld" for codes the catalogue actually gates.
+   */
+  features?: string[];
   price: number;
   status: string;
   startedAt: string | null;

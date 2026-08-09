@@ -85,19 +85,21 @@ class SuperAdminApiTest extends TestCase
             ]);
     }
 
-    public function test_plans_returns_four_plans_with_limits_and_features(): void
+    /** Three tiers since Enterprise was retired — it had no subscribers and its
+     *  only distinct feature was a white-label domain that does not exist. */
+    public function test_plans_returns_the_three_tiers_with_limits_and_features(): void
     {
         $response = $this->withToken($this->superToken())
             ->getJson('/api/v1/admin/plans')
             ->assertOk()
-            ->assertJsonCount(4, 'data');
+            ->assertJsonCount(3, 'data');
 
         $plans = collect($response->json('data'))->keyBy('code');
 
         $this->assertEquals(990, $plans['starter']['price']);
         $this->assertEquals(1990, $plans['business']['price']);
         $this->assertEquals(3990, $plans['pro']['price']);
-        $this->assertEquals(0, $plans['enterprise']['price']);
+        $this->assertArrayNotHasKey('enterprise', $plans->all());
 
         // Starter limits per the Feature Matrix.
         $this->assertSame(1, $plans['starter']['limits']['branchLimit']);
