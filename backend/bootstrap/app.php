@@ -3,6 +3,7 @@
 use App\Http\Middleware\EnsurePermission;
 use App\Http\Middleware\EnsurePlanFeature;
 use App\Http\Middleware\EnsurePlanLimit;
+use App\Http\Middleware\EnsureStorageLimit;
 use App\Http\Middleware\EnsureSubscriptionActive;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\ResolveOwnerOrganization;
@@ -32,6 +33,9 @@ return Application::configure(basePath: dirname(__DIR__))
             // limit:court — the venue's plan must allow ANOTHER one. Only on
             // create routes; editing what already exists stays open.
             'limit' => EnsurePlanLimit::class,
+            // limit.storage:file — the venue's plan storage_gb must have room.
+            // Only on owner content uploads, never on customer/bill slips.
+            'limit.storage' => EnsureStorageLimit::class,
             'super.admin' => EnsureSuperAdmin::class,
         ]);
     })

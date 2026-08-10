@@ -43,6 +43,19 @@ class OrgPublicTest extends TestCase
         $this->assertStringContainsString('1660000000-abcd', $body); // liffId is public
     }
 
+    public function test_points_enabled_flag_reflects_the_venue_setting(): void
+    {
+        $org = \App\Models\Organization::where('slug', 'everyday-badminton')->firstOrFail();
+
+        $org->settings()->update(['points_enabled' => true]);
+        $this->getJson('/api/v1/orgs/everyday-badminton/public')
+            ->assertOk()->assertJsonPath('pointsEnabled', true);
+
+        $org->settings()->update(['points_enabled' => false]);
+        $this->getJson('/api/v1/orgs/everyday-badminton/public')
+            ->assertOk()->assertJsonPath('pointsEnabled', false);
+    }
+
     public function test_unknown_slug_404s(): void
     {
         $this->getJson('/api/v1/orgs/nope-not-real/public')->assertNotFound();

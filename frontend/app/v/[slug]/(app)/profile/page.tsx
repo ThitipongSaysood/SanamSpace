@@ -6,6 +6,7 @@ import {
 import type { ComponentType } from "react";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useMembership } from "@/lib/api/queries";
+import { useTenant } from "@/lib/tenant/tenant-context";
 import { Avatar } from "@/components/avatar";
 
 type Item = {
@@ -26,8 +27,11 @@ const MENU: Item[] = [
 
 export default function ProfilePage() {
   const { user, logout } = useAuth();
+  const { tenant } = useTenant();
   const { data: membership } = useMembership();
   if (!user) return null;
+  // Drop the points row for a venue that runs no points programme.
+  const menu = MENU.filter((m) => m.href !== "/membership" || tenant.pointsEnabled);
   return (
     <main className="p-4">
       <h1 className="mb-3 text-lg font-bold">โปรไฟล์</h1>
@@ -45,7 +49,7 @@ export default function ProfilePage() {
       </div>
 
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
-        {MENU.map(({ icon: Icon, label, href }) => {
+        {menu.map(({ icon: Icon, label, href }) => {
           const row = (
             <>
               <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand/10 text-brand">

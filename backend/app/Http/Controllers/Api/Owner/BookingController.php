@@ -15,6 +15,8 @@ use App\Services\RentalService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -46,6 +48,17 @@ class BookingController extends Controller
             ->when($request->filled('from'), fn ($q) => $q->where('date', '>=', $request->string('from')))
             ->when($request->filled('to'), fn ($q) => $q->where('date', '<=', $request->string('to')))
             ->orderByDesc('created_at');
+
+        // A bounded date window is the calendar, and a calendar must return
+        // EVERY booking it covers — paginating a busy month to 200 rows drops
+        // whole days off the grid (they showed empty in the month view while the
+        // day view, under the cap, had them). The date range is the bound;
+        // reorder by date/time for the grid. The unranged list keeps its page.
+        if ($request->filled('from') && $request->filled('to')) {
+            return BookingResource::collection(
+                $bookings->reorder()->orderBy('date')->orderBy('start')->get()
+            );
+        }
 
         return BookingResource::collection($this->paginated($bookings, $request));
     }
@@ -92,53 +105,61 @@ class BookingController extends Controller
         ]);
 
         $court = Court::query()->forOrganization($orgId)->with('branch')->findOrFail($data['courtId']);
-        $this->assertNoOverlap($court->id, $data['date'], $data['start'], $data['end']);
         $customer = $this->resolveCustomer($orgId, $data);
 
         $hours = $this->hoursBetween($data['start'], $data['end']);
 
-        // Priced and checked before anything is written, so a booking whose
-        // equipment is unavailable is refused rather than half-created.
-        $quote = $this->rentals->quote(
-            $orgId,
-            $data['rentals'] ?? [],
-            $data['date'],
-            $data['start'],
-            $data['end'],
-            $hours,
-        );
+        // Serialize the overlap check + write behind the SAME lock the customer
+        // app uses, so a counter booking and an app booking on one slot cannot
+        // both pass their check at once (the double-booking race).
+        $booking = $this->withCourtLock($court->id, $data['date'], function () use ($orgId, $court, $customer, $data, $hours) {
+            $this->assertNoOverlap($court->id, $data['date'], $data['start'], $data['end']);
 
-        $booking = Booking::create([
-            'organization_id' => $orgId,
-            'branch_id' => $court->branch_id,
-            'court_id' => $court->id,
-            'customer_id' => $customer->id,
-            'code' => $this->generateCode(),
-            'date' => $data['date'],
-            'start' => $data['start'],
-            'end' => $data['end'],
-            // Both, and equal: a walk-in has no rentals, but `court_amount`
-            // left at its 0 default made the detail panel read "ค่าคอร์ท ฿0"
-            // under a total of ฿250.
-            'amount' => round($hours * (float) $court->price_per_hour, 2),
-            'court_amount' => round($hours * (float) $court->price_per_hour, 2),
-            'status' => $data['status'] ?? 'confirmed',
-            'channel' => 'walk_in', // created at the counter by staff
-        ]);
+            // Priced and checked before anything is written, so a booking whose
+            // equipment is unavailable is refused rather than half-created.
+            $quote = $this->rentals->quote(
+                $orgId,
+                $data['rentals'] ?? [],
+                $data['date'],
+                $data['start'],
+                $data['end'],
+                $hours,
+            );
 
-        if ($quote['rows'] !== []) {
-            // Rewrites `amount` to court + rentals, so the counter charges the
-            // same grand total the app would have.
-            $this->rentals->attach($booking, $quote['rows'], $quote['total']);
-        }
+            $booking = Booking::create([
+                'organization_id' => $orgId,
+                'branch_id' => $court->branch_id,
+                'court_id' => $court->id,
+                'customer_id' => $customer->id,
+                'code' => $this->generateCode(),
+                'date' => $data['date'],
+                'start' => $data['start'],
+                'end' => $data['end'],
+                // Both, and equal: a walk-in has no rentals, but `court_amount`
+                // left at its 0 default made the detail panel read "ค่าคอร์ท ฿0"
+                // under a total of ฿250.
+                'amount' => round($hours * (float) $court->price_per_hour, 2),
+                'court_amount' => round($hours * (float) $court->price_per_hour, 2),
+                'status' => $data['status'] ?? 'confirmed',
+                'channel' => 'walk_in', // created at the counter by staff
+            ]);
 
-        // A walk-in the counter marks confirmed has been paid at the counter —
-        // that is what taking the booking there means. Without this every
-        // walk-in would read as owing its whole amount.
-        $booking->refresh();
-        if (in_array($booking->status, ['confirmed', 'completed'], true)) {
-            $booking->update(['paid_amount' => $booking->amount]);
-        }
+            if ($quote['rows'] !== []) {
+                // Rewrites `amount` to court + rentals, so the counter charges the
+                // same grand total the app would have.
+                $this->rentals->attach($booking, $quote['rows'], $quote['total']);
+            }
+
+            // A walk-in the counter marks confirmed has been paid at the counter —
+            // that is what taking the booking there means. Without this every
+            // walk-in would read as owing its whole amount.
+            $booking->refresh();
+            if (in_array($booking->status, ['confirmed', 'completed'], true)) {
+                $booking->update(['paid_amount' => $booking->amount]);
+            }
+
+            return $booking;
+        });
 
         return (new BookingResource($booking->fresh()->load([
             'branch.organization', 'court', 'customer', 'rentals',
@@ -177,33 +198,38 @@ class BookingController extends Controller
         }
 
         $court = Court::query()->forOrganization($orgId)->with('branch')->findOrFail($courtId);
-        $this->assertNoOverlap($court->id, $date, $start, $end, $booking->id);
 
-        // `amount` is the grand total, court + rentals. Repricing only the court
-        // part and writing it straight to `amount` dropped the rented rackets
-        // off the bill — the customer was told one number and charged another.
-        $courtAmount = round($this->hoursBetween($start, $end) * (float) $court->price_per_hour, 2);
-        $rentalTotal = (float) ($booking->rental_total ?? 0);
+        // Same lock as store / the customer app — a reschedule onto a slot must
+        // race-check against every other create/reschedule on that court+date.
+        $this->withCourtLock($court->id, $date, function () use ($orgId, $booking, $court, $data, $date, $start, $end) {
+            $this->assertNoOverlap($court->id, $date, $start, $end, $booking->id);
 
-        $updates = [
-            'court_id' => $court->id,
-            'branch_id' => $court->branch_id,
-            'date' => $date,
-            'start' => $start,
-            'end' => $end,
-            'court_amount' => $courtAmount,
-            'amount' => round($courtAmount + $rentalTotal, 2),
-        ];
-        if (array_key_exists('status', $data)) {
-            $updates['status'] = $data['status'];
-        }
-        if (! empty($data['customerId'])) {
-            $updates['customer_id'] = $data['customerId'];
-        } elseif (! empty($data['customerName'])) {
-            $updates['customer_id'] = $this->resolveCustomer($orgId, $data)->id;
-        }
+            // `amount` is the grand total, court + rentals. Repricing only the court
+            // part and writing it straight to `amount` dropped the rented rackets
+            // off the bill — the customer was told one number and charged another.
+            $courtAmount = round($this->hoursBetween($start, $end) * (float) $court->price_per_hour, 2);
+            $rentalTotal = (float) ($booking->rental_total ?? 0);
 
-        $booking->update($updates);
+            $updates = [
+                'court_id' => $court->id,
+                'branch_id' => $court->branch_id,
+                'date' => $date,
+                'start' => $start,
+                'end' => $end,
+                'court_amount' => $courtAmount,
+                'amount' => round($courtAmount + $rentalTotal, 2),
+            ];
+            if (array_key_exists('status', $data)) {
+                $updates['status'] = $data['status'];
+            }
+            if (! empty($data['customerId'])) {
+                $updates['customer_id'] = $data['customerId'];
+            } elseif (! empty($data['customerName'])) {
+                $updates['customer_id'] = $this->resolveCustomer($orgId, $data)->id;
+            }
+
+            $booking->update($updates);
+        });
 
         return new BookingResource($booking->fresh()->load(['branch.organization', 'court', 'customer']));
     }
@@ -363,6 +389,20 @@ class BookingController extends Controller
         throw ValidationException::withMessages([
             'customerName' => 'ต้องเลือกลูกค้า หรือกรอกชื่อลูกค้า (walk-in)',
         ]);
+    }
+
+    /**
+     * Run $write behind the SAME application lock the customer app uses
+     * ("booking:court:{id}:{date}") wrapped in a transaction, so overlap
+     * check + write is atomic across every booking path (app + counter). A DB
+     * unique index can't express "no time-range overlap" and would wrongly
+     * block re-booking a cancelled slot (cancelled rows are kept), so the guard
+     * is the lock. `date` is a plain Y-m-d string (not cast), so the key matches.
+     */
+    private function withCourtLock(string $courtId, string $date, \Closure $write): mixed
+    {
+        return Cache::lock("booking:court:{$courtId}:{$date}", 10)
+            ->block(5, fn () => DB::transaction($write));
     }
 
     private function assertNoOverlap(string $courtId, string $date, string $start, string $end, ?string $exceptId = null): void

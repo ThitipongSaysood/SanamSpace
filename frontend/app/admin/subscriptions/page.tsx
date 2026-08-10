@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "@/lib/toast";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
@@ -303,7 +304,7 @@ function IssueInvoiceDialog({ sub, onClose }: { sub: AdminSubscription; onClose:
       onClose();
       router.push("/admin/billing");
     },
-    onError: (e: Error) => window.alert(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   return (

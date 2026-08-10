@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "@/lib/toast";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -298,7 +299,7 @@ function AddOrgModal({ onClose }: { onClose: () => void }) {
       qc.invalidateQueries({ queryKey: ["admin", "organizations"] });
       onClose();
     },
-    onError: (e: Error) => window.alert(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const valid = form.name.trim() && form.ownerName.trim() && form.email.trim();

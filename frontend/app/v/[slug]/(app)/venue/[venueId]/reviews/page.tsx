@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "@/lib/toast";
 import { use, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Star, PenLine } from "lucide-react";
@@ -109,7 +110,7 @@ function ReviewModal({ venueId, onClose }: { venueId: string; onClose: () => voi
       qc.setQueryData(["reviews", venueId], summary);
       onClose();
     },
-    onError: () => window.alert("ส่งรีวิวไม่สำเร็จ ลองใหม่อีกครั้ง"),
+    onError: () => toast.error("ส่งรีวิวไม่สำเร็จ ลองใหม่อีกครั้ง"),
   });
 
   return (

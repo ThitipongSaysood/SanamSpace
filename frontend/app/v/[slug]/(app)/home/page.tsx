@@ -135,26 +135,35 @@ export default function HomePage() {
         </div>
 
         {/* Greeting + membership standing, in the venue's own colours. Points
-            are the reason to come back, so they get the tap target. */}
-        <Link
-          href="/membership"
-          className="mt-4 flex items-center gap-3 rounded-2xl bg-gradient-to-r from-brand to-brand-secondary p-4 text-white shadow-sm transition active:scale-[0.99]"
-        >
-          <div className="min-w-0 flex-1">
+            are the reason to come back, so they get the tap target — but a
+            venue with points switched off shows only the greeting, no balance
+            and no link to a screen that has nothing to offer. */}
+        {tenant.pointsEnabled ? (
+          <Link
+            href="/membership"
+            className="mt-4 flex items-center gap-3 rounded-2xl bg-gradient-to-r from-brand to-brand-secondary p-4 text-white shadow-sm transition active:scale-[0.99]"
+          >
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-white/80">สวัสดี</p>
+              <h1 className="truncate text-xl font-bold">{user?.displayName ?? "ยินดีต้อนรับ"}</h1>
+              {membership?.tier && (
+                <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-semibold">
+                  <Crown className="size-3" /> {membership.tier}
+                </span>
+              )}
+            </div>
+            <div className="shrink-0 text-right">
+              <div className="text-[11px] text-white/80">คะแนนสะสม</div>
+              <div className="text-2xl font-bold leading-tight">{fmtNum.format(membership?.points ?? 0)}</div>
+            </div>
+            <ChevronRight className="size-5 shrink-0 text-white/70" />
+          </Link>
+        ) : (
+          <div className="mt-4 rounded-2xl bg-gradient-to-r from-brand to-brand-secondary p-4 text-white shadow-sm">
             <p className="text-xs text-white/80">สวัสดี</p>
             <h1 className="truncate text-xl font-bold">{user?.displayName ?? "ยินดีต้อนรับ"}</h1>
-            {membership?.tier && (
-              <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-semibold">
-                <Crown className="size-3" /> {membership.tier}
-              </span>
-            )}
           </div>
-          <div className="shrink-0 text-right">
-            <div className="text-[11px] text-white/80">คะแนนสะสม</div>
-            <div className="text-2xl font-bold leading-tight">{fmtNum.format(membership?.points ?? 0)}</div>
-          </div>
-          <ChevronRight className="size-5 shrink-0 text-white/70" />
-        </Link>
+        )}
       </header>
 
       <div className="space-y-4 p-4 pt-3">
@@ -178,7 +187,7 @@ export default function HomePage() {
         {/* Redeemed but not yet in hand. It sits this high because the venue
             returns anything uncollected — the customer needs to remember before
             the deadline, not find out afterwards. */}
-        {toCollect.length > 0 && (
+        {tenant.pointsEnabled && toCollect.length > 0 && (
           <section aria-labelledby="to-collect-heading" className="overflow-hidden rounded-2xl bg-amber-50 shadow-sm ring-1 ring-amber-200">
             <Link href="/membership" className="block transition active:scale-[0.99]">
               <div className="flex items-center gap-2 border-b border-amber-200/70 px-4 py-2.5">
@@ -217,7 +226,9 @@ export default function HomePage() {
 
         <div className="grid grid-cols-2 gap-3">
           <ShortcutCard href="/bookings" icon={History} title="ประวัติการจอง" subtitle="ดูการจองทั้งหมด" />
-          <ShortcutCard href="/membership" icon={Crown} title="แต้มสะสม" subtitle="สิทธิพิเศษสมาชิก" />
+          {tenant.pointsEnabled && (
+            <ShortcutCard href="/membership" icon={Crown} title="แต้มสะสม" subtitle="สิทธิพิเศษสมาชิก" />
+          )}
           <ShortcutCard href="/packages" icon={Package} title="แพ็กเกจ" subtitle="ซื้อชั่วโมงล่วงหน้า" />
           {venue && (
             <ShortcutCard

@@ -25,6 +25,7 @@ class PackagePurchaseController extends Controller
             ->get()
             ->map(fn ($p) => [
                 'id' => (string) $p->id,
+                'customerId' => $p->customer?->id,
                 'customerName' => $p->customer?->display_name,
                 'packageName' => $p->name,
                 'hours' => (float) $p->total_hours,

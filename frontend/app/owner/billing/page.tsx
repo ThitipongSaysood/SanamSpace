@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "@/lib/toast";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, CalendarClock, CheckCircle2, FileText, Hourglass, QrCode, Receipt, Upload } from "lucide-react";
@@ -109,7 +110,7 @@ export default function OwnerBillingPage() {
       // Straight to the QR — the point of renewing is to pay right now.
       setPayOpen(true);
     },
-    onError: (e: Error) => window.alert(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const invoice = data?.outstandingInvoice ?? null;

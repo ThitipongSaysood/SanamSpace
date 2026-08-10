@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "@/lib/toast";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AdminSupportTicket } from "@/lib/types";
@@ -115,13 +116,13 @@ function TicketModal({ ticket, onClose }: { ticket: AdminSupportTicket; onClose:
       setBody("");
       invalidate();
     },
-    onError: (e: Error) => window.alert(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const setStatus = useMutation({
     mutationFn: (status: string) => superAdminApi.updateSupportTicketStatus(ticket.id, status),
     onSuccess: invalidate,
-    onError: (e: Error) => window.alert(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const st = STATUS[t.status] ?? { label: t.status, cls: "bg-muted text-muted-foreground" };

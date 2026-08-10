@@ -1,21 +1,29 @@
 "use client";
-import { use } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   BellOff,
   CalendarClock,
+  CheckSquare,
   Crown,
   Mail,
   Phone,
+  Plus,
   ShieldCheck,
   ShieldQuestion,
+  Square,
+  StickyNote,
+  Trash2,
   Wallet,
 } from "lucide-react";
 import { ownerApi } from "@/lib/api/owner";
+import type { OwnerCustomerNote, OwnerCustomerTask } from "@/lib/types";
 import { Loading, ErrorState } from "@/components/states";
 import { StatusBadge } from "@/components/status-badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 const fmt = new Intl.NumberFormat("th-TH");
 
@@ -154,7 +162,153 @@ export default function OwnerCustomerDetailPage({ params }: { params: Promise<{ 
           </div>
         )}
       </section>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <NotesCard customerId={id} notes={data.notes} />
+        <TasksCard customerId={id} tasks={data.tasks} />
+      </div>
     </div>
+  );
+}
+
+/* -------------------------------- Notes -------------------------------- */
+
+function NotesCard({ customerId, notes }: { customerId: string; notes: OwnerCustomerNote[] }) {
+  const qc = useQueryClient();
+  const [body, setBody] = useState("");
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["owner", "customer", customerId] });
+
+  const add = useMutation({
+    mutationFn: () => ownerApi.addCustomerNote(customerId, body.trim()),
+    onSuccess: () => { setBody(""); invalidate(); },
+  });
+  const del = useMutation({
+    mutationFn: (noteId: string) => ownerApi.deleteCustomerNote(customerId, noteId),
+    onSuccess: invalidate,
+  });
+
+  return (
+    <section className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
+      <h2 className="inline-flex items-center gap-2 font-semibold">
+        <StickyNote className="size-4 text-brand" /> โน้ตลูกค้า
+      </h2>
+
+      <form
+        className="flex gap-2"
+        onSubmit={(e) => { e.preventDefault(); if (body.trim()) add.mutate(); }}
+      >
+        <Input value={body} onChange={(e) => setBody(e.target.value)} placeholder="เช่น ชอบเล่นเย็น ๆ ขอคอร์ท 3" />
+        <Button type="submit" disabled={!body.trim() || add.isPending}>
+          <Plus className="size-4" /> เพิ่ม
+        </Button>
+      </form>
+
+      {notes.length === 0 ? (
+        <p className="text-sm text-muted-foreground">ยังไม่มีโน้ต</p>
+      ) : (
+        <ul className="space-y-2">
+          {notes.map((n) => (
+            <li key={n.id} className="group flex items-start gap-2 rounded-xl bg-app px-3 py-2 text-sm">
+              <div className="min-w-0 flex-1">
+                <p className="whitespace-pre-wrap break-words">{n.body}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {n.author ?? "พนักงาน"} · {thaiDate(n.createdAt)}
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="ลบโน้ต"
+                onClick={() => del.mutate(n.id)}
+                className="shrink-0 rounded-lg p-1 text-muted-foreground opacity-0 transition hover:bg-white hover:text-brand-danger group-hover:opacity-100"
+              >
+                <Trash2 className="size-4" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/* -------------------------------- Tasks -------------------------------- */
+
+function TasksCard({ customerId, tasks }: { customerId: string; tasks: OwnerCustomerTask[] }) {
+  const qc = useQueryClient();
+  const [title, setTitle] = useState("");
+  const [dueAt, setDueAt] = useState("");
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["owner", "customer", customerId] });
+
+  const add = useMutation({
+    mutationFn: () => ownerApi.addCustomerTask(customerId, { title: title.trim(), dueAt: dueAt || undefined }),
+    onSuccess: () => { setTitle(""); setDueAt(""); invalidate(); },
+  });
+  const toggle = useMutation({
+    mutationFn: (taskId: string) => ownerApi.toggleCustomerTask(customerId, taskId),
+    onSuccess: invalidate,
+  });
+  const del = useMutation({
+    mutationFn: (taskId: string) => ownerApi.deleteCustomerTask(customerId, taskId),
+    onSuccess: invalidate,
+  });
+
+  return (
+    <section className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
+      <h2 className="inline-flex items-center gap-2 font-semibold">
+        <CheckSquare className="size-4 text-brand" /> งานติดตาม
+      </h2>
+
+      <form
+        className="flex flex-wrap gap-2"
+        onSubmit={(e) => { e.preventDefault(); if (title.trim()) add.mutate(); }}
+      >
+        <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="เช่น โทรตามลูกค้าที่หายไป" className="min-w-[10rem] flex-1" />
+        <Input type="date" value={dueAt} onChange={(e) => setDueAt(e.target.value)} className="w-40" />
+        <Button type="submit" disabled={!title.trim() || add.isPending}>
+          <Plus className="size-4" /> เพิ่ม
+        </Button>
+      </form>
+
+      {tasks.length === 0 ? (
+        <p className="text-sm text-muted-foreground">ยังไม่มีงานติดตาม</p>
+      ) : (
+        <ul className="space-y-2">
+          {tasks.map((t) => {
+            const done = t.status === "done";
+            return (
+              <li key={t.id} className="group flex items-start gap-2 rounded-xl bg-app px-3 py-2 text-sm">
+                <button
+                  type="button"
+                  aria-label={done ? "ทำเครื่องหมายยังไม่เสร็จ" : "ทำเครื่องหมายเสร็จ"}
+                  onClick={() => toggle.mutate(t.id)}
+                  className={`mt-0.5 shrink-0 ${done ? "text-brand" : "text-muted-foreground hover:text-brand"}`}
+                >
+                  {done ? <CheckSquare className="size-4" /> : <Square className="size-4" />}
+                </button>
+                <div className="min-w-0 flex-1">
+                  <p className={`break-words ${done ? "text-muted-foreground line-through" : ""}`}>{t.title}</p>
+                  {(t.dueAt || t.assignee) && (
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {t.dueAt && <>กำหนด {thaiDate(t.dueAt)}</>}
+                      {t.dueAt && t.assignee && " · "}
+                      {t.assignee && <>ผู้รับผิดชอบ {t.assignee}</>}
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  aria-label="ลบงาน"
+                  onClick={() => del.mutate(t.id)}
+                  className="shrink-0 rounded-lg p-1 text-muted-foreground opacity-0 transition hover:bg-white hover:text-brand-danger group-hover:opacity-100"
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }
 

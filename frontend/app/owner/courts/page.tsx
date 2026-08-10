@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "@/lib/toast";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Ban, Image as ImageIcon, LayoutGrid, Pencil, Plus, Power, Trash2, X } from "lucide-react";
@@ -422,7 +423,7 @@ function CourtBlocksModal({ court, onClose }: { court: OwnerCourt; onClose: () =
       invalidate();
       setDate(""); setStart(""); setEnd(""); setReason(""); setAllDay(true);
     },
-    onError: (e: Error) => window.alert(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
   const del = useMutation({
     mutationFn: (id: string) => ownerApi.deleteCourtBlock(id),

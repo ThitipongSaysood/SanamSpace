@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { api } from "@/lib/api/client";
 import { tenant as defaultTenant } from "@/config/tenant";
 import { themeToCssVars, type TenantTheme } from "@/lib/theme";
+import { setToastSport } from "@/lib/toast";
 import type { OrgPublic, PublicWelcomeBanner } from "@/lib/types";
 
 const STORAGE_KEY = "sanamspace.venue";
@@ -25,6 +26,12 @@ export type TenantBranding = {
   welcomeBanners: PublicWelcomeBanner[];
   /** Whether this venue scans customers in at the counter. */
   checkinEnabled: boolean;
+  /** Whether this venue runs a points/loyalty programme. Off → hide it. */
+  pointsEnabled: boolean;
+  /** Primary sport, used to theme small touches (e.g. the toast icon). */
+  sport: string | null;
+  /** Every sport the venue rents — the first-entry loader cycles these. */
+  sports: string[];
   lineOaUrl: string | null;
   phone: string | null;
 };
@@ -38,6 +45,9 @@ const DEFAULT: TenantBranding = {
   fontFamily: null,
   welcomeBanners: [],
   checkinEnabled: true,
+  pointsEnabled: false,
+  sport: null,
+  sports: [],
   lineOaUrl: defaultTenant.lineOaUrl,
   phone: defaultTenant.phone,
 };
@@ -48,6 +58,9 @@ function fromOrg(o: OrgPublic): TenantBranding {
     theme: o.theme, fontFamily: o.fontFamily ?? null,
     welcomeBanners: o.welcomeBanners ?? [],
     checkinEnabled: o.checkinEnabled ?? true,
+    pointsEnabled: o.pointsEnabled ?? false,
+    sport: o.sport ?? null,
+    sports: o.sports ?? [],
     lineOaUrl: o.lineOaUrl, phone: o.phone,
   };
 }
@@ -99,6 +112,8 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const venue = isVenueThemed(pathname);
     applyTheme(venue ? tenant.theme : DEFAULT.theme, venue ? tenant.fontFamily : null);
+    // Toasts pick up the venue's sport for their icon (customer app only).
+    setToastSport(venue ? tenant.sport : null);
   }, [pathname, tenant]);
 
   // Re-read the venue's branding whenever a customer opens the app.

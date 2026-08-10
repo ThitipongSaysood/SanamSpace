@@ -31,6 +31,8 @@ import type {
   CourtBoard,
   OwnerOperations,
   OwnerCustomerDetail,
+  OwnerCustomerNote,
+  OwnerCustomerTask,
   OwnerCustomerCredit,
   OwnerCreditMovement,
   OwnerPointMovement,
@@ -47,6 +49,9 @@ import type {
   ProductInput,
   SalePromptPay,
   OwnerSettings,
+  LineTemplate,
+  LineTemplateEvent,
+  LineBlock,
   OwnerWelcomeBanner,
   WelcomeBannerInput,
   OwnerStaffMember,
@@ -574,6 +579,18 @@ export const ownerApi = {
   /** One customer in full: standing, wallet, and their recent bookings. */
   getCustomer: (id: string) => req<OwnerCustomerDetail>(`/owner/customers/${id}`),
 
+  addCustomerNote: (customerId: string, body: string) =>
+    req<OwnerCustomerNote>(`/owner/customers/${customerId}/notes`, { method: "POST", body: { body } }),
+  deleteCustomerNote: (customerId: string, noteId: string) =>
+    req<void>(`/owner/customers/${customerId}/notes/${noteId}`, { method: "DELETE", raw: true }),
+
+  addCustomerTask: (customerId: string, body: { title: string; dueAt?: string }) =>
+    req<OwnerCustomerTask>(`/owner/customers/${customerId}/tasks`, { method: "POST", body }),
+  toggleCustomerTask: (customerId: string, taskId: string) =>
+    req<OwnerCustomerTask>(`/owner/customers/${customerId}/tasks/${taskId}/toggle`, { method: "POST" }),
+  deleteCustomerTask: (customerId: string, taskId: string) =>
+    req<void>(`/owner/customers/${customerId}/tasks/${taskId}`, { method: "DELETE", raw: true }),
+
   getSettings: () => req<OwnerSettings>("/owner/settings"),
 
   // The two LINE secrets are WRITE-ONLY: they are accepted here on update but
@@ -586,6 +603,18 @@ export const ownerApi = {
       lineMessagingToken?: string;
     },
   ) => req<OwnerSettings>("/owner/settings", { method: "PUT", body: patch }),
+
+  // --- LINE reply templates (builder) ---
+  getLineTemplates: () => req<LineTemplate[]>("/owner/line-templates"),
+
+  saveLineTemplate: (event: LineTemplateEvent, body: { enabled: boolean; blocks: LineBlock[] }) =>
+    req<LineTemplate>(`/owner/line-templates/${event}`, { method: "PUT", body }),
+
+  // Renders the given (possibly unsaved) blocks with sample data and pushes the
+  // card to one customer's LINE. Returns the outcome so the UI can explain a
+  // no-op (customer never linked LINE, venue has no token).
+  testLineTemplate: (event: LineTemplateEvent, body: { customerId: string; blocks?: LineBlock[] }) =>
+    req<{ outcome: string }>(`/owner/line-templates/${event}/test`, { method: "POST", body }),
 
   getOwnerPromotions: () => req<OwnerPromotion[]>("/owner/promotions"),
 

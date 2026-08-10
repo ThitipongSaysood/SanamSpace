@@ -94,6 +94,7 @@ class RentalReturnController extends Controller
                 'id' => (string) $l->id,
                 'bookingId' => (string) $l->booking_id,
                 'bookingCode' => $l->booking?->code,
+                'customerId' => $l->booking?->customer?->id,
                 'customerName' => $l->booking?->customer?->display_name ?? 'Walk-in',
                 'courtName' => $l->booking?->court?->name,
                 'date' => $l->booking?->date,

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import type { OwnerMembershipRow } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
+import { CustomerName } from "@/components/customer-peek";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -131,7 +132,7 @@ function MembershipList({ rows }: { rows: OwnerMembershipRow[] }) {
         {rows.map((m) => (
           <div key={m.id} className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
             <div className="flex items-center justify-between gap-2">
-              <span className="font-semibold">{m.customerName}</span>
+              <span className="font-semibold"><CustomerName id={m.customerId} name={m.customerName} /></span>
               <TierPill tier={m.tier} />
             </div>
             <div className="mt-1 text-sm text-muted-foreground">รหัสสมาชิก: {m.memberId}</div>
@@ -162,7 +163,7 @@ function MembershipList({ rows }: { rows: OwnerMembershipRow[] }) {
           <tbody className="divide-y divide-black/5">
             {rows.map((m) => (
               <tr key={m.id} className="hover:bg-app/60">
-                <td className="px-4 py-3 font-medium">{m.customerName}</td>
+                <td className="px-4 py-3 font-medium"><CustomerName id={m.customerId} name={m.customerName} /></td>
                 <td className="px-4 py-3">
                   <TierPill tier={m.tier} />
                 </td>

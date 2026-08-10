@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "@/lib/toast";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Megaphone, Plus, Pencil, Trash2 } from "lucide-react";
@@ -41,13 +42,13 @@ export default function AdminAnnouncementsPage() {
   const toggleM = useMutation({
     mutationFn: (a: AdminAnnouncement) => superAdminApi.toggleAnnouncement(a.id),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
-    onError: (e: Error) => window.alert(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const delM = useMutation({
     mutationFn: (id: string) => superAdminApi.deleteAnnouncement(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
-    onError: (e: Error) => window.alert(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   return (
@@ -148,7 +149,7 @@ function AnnouncementModal({ item, onClose }: { item?: AdminAnnouncement; onClos
       qc.invalidateQueries({ queryKey: KEY });
       onClose();
     },
-    onError: (e: Error) => window.alert(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   return (

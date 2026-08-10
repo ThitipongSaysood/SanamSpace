@@ -28,6 +28,7 @@ import {
   Ticket,
   Menu,
   MessageSquare,
+  MessageSquareText,
   FileCheck2,
   ReceiptText,
   Send,
@@ -45,6 +46,7 @@ import {
 } from "lucide-react";
 import type { User } from "@/lib/types";
 import { getOwnerToken, ownerApi } from "@/lib/api/owner";
+import { CustomerPeekProvider } from "@/components/customer-peek";
 
 type NavItem = {
   label: string;
@@ -116,6 +118,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: "คูปองส่วนลด", href: "/owner/coupons", icon: BadgePercent, feature: "coupon" },
       { label: "แพ็กเกจชั่วโมง", href: "/owner/packages", icon: Ticket, feature: "package" },
       { label: "ยิงโปร LINE", href: "/owner/broadcast", icon: Send, feature: "broadcast" },
+      { label: "ข้อความตอบกลับ LINE", href: "/owner/line-templates", icon: MessageSquareText },
       { label: "แบนเนอร์/ต้อนรับ", href: "/owner/banner", icon: Megaphone, feature: "banner" },
     ],
   },
@@ -433,7 +436,9 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
         </header>
 
         <main className="flex-1 bg-app p-4 md:p-6">
-          <ExpiryGate pathname={pathname}>{children}</ExpiryGate>
+          <CustomerPeekProvider>
+            <ExpiryGate pathname={pathname}>{children}</ExpiryGate>
+          </CustomerPeekProvider>
         </main>
       </div>
     </div>

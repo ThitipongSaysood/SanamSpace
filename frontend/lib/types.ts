@@ -64,6 +64,7 @@ export type OutstandingRental = {
   id: string;
   bookingId: string;
   bookingCode: string;
+  customerId?: string | null;
   customerName: string;
   courtName: string;
   date: string;
@@ -172,6 +173,7 @@ export type OwnerRedemption = {
   id: string;
   name: string;
   pointsSpent: number;
+  customerId?: string | null;
   customerName: string | null;
   byName: string | null;
   status: "pending" | "collected" | "expired";
@@ -192,7 +194,7 @@ export type ScanResult = {
   code: string;
   message: string;
   booking?: CheckinResult["booking"];
-  reward?: { id: string; name: string; pointsSpent: number; customerName: string | null } | null;
+  reward?: { id: string; name: string; pointsSpent: number; customerId?: string | null; customerName: string | null } | null;
 };
 
 /** A reward the customer redeemed. `code` is what the counter asks for. */
@@ -257,6 +259,7 @@ export type CourtBoard = {
       current: {
         bookingId: string;
         code: string;
+        customerId?: string | null;
         customerName: string | null;
         start: string;
         end: string;
@@ -265,6 +268,7 @@ export type CourtBoard = {
       } | null;
       next: {
         bookingId: string;
+        customerId?: string | null;
         customerName: string | null;
         start: string;
         end: string;
@@ -325,6 +329,7 @@ export type OwnerOperations = {
     id: string;
     code: string;
     courtName: string | null;
+    customerId?: string | null;
     customerName: string | null;
     start: string;
     end: string;
@@ -449,6 +454,12 @@ export type OrgPublic = {
   welcomeBanners?: PublicWelcomeBanner[];
   /** Whether this venue scans customers in at the counter. */
   checkinEnabled?: boolean;
+  /** Whether this venue runs a points/loyalty programme. */
+  pointsEnabled?: boolean;
+  /** The venue's primary sport key (e.g. "badminton", "tennis"). */
+  sport?: string | null;
+  /** Every sport the venue rents — the loader cycles through these. */
+  sports?: string[];
   lineOaUrl: string | null;
   phone: string | null;
 };
@@ -498,7 +509,7 @@ export type Refund = {
   processedAt?: string | null;
 };
 
-export type OwnerRefund = Refund & { customerName?: string | null };
+export type OwnerRefund = Refund & { customerName?: string | null; customerId?: string | null };
 export type AdminRefund = Refund & { organizationName?: string | null; customerName?: string | null };
 
 export type PaymentMethod = "promptpay" | "transfer" | "wallet" | "card";
@@ -630,6 +641,7 @@ export type OwnerActionItems = {
 export type OwnerRecentBooking = {
   id: string;
   code: string;
+  customerId?: string | null;
   customerName: string;
   courtName: string;
   date: string;
@@ -675,7 +687,7 @@ export type OwnerAnnouncement = {
   publishedAt: string | null;
 };
 
-export type OwnerBooking = Booking & { customerName?: string };
+export type OwnerBooking = Booking & { customerName?: string; customerId?: string | null };
 
 export type OwnerPayment = {
   id: string;
@@ -685,6 +697,7 @@ export type OwnerPayment = {
   status: PaymentStatus;
   slipUrl?: string;
   customerName?: string;
+  customerId?: string | null;
   booking?: { code: string; courtName: string; date: string; start: string; end: string };
 };
 
@@ -826,6 +839,7 @@ export type OwnerRole = {
 
 export type OwnerMembershipRow = {
   id: string;
+  customerId?: string | null;
   customerName: string;
   tier: string;
   memberId: string;
@@ -835,13 +849,63 @@ export type OwnerMembershipRow = {
 
 export type OwnerWalletRow = {
   id: string;
+  customerId?: string | null;
   customerName: string;
   balance: number;
   transactionCount: number;
 };
 
+// --- LINE reply templates (the builder) ---
+export type LineTemplateEvent = "booking_confirmed" | "payment_received" | "booking_cancelled";
+
+export type LineBlockType =
+  | "image"
+  | "logo"
+  | "title"
+  | "text"
+  | "divider"
+  | "infoRow"
+  | "button"
+  | "buttonRow";
+
+export type LineButton = {
+  label: string;
+  url: string;
+  style?: "primary" | "secondary" | "link";
+  color?: string;
+};
+
+/**
+ * One block in a LINE template. Deliberately flat with optional props (rather
+ * than a discriminated union) so the property editor can read/write any field
+ * generically; `type` decides which props the renderer actually uses.
+ */
+export type LineBlock = {
+  type: LineBlockType;
+  text?: string;
+  url?: string;
+  label?: string;
+  value?: string;
+  size?: string;
+  color?: string;
+  align?: "start" | "center" | "end";
+  weight?: "bold";
+  aspectRatio?: string;
+  style?: "primary" | "secondary" | "link";
+  buttons?: LineButton[];
+};
+
+export type LineTemplate = {
+  event: LineTemplateEvent;
+  enabled: boolean;
+  blocks: LineBlock[];
+  altText: string;
+  isCustom: boolean;
+};
+
 export type OwnerWalletTopup = {
   id: string;
+  customerId?: string | null;
   customerName: string | null;
   amount: number;
   slipUrl: string | null;
@@ -850,6 +914,7 @@ export type OwnerWalletTopup = {
 
 export type OwnerPackagePurchase = {
   id: string;
+  customerId?: string | null;
   customerName: string | null;
   packageName: string;
   hours: number;
@@ -1160,6 +1225,24 @@ export type OwnerCustomerDetail = {
     amount: number;
     status: BookingStatus;
   }[];
+  notes: OwnerCustomerNote[];
+  tasks: OwnerCustomerTask[];
+};
+
+export type OwnerCustomerNote = {
+  id: string;
+  body: string;
+  author: string | null;
+  createdAt: string | null;
+};
+
+export type OwnerCustomerTask = {
+  id: string;
+  title: string;
+  dueAt: string | null;
+  assignee: string | null;
+  status: "open" | "done";
+  completedAt: string | null;
 };
 
 /**
@@ -1413,6 +1496,7 @@ export type PlatformFeature = {
 export type CheckinBooking = {
   id: string;
   code: string | null;
+  customerId?: string | null;
   customerName: string | null;
   courtName: string | null;
   date: string;
@@ -1497,6 +1581,7 @@ export type OwnerRentalOut = {
   name: string;
   quantity: number;
   bookingCode: string | null;
+  customerId?: string | null;
   customerName: string | null;
   courtName: string | null;
   start: string | null;

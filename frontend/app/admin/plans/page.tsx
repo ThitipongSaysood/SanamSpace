@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "@/lib/toast";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Plus } from "lucide-react";
@@ -49,7 +50,7 @@ export default function AdminPlansPage() {
   const toggleM = useMutation({
     mutationFn: (p: Plan) => superAdminApi.updatePlan(p.id, { isActive: !p.isActive }),
     onSuccess: () => qc.invalidateQueries({ queryKey: PLANS_KEY }),
-    onError: (e: Error) => window.alert(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const maxFeatures = Math.max(0, ...(data ?? []).map((p) => p.featureCodes.length));
@@ -153,7 +154,7 @@ function PlanModal({ plan, onClose }: { plan?: Plan; onClose: () => void }) {
       qc.invalidateQueries({ queryKey: ["admin", "features"] });
       onClose();
     },
-    onError: (e: Error) => window.alert(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   return (

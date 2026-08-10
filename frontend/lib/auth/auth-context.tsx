@@ -53,6 +53,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
 
+  // Finish a login that was started before a LINE redirect, without ever
+  // redirecting again. Returns true when a session was established. Declared
+  // before the restore effect that calls it (react-hooks/immutability).
+  async function completeLineResume(): Promise<boolean> {
+    if (!process.env.NEXT_PUBLIC_API_URL) return false;
+    const slug = currentVenueSlug();
+    const config = await api.getLineConfig(slug);
+    const liffId = process.env.NEXT_PUBLIC_LIFF_ID || config.liffId;
+    if (!liffId) return false;
+    const idToken = await resumeLineIdToken(liffId);
+    if (!idToken) return false;
+    const { user: authed } = await api.lineLogin({ idToken, organizationSlug: slug });
+    setUser({ ...authed, ...loadOverrides() });
+    return true;
+  }
+
   // Restore an existing session on load: a stored token → fetch the user.
   // Without this, a page refresh dropped `user` to null and bounced to /login.
   useEffect(() => {
@@ -94,21 +110,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       active = false;
     };
   }, []);
-
-  // Finish a login that was started before a LINE redirect, without ever
-  // redirecting again. Returns true when a session was established.
-  async function completeLineResume(): Promise<boolean> {
-    if (!process.env.NEXT_PUBLIC_API_URL) return false;
-    const slug = currentVenueSlug();
-    const config = await api.getLineConfig(slug);
-    const liffId = process.env.NEXT_PUBLIC_LIFF_ID || config.liffId;
-    if (!liffId) return false;
-    const idToken = await resumeLineIdToken(liffId);
-    if (!idToken) return false;
-    const { user: authed } = await api.lineLogin({ idToken, organizationSlug: slug });
-    setUser({ ...authed, ...loadOverrides() });
-    return true;
-  }
 
   async function login(slug?: string) {
     // Multi-tenant: the venue/org comes from the /v/{slug} page (or the URL).

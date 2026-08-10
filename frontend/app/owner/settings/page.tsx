@@ -1,4 +1,5 @@
 "use client";
+import { toastSave } from "@/lib/toast";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
@@ -82,7 +83,7 @@ function useOwnerSettingsForm(settings: OwnerSettings) {
   }
 
   const mutation = useMutation({
-    mutationFn: () => ownerApi.updateSettings(form),
+    mutationFn: () => toastSave(ownerApi.updateSettings(form)),
     onSuccess: (updated) => {
       qc.setQueryData(["owner", "settings"], updated);
       qc.invalidateQueries({ queryKey: ["owner", "settings"] });
@@ -544,7 +545,7 @@ function PaymentTab({ settings }: { settings: OwnerSettings }) {
   }
 
   const mutation = useMutation({
-    mutationFn: () => ownerApi.updateSettings(form),
+    mutationFn: () => toastSave(ownerApi.updateSettings(form)),
     onSuccess: (updated) => {
       qc.setQueryData(["owner", "settings"], updated);
       qc.invalidateQueries({ queryKey: ["owner", "settings"] });
@@ -631,7 +632,7 @@ function IntegrationsTab({ settings }: { settings: OwnerSettings }) {
       // Only include a secret when the owner typed a new value.
       if (channelSecret.trim()) patch.lineChannelSecret = channelSecret;
       if (messagingToken.trim()) patch.lineMessagingToken = messagingToken;
-      return ownerApi.updateSettings(patch);
+      return toastSave(ownerApi.updateSettings(patch));
     },
     onSuccess: (updated) => {
       qc.setQueryData(["owner", "settings"], updated);

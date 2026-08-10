@@ -81,6 +81,7 @@ class BookingResource extends JsonResource
             'checkinToken' => $this->checkin_token,
             'checkedInAt' => $this->checked_in_at?->toIso8601String(),
             $this->mergeWhen($this->relationLoaded('customer'), fn () => [
+                'customerId' => $this->customer_id ? (string) $this->customer_id : null,
                 'customerName' => $this->customer?->display_name,
             ]),
         ];

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import type { BookingStatus, OwnerOperations } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
+import { CustomerName } from "@/components/customer-peek";
 import { StatusBadge } from "@/components/status-badge";
 import { Loading, ErrorState } from "@/components/states";
 
@@ -318,7 +319,7 @@ function Timeline({ d }: { d: OwnerOperations }) {
                     {b.checkedIn && <span className="ml-1.5 text-xs font-normal text-brand">เช็คอินแล้ว</span>}
                   </span>
                   <span className="block truncate text-xs text-muted-foreground">
-                    {b.customerName} · {b.start.slice(0, 5)}–{b.end.slice(0, 5)}
+                    <CustomerName id={b.customerId} name={b.customerName} /> · {b.start.slice(0, 5)}–{b.end.slice(0, 5)}
                   </span>
                 </span>
                 {b.outstanding > 0 ? (

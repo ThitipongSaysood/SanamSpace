@@ -19,6 +19,7 @@ class OwnerWalletResource extends JsonResource
     {
         return [
             'id' => (string) $this->id,
+            'customerId' => $this->customer_id ? (string) $this->customer_id : null,
             'customerName' => $this->customer?->display_name,
             'balance' => (float) $this->balance,
             'transactionCount' => (int) ($this->transactions_count ?? 0),

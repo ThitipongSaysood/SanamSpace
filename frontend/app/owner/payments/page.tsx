@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, ImageOff, Maximize2, X } from "lucide-react";
 import type { OwnerPackagePurchase, OwnerPayment } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
+import { CustomerName } from "@/components/customer-peek";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { ImageLightbox } from "@/components/image-lightbox";
 
@@ -105,7 +106,7 @@ function PaymentRow({ payment, onView }: { payment: OwnerPayment; onView: (v: Vi
         />
       </td>
 
-      <td className="px-4 py-3 font-medium">{payment.customerName ?? "—"}</td>
+      <td className="px-4 py-3 font-medium"><CustomerName id={payment.customerId} name={payment.customerName} /></td>
 
       <td className="px-4 py-3">
         {payment.booking ? (
@@ -175,7 +176,7 @@ function PaymentCard({ payment, onView }: { payment: OwnerPayment; onView: (v: V
           onView={onView}
         />
         <div className="min-w-0 flex-1">
-          <div className="font-semibold">{payment.customerName ?? "—"}</div>
+          <div className="font-semibold"><CustomerName id={payment.customerId} name={payment.customerName} /></div>
           {payment.booking && (
             <div className="mt-0.5 text-sm text-muted-foreground">
               {payment.booking.courtName} · {payment.booking.date}
@@ -324,7 +325,7 @@ function PurchaseRow({
           onView={onView}
         />
       </td>
-      <td className="px-4 py-3 font-medium">{purchase.customerName ?? "ลูกค้า"}</td>
+      <td className="px-4 py-3 font-medium"><CustomerName id={purchase.customerId} name={purchase.customerName} fallback="ลูกค้า" /></td>
       <td className="px-4 py-3">
         <div>{purchase.packageName}</div>
         <div className="text-xs text-muted-foreground">{purchase.hours} ชั่วโมง</div>

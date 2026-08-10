@@ -54,7 +54,10 @@ async function req<T>(path: string, opts: ReqOpts = {}): Promise<T> {
     payload = JSON.stringify(body);
   }
 
-  const res = await fetch(`${BASE}${path}`, { method, headers, body: payload });
+  // Never let the browser serve a stale API response — React Query owns caching.
+  // Without this, a setting the owner just changed can look unchanged in the app
+  // because the GET came from the HTTP cache.
+  const res = await fetch(`${BASE}${path}`, { method, headers, body: payload, cache: "no-store" });
 
   // A dead session ends at the venue's login screen, not on a "ลองอีกครั้ง"
   // button that can never work. Scoped to the venue in the URL, because a

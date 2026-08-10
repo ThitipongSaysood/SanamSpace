@@ -319,7 +319,7 @@ class BookingController extends Controller
      * no slip to send and nothing to review. That is the whole difference
      * between paying from a wallet and paying by transfer.
      */
-    public function payWithCredit(Request $request, \App\Services\CreditService $credit, \App\Services\DepositService $deposits): BookingResource
+    public function payWithCredit(Request $request, \App\Services\CreditService $credit, \App\Services\DepositService $deposits, \App\Services\NotificationService $notifications): BookingResource
     {
         $booking = $this->findOwned($request, $request->route('id'));
 
@@ -351,7 +351,7 @@ class BookingController extends Controller
 
         // Recorded as a payment like any other: this is money received, and the
         // venue's takings should not depend on which pocket it came from.
-        \App\Models\Payment::create([
+        $payment = \App\Models\Payment::create([
             'organization_id' => $booking->organization_id,
             'booking_id' => $booking->id,
             'customer_id' => $booking->customer_id,
@@ -361,6 +361,13 @@ class BookingController extends Controller
         ]);
 
         $deposits->applyPayment($booking, $amount);
+
+        // A settled credit payment confirms the booking exactly like an approved
+        // slip does — so it earns the same confirmation notification and LINE
+        // receipt. Mirrors PaymentController::verify calling this explicitly.
+        if ($booking->fresh()->status === 'confirmed') {
+            $notifications->paymentApproved($payment->fresh(['booking']));
+        }
 
         return new BookingResource($booking->fresh()->load([
             'branch.organization', 'court', 'rentals', 'latestPayment', 'customerPackage',

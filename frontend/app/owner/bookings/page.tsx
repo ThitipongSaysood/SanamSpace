@@ -1,21 +1,25 @@
 "use client";
+import { toast } from "@/lib/toast";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
-import type { OwnerBooking, OwnerCourt } from "@/lib/types";
+import type { OwnerBooking, OwnerBranch, OwnerCourt } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { BookingDialog, type Dialog } from "./booking-dialog";
 import { Button } from "@/components/ui/button";
 
-const START = 8;
-const END = 22;
 const HOUR_PX = 56;
 const SLOT_MIN = 30;
 const SLOT_PX = HOUR_PX / 2;
-const TOTAL_H = (END - START) * HOUR_PX;
+// The window the grid draws when a venue has not set its hours yet.
+const DEFAULT_START = 8;
+const DEFAULT_END = 22;
 
 const BOOKINGS_KEY = ["owner", "bookings"];
+// `Branch.weekHours[].day` is a full Thai weekday name; index this by
+// Date.getday() (0 = Sunday) to look up that date's override.
+const TH_DAY_BY_DOW = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
 const DOW = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."];
 const TH_MONTH = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
 
@@ -49,12 +53,57 @@ function startOfWeek(d: Date): Date {
   return addDays(d, -d.getDay());
 }
 function toMin(t?: string): number {
-  if (!t) return START * 60;
+  if (!t) return 0;
   const [h, m] = t.split(":").map(Number);
   return (h || 0) * 60 + (m || 0);
 }
 function fmtMin(min: number): string {
   return `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+}
+
+function hhmmToMin(t?: string | null): number | null {
+  if (!t) return null;
+  const [h, m] = t.split(":").map(Number);
+  return Number.isNaN(h) ? null : h * 60 + (m || 0);
+}
+
+/**
+ * A branch's open/close on a given date, in minutes-of-day: the per-day
+ * `weekHours` override when it is set, otherwise the branch's general hours.
+ * Null when the branch has no usable window (nothing set, or close ≤ open).
+ */
+function branchHoursOn(b: OwnerBranch, date: Date): { open: number; close: number } | null {
+  const dayName = TH_DAY_BY_DOW[date.getDay()];
+  const wh = b.weekHours?.find((h) => h.day === dayName && (h.open || h.close));
+  // `||` not `??`: an empty override side ("") means "unset", fall back to the
+  // branch's general hour rather than treating "" as a real time.
+  const open = hhmmToMin(wh?.open || b.openTime);
+  const close = hhmmToMin(wh?.close || b.closeTime);
+  if (open == null || close == null || close <= open) return null;
+  return { open, close };
+}
+
+/**
+ * The grid window (whole hours) that covers every branch across the dates on
+ * screen — the venue's earliest open to its latest close, so a court that opens
+ * earlier or closes later than the rest still has room to draw. The grid is one
+ * shared height, so the week view unions its seven days. Falls back to the
+ * default window when the venue has set no hours at all.
+ */
+function gridWindow(branches: OwnerBranch[], dates: Date[]): { start: number; end: number } {
+  let minOpen = Infinity;
+  let maxClose = -Infinity;
+  for (const d of dates) {
+    for (const b of branches) {
+      const h = branchHoursOn(b, d);
+      if (!h) continue;
+      minOpen = Math.min(minOpen, h.open);
+      maxClose = Math.max(maxClose, h.close);
+    }
+  }
+  if (minOpen === Infinity || maxClose === -Infinity) return { start: DEFAULT_START, end: DEFAULT_END };
+  const start = Math.floor(minOpen / 60);
+  return { start, end: Math.max(Math.ceil(maxClose / 60), start + 1) };
 }
 
 function blockClass(status: string): string {
@@ -91,9 +140,13 @@ export default function OwnerBookingsPage() {
     placeholderData: (prev) => prev,
   });
   const courtsQ = useQuery({ queryKey: ["owner", "courts"], queryFn: ownerApi.getCourts });
+  // Hours are per-branch settings, so the grid draws the venue's real opening
+  // window instead of a fixed 08–22.
+  const branchesQ = useQuery({ queryKey: ["owner", "branches"], queryFn: ownerApi.getBranches });
 
   const bookings = bookingsQ.data ?? [];
   const courts = courtsQ.data ?? [];
+  const branches = useMemo(() => branchesQ.data ?? [], [branchesQ.data]);
 
   const byDate = useMemo(() => {
     const m = new Map<string, OwnerBooking[]>();
@@ -110,7 +163,7 @@ export default function OwnerBookingsPage() {
     mutationFn: (v: { id: string; courtId: string; start: string; end: string }) =>
       ownerApi.updateBooking(v.id, { courtId: v.courtId, start: v.start, end: v.end }),
     onSuccess: () => qc.invalidateQueries({ queryKey: BOOKINGS_KEY }),
-    onError: (e: Error) => window.alert(e.message || "ย้ายการจองไม่สำเร็จ"),
+    onError: (e: Error) => toast.error(e.message || "ย้ายการจองไม่สำเร็จ"),
   });
 
   function onMove(bookingId: string, courtId: string, startMin: number) {
@@ -122,6 +175,14 @@ export default function OwnerBookingsPage() {
 
   const weekStart = startOfWeek(anchor);
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+
+  // The day/week grids share one height, so the week view spans all seven days
+  // and the day view just its one. Month draws no time grid.
+  const { start: gridStart, end: gridEnd } = useMemo(
+    () => gridWindow(branches, view === "week" ? weekDays : [anchor]),
+    // weekDays is derived from anchor; listing anchor keeps the deps honest.
+    [branches, view, anchor], // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   function move(dir: number) {
     if (view === "day") setAnchor((a) => addDays(a, dir));
@@ -136,7 +197,7 @@ export default function OwnerBookingsPage() {
         ? `${DOW[anchor.getDay()]} ${anchor.getDate()} ${TH_MONTH[anchor.getMonth()]} ${(anchor.getFullYear() + 543) % 100}`
         : `${weekDays[0].getDate()} - ${weekDays[6].getDate()} ${TH_MONTH[weekDays[6].getMonth()]} ${(weekDays[6].getFullYear() + 543) % 100}`;
 
-  const isLoading = bookingsQ.isLoading || courtsQ.isLoading;
+  const isLoading = bookingsQ.isLoading || courtsQ.isLoading || branchesQ.isLoading;
 
   return (
     <div className="space-y-5">
@@ -201,14 +262,22 @@ export default function OwnerBookingsPage() {
           <CourtDayGrid
             courts={courts}
             bookings={byDate.get(iso(anchor)) ?? []}
+            start={gridStart}
+            end={gridEnd}
             onCreate={(courtId, start) => setDialog({ mode: "create", courtId, date: iso(anchor), start })}
             onEdit={(b) => setDialog({ mode: "edit", booking: b })}
             onMove={onMove}
           />
         )
       )}
-      {!isLoading && !bookingsQ.isError && view === "week" && <WeekGrid days={weekDays} byDate={byDate} onEdit={(b) => setDialog({ mode: "edit", booking: b })} />}
-      {!isLoading && !bookingsQ.isError && view === "month" && <MonthGrid anchor={anchor} byDate={byDate} />}
+      {!isLoading && !bookingsQ.isError && view === "week" && <WeekGrid days={weekDays} byDate={byDate} start={gridStart} end={gridEnd} onEdit={(b) => setDialog({ mode: "edit", booking: b })} />}
+      {!isLoading && !bookingsQ.isError && view === "month" && (
+        <MonthGrid
+          anchor={anchor}
+          byDate={byDate}
+          onPickDay={(d) => { setAnchor(d); setView("day"); }}
+        />
+      )}
 
       {dialog && <BookingDialog dialog={dialog} courts={courts} onClose={() => setDialog(null)} />}
     </div>
@@ -218,18 +287,23 @@ export default function OwnerBookingsPage() {
 function CourtDayGrid({
   courts,
   bookings,
+  start,
+  end,
   onCreate,
   onEdit,
   onMove,
 }: {
   courts: OwnerCourt[];
   bookings: OwnerBooking[];
+  start: number;
+  end: number;
   onCreate: (courtId: string, start: string) => void;
   onEdit: (b: OwnerBooking) => void;
   onMove: (bookingId: string, courtId: string, startMin: number) => void;
 }) {
-  const hours = Array.from({ length: END - START }, (_, i) => START + i);
-  const slots = Array.from({ length: (END - START) * 2 }, (_, i) => START * 60 + i * SLOT_MIN);
+  const totalH = (end - start) * HOUR_PX;
+  const hours = Array.from({ length: end - start }, (_, i) => start + i);
+  const slots = Array.from({ length: (end - start) * 2 }, (_, i) => start * 60 + i * SLOT_MIN);
 
   return (
     <div className="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
@@ -248,18 +322,22 @@ function CourtDayGrid({
         {/* Body */}
         <div className="grid" style={{ gridTemplateColumns: `56px repeat(${courts.length}, minmax(0,1fr))` }}>
           {/* time gutter */}
-          <div className="relative" style={{ height: TOTAL_H }}>
+          <div className="relative" style={{ height: totalH }}>
             {hours.map((h) => (
-              <div key={h} className="absolute right-1.5 -translate-y-1/2 text-[11px] text-muted-foreground" style={{ top: (h - START) * HOUR_PX }}>
+              <div key={h} className="absolute right-1.5 -translate-y-1/2 text-[11px] text-muted-foreground" style={{ top: (h - start) * HOUR_PX }}>
                 {String(h).padStart(2, "0")}:00
               </div>
             ))}
           </div>
 
           {courts.map((court) => {
-            const list = bookings.filter((b) => b.courtId === court.id);
+            // A cancelled booking has released its slot — it must not sit on the
+            // grid blocking click-to-create, the way the overlap check on the
+            // server already ignores it. Cancellations still show in the list
+            // and month views.
+            const list = bookings.filter((b) => b.courtId === court.id && b.status !== "cancelled");
             return (
-              <div key={court.id} className="relative border-l border-black/5" style={{ height: TOTAL_H }}>
+              <div key={court.id} className="relative border-l border-black/5" style={{ height: totalH }}>
                 {/* clickable + droppable slot cells */}
                 {slots.map((slotMin) => (
                   <button
@@ -273,13 +351,13 @@ function CourtDayGrid({
                       if (id) onMove(id, court.id, slotMin);
                     }}
                     className="absolute inset-x-0 border-t border-black/5 hover:bg-brand/5"
-                    style={{ top: (slotMin - START * 60) / 60 * HOUR_PX, height: SLOT_PX }}
+                    style={{ top: (slotMin - start * 60) / 60 * HOUR_PX, height: SLOT_PX }}
                     aria-label={`สร้างการจอง ${court.name} ${fmtMin(slotMin)}`}
                   />
                 ))}
                 {/* booking blocks */}
                 {list.map((b) => {
-                  const top = ((toMin(b.start) - START * 60) / 60) * HOUR_PX;
+                  const top = ((toMin(b.start) - start * 60) / 60) * HOUR_PX;
                   const height = Math.max(22, ((toMin(b.end) - toMin(b.start)) / 60) * HOUR_PX - 2);
                   return (
                     <div
@@ -305,12 +383,63 @@ function CourtDayGrid({
   );
 }
 
-function WeekGrid({ days, byDate, onEdit }: { days: Date[]; byDate: Map<string, OwnerBooking[]>; onEdit: (b: OwnerBooking) => void }) {
-  const hours = Array.from({ length: END - START }, (_, i) => START + i);
+/**
+ * Lay a day's bookings into side-by-side lanes so overlapping ones (different
+ * courts at the same time) are all visible instead of stacked on top of each
+ * other. Bookings that overlap in time share a cluster and split its width;
+ * bookings that don't overlap keep the full width.
+ */
+function packDay(list: OwnerBooking[]): { b: OwnerBooking; lane: number; lanes: number }[] {
+  const evs = list
+    .map((b) => ({ b, s: toMin(b.start), e: toMin(b.end) }))
+    .sort((a, z) => a.s - z.s || a.e - z.e);
+
+  const out: { b: OwnerBooking; lane: number; lanes: number }[] = [];
+  let cluster: { b: OwnerBooking; s: number; e: number }[] = [];
+  let clusterEnd = -Infinity;
+
+  const flush = () => {
+    const laneEnds: number[] = []; // lane index -> end time of its last booking
+    const laneOf: number[] = [];
+    for (const ev of cluster) {
+      let lane = 0;
+      while (lane < laneEnds.length && laneEnds[lane] > ev.s) lane++;
+      laneEnds[lane] = ev.e;
+      laneOf.push(lane);
+    }
+    const lanes = laneEnds.length;
+    cluster.forEach((ev, i) => out.push({ b: ev.b, lane: laneOf[i], lanes }));
+    cluster = [];
+    clusterEnd = -Infinity;
+  };
+
+  for (const ev of evs) {
+    if (cluster.length && ev.s >= clusterEnd) flush();
+    cluster.push(ev);
+    clusterEnd = Math.max(clusterEnd, ev.e);
+  }
+  flush();
+  return out;
+}
+
+function WeekGrid({ days, byDate, start, end, onEdit }: { days: Date[]; byDate: Map<string, OwnerBooking[]>; start: number; end: number; onEdit: (b: OwnerBooking) => void }) {
+  const totalH = (end - start) * HOUR_PX;
+  const hours = Array.from({ length: end - start }, (_, i) => start + i);
+
+  // Pack each day once, then widen the whole grid so the busiest day's lanes
+  // (most courts overlapping at once) stay readable — every court is visible
+  // side by side, with horizontal scroll when a week is very full.
+  const packedDays = days.map((d) =>
+    packDay((byDate.get(iso(d)) ?? []).filter((b) => b.status !== "cancelled")),
+  );
+  const maxLanes = Math.max(1, ...packedDays.map((p) => Math.max(1, ...p.map((x) => x.lanes))));
+  const dayColMin = Math.max(120, maxLanes * 48);
+  const cols = `56px repeat(7, minmax(${dayColMin}px, 1fr))`;
+
   return (
     <div className="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
-      <div className="min-w-[760px]">
-        <div className="grid border-b border-black/5" style={{ gridTemplateColumns: `56px repeat(7, minmax(0,1fr))` }}>
+      <div style={{ minWidth: 56 + 7 * dayColMin }}>
+        <div className="grid border-b border-black/5" style={{ gridTemplateColumns: cols }}>
           <div />
           {days.map((d) => (
             <div key={iso(d)} className="px-2 py-2 text-center">
@@ -319,31 +448,39 @@ function WeekGrid({ days, byDate, onEdit }: { days: Date[]; byDate: Map<string, 
             </div>
           ))}
         </div>
-        <div className="grid" style={{ gridTemplateColumns: `56px repeat(7, minmax(0,1fr))` }}>
-          <div className="relative" style={{ height: TOTAL_H }}>
+        <div className="grid" style={{ gridTemplateColumns: cols }}>
+          <div className="relative" style={{ height: totalH }}>
             {hours.map((h) => (
-              <div key={h} className="absolute right-1.5 -translate-y-1/2 text-[11px] text-muted-foreground" style={{ top: (h - START) * HOUR_PX }}>
+              <div key={h} className="absolute right-1.5 -translate-y-1/2 text-[11px] text-muted-foreground" style={{ top: (h - start) * HOUR_PX }}>
                 {String(h).padStart(2, "0")}:00
               </div>
             ))}
           </div>
-          {days.map((d) => {
-            const list = byDate.get(iso(d)) ?? [];
+          {days.map((d, di) => {
+            const packed = packedDays[di];
             return (
-              <div key={iso(d)} className="relative border-l border-black/5" style={{ height: TOTAL_H }}>
+              <div key={iso(d)} className="relative border-l border-black/5" style={{ height: totalH }}>
                 {hours.map((h) => (
-                  <div key={h} className="absolute inset-x-0 border-t border-black/5" style={{ top: (h - START) * HOUR_PX }} />
+                  <div key={h} className="absolute inset-x-0 border-t border-black/5" style={{ top: (h - start) * HOUR_PX }} />
                 ))}
-                {list.map((b) => {
-                  const top = ((toMin(b.start) - START * 60) / 60) * HOUR_PX;
+                {packed.map(({ b, lane, lanes }) => {
+                  const top = ((toMin(b.start) - start * 60) / 60) * HOUR_PX;
                   const height = Math.max(20, ((toMin(b.end) - toMin(b.start)) / 60) * HOUR_PX - 2);
+                  // Overlapping bookings split the column into lanes so every
+                  // court at that time is visible side by side.
+                  const w = 100 / lanes;
                   return (
                     <button
                       type="button"
                       key={b.id}
                       onClick={() => onEdit(b)}
-                      className={`absolute inset-x-1 overflow-hidden rounded-md border-l-4 px-1.5 py-1 text-left text-[11px] leading-tight shadow-sm ${blockClass(b.status)}`}
-                      style={{ top: Math.max(0, top), height }}
+                      className={`absolute overflow-hidden rounded-md border-l-4 px-1.5 py-1 text-left text-[11px] leading-tight shadow-sm ${blockClass(b.status)}`}
+                      style={{
+                        top: Math.max(0, top),
+                        height,
+                        left: `calc(${lane * w}% + 2px)`,
+                        width: `calc(${w}% - 3px)`,
+                      }}
                       title={`${b.customerName ?? b.code} · ${b.courtName} · ${b.start}-${b.end}`}
                     >
                       <div className="truncate font-semibold">{b.customerName ?? b.code}</div>
@@ -360,7 +497,15 @@ function WeekGrid({ days, byDate, onEdit }: { days: Date[]; byDate: Map<string, 
   );
 }
 
-function MonthGrid({ anchor, byDate }: { anchor: Date; byDate: Map<string, OwnerBooking[]> }) {
+function MonthGrid({
+  anchor,
+  byDate,
+  onPickDay,
+}: {
+  anchor: Date;
+  byDate: Map<string, OwnerBooking[]>;
+  onPickDay: (d: Date) => void;
+}) {
   const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
   const gridStart = startOfWeek(first);
   const cells = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
@@ -377,7 +522,15 @@ function MonthGrid({ anchor, byDate }: { anchor: Date; byDate: Map<string, Owner
           const list = byDate.get(iso(d)) ?? [];
           const dim = d.getMonth() !== month;
           return (
-            <div key={iso(d)} className={`min-h-[92px] border-b border-l border-black/5 p-1.5 ${dim ? "bg-app/40" : ""}`}>
+            // The whole day opens that day's schedule — clicking a full month
+            // cell (or "+N เพิ่มเติม") is how you see the bookings that don't fit.
+            <button
+              type="button"
+              key={iso(d)}
+              onClick={() => onPickDay(d)}
+              title="ดูตารางของวันนี้"
+              className={`min-h-[92px] border-b border-l border-black/5 p-1.5 text-left transition hover:bg-app focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand ${dim ? "bg-app/40" : ""}`}
+            >
               <div className={`text-xs font-semibold ${dim ? "text-muted-foreground/50" : ""}`}>{d.getDate()}</div>
               <div className="mt-1 space-y-1">
                 {list.slice(0, 3).map((b) => (
@@ -385,9 +538,11 @@ function MonthGrid({ anchor, byDate }: { anchor: Date; byDate: Map<string, Owner
                     {b.start} {b.customerName ?? b.code}
                   </div>
                 ))}
-                {list.length > 3 && <div className="text-[10px] text-muted-foreground">+{list.length - 3} เพิ่มเติม</div>}
+                {list.length > 3 && (
+                  <div className="text-[10px] font-medium text-brand">+{list.length - 3} เพิ่มเติม</div>
+                )}
               </div>
-            </div>
+            </button>
           );
         })}
       </div>

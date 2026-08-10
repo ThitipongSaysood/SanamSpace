@@ -1,9 +1,10 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Maximize2, Plus, Search, Trash2, X } from "lucide-react";
 import type { BookingRental, OwnerBooking } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
+import { CustomerName } from "@/components/customer-peek";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,9 @@ import { BookingDialog, type Dialog } from "../booking-dialog";
 
 const BOOKINGS_KEY = ["owner", "bookings"];
 const fmt = new Intl.NumberFormat("th-TH");
+// A month of a busy venue is hundreds of rows; page it so the screen stays a
+// screen. Client-side because the whole range is already pulled down to search.
+const PER_PAGE = 25;
 
 const STATUS_TABS = [
   { key: "all", label: "ทั้งหมด" },
@@ -143,6 +147,29 @@ export default function OwnerBookingListPage() {
     return [...filtered].sort((a, b) => `${b.date}T${b.start}`.localeCompare(`${a.date}T${a.start}`));
   }, [searched, tab]);
 
+  // Page is 1-indexed. Every filter change resets it to 1 at the source (the
+  // search box, tab, and date inputs), so here we only clamp against a list
+  // that shrank under us — e.g. a refetch returning fewer rows.
+  const [page, setPage] = useState(1);
+  // The pager sits under a long list; jumping pages should bring its top back
+  // into view instead of leaving the eye at the bottom of the previous page.
+  const listTopRef = useRef<HTMLDivElement>(null);
+  function goTo(p: number) {
+    setPage(p);
+    listTopRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }
+  const pageCount = Math.max(1, Math.ceil(rows.length / PER_PAGE));
+  const safePage = Math.min(page, pageCount);
+  const startIdx = (safePage - 1) * PER_PAGE;
+  const paged = rows.slice(startIdx, startIdx + PER_PAGE);
+  const pageWindow = (() => {
+    const span = Math.min(5, pageCount);
+    let start = Math.max(1, safePage - 2);
+    const end = Math.min(pageCount, start + span - 1);
+    start = Math.max(1, end - span + 1);
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+  })();
+
   const isLoading = bookingsQ.isLoading || courtsQ.isLoading;
 
   return (
@@ -169,7 +196,10 @@ export default function OwnerBookingListPage() {
             <Input
               id="q"
               value={q}
-              onChange={(e) => setQ(e.target.value)}
+              onChange={(e) => {
+                setQ(e.target.value);
+                setPage(1);
+              }}
               placeholder="รหัสจอง ชื่อลูกค้า หรือคอร์ท"
               className="pl-9"
             />
@@ -191,7 +221,10 @@ export default function OwnerBookingListPage() {
             id="from"
             type="date"
             value={range.from}
-            onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))}
+            onChange={(e) => {
+              setRange((r) => ({ ...r, from: e.target.value }));
+              setPage(1);
+            }}
           />
         </div>
         <div className="space-y-1.5">
@@ -200,7 +233,10 @@ export default function OwnerBookingListPage() {
             id="to"
             type="date"
             value={range.to}
-            onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))}
+            onChange={(e) => {
+              setRange((r) => ({ ...r, to: e.target.value }));
+              setPage(1);
+            }}
           />
         </div>
       </section>
@@ -210,7 +246,10 @@ export default function OwnerBookingListPage() {
           <button
             key={t.key}
             type="button"
-            onClick={() => setTab(t.key)}
+            onClick={() => {
+              setTab(t.key);
+              setPage(1);
+            }}
             className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition ${
               tab === t.key
                 ? "border-brand text-brand"
@@ -231,10 +270,11 @@ export default function OwnerBookingListPage() {
 
       {rows.length > 0 && (
         <>
+          <div ref={listTopRef} className="scroll-mt-4" />
           {/* Phone: cards. A table puts the amount, the status and the actions
               off the right edge, behind a sideways drag. */}
           <div className="space-y-2 md:hidden">
-            {rows.map((b) => (
+            {paged.map((b) => (
               <BookingCard key={b.id} booking={b} onView={() => setViewing(b)} />
             ))}
           </div>
@@ -254,7 +294,7 @@ export default function OwnerBookingListPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/5">
-                  {rows.map((b) => (
+                  {paged.map((b) => (
                     <BookingRow
                       key={b.id}
                       booking={b}
@@ -267,6 +307,57 @@ export default function OwnerBookingListPage() {
               </table>
             </div>
           </div>
+
+          <nav
+            className="flex flex-wrap items-center justify-between gap-3 pt-1"
+            aria-label="แบ่งหน้ารายการจอง"
+          >
+            <p className="text-xs text-muted-foreground">
+              แสดง {fmt.format(startIdx + 1)}–{fmt.format(startIdx + paged.length)} จาก{" "}
+              {fmt.format(rows.length)} รายการ
+            </p>
+            {pageCount > 1 && (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => goTo(safePage - 1)}
+                  disabled={safePage <= 1}
+                  className="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-black/10 transition hover:bg-app disabled:opacity-40 disabled:hover:bg-transparent"
+                >
+                  ก่อนหน้า
+                </button>
+                {pageWindow[0] > 1 && (
+                  <span className="px-1 text-sm text-muted-foreground">…</span>
+                )}
+                {pageWindow.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => goTo(p)}
+                    aria-current={p === safePage ? "page" : undefined}
+                    className={`min-w-9 rounded-lg px-2.5 py-1.5 text-sm font-medium tabular-nums transition ${
+                      p === safePage
+                        ? "bg-brand text-brand-foreground"
+                        : "ring-1 ring-black/10 hover:bg-app"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+                {pageWindow[pageWindow.length - 1] < pageCount && (
+                  <span className="px-1 text-sm text-muted-foreground">…</span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => goTo(safePage + 1)}
+                  disabled={safePage >= pageCount}
+                  className="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-black/10 transition hover:bg-app disabled:opacity-40 disabled:hover:bg-transparent"
+                >
+                  ถัดไป
+                </button>
+              </div>
+            )}
+          </nav>
         </>
       )}
 
@@ -653,7 +744,7 @@ function BookingRow({
     // their own thing.
     <tr className="cursor-pointer hover:bg-app/60" onClick={onView}>
       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{booking.code}</td>
-      <td className="px-4 py-3 font-medium">{booking.customerName ?? "Walk-in"}</td>
+      <td className="px-4 py-3 font-medium"><CustomerName id={booking.customerId} name={booking.customerName} fallback="Walk-in" /></td>
       <td className="px-4 py-3">{booking.courtName}</td>
       <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
         {booking.date} · {booking.start}–{booking.end}

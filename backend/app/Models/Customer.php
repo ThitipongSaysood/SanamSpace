@@ -80,4 +80,14 @@ class Customer extends Authenticatable
     {
         return $this->hasMany(Notification::class);
     }
+
+    public function notes(): HasMany
+    {
+        return $this->hasMany(CustomerNote::class);
+    }
+
+    public function tasks(): HasMany
+    {
+        return $this->hasMany(CustomerTask::class);
+    }
 }

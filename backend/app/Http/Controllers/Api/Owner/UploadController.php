@@ -20,7 +20,8 @@ class UploadController extends Controller
             'file' => ['required', 'image', 'max:5120'], // 5 MB
         ]);
 
-        $path = $request->file('file')->store('venues', 'public');
+        $orgId = $request->attributes->get('currentOrganizationId');
+        $path = $request->file('file')->store('venues/'.$orgId, 'public');
 
         return response()->json([
             'url' => url('/storage/'.$path),

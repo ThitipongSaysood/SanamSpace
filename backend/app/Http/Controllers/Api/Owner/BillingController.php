@@ -154,7 +154,7 @@ class BillingController extends Controller
         abort_if(! $invoice->isOutstanding(), 422, 'ใบแจ้งหนี้นี้ถูกดำเนินการไปแล้ว');
 
         $file = $request->file('slip');
-        $path = $file->store('slips', 'public');
+        $path = $file->store('slips/'.$invoice->organization_id, 'public');
 
         $invoice->update([
             'slip_path' => $path,

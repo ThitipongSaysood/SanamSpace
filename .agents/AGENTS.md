@@ -141,3 +141,35 @@ dompdf ships no Thai font and falls back to Helvetica **silently**. Sarabun live
 ### Lists
 Anything that grows with time is paginated (`PaginatesLists`, default 50 / max 200) and the screen
 gets a `LoadMore`. Never ship a list that returns every row a venue has ever created.
+**Exception — a bounded date window.** `Owner/BookingController::index` returns *all* rows when `from`+`to`
+are given, because the calendar and the รายการจอง list need the whole window at once (to draw every slot, to
+count status tabs before filtering). The bound is the date range, not a page. When such a screen still gets
+long, page it **client-side** (see `owner/bookings/list`, `PER_PAGE`) rather than reintroducing a server
+`LoadMore` — the rows are already down.
+
+### Customer names are peekable
+Any owner-facing name that belongs to a `customers` row renders through `<CustomerName id name />`
+(`components/customer-peek.tsx`) — it becomes a drawer-peek button when `id` is set and stays plain text
+(walk-in) when not. So **any resource/array that emits `customerName` must also emit `customerId`**
+(`$this->customer_id ? (string)… : null`, or `$x->customer?->id` inline) and its frontend type gets
+`customerId?: string | null`. Don't wrap a name that sits inside another `<button>`/`<a>`, a drag-interactive
+calendar block, or a string prop — those stay plain.
+
+### Toasts, not silence (or `window.alert`)
+User-facing feedback goes through `toast` / `toastSave` from `@/lib/toast` — a venue-branded card (accent bar
+by type, the venue's sport as the icon) rendered via sonner's `toast.custom`; the `<Toaster>` is mounted once
+in `providers.tsx` (top-right). `toast.success/error/…` take a single message string. `toastSave(promise)`
+shows "saving… → saved / error message" for a mutation — note it must `dismiss()` the loading toast then show the
+result, because a custom toast can't be swapped in place by id. Never reach for `window.alert`.
+
+### Customer-app feature flags live on `/orgs/{slug}/public`
+The customer app learns what a venue turned on from `OrganizationPublicController::show` → `tenant.*`
+(`checkinEnabled`, `pointsEnabled`, `sport`, `sports`). A server-side gate (e.g. `PointsService` refusing to
+award) is not enough — if the app still shows the UI, add the flag here and gate the screens off it. When a
+setting the owner just changed doesn't show up, suspect the browser HTTP cache: API GETs are `cache:"no-store"`
+in `lib/api/http.ts` for exactly this reason.
+
+### Owner-editable JSON payloads: persist the raw input
+`$request->validate()` returns only the keys it has rules for and **drops every un-ruled nested key**. For a
+free-form JSON column (a LINE template's `blocks`, etc.) validate the shape but write `$request->input('…')`,
+not the validated copy, or all but the ruled sub-keys vanish.

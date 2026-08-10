@@ -36,6 +36,7 @@ import type {
 import { ownerApi } from "@/lib/api/owner";
 import { StatusBadge } from "@/components/status-badge";
 import { CustomerLink } from "@/components/customer-link";
+import { CustomerName } from "@/components/customer-peek";
 import { Loading, ErrorState } from "@/components/states";
 
 const fmt = new Intl.NumberFormat("th-TH");
@@ -433,7 +434,7 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
                   <span className="min-w-0 flex-1 leading-tight">
                     <span className="block truncate text-sm font-medium">{b.courtName}</span>
                     <span className="block truncate text-xs text-muted-foreground">
-                      {b.customerName}
+                      <CustomerName id={b.customerId} name={b.customerName} />
                     </span>
                   </span>
                   <StatusBadge status={toBookingStatus(b.status)} />
@@ -575,7 +576,7 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
               {recent.map((b) => (
                 <div key={b.id} className="rounded-xl bg-app p-3">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium">{b.customerName}</span>
+                    <span className="font-medium"><CustomerName id={b.customerId} name={b.customerName} /></span>
                     <StatusBadge status={toBookingStatus(b.status)} />
                   </div>
                   <div className="mt-1 text-sm text-muted-foreground">{b.courtName}</div>
@@ -607,7 +608,7 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
                       <td className="px-3 py-2.5 tabular-nums text-muted-foreground">
                         {b.start.slice(0, 5)}–{b.end.slice(0, 5)}
                       </td>
-                      <td className="px-3 py-2.5 font-medium">{b.customerName}</td>
+                      <td className="px-3 py-2.5 font-medium"><CustomerName id={b.customerId} name={b.customerName} /></td>
                       <td className="px-3 py-2.5 text-muted-foreground">{b.courtName}</td>
                       <td className="px-3 py-2.5 text-right font-semibold text-brand">
                         ฿{fmt.format(b.amount)}
@@ -712,7 +713,7 @@ function CourtTile({ court }: { court: CourtBoard["branches"][number]["courts"][
 
       {court.current ? (
         <div className="mt-1 truncate text-xs text-muted-foreground">
-          {court.current.customerName ?? "—"} · {court.current.start}–{court.current.end}
+          <CustomerName id={court.current.customerId} name={court.current.customerName} fallback="—" /> · {court.current.start}–{court.current.end}
           {unchecked && <span className="text-brand-warning"> · ยังไม่เช็คอิน</span>}
         </div>
       ) : (
@@ -723,7 +724,7 @@ function CourtTile({ court }: { court: CourtBoard["branches"][number]["courts"][
           that is already sold. */}
       {court.next ? (
         <div className="mt-2 border-t border-black/5 pt-2 text-[11px] text-muted-foreground">
-          คิวถัดไป {court.next.start} · {court.next.customerName ?? "—"}
+          คิวถัดไป {court.next.start} · <CustomerName id={court.next.customerId} name={court.next.customerName} fallback="—" />
           <span className="text-foreground"> (อีก {court.next.minutesUntil} น.)</span>
         </div>
       ) : (

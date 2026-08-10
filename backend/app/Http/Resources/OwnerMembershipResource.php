@@ -18,6 +18,7 @@ class OwnerMembershipResource extends JsonResource
     {
         return [
             'id' => (string) $this->id,
+            'customerId' => $this->customer_id ? (string) $this->customer_id : null,
             'customerName' => $this->customer?->display_name,
             'tier' => $this->tier,
             'memberId' => $this->member_id,

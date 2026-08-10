@@ -148,6 +148,7 @@ class ScanController extends Controller
             'id' => (string) $r->id,
             'name' => $r->name,
             'pointsSpent' => (int) $r->points_spent,
+            'customerId' => $r->customer?->id,
             'customerName' => $r->customer?->display_name,
         ];
     }

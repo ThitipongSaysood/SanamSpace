@@ -317,6 +317,7 @@ class DashboardController extends Controller
             ->map(fn (Booking $b) => [
                 'id' => (string) $b->id,
                 'code' => $b->code,
+                'customerId' => $b->customer?->id,
                 'customerName' => $b->customer?->display_name,
                 'courtName' => $b->court?->name,
                 'date' => $b->date,

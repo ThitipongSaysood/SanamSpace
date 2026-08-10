@@ -162,6 +162,7 @@ class OperationsController extends Controller
             'id' => (string) $b->id,
             'code' => $b->code,
             'courtName' => $b->court?->name,
+            'customerId' => $b->customer?->id,
             'customerName' => $b->customer?->display_name,
             'start' => $b->start,
             'end' => $b->end,

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Keyboard, Power, XCircle } from "lucide-react";
 import type { ScanResult } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
+import { CustomerName } from "@/components/customer-peek";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -161,7 +162,7 @@ export default function OwnerScanPage() {
                       <CheckCircle2 className="size-4" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium">{b.customerName ?? "—"}</div>
+                      <div className="truncate text-sm font-medium"><CustomerName id={b.customerId} name={b.customerName} fallback="—" /></div>
                       <div className="truncate text-xs text-muted-foreground">
                         {b.courtName ?? "—"} · {b.start}–{b.end}
                       </div>
@@ -214,7 +215,7 @@ function ResultCard({ result }: { result: ScanResult | null }) {
 
           {result.booking && (
             <div className="mt-2 space-y-0.5 text-sm">
-              <div className="font-semibold">{result.booking.customerName ?? "—"}</div>
+              <div className="font-semibold"><CustomerName id={result.booking.customerId} name={result.booking.customerName} fallback="—" /></div>
               <div className="text-muted-foreground">
                 {result.booking.courtName ?? "—"} · {result.booking.date} · {result.booking.start}–
                 {result.booking.end}
@@ -227,7 +228,7 @@ function ResultCard({ result }: { result: ScanResult | null }) {
             <div className="mt-2 space-y-0.5 text-sm">
               <div className="font-semibold">{result.reward.name}</div>
               <div className="text-muted-foreground">
-                {result.reward.customerName ?? "—"} · ใช้ {result.reward.pointsSpent.toLocaleString()} คะแนน
+                <CustomerName id={result.reward.customerId} name={result.reward.customerName} fallback="—" /> · ใช้ {result.reward.pointsSpent.toLocaleString()} คะแนน
               </div>
             </div>
           )}

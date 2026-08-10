@@ -149,6 +149,7 @@ class RewardController extends Controller
         return response()->json(['data' => [
             'id' => (string) $redemption->id,
             'name' => $redemption->name,
+            'customerId' => $redemption->customer?->id,
             'customerName' => $redemption->customer?->display_name,
         ]]);
     }
@@ -168,6 +169,7 @@ class RewardController extends Controller
                 'id' => (string) $r->id,
                 'name' => $r->name,
                 'pointsSpent' => (int) $r->points_spent,
+                'customerId' => $r->customer?->id,
                 'customerName' => $r->customer?->display_name,
                 // Whoever actually handled it: the counter staff who rang it
                 // up, or — for an app redemption — whoever handed it over.

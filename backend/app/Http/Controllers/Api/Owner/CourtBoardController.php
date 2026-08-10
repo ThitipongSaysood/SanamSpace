@@ -94,6 +94,7 @@ class CourtBoardController extends Controller
             'current' => $current ? [
                 'bookingId' => (string) $current->id,
                 'code' => $current->code,
+                'customerId' => $current->customer?->id,
                 'customerName' => $current->customer?->display_name,
                 'start' => $current->start,
                 'end' => $current->end,
@@ -104,6 +105,7 @@ class CourtBoardController extends Controller
             ] : null,
             'next' => $next ? [
                 'bookingId' => (string) $next->id,
+                'customerId' => $next->customer?->id,
                 'customerName' => $next->customer?->display_name,
                 'start' => $next->start,
                 'end' => $next->end,

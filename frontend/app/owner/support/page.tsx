@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "@/lib/toast";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { LifeBuoy, Send } from "lucide-react";
@@ -57,7 +58,7 @@ export default function OwnerSupportPage() {
       setPriority("medium");
       setOpenId(ticket.id);
     },
-    onError: (e: Error) => window.alert(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   return (
@@ -150,7 +151,7 @@ function Thread({
       setReply("");
       onReplied();
     },
-    onError: (e: Error) => window.alert(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   return (

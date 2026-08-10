@@ -47,6 +47,11 @@ return [
         'messaging_token' => env('LINE_MESSAGING_TOKEN'),
         'verify_url' => env('LINE_VERIFY_URL', 'https://api.line.me/oauth2/v2.1/verify'),
         'push_url' => env('LINE_PUSH_URL', 'https://api.line.me/v2/bot/message/multicast'),
+        'push_single_url' => env('LINE_PUSH_SINGLE_URL', 'https://api.line.me/v2/bot/message/push'),
+        // Base URL of the customer app, used to build the {{bookingUrl}} deep
+        // link inside a LINE receipt. Blank → the link (and its button) is
+        // simply omitted, never broken.
+        'customer_app_url' => env('CUSTOMER_APP_URL'),
     ],
 
 ];

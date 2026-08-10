@@ -10,6 +10,8 @@ use App\Models\User;
 use App\Support\PlanFeatures;
 use Database\Seeders\SanamSpaceSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
@@ -240,5 +242,43 @@ class PlanLimitTest extends TestCase
                 'sport' => 'badminton',
                 'pricePerHour' => 200,
             ])->assertCreated();
+    }
+
+    // --- storage_gb -------------------------------------------------------
+
+    public function test_owner_upload_is_stored_under_a_per_venue_path(): void
+    {
+        Storage::fake('public');
+        $token = $this->withLimits(['storage_gb' => 5]);
+
+        $path = $this->as($token)->postJson('/api/v1/owner/uploads', [
+            'file' => UploadedFile::fake()->image('cover.png', 400, 300),
+        ])->assertOk()->json('path');
+
+        $this->assertStringStartsWith("venues/{$this->org->id}/", $path);
+        Storage::disk('public')->assertExists($path);
+    }
+
+    public function test_owner_upload_is_refused_when_the_storage_ceiling_is_full(): void
+    {
+        Storage::fake('public');
+        // 0 GB — any byte is over the line.
+        $token = $this->withLimits(['storage_gb' => 0]);
+
+        $this->as($token)->postJson('/api/v1/owner/uploads', [
+            'file' => UploadedFile::fake()->image('cover.png', 400, 300),
+        ])
+            ->assertStatus(402)
+            ->assertJsonPath('code', 'storage_limit_reached');
+    }
+
+    public function test_a_null_storage_gb_is_unlimited(): void
+    {
+        Storage::fake('public');
+        $token = $this->withLimits(['storage_gb' => null]);
+
+        $this->as($token)->postJson('/api/v1/owner/uploads', [
+            'file' => UploadedFile::fake()->image('cover.png', 400, 300),
+        ])->assertOk();
     }
 }

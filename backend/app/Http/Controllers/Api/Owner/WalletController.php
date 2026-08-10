@@ -102,6 +102,7 @@ class WalletController extends Controller
             ->get()
             ->map(fn ($txn) => [
                 'id' => (string) $txn->id,
+                'customerId' => $txn->wallet?->customer?->id,
                 'customerName' => $txn->wallet?->customer?->display_name,
                 'amount' => (float) $txn->amount,
                 'slipUrl' => $txn->slip_url,

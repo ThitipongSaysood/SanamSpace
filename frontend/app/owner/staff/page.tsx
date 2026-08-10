@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "@/lib/toast";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pencil, ShieldCheck, Trash2, UserPlus, X } from "lucide-react";
@@ -282,7 +283,7 @@ function StaffActions({ member, onEdit }: { member: OwnerStaffMember; onEdit: ()
   const remove = useMutation({
     mutationFn: () => ownerApi.removeStaff(member.id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["owner", "staff"] }),
-    onError: (e: Error) => window.alert(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   return (
@@ -343,7 +344,7 @@ function EditStaffForm({
       qc.invalidateQueries({ queryKey: ["owner", "staff"] });
       onClose();
     },
-    onError: (e: Error) => window.alert(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   return (

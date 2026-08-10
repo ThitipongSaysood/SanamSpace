@@ -26,16 +26,22 @@ migrations, `RolePermissions.php`, `routes/api.php`, or `NotificationService` is
   memberships(+points) and `GET /customers`. A migration grants them to existing roles, or gating would
   have taken the CRM away from everyone but the owner. reception/viewer/accountant get `crm.view` only —
   reading is front-desk work, sending marketing is not.
-- **WP3 — Persist broadcast delivery + audit** `[M]` (Owner). New `broadcast_recipients` table +
-  `broadcasts.sent_by` / `delivery_stats`. Stop throwing away the transient `delivery`.
+- **WP3 — Persist broadcast delivery + audit** `[M]` (Owner) — ✅ **DONE**. `broadcast_recipients` table +
+  `BroadcastRecipient` model, `broadcasts.sent_by` / `delivery_stats`, `LineMessagingService::pushText`
+  returns per-customer `results`, `OwnerBroadcastResource.delivery` falls back to the stored stats.
+  Tests: `BroadcastDeliveryTest`.
 
 ## PHASE 1 — Core CRM value
 - **WP4 — Auto-write timeline from real events** `[M]` (App + Owner) — Observers/listeners on booking,
   payment, points, checkin, broadcast → `CustomerTimelineEntry` (stop relying on the seeder).
 - **WP5 — Dynamic segments + RFM** `[L]` (Owner) — use `customer_segments.criteria`; rule builder;
   add/remove-member endpoints; compute RFM per customer.
-- **WP6 — Customer notes + follow-up tasks** `[M]` (Owner) — `customer_notes`, `customer_tasks`; surface on
-  the customer detail page (the `timeline.type = 'note'` value already exists, unused).
+- **WP6 — Customer notes + follow-up tasks** `[M]` (Owner) — ✅ **DONE 2026-08-09**. `customer_notes` +
+  `customer_tasks` tables/models, `Owner/CustomerNote|TaskController`, surfaced + editable on the customer
+  detail page (Notes + Tasks cards). Adding a note also writes a `note` timeline entry (the type finally has
+  a writer). Writes gated `crm.manage`, reads `customer.view`. Both tables added to
+  `CustomerMergeService::SIMPLE_TABLES` (the merge-coverage guard test enforces it). Tests:
+  `CustomerNotesTasksTest`.
 - **WP7 — Broadcast analytics (delivered/read + attribution)** `[M]` (Owner + App) — LINE webhook; rebooked-
   after-promo. Depends on WP3.
 

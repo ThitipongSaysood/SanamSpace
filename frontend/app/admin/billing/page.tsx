@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "@/lib/toast";
 import { useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Mail, CheckCircle2, XCircle } from "lucide-react";
@@ -60,7 +61,7 @@ export default function AdminBillingPage() {
       setSel(updated); // reflect receipt immediately in the open modal
       qc.invalidateQueries({ queryKey: INVOICES_KEY });
     },
-    onError: (e: Error) => window.alert(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const rejectM = useMutation({
@@ -72,18 +73,16 @@ export default function AdminBillingPage() {
       setSel(updated);
       qc.invalidateQueries({ queryKey: INVOICES_KEY });
     },
-    onError: (e: Error) => window.alert(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const sendM = useMutation({
     mutationFn: (id: string) => superAdminApi.sendInvoice(id),
     onSuccess: (res) =>
-      window.alert(
-        res.sent
-          ? `ส่ง${res.isReceipt ? "ใบเสร็จ" : "ใบแจ้งหนี้"}ไปที่ ${res.email} แล้ว`
-          : "ส่งไม่สำเร็จ",
-      ),
-    onError: (e: Error) => window.alert(e.message),
+      res.sent
+        ? toast.success(`ส่ง${res.isReceipt ? "ใบเสร็จ" : "ใบแจ้งหนี้"}ไปที่ ${res.email} แล้ว`)
+        : toast.error("ส่งไม่สำเร็จ"),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const paid = sel ? isPaid(sel) : false;

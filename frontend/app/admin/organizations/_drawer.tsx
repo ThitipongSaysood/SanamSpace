@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "@/lib/toast";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Clock, ExternalLink, History, MessageCircle, Power, RefreshCw, Trash2, UserCog, X } from "lucide-react";
@@ -71,7 +72,7 @@ function SubscriptionTab({ org, onDone }: { org: AdminOrganizationDetail; onDone
   const [note, setNote] = useState<string | null>(null);
 
   function fail(e: Error) {
-    window.alert(e.message);
+    toast.error(e.message);
   }
 
   const renewM = useMutation({
@@ -384,7 +385,7 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
   const statusM = useMutation({
     mutationFn: () => (data?.status === "suspended" ? superAdminApi.activateOrg(id) : superAdminApi.suspendOrg(id)),
     onSuccess: invalidate,
-    onError: (e: Error) => window.alert(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
   const planM = useMutation({
     mutationFn: () => superAdminApi.changeOrgPlan(id, planId),
@@ -392,7 +393,7 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
       invalidate();
       setShowPlans(false);
     },
-    onError: (e: Error) => window.alert(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
   const delM = useMutation({
     mutationFn: () => superAdminApi.deleteOrg(id),
@@ -400,7 +401,7 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
       qc.invalidateQueries({ queryKey: ["admin", "organizations"] });
       onClose();
     },
-    onError: (e: Error) => window.alert(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   // LINE per-venue override form. Secrets stay blank (write-only); typing a value
@@ -427,9 +428,9 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
     onSuccess: () => {
       invalidate();
       setLine((prev) => ({ ...prev, channelSecret: "", messagingToken: "" }));
-      window.alert("บันทึกการตั้งค่า LINE แล้ว");
+      toast.success("บันทึกการตั้งค่า LINE แล้ว");
     },
-    onError: (e: Error) => window.alert(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   async function impersonate() {
@@ -443,7 +444,7 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
       }
       window.location.href = "/owner";
     } catch (e) {
-      window.alert((e as Error).message);
+      toast.error((e as Error).message);
     }
   }
 

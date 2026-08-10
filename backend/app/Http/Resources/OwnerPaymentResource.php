@@ -32,6 +32,7 @@ class OwnerPaymentResource extends JsonResource
             'amount' => (float) $this->amount,
             'status' => $this->status,
             'slipUrl' => $this->slip_url,
+            'customerId' => $this->customer_id ? (string) $this->customer_id : null,
             'customerName' => $this->customer?->display_name,
             'booking' => $booking ? [
                 'code' => $booking->code,

@@ -116,7 +116,7 @@ class WalletController extends Controller
             ->where('wallet_id', $wallet->id)
             ->firstOrFail();
 
-        $path = $request->file('slip')->store('slips', 'public');
+        $path = $request->file('slip')->store('slips/'.$wallet->organization_id, 'public');
 
         $txn->update([
             'slip_url' => url(Storage::url($path)),

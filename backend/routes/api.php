@@ -44,6 +44,8 @@ use App\Http\Controllers\Api\Owner\OperationsController as OwnerOperationsContro
 use App\Http\Controllers\Api\Owner\CourtController as OwnerCourtController;
 use App\Http\Controllers\Api\Owner\CrmController as OwnerCrmController;
 use App\Http\Controllers\Api\Owner\CustomerController as OwnerCustomerController;
+use App\Http\Controllers\Api\Owner\CustomerNoteController as OwnerCustomerNoteController;
+use App\Http\Controllers\Api\Owner\CustomerTaskController as OwnerCustomerTaskController;
 use App\Http\Controllers\Api\Owner\CustomerCreditController as OwnerCustomerCreditController;
 use App\Http\Controllers\Api\Owner\DashboardController as OwnerDashboardController;
 use App\Http\Controllers\Api\Owner\MembershipController as OwnerMembershipController;
@@ -59,6 +61,7 @@ use App\Http\Controllers\Api\Owner\RewardController as OwnerRewardController;
 use App\Http\Controllers\Api\Owner\SaleController as OwnerSaleController;
 use App\Http\Controllers\Api\Owner\WelcomeBannerController as OwnerWelcomeBannerController;
 use App\Http\Controllers\Api\Owner\SettingController as OwnerSettingController;
+use App\Http\Controllers\Api\Owner\LineTemplateController as OwnerLineTemplateController;
 use App\Http\Controllers\Api\Owner\StaffController as OwnerStaffController;
 use App\Http\Controllers\Api\Owner\SubscriptionController as OwnerSubscriptionController;
 use App\Http\Controllers\Api\Owner\SupportTicketController as OwnerSupportTicketController;
@@ -247,7 +250,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/sales/{id}/void', [OwnerSaleController::class, 'void'])->middleware('permission:pos.void');
 
         // --- Image upload (venue cover / gallery / floor-plan) ---
-        Route::post('/uploads', [OwnerUploadController::class, 'store']);
+        Route::post('/uploads', [OwnerUploadController::class, 'store'])->middleware('limit.storage:file');
 
         // --- Branches (สนาม/สาขา) management CRUD ---
         Route::get('/branches', [OwnerBranchController::class, 'index']);
@@ -281,6 +284,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/customers/duplicates', [OwnerCustomerController::class, 'duplicates'])->middleware('permission:customer.view');
         Route::post('/customers/{id}/merge', [OwnerCustomerController::class, 'merge'])->middleware('permission:crm.manage');
         Route::get('/customers/{id}', [OwnerCustomerController::class, 'show'])->middleware('permission:customer.view');
+        // Notes & follow-up tasks a venue keeps on a customer (CRM). Reads ride
+        // on the detail (customer.view); writing is crm.manage, like merge/points.
+        Route::post('/customers/{id}/notes', [OwnerCustomerNoteController::class, 'store'])->middleware('permission:crm.manage');
+        Route::delete('/customers/{id}/notes/{noteId}', [OwnerCustomerNoteController::class, 'destroy'])->middleware('permission:crm.manage');
+        Route::post('/customers/{id}/tasks', [OwnerCustomerTaskController::class, 'store'])->middleware('permission:crm.manage');
+        Route::post('/customers/{id}/tasks/{taskId}/toggle', [OwnerCustomerTaskController::class, 'toggle'])->middleware('permission:crm.manage');
+        Route::delete('/customers/{id}/tasks/{taskId}', [OwnerCustomerTaskController::class, 'destroy'])->middleware('permission:crm.manage');
         // What a customer holds, and how staff change it. Granting credit is
         // wallet.manage, not customer.view — giving away money is not a read.
         Route::get('/customer-credit', [OwnerCustomerCreditController::class, 'index'])->middleware('permission:customer.view')->middleware('feature:wallet');
@@ -293,6 +303,11 @@ Route::middleware('auth:sanctum')->group(function () {
         // --- Settings (org settings + org name) ---
         Route::get('/settings', [OwnerSettingController::class, 'show']);
         Route::put('/settings', [OwnerSettingController::class, 'update'])->middleware('permission:settings.manage');
+
+        // --- LINE reply templates (the receipt/cancel cards the builder edits) ---
+        Route::get('/line-templates', [OwnerLineTemplateController::class, 'index'])->middleware('permission:settings.manage');
+        Route::put('/line-templates/{event}', [OwnerLineTemplateController::class, 'update'])->middleware('permission:settings.manage');
+        Route::post('/line-templates/{event}/test', [OwnerLineTemplateController::class, 'test'])->middleware('permission:settings.manage');
 
         // --- Promotions (management CRUD, org-scoped) ---
         // The hour packages the venue sells. Priced in hours on purpose —

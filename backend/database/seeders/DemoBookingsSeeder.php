@@ -113,13 +113,19 @@ class DemoBookingsSeeder extends Seeder
             }
         }
 
-        $this->command?->info('Seeded '.count($rows).' demo bookings across every status.');
+        $this->command?->info('Seeded '.count($rows).' anchor bookings across every status.');
 
         $this->seedShop($org);
         $this->seedRentals($org, $courts, $customers, $today);
         $this->seedCoupons($org);
         $this->seedDeposit($org, $courts, $customers, $today);
         $this->seedSegments($org);
+
+        // Last: a fuller spread so the calendar, list, dashboard and court board
+        // are not near-empty. Runs after every other booking so it can see and
+        // avoid them all — never on a slot already taken, so the demo data
+        // itself obeys the overlap rule the app enforces.
+        $this->seedFill($org, $courts, $customers, $today);
     }
 
     /**
@@ -146,6 +152,112 @@ class DemoBookingsSeeder extends Seeder
         // Written by observers as the rows above are recreated, so the old
         // entries would otherwise pile up alongside the new ones.
         \App\Models\CustomerTimelineEntry::query()->delete();
+    }
+
+    /** A pool of players the fill bookings draw from, for real variety. */
+    private const FILL_NAMES = [
+        'คุณกิตติ ตีแรง', 'คุณนารี ใจเย็น', 'คุณพงษ์ เสิร์ฟดี', 'คุณสุดา รับเก่ง',
+        'คุณวิชัย ตบหนัก', 'คุณมาลี ลูกหยอด', 'คุณเดชา ยืนหน้า', 'คุณอรทัย วิ่งไว',
+        'คุณสมพร คู่ผสม', 'คุณจินตนา มือหนึ่ง', 'คุณธีระ แบ็คแฮนด์', 'คุณปราณี สมัครเล่น',
+        'คุณอาทิตย์ ประจำ', 'คุณเบญจา ทีมสนาม', 'คุณกฤษณะ ซ้อมเช้า', 'คุณดารุณี เย็นวันศุกร์',
+    ];
+
+    /**
+     * Spread bookings across ~a month and every court, at distinct hourly slots,
+     * so the screens have depth. Weighted to the 17:00–21:00 peak; past dates
+     * mostly played (a few called off), future dates mostly confirmed with some
+     * still awaiting payment.
+     *
+     * Every candidate slot is checked against what the court already holds that
+     * day (anchors + earlier fill), so no two demo bookings ever overlap — the
+     * data honours the same rule the app enforces.
+     */
+    private function seedFill(Organization $org, $courts, $customers, Carbon $today): void
+    {
+        if ($courts->isEmpty()) {
+            return;
+        }
+
+        // hour => probability it gets booked, per court per day.
+        $slots = [10 => 25, 11 => 20, 14 => 25, 15 => 30, 16 => 45, 17 => 70, 18 => 80, 19 => 80, 20 => 65, 21 => 40];
+
+        $pool = collect(self::FILL_NAMES)
+            ->map(fn ($name) => $this->customerFor($org, $customers, $name))
+            ->all();
+
+        $made = 0;
+        $seq = 0;
+
+        for ($dayOffset = -14; $dayOffset <= 14; $dayOffset++) {
+            $date = $today->copy()->addDays($dayOffset);
+            $dateStr = $date->toDateString();
+            $isPast = $dayOffset < 0;
+            $isToday = $dayOffset === 0;
+
+            foreach ($courts as $court) {
+                // Every hour this court is already committed to today — the FULL
+                // span of each existing booking (a 19:00–21:00 deposit blocks 19
+                // and 20), not just its start, or fill would overlap a long one.
+                $taken = [];
+                foreach (
+                    Booking::query()
+                        ->where('court_id', $court->id)
+                        ->where('date', $dateStr)
+                        ->where('status', '!=', 'cancelled')
+                        ->get(['start', 'end']) as $b
+                ) {
+                    for ($h = (int) substr((string) $b->start, 0, 2); $h < (int) substr((string) $b->end, 0, 2); $h++) {
+                        $taken[] = $h;
+                    }
+                }
+
+                foreach ($slots as $hour => $chance) {
+                    if (in_array($hour, $taken, true) || random_int(1, 100) > $chance) {
+                        continue;
+                    }
+
+                    $status = $this->fillStatus($isPast, $isToday);
+                    $start = sprintf('%02d:00', $hour);
+                    $end = sprintf('%02d:00', $hour + 1);
+                    $amount = (float) ($court->price_per_hour ?: 250);
+                    $seq++;
+
+                    Booking::create([
+                        'organization_id' => $org->id,
+                        'branch_id' => $court->branch_id,
+                        'court_id' => $court->id,
+                        'customer_id' => $pool[array_rand($pool)]->id,
+                        'code' => 'BKF'.$date->format('ymd').str_pad((string) $seq, 3, '0', STR_PAD_LEFT),
+                        'date' => $dateStr,
+                        'start' => $start,
+                        'end' => $end,
+                        'amount' => $amount,
+                        'court_amount' => $amount,
+                        'paid_amount' => in_array($status, ['confirmed', 'completed'], true) ? $amount : 0,
+                        'status' => $status,
+                        'channel' => random_int(1, 3) === 1 ? 'walk_in' : 'application',
+                        'checked_in_at' => $status === 'completed' ? $date->copy()->setTime($hour, 0) : null,
+                    ]);
+
+                    $taken[] = $hour; // reserve within this run too
+                    $made++;
+                }
+            }
+        }
+
+        $this->command?->info("Seeded {$made} fill bookings across the month.");
+    }
+
+    private function fillStatus(bool $isPast, bool $isToday): string
+    {
+        if ($isPast) {
+            return random_int(1, 100) <= 90 ? 'completed' : 'cancelled';
+        }
+        if ($isToday) {
+            return random_int(1, 100) <= 60 ? 'completed' : 'confirmed';
+        }
+
+        return random_int(1, 100) <= 80 ? 'confirmed' : 'pending_payment';
     }
 
     /** The till: things to sell, and a day's takings including one void. */

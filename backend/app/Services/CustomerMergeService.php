@@ -45,6 +45,8 @@ class CustomerMergeService
         'reward_redemptions',
         'broadcast_recipients',
         'line_profiles',
+        'customer_notes',
+        'customer_tasks',
     ];
 
     /**

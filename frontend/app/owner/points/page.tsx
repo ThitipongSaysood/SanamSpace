@@ -1,10 +1,12 @@
 "use client";
+import { toastSave } from "@/lib/toast";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2, QrCode } from "lucide-react";
 import type { OwnerReward, OwnerSettings } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
 import Link from "next/link";
+import { CustomerName } from "@/components/customer-peek";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -86,7 +88,7 @@ function EarningSettings({ settings, onSaved }: { settings: OwnerSettings; onSav
   }
 
   const save = useMutation({
-    mutationFn: () => ownerApi.updateSettings(form),
+    mutationFn: () => toastSave(ownerApi.updateSettings(form)),
     onSuccess: onSaved,
   });
 
@@ -638,7 +640,7 @@ function PendingCollections() {
             <li key={r.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
               <div className="min-w-0">
                 <div className="truncate font-medium">{r.name}</div>
-                <div className="text-xs text-muted-foreground">{r.customerName ?? "—"}</div>
+                <div className="text-xs text-muted-foreground"><CustomerName id={r.customerId} name={r.customerName} fallback="—" /></div>
               </div>
               <span className="shrink-0 rounded-lg bg-app px-2.5 py-1 font-mono font-semibold tracking-widest">
                 {r.code}
@@ -692,7 +694,7 @@ function Redemptions() {
                   <td data-label="เมื่อไหร่" className="px-3 py-2 text-muted-foreground">
                     {new Date(r.createdAt).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}
                   </td>
-                  <td data-label="ลูกค้า" className="px-3 py-2 font-medium">{r.customerName ?? "—"}</td>
+                  <td data-label="ลูกค้า" className="px-3 py-2 font-medium"><CustomerName id={r.customerId} name={r.customerName} fallback="—" /></td>
                   <td data-label="ของรางวัล" className="px-3 py-2">{r.name}</td>
                   <td data-label="คะแนน" className="px-3 py-2 text-right font-semibold text-brand tabular-nums">
                     −{fmt.format(r.pointsSpent)}

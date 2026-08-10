@@ -1,9 +1,11 @@
 "use client";
+import { toast } from "@/lib/toast";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Wallet as WalletIcon, X } from "lucide-react";
 import type { OwnerWalletRow } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
+import { CustomerName } from "@/components/customer-peek";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,12 +48,12 @@ function TopupRequests() {
       qc.invalidateQueries({ queryKey: ["owner", "wallet-topups"] });
       qc.invalidateQueries({ queryKey: ["owner", "wallets"] });
     },
-    onError: (e: Error) => window.alert(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
   const reject = useMutation({
     mutationFn: (id: string) => ownerApi.rejectWalletTopup(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["owner", "wallet-topups"] }),
-    onError: (e: Error) => window.alert(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   if (!data || data.length === 0) return null;
@@ -75,7 +77,7 @@ function TopupRequests() {
               <span className="grid size-12 shrink-0 place-items-center rounded-lg bg-app text-xs text-muted-foreground">ไม่มีสลิป</span>
             )}
             <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-medium">{t.customerName ?? "ลูกค้า"}</div>
+              <div className="truncate text-sm font-medium"><CustomerName id={t.customerId} name={t.customerName} fallback="ลูกค้า" /></div>
               <div className="text-xs text-muted-foreground">{t.date} · +฿{fmt.format(t.amount)}</div>
             </div>
             <div className="flex shrink-0 gap-2">
@@ -183,7 +185,7 @@ function WalletList({ rows }: { rows: OwnerWalletRow[] }) {
                   <WalletIcon className="size-5" />
                 </span>
                 <div className="min-w-0">
-                  <div className="truncate font-semibold">{w.customerName}</div>
+                  <div className="truncate font-semibold"><CustomerName id={w.customerId} name={w.customerName} /></div>
                   <div className="text-xs text-muted-foreground">
                     {fmt.format(w.transactionCount)} ธุรกรรม
                   </div>
@@ -214,7 +216,7 @@ function WalletList({ rows }: { rows: OwnerWalletRow[] }) {
           <tbody className="divide-y divide-black/5">
             {rows.map((w) => (
               <tr key={w.id} className="hover:bg-app/60">
-                <td className="px-4 py-3 font-medium">{w.customerName}</td>
+                <td className="px-4 py-3 font-medium"><CustomerName id={w.customerId} name={w.customerName} /></td>
                 <td className="px-4 py-3 text-right font-semibold text-brand tabular-nums">
                   ฿{fmt.format(w.balance)}
                 </td>

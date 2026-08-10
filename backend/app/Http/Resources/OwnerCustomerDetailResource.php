@@ -57,6 +57,26 @@ class OwnerCustomerDetailResource extends JsonResource
                     'status' => $b->status,
                 ])->values()
                 : [],
+
+            'notes' => $this->relationLoaded('notes')
+                ? $this->notes->map(fn ($n) => [
+                    'id' => (string) $n->id,
+                    'body' => $n->body,
+                    'author' => $n->author?->display_name ?? $n->author?->name,
+                    'createdAt' => $n->created_at,
+                ])->values()
+                : [],
+
+            'tasks' => $this->relationLoaded('tasks')
+                ? $this->tasks->map(fn ($t) => [
+                    'id' => (string) $t->id,
+                    'title' => $t->title,
+                    'dueAt' => $t->due_at?->toDateString(),
+                    'assignee' => $t->assignee?->display_name ?? $t->assignee?->name,
+                    'status' => $t->status,
+                    'completedAt' => $t->completed_at,
+                ])->values()
+                : [],
         ];
     }
 }

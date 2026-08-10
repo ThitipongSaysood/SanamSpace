@@ -111,7 +111,7 @@ class PaymentController extends Controller
         $payment = $this->findOwned($request, $id);
 
         $file = $request->file('slip');
-        $path = $file->store('slips', 'public');
+        $path = $file->store('slips/'.$payment->organization_id, 'public');
         $absoluteUrl = url(Storage::url($path));
 
         $payment->slips()->create([

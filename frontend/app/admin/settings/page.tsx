@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "@/lib/toast";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Settings2, Mail, Wallet, Shield, Bell, Database, Download } from "lucide-react";
@@ -357,7 +358,7 @@ function BackupTab() {
     try {
       await superAdminApi.downloadBackup(name);
     } catch {
-      window.alert("ดาวน์โหลดไม่สำเร็จ");
+      toast.error("ดาวน์โหลดไม่สำเร็จ");
     } finally {
       setDownloading(null);
     }

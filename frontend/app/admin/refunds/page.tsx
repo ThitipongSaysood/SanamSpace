@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "@/lib/toast";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, XCircle } from "lucide-react";
@@ -67,7 +68,7 @@ export default function AdminRefundsPage() {
       qc.invalidateQueries({ queryKey: REFUNDS_KEY });
       setSel(null);
     },
-    onError: (e: Error) => window.alert(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const rejectM = useMutation({
@@ -76,7 +77,7 @@ export default function AdminRefundsPage() {
       qc.invalidateQueries({ queryKey: REFUNDS_KEY });
       setSel(null);
     },
-    onError: (e: Error) => window.alert(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const busy = approveM.isPending || rejectM.isPending;

@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "@/lib/toast";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -167,7 +168,7 @@ export default function BroadcastPage() {
           : err instanceof Error
             ? err.message
             : "อัปโหลดรูปไม่สำเร็จ ลองอีกครั้ง";
-      window.alert(msg);
+      toast.error(msg);
     } finally {
       setUploading(false);
     }

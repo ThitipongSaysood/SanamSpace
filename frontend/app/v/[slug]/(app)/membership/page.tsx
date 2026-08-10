@@ -1,5 +1,5 @@
 "use client";
-import { BadgeCheck, CheckCircle2 } from "lucide-react";
+import { BadgeCheck, CheckCircle2, Sparkles } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
@@ -8,14 +8,30 @@ import { useMembership } from "@/lib/api/queries";
 import { api } from "@/lib/api/client";
 import { Loading, ErrorState } from "@/components/states";
 import { SlideToConfirm } from "@/components/slide-to-confirm";
+import { useTenant } from "@/lib/tenant/tenant-context";
 import type { CustomerReward } from "@/lib/types";
 
 export default function MembershipPage() {
+  const { tenant } = useTenant();
   const { data: membership, isLoading, isError, refetch } = useMembership();
   return (
     <main className="pb-6">
       <AppHeader title="สมาชิก / คะแนน" />
-      {isLoading ? (
+      {!tenant.pointsEnabled ? (
+        // The venue runs no points programme — say so plainly rather than show a
+        // balance that can never change.
+        <div className="p-4">
+          <div className="flex flex-col items-center gap-3 rounded-2xl bg-white p-8 text-center shadow-sm ring-1 ring-black/5">
+            <span className="grid size-14 place-items-center rounded-2xl bg-app text-muted-foreground">
+              <Sparkles className="size-7" />
+            </span>
+            <div>
+              <h2 className="text-base font-bold">ระบบคะแนนสะสมปิดอยู่</h2>
+              <p className="mt-1 text-sm text-muted-foreground">สนามนี้ยังไม่เปิดใช้ระบบสะสมคะแนนสมาชิก</p>
+            </div>
+          </div>
+        </div>
+      ) : isLoading ? (
         <Loading />
       ) : isError || !membership ? (
         <ErrorState onRetry={() => refetch()} />

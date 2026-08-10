@@ -8,6 +8,7 @@ use App\Models\Court;
 use App\Models\OrganizationUser;
 use App\Models\Plan;
 use App\Models\Subscription;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * How many of a thing a venue's plan allows, and how many it already has.
@@ -31,11 +32,13 @@ use App\Models\Subscription;
  * reported so the venue and the platform can both see it and have the
  * conversation; it is not a gate.
  *
- * `storage_gb` is absent on purpose. Uploads all land in one shared `slips`
- * folder with no organisation in the path, so there is no honest way to say
- * what a venue is using — a number invented from nothing is exactly the
- * decoration this class exists to remove. Enforcing it means giving uploads a
- * per-venue home first.
+ * `storage_gb` is now honest and enforced — but only on OWNER uploads (venue
+ * images/banners via /owner/uploads), a deliberate one-click action like adding
+ * a court. Uploads now live under a per-venue path (`slips/{orgId}`,
+ * `venues/{orgId}`), so used bytes is a real sum, not an invented number.
+ * Customer slip uploads and the owner's own billing-slip are NOT gated: refusing
+ * a customer's payment slip, or the owner's attempt to pay their bill, to
+ * enforce storage billing is the same mistake the booking limit avoids.
  */
 class PlanLimits
 {
@@ -105,6 +108,47 @@ class PlanLimits
     public static function label(string $resource): string
     {
         return self::LABELS[$resource] ?? $resource;
+    }
+
+    private const BYTES_PER_GB = 1073741824; // 1024^3
+
+    /** The venue's storage ceiling in bytes, or null for unlimited / no plan. */
+    public static function storageLimitBytes(?string $organizationId): ?int
+    {
+        $plan = $organizationId ? self::planFor($organizationId) : null;
+        $gb = $plan?->storage_gb;
+
+        return $gb === null ? null : max(0, (int) $gb) * self::BYTES_PER_GB;
+    }
+
+    /**
+     * Real bytes a venue occupies — the sum of everything under its per-venue
+     * upload folders. Honest because uploads now carry the org id in the path.
+     */
+    public static function storageUsedBytes(string $organizationId): int
+    {
+        $disk = Storage::disk('public');
+        $total = 0;
+
+        foreach (["slips/{$organizationId}", "venues/{$organizationId}"] as $dir) {
+            foreach ($disk->files($dir, true) as $file) {
+                $total += $disk->size($file);
+            }
+        }
+
+        return $total;
+    }
+
+    /** Whether accepting `$incomingBytes` more would push the venue past its ceiling. */
+    public static function storageWouldExceed(?string $organizationId, int $incomingBytes): bool
+    {
+        if (! $organizationId) {
+            return false;
+        }
+
+        $limit = self::storageLimitBytes($organizationId);
+
+        return $limit !== null && (self::storageUsedBytes($organizationId) + $incomingBytes) > $limit;
     }
 
     /**

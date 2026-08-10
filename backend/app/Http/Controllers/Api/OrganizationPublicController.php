@@ -21,6 +21,17 @@ class OrganizationPublicController extends Controller
         $org = Organization::where('slug', $slug)->with(['settings', 'welcomeBanners'])->firstOrFail();
         $s = $org->settings;
 
+        // The distinct sports this venue actually rents, so the app can theme to
+        // them (toast icon, the first-entry loader) instead of guessing.
+        $sports = \App\Models\Branch::query()
+            ->where('organization_id', $org->id)
+            ->whereNotNull('sports')
+            ->orderBy('created_at')
+            ->get()
+            ->flatMap(fn ($b) => (array) $b->sports)
+            ->unique()
+            ->values();
+
         return response()->json([
             'slug' => $org->slug,
             'name' => $org->name,
@@ -56,6 +67,14 @@ class OrganizationPublicController extends Controller
             // A venue that does not scan should not show its customers a QR
             // nobody will ever look at.
             'checkinEnabled' => (bool) ($s?->checkin_enabled ?? true),
+            // A venue with points switched off awards nothing (PointsService
+            // already refuses) — so the app must not dangle a points screen or a
+            // balance that can never move.
+            'pointsEnabled' => (bool) ($s?->points_enabled ?? false),
+            // Primary sport (toast icon) + the full list (the loader), so the
+            // app themes to what the venue actually rents.
+            'sport' => $sports->first() ?: 'badminton',
+            'sports' => $sports->isNotEmpty() ? $sports->all() : ['badminton'],
             'lineOaUrl' => $s?->line_oa_url,
             'phone' => $s?->phone,
         ]);

@@ -56,6 +56,13 @@ class CustomerController extends Controller
                 // Enough to see the pattern, not the whole history: the list is
                 // for recognising a regular at the counter.
                 'bookings' => fn ($q) => $q->with('court')->orderByDesc('date')->orderByDesc('start')->limit(20),
+                'notes' => fn ($q) => $q->with('author')->latest()->limit(50),
+                // Open tasks first, then by soonest due.
+                'tasks' => fn ($q) => $q->with('assignee')
+                    ->orderByRaw("CASE WHEN status = 'open' THEN 0 ELSE 1 END")
+                    ->orderByRaw('due_at IS NULL')
+                    ->orderBy('due_at')
+                    ->orderByDesc('created_at'),
             ])
             ->where('id', $id)
             ->firstOrFail();

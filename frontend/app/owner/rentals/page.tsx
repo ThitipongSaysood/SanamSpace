@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ImageOff, Package, Plus, Trash2 } from "lucide-react";
 import type { OutstandingRental, RentalItem, RentalItemInput } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
+import { CustomerName } from "@/components/customer-peek";
 import { Loading, ErrorState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -150,7 +151,7 @@ function NotBackYet() {
             {rows.map((r) => (
               <tr key={r.id} className="hover:bg-app/60">
                 <td data-label="อุปกรณ์" className="px-4 py-3 font-medium">{r.name}</td>
-                <td data-label="ลูกค้า" className="px-4 py-3">{r.customerName}</td>
+                <td data-label="ลูกค้า" className="px-4 py-3"><CustomerName id={r.customerId} name={r.customerName} /></td>
                 <td data-label="การจอง" className="px-4 py-3 text-muted-foreground">
                   <div className="font-mono text-xs">{r.bookingCode}</div>
                   <div>{r.date} · {r.start}–{r.end}</div>

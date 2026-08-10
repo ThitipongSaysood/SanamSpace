@@ -1,9 +1,11 @@
 "use client";
+import { toast } from "@/lib/toast";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Undo2, Wallet as WalletIcon, HandCoins, X } from "lucide-react";
 import type { OwnerRefund, RefundStatus } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
+import { CustomerName } from "@/components/customer-peek";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
 
 const fmt = new Intl.NumberFormat("th-TH");
@@ -39,12 +41,12 @@ function RefundCard({ refund }: { refund: OwnerRefund }) {
     mutationFn: (method: "wallet" | "manual") =>
       ownerApi.approveRefund(refund.id, method, note.trim() || undefined),
     onSuccess: invalidate,
-    onError: (e: Error) => window.alert(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
   const reject = useMutation({
     mutationFn: () => ownerApi.rejectRefund(refund.id, note.trim() || undefined),
     onSuccess: invalidate,
-    onError: (e: Error) => window.alert(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const busy = approve.isPending || reject.isPending;
@@ -54,7 +56,7 @@ function RefundCard({ refund }: { refund: OwnerRefund }) {
     <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="font-semibold">{refund.customerName ?? "ลูกค้า"}</div>
+          <div className="font-semibold"><CustomerName id={refund.customerId} name={refund.customerName} fallback="ลูกค้า" /></div>
           <div className="mt-0.5 text-sm text-muted-foreground">
             {refund.bookingCode ?? "—"}
           </div>

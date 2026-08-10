@@ -4,10 +4,16 @@ namespace App\Services;
 
 use App\Models\Booking;
 use App\Models\Customer;
+use App\Models\LineMessageTemplate;
 use App\Models\Notification;
+use App\Models\OrganizationSetting;
 use App\Models\Payment;
 use App\Models\Refund;
 use App\Models\WalletTransaction;
+use App\Support\BookingLineVars;
+use App\Support\DefaultLineTemplates;
+use App\Support\LineFlexRenderer;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Creates the in-app notifications a customer sees in their bell.
@@ -23,6 +29,13 @@ use App\Models\WalletTransaction;
  */
 class NotificationService
 {
+    public function __construct(
+        private LineMessagingService $line,
+        private LineFlexRenderer $renderer,
+        private BookingLineVars $vars,
+        private DefaultLineTemplates $defaults,
+    ) {}
+
     /** A booking's payment slip was approved → the booking is confirmed. */
     public function paymentApproved(Payment $payment): void
     {
@@ -36,6 +49,12 @@ class NotificationService
                 ? "การจอง {$booking->code} ได้รับการยืนยันแล้ว"
                 : 'การชำระเงินของคุณได้รับการยืนยันแล้ว',
         );
+
+        // The customer's LINE receipt. Two distinct templates can ride this
+        // moment — the booking confirmation and an optional "payment received"
+        // note — each gated by its own on/off so a venue picks one or both.
+        $this->sendBookingFlex($booking, 'booking_confirmed', $payment);
+        $this->sendBookingFlex($booking, 'payment_received', $payment);
     }
 
     /** A booking's payment slip was rejected → the customer must re-submit. */
@@ -126,6 +145,8 @@ class NotificationService
                 ? "การจอง {$booking->code} ถูกยกเลิกแล้ว"
                 : 'การจองของคุณถูกยกเลิกแล้ว',
         );
+
+        $this->sendBookingFlex($booking, 'booking_cancelled');
     }
 
     /** An unpaid booking passed its hold window and was released. */
@@ -139,6 +160,9 @@ class NotificationService
                 ? "การจอง {$booking->code} ถูกยกเลิกเนื่องจากไม่ได้ชำระเงินในเวลาที่กำหนด"
                 : 'การจองของคุณถูกยกเลิกเนื่องจากไม่ได้ชำระเงินในเวลาที่กำหนด',
         );
+
+        // An expired hold is a cancellation to the customer — same card.
+        $this->sendBookingFlex($booking, 'booking_cancelled');
     }
 
     /**
@@ -214,6 +238,50 @@ class NotificationService
             "{$points} คะแนนหมดอายุตามกำหนด · เริ่มสะสมรอบใหม่ได้ทุกครั้งที่จอง",
             'promo',
         );
+    }
+
+    /**
+     * Renders the venue's LINE template for a booking event and pushes it to
+     * the customer. A missing/disabled template, no LINE token, or an
+     * unlinked customer all resolve to "nothing to send" — never an error, and
+     * never something that fails the booking or payment that called us.
+     */
+    private function sendBookingFlex(?Booking $booking, string $event, ?Payment $payment = null): void
+    {
+        if (! $booking || ! $booking->customer_id || ! $booking->organization_id) {
+            return;
+        }
+
+        try {
+            $template = LineMessageTemplate::query()
+                ->where('organization_id', $booking->organization_id)
+                ->where('event', $event)
+                ->first();
+
+            $enabled = $template ? $template->enabled : $this->defaults->enabledByDefault($event);
+            if (! $enabled) {
+                return;
+            }
+
+            $customer = $booking->customer;
+            if (! $customer) {
+                return;
+            }
+
+            $blocks = $template?->blocks ?: $this->defaults->blocks($event);
+            $vars = $this->vars->forBooking($booking, $payment);
+            $bubble = $this->renderer->render($blocks, $vars);
+            $altText = $this->renderer->substitute($this->defaults->altText($event), $vars);
+
+            $settings = OrganizationSetting::query()
+                ->where('organization_id', $booking->organization_id)
+                ->first();
+
+            $this->line->pushFlex($settings, $customer, $altText, $bubble);
+        } catch (\Throwable $e) {
+            // A broken template must not sink the booking flow.
+            Log::warning('LINE booking flex failed to send', ['event' => $event, 'booking' => $booking->id, 'error' => $e->getMessage()]);
+        }
     }
 
     private function create(string $organizationId, ?string $customerId, string $title, string $body, string $kind = 'booking', ?string $imageUrl = null): void

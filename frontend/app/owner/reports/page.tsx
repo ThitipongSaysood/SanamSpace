@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "@/lib/toast";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { TrendingUp, Download } from "lucide-react";
@@ -27,7 +28,7 @@ function ExportButton() {
     try {
       await ownerApi.exportBookingsCsv();
     } catch {
-      window.alert("ดาวน์โหลดไม่สำเร็จ");
+      toast.error("ดาวน์โหลดไม่สำเร็จ");
     } finally {
       setBusy(false);
     }

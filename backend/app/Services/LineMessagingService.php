@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Customer;
 use App\Models\OrganizationSetting;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
@@ -116,6 +117,58 @@ class LineMessagingService
         }
 
         return ['sent' => $sent, 'failed' => $failed, 'skipped' => $skipped, 'noToken' => false, 'results' => $results];
+    }
+
+    /**
+     * Pushes one already-rendered Flex bubble to a single customer over the
+     * LINE push API. Used for booking events (receipt, cancellation) — a
+     * transactional message to one person, unlike the broadcast multicast.
+     *
+     * Returns a one-word outcome the caller can record: `sent`, `failed`,
+     * `noToken` (venue hasn't configured LINE), or `noProfile` (customer never
+     * linked LINE). Never throws — a messaging hiccup must not fail the booking
+     * or payment that triggered it.
+     *
+     * @param  array<string,mixed>  $bubble  a LINE Flex bubble (from LineFlexRenderer)
+     */
+    public function pushFlex(?OrganizationSetting $settings, Customer $customer, string $altText, array $bubble): string
+    {
+        $token = $settings?->line_messaging_token;
+        if (blank($token)) {
+            return 'noToken';
+        }
+
+        $lineId = $this->recipientIdsByCustomer(collect([$customer]))[$customer->id] ?? null;
+        if (! $lineId) {
+            return 'noProfile';
+        }
+
+        $url = config('services.line.push_single_url', 'https://api.line.me/v2/bot/message/push');
+
+        try {
+            $response = Http::withToken($token)
+                ->asJson()
+                ->post($url, [
+                    'to' => $lineId,
+                    'messages' => [[
+                        'type' => 'flex',
+                        'altText' => mb_substr($altText, 0, 400),
+                        'contents' => $bubble,
+                    ]],
+                ]);
+
+            if ($response->successful()) {
+                return 'sent';
+            }
+
+            Log::warning('LINE flex push failed', ['status' => $response->status(), 'body' => $response->body()]);
+
+            return 'failed';
+        } catch (\Throwable $e) {
+            Log::warning('LINE flex push threw', ['error' => $e->getMessage()]);
+
+            return 'failed';
+        }
     }
 
     /**

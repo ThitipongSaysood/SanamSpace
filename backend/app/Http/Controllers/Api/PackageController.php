@@ -106,7 +106,7 @@ class PackageController extends Controller
             ->where('customer_id', $request->user()->id)
             ->firstOrFail();
 
-        $path = $request->file('slip')->store('slips', 'public');
+        $path = $request->file('slip')->store('slips/'.$purchase->organization_id, 'public');
 
         $purchase->update([
             'slip_url' => url(Storage::url($path)),
