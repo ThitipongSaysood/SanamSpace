@@ -1,7 +1,8 @@
 "use client";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Keyboard, Power, XCircle } from "lucide-react";
+import { CheckCircle2, Keyboard, Power, Smartphone, XCircle } from "lucide-react";
+import QRCode from "qrcode";
 import type { ScanResult } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
 import { CustomerName } from "@/components/customer-peek";
@@ -11,6 +12,60 @@ import { Label } from "@/components/ui/label";
 import { QrScanner } from "@/components/qr-scanner";
 
 const RECENT_KEY = ["owner", "checkin", "recent"];
+
+/**
+ * Turning a staff phone into the venue's scanner.
+ *
+ * Not a sidebar entry: installing it happens once, and a menu is for what you
+ * press every day. It lives here because this is the screen someone is looking
+ * at when they discover the venue has no scanner — and the QR matters, because
+ * the setup has to happen on a DIFFERENT device from the one reading these
+ * instructions. Typing a LAN address into a phone keyboard is where this
+ * otherwise falls apart.
+ */
+function InstallOnPhone() {
+  const [qr, setQr] = useState<string | null>(null);
+  const [url, setUrl] = useState("");
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const target = `${window.location.origin}/scan`;
+    setUrl(target);
+    void QRCode.toDataURL(target, { margin: 1, width: 320 }).then(setQr).catch(() => setQr(null));
+  }, []);
+
+  return (
+    <section className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left"
+      >
+        <span className="flex items-center gap-2 font-semibold">
+          <Smartphone className="size-4 text-brand" /> ใช้มือถือพนักงานเป็นเครื่องสแกน
+        </span>
+        <span className="text-xs text-muted-foreground">{open ? "ซ่อน" : "ตั้งค่าครั้งเดียว"}</span>
+      </button>
+
+      {open && (
+        <div className="border-t border-black/5 p-4">
+          <p className="text-sm text-muted-foreground">
+            ส่องด้วยกล้องมือถือของพนักงาน แล้วเลือก <b>เพิ่มลงในหน้าจอโฮม</b> — จะได้ไอคอนที่เปิดเข้าหน้าสแกนทันที
+          </p>
+          {qr && (
+            /* eslint-disable-next-line @next/next/no-img-element -- a data: URI generated in the browser */
+            <img src={qr} alt={`QR เปิด ${url}`} className="mx-auto mt-3 size-44 rounded-xl" />
+          )}
+          <code className="mt-2 block break-all text-center text-xs text-muted-foreground">{url}</code>
+          <p className="mt-3 rounded-lg bg-app p-2 text-xs text-muted-foreground">
+            กล้องจะใช้ได้เมื่อเปิดผ่าน https เท่านั้น (บนเซิร์ฟเวอร์จริงเป็น https อยู่แล้ว) — ระหว่างทดสอบในวง LAN
+            ให้ใช้ช่องพิมพ์รหัสแทน
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
 
 function thaiTime(iso: string | null) {
   return iso ? new Date(iso).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }) : "—";
@@ -145,6 +200,8 @@ export default function OwnerScanPage() {
             </form>
             <p className="text-xs text-muted-foreground">ใช้เมื่อกล้องใช้ไม่ได้ หรือลูกค้าเปิดแอปไม่ได้</p>
           </section>
+
+          <InstallOnPhone />
         </div>
 
         <div className="space-y-4">
