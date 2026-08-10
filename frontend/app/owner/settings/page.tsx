@@ -20,7 +20,29 @@ const TABS = [
 
 type TabKey = (typeof TABS)[number]["key"];
 
+/**
+ * Ready-made three-colour themes.
+ *
+ * The old row of single swatches only ever set `primaryColor`, so a venue that
+ * clicked one got a new primary and kept whatever secondary and accent it had
+ * before — which is why the demo venue's secondary was still identical to its
+ * primary and the gradients rendered flat.
+ *
+ * Each palette is picked as a set: `secondary` is a neighbouring hue so the
+ * gradient reads as one colour deepening rather than two colours fighting, and
+ * `accent` is light enough for the dark text the badges put on it.
+ */
+/** Single colours, for adjusting any one of the three by hand. */
 const SWATCHES = ["#16a34a", "#0ea5e9", "#6366f1", "#a855f7", "#ec4899", "#ef4444", "#f59e0b", "#14b8a6"];
+
+const PALETTES: { name: string; primary: string; secondary: string; accent: string }[] = [
+  { name: "เขียวสนาม", primary: "#16A34A", secondary: "#059669", accent: "#F59E0B" },
+  { name: "น้ำเงินคอร์ท", primary: "#0EA5E9", secondary: "#2563EB", accent: "#FACC15" },
+  { name: "ม่วงไนต์", primary: "#6366F1", secondary: "#8B5CF6", accent: "#F9A8D4" },
+  { name: "ส้มอิฐ", primary: "#EA580C", secondary: "#DC2626", accent: "#FDE047" },
+  { name: "เทอร์ควอยซ์", primary: "#14B8A6", secondary: "#0891B2", accent: "#FDE047" },
+  { name: "ดำ–ทอง", primary: "#18181B", secondary: "#3F3F46", accent: "#EAB308" },
+];
 
 export default function OwnerSettingsPage() {
   const [tab, setTab] = useState<TabKey>("info");
@@ -120,11 +142,30 @@ function useImageUpload(onDone: (url: string) => void) {
   return { busy, failed, onFile };
 }
 
-/** Save button + result, shared by both settings tabs. */
-function SaveRow({ mutation }: { mutation: ReturnType<typeof useOwnerSettingsForm>["mutation"] }) {
+/**
+ * The save row — the same one on every tab.
+ *
+ * There were three: a full-width button reading "บันทึกการเปลี่ยนแปลง" on one
+ * tab, a small left-aligned "บันทึก" on another, and a third buried inside a
+ * card rather than under the form. Same action, three sizes, three positions.
+ *
+ * `min-w-52` fixes the width so the button does not resize between
+ * "บันทึกการเปลี่ยนแปลง" and "กำลังบันทึก..." either — a control that changes
+ * size at the moment it is pressed is its own small wrongness.
+ *
+ * `className` is for the column span: every tab is a grid now, and the save row
+ * belongs to the whole form rather than to the column it happens to follow.
+ */
+function SaveRow({
+  mutation,
+  className = "",
+}: {
+  mutation: ReturnType<typeof useOwnerSettingsForm>["mutation"];
+  className?: string;
+}) {
   return (
-    <div className="flex flex-col gap-2 border-t border-black/5 pt-4">
-      <Button type="submit" disabled={mutation.isPending}>
+    <div className={`flex flex-wrap items-center gap-3 border-t border-black/5 pt-4 ${className}`}>
+      <Button type="submit" disabled={mutation.isPending} className="min-w-52">
         {mutation.isPending ? "กำลังบันทึก..." : "บันทึกการเปลี่ยนแปลง"}
       </Button>
       {mutation.isSuccess && !mutation.isPending && (
@@ -149,13 +190,24 @@ function InfoTab({ settings }: { settings: OwnerSettings }) {
     { key: "address", label: "ที่อยู่", full: true },
   ];
 
+  /*
+   * Two cards side by side once there is room for them.
+   *
+   * This was one column capped at max-w-3xl, which on a desk monitor left two
+   * thirds of the screen empty and pushed the billing card below the fold for
+   * no reason — the fields inside are already laid out two-up, so the cap was
+   * not protecting readability, only wasting the width.
+   *
+   * `items-start` so a short card does not stretch to match a tall neighbour,
+   * and the save row spans both columns: it belongs to the whole form.
+   */
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
         mutation.mutate();
       }}
-      className="max-w-3xl space-y-6"
+      className="grid items-start gap-6 xl:grid-cols-2"
     >
       <section className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
         <h2 className="text-sm font-semibold">ข้อมูลสนาม</h2>
@@ -222,7 +274,7 @@ function InfoTab({ settings }: { settings: OwnerSettings }) {
         </div>
       </section>
 
-      <SaveRow mutation={mutation} />
+      <SaveRow mutation={mutation} className="xl:col-span-2" />
     </form>
   );
 }
@@ -293,39 +345,81 @@ function StorefrontTab({ settings }: { settings: OwnerSettings }) {
               ใช้กับทั้งแอปของลูกค้า — ปุ่ม แถบล่าง และแบนเนอร์
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {SWATCHES.map((c) => (
-              <button
-                key={c}
-                type="button"
-                aria-label={c}
-                onClick={() => set("primaryColor", c)}
-                className={`size-7 rounded-full ring-2 ring-offset-2 transition ${
-                  form.primaryColor?.toLowerCase() === c ? "ring-foreground" : "ring-transparent"
-                }`}
-                style={{ background: c }}
-              />
-            ))}
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {PALETTES.map((pal) => {
+              // Selected only when all three match — a palette is the set, and
+              // saying "เขียวสนาม" while the accent has been changed by hand
+              // would be a lie the venue then has to un-pick.
+              const active =
+                form.primaryColor?.toUpperCase() === pal.primary &&
+                form.secondaryColor?.toUpperCase() === pal.secondary &&
+                form.accentColor?.toUpperCase() === pal.accent;
+
+              return (
+                <button
+                  key={pal.name}
+                  type="button"
+                  onClick={() => {
+                    set("primaryColor", pal.primary);
+                    set("secondaryColor", pal.secondary);
+                    set("accentColor", pal.accent);
+                  }}
+                  aria-pressed={active}
+                  className={`flex items-center gap-2 rounded-xl p-2 ring-2 transition ${
+                    active ? "ring-foreground" : "ring-black/5 hover:ring-black/20"
+                  }`}
+                >
+                  <span
+                    className="size-7 shrink-0 rounded-full"
+                    style={{ background: `linear-gradient(135deg, ${pal.primary}, ${pal.secondary})` }}
+                  />
+                  <span className="size-4 shrink-0 rounded-full" style={{ background: pal.accent }} />
+                  <span className="truncate text-xs font-medium">{pal.name}</span>
+                </button>
+              );
+            })}
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            {(
-              [
-                ["primaryColor", "สีหลัก"],
-                ["secondaryColor", "สีรอง"],
-                ["accentColor", "สีเน้น"],
-              ] as const
-            ).map(([key, label]) => (
-              <div key={key} className="space-y-1">
-                <span className="text-xs text-muted-foreground">{label}</span>
+
+          <p className="text-xs text-muted-foreground">หรือกำหนดเองทีละสี</p>
+          {(
+            [
+              ["primaryColor", "สีหลัก", "ปุ่มหลัก · เมนูล่างที่กำลังใช้งาน"],
+              ["secondaryColor", "สีรอง", "ไล่เฉดคู่กับสีหลักบนแบนเนอร์"],
+              ["accentColor", "สีเน้น", "ป้ายเน้น เช่น ส่วนลดและคะแนน"],
+            ] as const
+          ).map(([key, label, hint]) => (
+            <div key={key} className="space-y-1.5">
+              <div className="flex items-baseline gap-2">
+                <span className="text-xs font-medium">{label}</span>
+                <span className="truncate text-xs text-muted-foreground">{hint}</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Swatches for all three, not just the primary: the circles
+                    used to set only สีหลัก, so the other two could be changed
+                    by the native picker alone — the slowest way to choose a
+                    colour, and the reason most venues never touched them. */}
+                {SWATCHES.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    aria-label={`${label} ${c}`}
+                    onClick={() => set(key, c)}
+                    className={`size-7 rounded-full ring-2 ring-offset-2 transition ${
+                      (form[key] as string)?.toLowerCase() === c ? "ring-foreground" : "ring-transparent"
+                    }`}
+                    style={{ background: c }}
+                  />
+                ))}
                 <input
                   type="color"
+                  aria-label={`${label} — เลือกเอง`}
                   value={(form[key] as string) || "#000000"}
                   onChange={(e) => set(key, e.target.value)}
-                  className="h-9 w-full cursor-pointer rounded-lg border border-input bg-transparent"
+                  className="h-8 w-12 cursor-pointer rounded-lg border border-input bg-transparent"
                 />
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </section>
 
         <section className="space-y-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
@@ -412,8 +506,6 @@ function StorefrontTab({ settings }: { settings: OwnerSettings }) {
             แล้ว
           </p>
         </section>
-
-        <SaveRow mutation={mutation} />
       </div>
 
       <div className="lg:col-span-1">
@@ -421,6 +513,8 @@ function StorefrontTab({ settings }: { settings: OwnerSettings }) {
           <BrandPreview form={form} />
         </section>
       </div>
+
+      <SaveRow mutation={mutation} className="lg:col-span-3" />
     </form>
   );
 }
@@ -554,13 +648,49 @@ function PaymentTab({ settings }: { settings: OwnerSettings }) {
 
   const set = (key: keyof OwnerSettings, value: string) => setForm((f) => ({ ...f, [key]: value }));
 
-  const fields: { key: keyof OwnerSettings; label: string; placeholder?: string; hint?: string }[] = [
-    { key: "promptpayId", label: "PromptPay (เบอร์ / เลขบัตร ปชช. / e-Wallet)", placeholder: "0812345678", hint: "ใช้สร้าง QR ให้ลูกค้าสแกนจ่าย" },
-    { key: "promptpayName", label: "ชื่อที่แสดงบน QR", placeholder: "ชื่อสนาม" },
-    { key: "bankName", label: "ธนาคาร", placeholder: "กสิกรไทย" },
-    { key: "bankAccountName", label: "ชื่อบัญชี" },
-    { key: "bankAccountNumber", label: "เลขที่บัญชี", placeholder: "123-4-56789-0" },
+  /*
+   * Two cards, because these are two different ways to be paid.
+   *
+   * PromptPay is the QR the system generates for the exact amount; the bank
+   * account is what a customer transfers to by hand and then uploads a slip
+   * for. They were one block called "บัญชีรับเงินของสนาม", which read as one
+   * setting and left a single narrow card on a wide screen.
+   */
+  type PayField = { key: keyof OwnerSettings; label: string; placeholder?: string; hint?: string; full?: boolean };
+
+  const promptpayFields: PayField[] = [
+    { key: "promptpayId", label: "PromptPay (เบอร์ / เลขบัตร ปชช. / e-Wallet)", placeholder: "0812345678", hint: "ใช้สร้าง QR ให้ลูกค้าสแกนจ่าย", full: true },
+    { key: "promptpayName", label: "ชื่อที่แสดงบน QR", placeholder: "ชื่อสนาม", full: true },
   ];
+
+  const bankFields: PayField[] = [
+    { key: "bankName", label: "ธนาคาร", placeholder: "กสิกรไทย" },
+    { key: "bankAccountNumber", label: "เลขที่บัญชี", placeholder: "123-4-56789-0" },
+    { key: "bankAccountName", label: "ชื่อบัญชี", full: true },
+  ];
+
+  const payCard = (title: string, hint: string, list: PayField[]) => (
+    <section className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+      <div>
+        <h2 className="text-sm font-semibold">{title}</h2>
+        <p className="text-xs text-muted-foreground">{hint}</p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {list.map((f) => (
+          <div key={f.key} className={`space-y-1.5 ${f.full ? "sm:col-span-2" : ""}`}>
+            <Label htmlFor={`pay-${f.key}`}>{f.label}</Label>
+            <Input
+              id={`pay-${f.key}`}
+              value={(form[f.key] as string) ?? ""}
+              placeholder={f.placeholder}
+              onChange={(e) => set(f.key, e.target.value)}
+            />
+            {f.hint && <p className="text-xs text-muted-foreground">{f.hint}</p>}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
 
   return (
     <form
@@ -568,39 +698,20 @@ function PaymentTab({ settings }: { settings: OwnerSettings }) {
         e.preventDefault();
         mutation.mutate();
       }}
-      className="max-w-2xl space-y-4"
+      className="grid items-start gap-6 xl:grid-cols-2"
     >
-      <section className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
-        <div>
-          <h2 className="text-sm font-semibold">บัญชีรับเงินของสนาม</h2>
-          <p className="text-xs text-muted-foreground">เงินค่าจองจากลูกค้าจะเข้าบัญชีนี้ — ระบบสร้าง PromptPay QR ตามยอดให้อัตโนมัติ</p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {fields.map((f) => (
-            <div key={f.key} className={`space-y-1.5 ${f.key === "promptpayId" ? "sm:col-span-2" : ""}`}>
-              <Label htmlFor={`pay-${f.key}`}>{f.label}</Label>
-              <Input
-                id={`pay-${f.key}`}
-                value={(form[f.key] as string) ?? ""}
-                placeholder={f.placeholder}
-                onChange={(e) => set(f.key, e.target.value)}
-              />
-              {f.hint && <p className="text-xs text-muted-foreground">{f.hint}</p>}
-            </div>
-          ))}
-        </div>
-        <div className="flex items-center gap-3 border-t border-black/5 pt-4">
-          <Button type="submit" disabled={mutation.isPending}>
-            {mutation.isPending ? "กำลังบันทึก..." : "บันทึก"}
-          </Button>
-          {mutation.isSuccess && !mutation.isPending && (
-            <span className="inline-flex items-center gap-1 text-sm font-medium text-brand">
-              <Check className="size-4" /> บันทึกแล้ว
-            </span>
-          )}
-          {mutation.isError && <span className="text-sm text-brand-danger">บันทึกไม่สำเร็จ</span>}
-        </div>
-      </section>
+      {payCard(
+        "PromptPay (QR ตามยอด)",
+        "ระบบสร้าง QR ตามยอดที่ต้องจ่ายให้อัตโนมัติ — ลูกค้าสแกนแล้วโอนได้ทันที",
+        promptpayFields,
+      )}
+      {payCard(
+        "บัญชีธนาคาร (โอนเอง + แนบสลิป)",
+        "แสดงให้ลูกค้าที่โอนเองจากแอปธนาคาร แล้วแนบสลิปให้สนามตรวจ",
+        bankFields,
+      )}
+
+      <SaveRow mutation={mutation} className="xl:col-span-2" />
     </form>
   );
 }
@@ -644,7 +755,7 @@ function IntegrationsTab({ settings }: { settings: OwnerSettings }) {
   });
 
   return (
-    <div className="max-w-2xl space-y-4">
+    <div className="grid items-start gap-6 xl:grid-cols-2">
       {/* LINE Official Account status (URL is edited on the "ข้อมูลสนาม" tab) */}
       <section className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
         <h2 className="text-sm font-semibold">การเชื่อมต่อ</h2>
@@ -669,8 +780,13 @@ function IntegrationsTab({ settings }: { settings: OwnerSettings }) {
         <p className="text-xs text-muted-foreground">แก้ไข LINE OA URL ได้ที่แท็บ “ข้อมูลสนาม”</p>
       </section>
 
-      {/* LINE (เชื่อมต่อ) — per-venue LINE Login / LIFF / Messaging credentials */}
+      {/* LINE (เชื่อมต่อ) — per-venue LINE Login / LIFF / Messaging credentials.
+          `contents` so the form takes part in the page grid rather than
+          becoming a box inside it: the card and the save row below are then
+          laid out as siblings of the status card, which is what puts the save
+          row in the same place as on every other tab. */}
       <form
+        className="contents"
         onSubmit={(e) => {
           e.preventDefault();
           mutation.mutate();
@@ -737,18 +853,9 @@ function IntegrationsTab({ settings }: { settings: OwnerSettings }) {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3 border-t border-black/5 pt-4">
-            <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? "กำลังบันทึก..." : "บันทึก"}
-            </Button>
-            {mutation.isSuccess && !mutation.isPending && (
-              <span className="inline-flex items-center gap-1 text-sm font-medium text-brand">
-                <Check className="size-4" /> บันทึกแล้ว
-              </span>
-            )}
-            {mutation.isError && <span className="text-sm text-brand-danger">บันทึกไม่สำเร็จ</span>}
-          </div>
         </section>
+
+        <SaveRow mutation={mutation} className="xl:col-span-2" />
       </form>
     </div>
   );
