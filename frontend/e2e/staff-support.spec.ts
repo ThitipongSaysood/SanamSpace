@@ -59,15 +59,13 @@ test("a venue cannot lock itself out by editing its own membership", async ({ pa
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByText(/เปลี่ยนบทบาท\/สถานะของตัวเองไม่ได้/)).toBeVisible();
 
-  // The server is the one that refuses — the UI just surfaces it.
-  let alerted = "";
-  page.once("dialog", (d) => {
-    alerted = d.message();
-    d.accept();
-  });
+  // The server is the one that refuses — the UI just surfaces it. Asserted on
+  // the toast rather than a native dialog: the portal moved off window.alert,
+  // and this spec kept waiting for a dialog event that can no longer fire, so
+  // it failed while the behaviour it guards was working fine.
   await dialog.locator("#edit-status").selectOption("suspended");
   await dialog.getByRole("button", { name: "บันทึก" }).click();
-  await expect.poll(() => alerted).toContain("ตัวเอง");
+  await expect(page.getByText(/ตัวเอง/).first()).toBeVisible();
 });
 
 test("admin can reply to a ticket and close it", async ({ page }) => {
