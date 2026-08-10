@@ -22,6 +22,30 @@ function rememberVenue(slug?: string) {
   if (slug) setActiveVenueSlug(slug);
 }
 
+/**
+ * `?autologin=1` — sign in as the demo customer without the login screen.
+ *
+ * For looking at the customer app on a real device, where the point is the
+ * screens rather than the sign-in. It is an authentication bypass, so it is
+ * fenced three ways and every fence has to hold:
+ *
+ *  1. **Development builds only.** `NODE_ENV` is inlined by Next at build time,
+ *     so in a production bundle this whole branch is dead code that the
+ *     minifier removes — there is nothing left to reach from the internet.
+ *  2. **Opt-in per URL.** Nothing changes for anyone who does not ask for it.
+ *  3. **Only where login is already a stub** — a venue with a real LIFF channel
+ *     configured goes through LINE as usual (checked at the call site).
+ *
+ * If any of that stops being true, delete this rather than weakening it.
+ */
+function wantsAutoLogin(): boolean {
+  if (process.env.NODE_ENV === "production" || typeof window === "undefined") {
+    return false;
+  }
+
+  return new URLSearchParams(window.location.search).get("autologin") === "1";
+}
+
 // Demo identity sent to the stub LINE login when LIFF is NOT configured
 // (NEXT_PUBLIC_LIFF_ID unset) — keeps local dev / the mock backend working.
 const LINE_PAYLOAD = {
@@ -85,6 +109,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (active) setReady(true);
         }
         return;
+      }
+
+      // Demo device shortcut — see wantsAutoLogin. Runs before the LINE-resume
+      // branch because it is only reachable when there is no LIFF channel to
+      // resume from.
+      if (wantsAutoLogin()) {
+        try {
+          const slug = currentVenueSlug() ?? window.location.pathname.split("/")[2];
+          rememberVenue(slug);
+          const config = await api.getLineConfig(slug);
+
+          // A venue with its own LINE channel signs in through LINE, always.
+          if (!(process.env.NEXT_PUBLIC_LIFF_ID || config.liffId)) {
+            const { user: authed } = await api.lineLogin({ ...LINE_PAYLOAD, organizationSlug: slug });
+            if (active) {
+              setUser({ ...authed, ...loadOverrides() });
+              setReady(true);
+            }
+
+            return;
+          }
+        } catch {
+          /* fall through to the normal login screen */
+        }
       }
 
       // Returning from the LINE login redirect (?code/?state present): complete
