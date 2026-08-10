@@ -31,6 +31,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (slug) setActiveVenueSlug(slug);
   }, [slug]);
 
+  // Marks the customer surface so globals.css can hide the page scrollbar here
+  // only — on Android it is drawn over the page, and it sat on top of the
+  // right-aligned total in the booking summary. Cleared on unmount so leaving
+  // for the owner portal in the same tab gets its scrollbar back.
+  useEffect(() => {
+    document.documentElement.dataset.surface = "customer";
+    return () => {
+      delete document.documentElement.dataset.surface;
+    };
+  }, []);
+
   useEffect(() => {
     // Wait for the session-restore attempt before deciding to redirect,
     // otherwise a refresh bounces an authenticated user to the login screen.

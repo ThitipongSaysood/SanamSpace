@@ -1,10 +1,14 @@
 "use client";
-import { use } from "react";
+import { use, useEffect, useRef } from "react";
 import { useBooking } from "@/lib/api/queries";
 import { useTenant } from "@/lib/tenant/tenant-context";
 import { QRTicket } from "@/components/qr-ticket";
 import { AppHeader } from "@/components/app-header";
 import { Loading, EmptyState } from "@/components/states";
+import { toast } from "@/lib/toast";
+
+/** How often to ask whether the counter has scanned yet. */
+const POLL_MS = 5000;
 
 /**
  * The customer's side of check-in: show this, let the counter scan it.
@@ -12,11 +16,32 @@ import { Loading, EmptyState } from "@/components/states";
  * There is deliberately no button here. The previous version had one that
  * marked the booking complete — a customer recording their own attendance,
  * which is not a check-in.
+ *
+ * The screen keeps itself current while it waits. The scan happens on somebody
+ * else's device, so without this the customer stares at a live-looking QR that
+ * has already been used and only finds out by pulling to refresh — which is
+ * exactly when they are least likely to think of it, standing at the counter.
+ *
+ * Polling, not a socket: the wait is a couple of minutes at a counter, and this
+ * costs one small request every few seconds against no new infrastructure.
+ * React Query pauses it while the tab is unfocused, and it stops for good the
+ * moment the booking comes back checked in.
  */
 export default function QrCheckinPage({ params }: { params: Promise<{ bookingId: string }> }) {
   const { bookingId } = use(params);
-  const { data: booking, isLoading } = useBooking(bookingId);
+  const { data: booking, isLoading } = useBooking(bookingId, {
+    refetchInterval: (query) => (query.state.data?.checkedInAt ? false : POLL_MS),
+  });
   const { tenant } = useTenant();
+
+  // Say it out loud once, on the transition. A customer looking down at their
+  // phone should not have to notice that a QR turned grey.
+  const wasCheckedIn = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    const now = booking?.checkedInAt ?? null;
+    if (wasCheckedIn.current === null && now) toast.success("เช็คอินเรียบร้อยแล้ว");
+    if (booking) wasCheckedIn.current = now;
+  }, [booking]);
 
   if (isLoading) return <Loading />;
   if (!booking) return <EmptyState message="ไม่พบการจอง" />;

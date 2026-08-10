@@ -1,5 +1,6 @@
 "use client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
+import type { Booking } from "@/lib/types";
 import { api } from "./client";
 
 export const useVenues = () => useQuery({ queryKey: ["venues"], queryFn: api.getVenues });
@@ -7,7 +8,25 @@ export const useVenue = (id: string) => useQuery({ queryKey: ["venue", id], quer
 export const useCourts = (venueId: string) => useQuery({ queryKey: ["courts", venueId], queryFn: () => api.getCourts(venueId) });
 export const useSchedule = (courtId: string | undefined, date: string) =>
   useQuery({ queryKey: ["schedule", courtId, date], queryFn: () => api.getCourtSchedule(courtId!, date), enabled: !!courtId });
-export const useBooking = (id: string) => useQuery({ queryKey: ["booking", id], queryFn: () => api.getBooking(id) });
+/**
+ * One booking.
+ *
+ * `refetchInterval` is passed through so a screen that is WAITING for something
+ * to happen to this booking — the QR check-in screen, waiting for the counter
+ * to scan — can poll without every other screen paying for it. The query key is
+ * unchanged, so the polled result updates the same cache everyone else reads.
+ */
+export const useBooking = (
+  id: string,
+  // `undefined` is in the type because getBooking returns it for an id the
+  // customer cannot see — the poll has to survive that, not crash on it.
+  opts?: { refetchInterval?: UseQueryOptions<Booking | undefined>["refetchInterval"] },
+) =>
+  useQuery({
+    queryKey: ["booking", id],
+    queryFn: () => api.getBooking(id),
+    refetchInterval: opts?.refetchInterval,
+  });
 export const useBookings = () => useQuery({ queryKey: ["bookings"], queryFn: api.listBookings });
 export const useRefunds = () => useQuery({ queryKey: ["refunds"], queryFn: api.getRefunds });
 export const useReviews = (venueId: string) => useQuery({ queryKey: ["reviews", venueId], queryFn: () => api.getReviews(venueId) });

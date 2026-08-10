@@ -207,3 +207,22 @@
     padding-top: 0.6rem;
   }
 }
+
+/*
+ * The customer app hides the page scrollbar.
+ *
+ * On Android the scrollbar is an overlay drawn ON TOP of the page, and the
+ * booking screen's sticky summary right-aligns the amounts — so the bar sat
+ * over "฿340" exactly where a customer looks before transferring money.
+ *
+ * Scoped to the customer surface on purpose. Owner and admin are desktop
+ * screens with long tables, where a scrollbar is the only thing telling you
+ * how much list is left.
+ */
+html[data-surface="customer"] {
+  scrollbar-width: none;
+}
+
+html[data-surface="customer"]::-webkit-scrollbar {
+  display: none;
+}
