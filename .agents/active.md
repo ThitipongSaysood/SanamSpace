@@ -261,79 +261,80 @@ slip queue and the booking state could disagree, the wallet was money-in-nothing
 of the suite caught `reviews.sort_order` unsigned. backend **438/438** · e2e 38/38.
 Detail: `sessions/2026-08-08-1900-money-flow-security-and-credit.md`.
 
-## Current Task
-Session 2026-08-09 — **committed and pushed to `main`**, none of it deployed. Started as "finish the
-in-app reward redemption", followed the venue's asks through the owner portal, and ended in the
-platform layer. Full detail: `sessions/2026-08-09-1600-plan-became-a-product.md`.
+## ✅ Done 2026-08-09 — The plan became a product
+Committed and pushed. The plan matrix (stored, editable, enforced nowhere), the audit log (a page, a
+table, and no writer), the trial columns (unread since the first migration) and the support inbox
+(readable, answerable, impossible to put anything into) were all made real. Plan ceilings enforced on
+branch/court/staff; an admin can renew, re-plan, trial and hand-edit an expiry from the venue's own
+screen. Found: changing a plan could hand a venue the platform free forever (no `ends_at`).
+Detail: `sessions/2026-08-09-1600-plan-became-a-product.md`.
 
-Same thread as the day before, followed further: **things that looked finished but were not.** The
-plan matrix (stored, editable, enforced nowhere), the audit log (a page, a table, and no writer), the
-trial columns (present since the first migration, never read), the support inbox (readable,
-answerable, impossible to put anything into).
+## Current Task
+Session 2026-08-10 (evening) — **committed and pushed to `main`**, none of it deployed. Driven
+entirely by holding the product on a real phone instead of a browser tab; almost everything found
+was invisible on a desk. Detail:
+`sessions/2026-08-10-2150-customer-app-polish-and-the-counter-scanner.md`.
+
+An earlier session the same day (another agent, `d1a24cb`) landed the LINE reply builder, customer
+peek, app toasts, the sport loader and storage_gb enforcement.
 
 ## Status
-🟢 **Local: all green.** backend **606/606** · tsc **clean** · vitest **31/31** · e2e **44/44** ·
-`npm run build` passes on **Next 16.3** · lint **0 errors** (down from 12 — the gate can now be enforced).
-
-🟢 **Dependencies clean in everything that ships.** `composer audit` 17 advisories → **0**; frontend
-production tree 12 (8 high) → **0**. `shadcn` was in `dependencies` — a scaffolding CLI imported by
-nothing, dragging the MCP SDK and hono into the shipped tree. Moved to devDependencies. The 8
-remaining advisories are build tooling (eslint, shadcn) and never reach the server.
+🟢 **Local: all green.** backend **623/623** · tsc **clean** · vitest **31/31** · eslint **0 errors**
+· e2e **44/44** — including the two specs that had been red since `d1a24cb`.
 
 🔴 **Deploy still blocked** (unchanged since 2026-08-07): `DEPLOY_PATH` does not exist on the server.
-Infra, not code. **Production is running the broken credit system** — see risk 1 below.
+**Production is still running the broken credit system** — every top-up, refund-to-credit and credit
+payment 500s there.
 
-⚠️ **~38 migrations pending on prod.** Back the database up first: an earlier one drops five columns
-from `organization_settings`.
+⚠️ **Pull the code, then run `php artisan migrate`.** Two migrations from `d1a24cb` had never run
+locally, so `/owner/line-templates` answered "เกิดข้อผิดพลาด ลองอีกครั้ง" and an e2e spec failed —
+both with nothing on screen pointing at the real cause.
 
 ⚠️ **Do not `npm install` with `next dev` running.** Swapping `node_modules` under a live dev server
-leaves it answering 500 on every page, and Playwright then cannot take the port. Stop it first.
+leaves it answering 500 on every page.
 
 ## What's Done
-1. **🔴 `wallet_transactions.sort_order` was unsigned** while `CreditService::nextSort` writes
-   `min - 1` (= -1 for a customer's first transaction). SQLite does not enforce it; MySQL does.
-   **Every top-up, refund-to-credit and credit payment 500s on production today.** Same bug family as
-   `reviews.sort_order` the day before — that search was for the symptom, not the pattern.
-2. **🔴 Changing a plan could hand a venue the platform free, forever.** Two change-plan endpoints
-   existed that did not know about each other; the older one created a subscription with no `ends_at`,
-   and `isExpired()` reads a null end date as "never expires". Both now call one method.
-3. **Dashboard reads the venue's clock, not UTC** — "today" reported yesterday until 07:00 Bangkok.
-4. **Customers redeem rewards themselves** (slide-to-confirm, collection code, uncollected ones expire
-   and return the points and the stock) · **one scanner** for every QR the counter meets.
-5. **Walk-ins matched by phone + a merge tool** — walk-in bookings created a new customer every visit.
-   Phone only: two customers called สมชาย are two people.
-6. **Live court board** and an **operations centre that is actually today** ("Timeline วันนี้" was the
-   six most-recently-created bookings, any date). **Sidebar in seven groups.**
-7. **The plan matrix became real** — `feature:` on 58 routes (402), menus hidden not greyed, the admin
-   grid toggles a cell, venues move between packages. **Enterprise retired.** `advanced_reports` was
-   still gating nothing; a test now walks every catalogue code and fails if it enforces nothing.
-8. **Plan ceilings enforced** — `limit:` middleware on branch/court/staff creation. Volume is
-   deliberately soft: a booking comes from a customer who does not know a plan exists.
-9. **An admin can run a subscription from the venue's own screen** — renew (with "already paid" that
-   still issues invoice and receipt), change plan, start a trial, hand-edit the expiry with a reason.
-10. **The audit log has a writer.** `AuditLog::create` appeared nowhere in the codebase; the six rows
-    on screen were seeded. Every platform action against a venue is now recorded — including
-    **impersonating the owner**.
-11. **Trials work** — the columns had been unread since the first migration. **Expiry warnings** at
-    7/3/1 days, and unpaid invoices finally age into `overdue`.
-12. **A venue can open a support ticket.** Nothing in the codebase could create one; the
-    "ติดต่อฝ่ายสนับสนุน" link went to the settings page.
-13. **CI runs the suite before deploying, on MySQL.** The deploy workflow ran no tests at all.
+1. **Opening the app on a phone was blocked by Next, not by login.** It answers **403 to every
+   `_next/static/chunks/*`** for a cross-origin dev request, so the HTML arrived, no JavaScript did,
+   and the app sat on the loader with nothing explaining why. `allowedDevOrigins`, scoped to the
+   RFC1918 ranges rather than `*`.
+2. **Development now serves the API same-origin, like production** — `next.config.ts` proxies
+   `/api/*` and `/storage/*` to Laravel and `NEXT_PUBLIC_API_URL` is back to `/api/v1`. No more
+   editing `.env.local` when the Wi-Fi changes, and an https dev server can reach the API without
+   mixed content blocking it.
+3. **Check-in status updates itself** — the customer's QR screen polls while waiting and stops the
+   moment it is scanned. The scan happens on someone else's device; before this the customer had to
+   think to pull-to-refresh while standing at the counter.
+4. **`/scan`** — the scanner outside the owner layout, installable on a staff phone for venues with
+   no hardware. Its own manifest at `/scan/manifest.webmanifest`; the root `app/manifest.ts` stays
+   the CUSTOMER app's (I overwrote it once — a customer would have installed the staff tool).
+   Reached from a QR on the check-in screen, not a sidebar entry: it is set up once.
+5. **The camera cannot work over http and now says so.** `getUserMedia` needs a secure origin; the
+   old message blamed the browser permission. Four causes are now named separately, and the
+   type-the-code box opens by itself when a camera cannot be offered. Production is https.
+6. **Owner settings** — every tab uses the screen; the payment tab is split into PromptPay and bank
+   transfer, which is what it actually configures; one save row everywhere (there were three sizes,
+   three positions, two labels).
+7. **Six three-colour theme presets**, and the swatch circles now set **all three** colours. สีรอง
+   and สีเน้น were only reachable through the native colour picker, which is why the demo venue's
+   secondary still equalled its primary and every banner gradient rendered flat.
+8. **Two long-red e2e specs fixed** — one waited on a `window.alert` the portal no longer raises,
+   the other released its booked slot only on success, so one failure poisoned every later run.
 
 ## Blockers
-None in code. Infra only: `DEPLOY_PATH` on the server, and a prod DB backup before the migration batch.
+None in code. Infra only: `DEPLOY_PATH` on the server, and a prod DB backup before the migrations.
 
 ## Next Steps
-1. **Deploy.** Everything above is local. The credit fix is why this is first: real customers' money
-   has been broken on production since it shipped. `php artisan storage:link` + real SMTP/LINE env.
-   (Storage limits now assume the per-venue upload paths — a from-scratch prod starts measuring cleanly;
-   legacy files under the old flat `slips/`/`venues/` aren't counted.)
-2. **Self-serve signup** and an **automated payment gateway** — business decisions, not backlog. Today
-   a new venue is created by an admin and every renewal is PromptPay + a slip + a human.
-3. **CRM WP7–WP11** — broadcast analytics (needs a LINE webhook), RFM/dynamic segments, enrichment,
-   overview analytics. WP3 (delivery persistence) and WP6 (notes/tasks) are done; see `topics/crm-roadmap.md`.
-4. Demo data keeps one real duplicate customer pair (`0812345678`) unmerged, to demo the merge tool.
-5. **Now that lint is 0 errors, turn the CI lint step from advisory to blocking** so it stays there.
+1. **Deploy.** Unchanged and still first: real customers' credit has been broken in production since
+   it shipped. Back up the database — an earlier migration drops five columns from
+   `organization_settings`. `php artisan storage:link` + real SMTP/LINE env.
+2. **The bottom nav still uses only the primary colour** while buttons and banners use all three.
+   The settings copy claims the whole app, so either the nav or the copy should move.
+3. **Camera on a phone in development** needs https — a tunnel or a certificate covering the LAN
+   address. Deferred: the typed-code path covers it and production is https.
+4. **`storage_gb`** is the one plan limit still unenforced; uploads need a per-venue home first.
+5. **Self-serve signup** and an **automated payment gateway** — business decisions, not backlog.
+6. Demo data keeps one duplicate customer pair (`0812345678`) unmerged, to demo the merge tool.
 
 ## ✅ Done 2026-08-07 — Four audit risks closed (#1, #3, #6, #7)
 Local-only, verified: backend **233/233** (10 new) · tsc clean · vitest 24/24 · lint **13 errors** (=
