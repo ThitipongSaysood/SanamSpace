@@ -20,9 +20,13 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         // Slip-verification provider (Phase 1). Default = Null (dedupe only);
-        // a real driver (SlipOK/EasySlip) slots in here without touching callers.
+        // a real driver (Slip2Go/SlipOK) slots in here without touching callers.
         $this->app->bind(\App\Services\Slip\SlipVerifier::class, function () {
             return match (config('services.slip.driver')) {
+                'slip2go' => new \App\Services\Slip\Slip2GoVerifier(
+                    (string) config('services.slip.endpoint'),
+                    (string) config('services.slip.key'),
+                ),
                 'slipok' => new \App\Services\Slip\SlipOkVerifier(
                     (string) config('services.slip.endpoint'),
                     (string) config('services.slip.key'),

@@ -55,7 +55,8 @@ return [
     ],
 
     // Slip auto-verification provider (Phase 1). `null` = no external call, dedupe
-    // only. A real driver (slipok/easyslip) reads key/endpoint here.
+    // only. A real driver (slip2go/slipok) reads key/endpoint here; slip2go
+    // needs only the key (endpoint defaults to its documented QR URL).
     'slip' => [
         'driver' => env('SLIP_VERIFY_DRIVER', 'null'),
         'key' => env('SLIP_VERIFY_KEY'),
