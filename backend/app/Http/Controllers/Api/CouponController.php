@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Court;
 use App\Services\DiscountService;
+use App\Support\BookingWindow;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -23,6 +24,12 @@ class CouponController extends Controller
             'courtId' => ['required', 'string'],
             'code' => ['required', 'string', 'max:40'],
             'amount' => ['required', 'numeric', 'min:0'],
+            // The slot being previewed. Optional in the rules because an older
+            // client may not send it — but a coupon with an hours condition
+            // refuses when it is missing rather than being given away.
+            'date' => ['sometimes', 'nullable', 'date_format:Y-m-d'],
+            'start' => ['sometimes', 'nullable', 'string', 'max:5'],
+            'end' => ['sometimes', 'nullable', 'string', 'max:5'],
         ]);
 
         $court = Court::query()->with('branch')->findOrFail($data['courtId']);
@@ -35,6 +42,7 @@ class CouponController extends Controller
             $data['code'],
             $amount,
             $request->user(),
+            BookingWindow::tryFrom($data['date'] ?? null, $data['start'] ?? null, $data['end'] ?? null),
         );
 
         $discount = $discounts->cap($coupon, $amount);
@@ -42,6 +50,9 @@ class CouponController extends Controller
         return response()->json([
             'code' => $coupon->code,
             'description' => $coupon->description,
+            // What the customer had to satisfy to get this, so the preview can
+            // repeat the rule back rather than only the number.
+            'condition' => $coupon->conditionLabel(),
             'discount' => $discount,
             'payable' => round($amount - $discount, 2),
         ]);

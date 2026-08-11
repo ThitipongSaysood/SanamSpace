@@ -170,6 +170,9 @@ class BookingController extends Controller
                     $customer,
                     $data['couponCode'] ?? null,
                     $settings,
+                    // The booking itself is the window — no client input to
+                    // trust, and no way for this path to forget to check.
+                    new \App\Support\BookingWindow($booking->date, $booking->start, $booking->end),
                 );
 
                 $payable = round((float) $booking->amount - $discount['amount'], 2);

@@ -97,7 +97,7 @@ export const mockApi = {
   },
   // Mock mode has no coupon store; the shape is right so the field can be
   // built and tested, but no code is ever accepted.
-  async previewCoupon(_courtId: string, code: string, amount: number): Promise<CouponPreview> {
+  async previewCoupon(_courtId: string, code: string, amount: number, _slot?: { date: string; start: string; end: string }): Promise<CouponPreview> {
     await delay();
     // Demo codes so the promo → auto-apply flow works in mock mode too.
     const c = code.trim().toUpperCase();

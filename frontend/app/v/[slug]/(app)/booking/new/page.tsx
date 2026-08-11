@@ -328,6 +328,9 @@ function NewBookingInner() {
             <CouponField
               courtId={court!.id}
               amount={subtotal}
+              date={date}
+              start={sorted[0].start}
+              end={sorted[sorted.length - 1].end}
               applied={coupon}
               onApply={setCoupon}
               initialCode={initialCoupon}
@@ -399,12 +402,26 @@ function NewBookingInner() {
 function CouponField({
   courtId,
   amount,
+  date,
+  start,
+  end,
   applied,
   onApply,
   initialCode,
 }: {
   courtId: string;
   amount: number;
+  /**
+   * The slot being booked.
+   *
+   * A coupon may be for particular hours — "จอง 07:00–16:00 ลด 10%" — and the
+   * server refuses to price one without knowing when the booking is, rather
+   * than assuming it qualifies. Sent from here so the preview answers the same
+   * question the booking itself will.
+   */
+  date: string;
+  start: string;
+  end: string;
   applied: CouponPreview | null;
   onApply: (c: CouponPreview | null) => void;
   initialCode?: string;
@@ -419,7 +436,7 @@ function CouponField({
     setBusy(true);
     setError(null);
     try {
-      onApply(await api.previewCoupon(courtId, trimmed, amount));
+      onApply(await api.previewCoupon(courtId, trimmed, amount, { date, start, end }));
     } catch (e) {
       onApply(null);
       setError((e as Error).message || "ใช้คูปองนี้ไม่ได้");

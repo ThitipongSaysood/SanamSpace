@@ -200,8 +200,13 @@ export const httpApi: Api = {
   getNotifications: () => req<AppNotification[]>("/notifications"),
 
   /** What a code is worth here, before committing. Throws with the reason. */
-  previewCoupon: (courtId: string, code: string, amount: number) =>
-    req<CouponPreview>("/coupons/preview", { method: "POST", body: { courtId, code, amount }, raw: true }),
+  /**
+   * `slot` is required for any coupon with an hours condition — the server
+   * refuses rather than assuming the booking qualifies, so leaving it out turns
+   * "จอง 07:00–16:00 ลด 10%" into a discount on every booking.
+   */
+  previewCoupon: (courtId: string, code: string, amount: number, slot?: { date: string; start: string; end: string }) =>
+    req<CouponPreview>("/coupons/preview", { method: "POST", body: { courtId, code, amount, ...slot }, raw: true }),
 
   // --- Marketing consent / opt-out. Always the signed-in customer. ---
   getConsent: () => req<MarketingConsent>("/me/consent"),

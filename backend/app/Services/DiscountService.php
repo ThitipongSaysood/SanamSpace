@@ -6,6 +6,7 @@ use App\Models\Coupon;
 use App\Models\CouponRedemption;
 use App\Models\Customer;
 use App\Models\OrganizationSetting;
+use App\Support\BookingWindow;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -29,6 +30,7 @@ class DiscountService
         ?Customer $customer,
         ?string $code,
         ?OrganizationSetting $settings = null,
+        ?BookingWindow $window = null,
     ): array {
         $none = ['amount' => 0.0, 'label' => null, 'coupon' => null];
 
@@ -44,7 +46,7 @@ class DiscountService
 
         // A typed code is an explicit request, so a bad one is an error rather
         // than something to quietly ignore and charge full price for.
-        $coupon = $this->findUsable($orgId, $code, $amount, $customer);
+        $coupon = $this->findUsable($orgId, $code, $amount, $customer, $window);
         $couponAmount = $this->cap($coupon, $amount);
 
         if ($couponAmount >= $member['amount']) {
@@ -92,8 +94,13 @@ class DiscountService
     }
 
     /** Find a coupon this customer may actually use right now, or explain why not. */
-    public function findUsable(string $orgId, string $code, float $amount, ?Customer $customer): Coupon
-    {
+    public function findUsable(
+        string $orgId,
+        string $code,
+        float $amount,
+        ?Customer $customer,
+        ?BookingWindow $window = null,
+    ): Coupon {
         $coupon = Coupon::query()
             ->forOrganization($orgId)
             ->whereRaw('UPPER(code) = ?', [mb_strtoupper(trim($code))])
@@ -135,7 +142,61 @@ class DiscountService
             }
         }
 
+        $this->assertWindowAllows($coupon, $window);
+
         return $coupon;
+    }
+
+    /**
+     * Does the booking fall inside the hours this coupon is for?
+     *
+     * A venue running "จอง 07:00–16:00 ลด 10%" used to keep that condition in
+     * the promotion's title, where nothing could read it — so the code came off
+     * a 20:00 peak booking exactly as happily as an empty Tuesday morning.
+     *
+     * **A caller that cannot say when the booking is gets refused, not waved
+     * through.** Defaulting the other way is how a condition ends up enforced
+     * on the one path somebody remembered and nowhere else, which is the same
+     * as not enforcing it at all.
+     *
+     * The WHOLE booking must fit. A 15:00–17:00 slot against a 07:00–16:00
+     * coupon is refused: the venue offered its quiet hours, and half of that
+     * session is peak time it never meant to discount.
+     */
+    private function assertWindowAllows(Coupon $coupon, ?BookingWindow $window): void
+    {
+        if (! $coupon->hasTimeCondition()) {
+            return;
+        }
+
+        if (! $window) {
+            throw ValidationException::withMessages([
+                'couponCode' => 'คูปองนี้ใช้ได้เฉพาะบางช่วงเวลา — เลือกวันและเวลาที่จองก่อน',
+            ]);
+        }
+
+        $days = $coupon->valid_days;
+
+        if (filled($days) && ! in_array($window->isoWeekday(), array_map('intval', $days), true)) {
+            throw ValidationException::withMessages([
+                'couponCode' => 'คูปองนี้ใช้ได้เฉพาะ '.$coupon->conditionLabel(),
+            ]);
+        }
+
+        $from = $coupon->valid_from_time;
+        $to = $coupon->valid_to_time;
+
+        // String comparison on HH:MM, the same shape bookings store. Both ends
+        // are checked against the booking's own ends so a slot that starts in
+        // range but runs past the window is refused rather than half-priced.
+        $tooEarly = filled($from) && $window->start < $from;
+        $tooLate = filled($to) && $window->end > $to;
+
+        if ($tooEarly || $tooLate) {
+            throw ValidationException::withMessages([
+                'couponCode' => 'คูปองนี้ใช้ได้เฉพาะ '.$coupon->conditionLabel(),
+            ]);
+        }
     }
 
     /**

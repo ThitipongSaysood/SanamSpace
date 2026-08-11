@@ -38,6 +38,9 @@ class CouponController extends Controller
             'per_customer_limit' => $data['perCustomerLimit'] ?? 1,
             'starts_at' => $data['startsAt'] ?? null,
             'ends_at' => $data['endsAt'] ?? null,
+            'valid_from_time' => $data['validFromTime'] ?? null,
+            'valid_to_time' => $data['validToTime'] ?? null,
+            'valid_days' => $data['validDays'] ?? null,
             'is_active' => $data['isActive'] ?? true,
         ]);
 
@@ -54,6 +57,7 @@ class CouponController extends Controller
             'code' => 'code', 'description' => 'description', 'type' => 'type', 'value' => 'value',
             'minAmount' => 'min_amount', 'maxDiscount' => 'max_discount', 'usageLimit' => 'usage_limit',
             'perCustomerLimit' => 'per_customer_limit', 'startsAt' => 'starts_at', 'endsAt' => 'ends_at',
+            'validFromTime' => 'valid_from_time', 'validToTime' => 'valid_to_time', 'validDays' => 'valid_days',
             'isActive' => 'is_active',
         ];
 
@@ -95,6 +99,12 @@ class CouponController extends Controller
             'usedCount' => (int) $c->used_count,
             'startsAt' => $c->starts_at?->toDateString(),
             'endsAt' => $c->ends_at?->toDateString(),
+            'validFromTime' => $c->valid_from_time,
+            'validToTime' => $c->valid_to_time,
+            'validDays' => $c->valid_days,
+            // The rule in words, so a screen never has to reassemble it and
+            // risk describing it differently from the code that enforces it.
+            'conditionLabel' => $c->conditionLabel(),
             'isActive' => (bool) $c->is_active,
         ];
     }
@@ -130,6 +140,12 @@ class CouponController extends Controller
             'perCustomerLimit' => ['sometimes', 'integer', 'min:0'],
             'startsAt' => ['sometimes', 'nullable', 'date_format:Y-m-d'],
             'endsAt' => ['sometimes', 'nullable', 'date_format:Y-m-d'],
+            // "จอง 07:00–16:00 ลด 10%" — the hours the venue actually meant,
+            // on its own wall clock, matching how bookings store theirs.
+            'validFromTime' => ['sometimes', 'nullable', 'date_format:H:i'],
+            'validToTime' => ['sometimes', 'nullable', 'date_format:H:i', 'after:validFromTime'],
+            'validDays' => ['sometimes', 'nullable', 'array'],
+            'validDays.*' => ['integer', 'between:1,7'],
             'isActive' => ['sometimes', 'boolean'],
         ]);
     }
