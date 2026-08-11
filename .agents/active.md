@@ -1,6 +1,27 @@
 # Active Task
 
-_Last updated: 2026-08-10 (~16:00) · Last agent: Claude (Opus 4.8, 1M ctx)_
+_Last updated: 2026-08-11 (~16:40) · Last agent: Claude (Opus 4.8, 1M ctx)_
+
+## ✅ Done 2026-08-11 (~16:40) — promotions↔coupons, slip auto-verification (Slip2Go), payment countdown + hold expiry
+**Committed + pushed.** backend **648/648** · tsc clean · vitest **31/31** · lint **0 errors**. 11 commits
+`095a500`→`f034022`. Full detail: `sessions/2026-08-11-1640-slip-verification-payment-countdown.md`.
+- **Promotions ↔ coupons + on/off.** A promo carries a coupon → tapping it auto-applies at booking; promos
+  toggleable. Home shows all active promos. Also: settings หน้าลูกค้า redesign, checkbox→**Switch**
+  (`ui/switch.tsx`), checkin dynamic rows-per-page.
+- **Slip auto-verification.** Phase 0 dedupe (`sha256`/`trans_ref`, every plan) → Phase 1 provider seam
+  (`SlipVerifier` + Null default, auto-approve via the same `DepositService::applyPayment`, falls to manual on
+  any doubt) → **Slip2Go** driver (REST QR endpoint) → **platform-level control**: `platform_settings` holds the
+  connection + master switch (admin), `slip_auto_verify` plan feature (Business/Pro), owner per-venue toggle.
+  Gates in order **owner → admin master → plan → monthly cap**. Receiver bank acct is per-venue in OUR settings,
+  Slip2Go only reads the slip. Owner UI shows read amount/sender + "used before" badge.
+- **Toast "saving…" hang fixed.** Fast-endpoint race (dismiss beat the mount) — `toastSave` now delays the
+  spinner 400ms and cancels it if the save settles first.
+- **Payment countdown + 5-min hold.** `expiresAt` on bookings; sticky "รอชำระเงิน" banner + payment-screen
+  countdown → "หมดเวลาชำระเงิน"; hold 5 min (was 30), swept every minute. **Lazy expiry**: `BookingExpiryService`
+  shared by the cron + the customer list, so opening the list clears overdue holds (dev has no cron).
+- **Docs.** `docs/slip-verification-flow.md` (+Mermaid), `docs/slip2go-setup.md`, `docs/pricing.md`.
+- **Paused by user (not started): payment gateway / real-time PromptPay-QR** — GB Prime Pay leaning; same driver
+  seam; each venue BYO keys. See session file.
 
 ## ✅ Done 2026-08-10 (~16:00) — LINE reply builder, app toasts, sport loader, points-gating, week lanes
 **Committed + pushed** (ends the deploy/commit hold). backend **623/623** · tsc clean · vitest **31/31** ·
