@@ -197,8 +197,8 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
           การจองนี้เกินเวลาชำระเงินแล้ว<br />ระบบได้ปล่อยช่วงเวลานี้ให้ผู้อื่นจองได้
         </p>
         <div className="mt-8 w-full max-w-xs space-y-3">
-          <Button className="h-12 w-full rounded-xl bg-brand text-base font-semibold hover:bg-brand/90" onClick={() => router.push("/search")}>
-            จองใหม่
+          <Button className="h-12 w-full rounded-xl bg-brand text-base font-semibold hover:bg-brand/90" onClick={() => router.push(`/booking/new?venueId=${booking.venueId}`)}>
+            จองสนามนี้ใหม่
           </Button>
           <Button variant="outline" className="h-12 w-full rounded-xl border-black/10 text-base font-semibold" onClick={() => router.push("/home")}>
             กลับหน้าหลัก
