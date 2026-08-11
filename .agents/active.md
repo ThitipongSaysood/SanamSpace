@@ -1,6 +1,29 @@
 # Active Task
 
-_Last updated: 2026-08-11 (~16:40) · Last agent: Claude (Opus 4.8, 1M ctx)_
+_Last updated: 2026-08-11 (~23:50) · Last agent: Claude (Opus 5)_
+
+## ✅ Done 2026-08-11 (~23:50) — sport catalogue, coupon time windows, landing rewrite, nightly-failing tests
+**Committed + pushed.** backend **676/676** (2,922 assertions) · e2e **44/44** · vitest **41/41** · tsc clean ·
+lint **0 errors**. 5 commits `379b072`→`7575e38`. Full detail:
+`sessions/2026-08-11-2350-sport-catalogue-coupon-time-windows.md`.
+- **Coupon time windows (money path).** "จอง 07:00–16:00 ลด 10%" was only words in the promo title — the code
+  came off a 20:00 peak booking too. `coupons.valid_from_time/valid_to_time/valid_days` + `BookingWindow`;
+  `DiscountService` now knows *when* the booking is. **A caller with no window is refused**, preview included.
+- **Sport catalogue (`/admin/sports`).** The same list was hard-coded in **six** places, no two agreeing
+  (loader knew 10, toast 12, the venue could pick 4) and `branches.sports` was free text, so an unknown word was
+  dropped silently and the venue fell back to badminton. Now one `sports` table (key/name/emoji/colour/active),
+  both columns validate against it, and `sportMeta` rides the venue payload so loader+toast hold no table —
+  a new sport works **without a release**. Per-branch picker in owner + `/admin/organizations` (audited).
+- **Two bugs found on the way.** `SportMedia` indexed `sportMeta[sport].label` → would have **crashed** the
+  customer booking screen for any sport outside the old four. The loader showed 🏸 for a measured **125ms** on
+  every entry (branding restores in an effect, so render #1 never has it) — it now claims nothing until known.
+- **Owner portal toast** used the platform default, so every venue saw a shuttlecock. Route surfaces split
+  three ways (venue/owner/platform); colours still only theme the customer app.
+- **Four test files failed every night, passed every morning.** `Operations`/`CourtBoard`/`OwnerCheckin`/`Scan`
+  build bookings at an offset from *now*; after ~22:00 that crossed midnight and stored `end` < `start`.
+  `TestCase::freezeVenueClockAtMidday()`. e2e `checkin` had that **plus** a UTC-vs-Bangkok date → broken 8h/day.
+- **Landing.** 2 of 3 prices disagreed with the `plans` table, Enterprise was still on sale, and
+  จองประจำ/White Label/custom domain do not exist. Rewritten + real screenshots.
 
 ## ✅ Done 2026-08-11 (~16:40) — promotions↔coupons, slip auto-verification (Slip2Go), payment countdown + hold expiry
 **Committed + pushed.** backend **648/648** · tsc clean · vitest **31/31** · lint **0 errors**. 11 commits
