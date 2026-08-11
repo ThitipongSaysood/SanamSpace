@@ -36,6 +36,10 @@ class OwnerPaymentResource extends JsonResource
             // approve one ฿250 transfer for five bookings.
             'slipVerifyStatus' => $this->latestSlip?->verify_status,
             'slipDuplicate' => $this->latestSlip?->verify_status === 'duplicate',
+            // What the verifier read off the slip (auto mode) — pre-fills a manual
+            // review even when it did not clear the bar. Null under manual review.
+            'slipAmount' => $this->latestSlip?->verified_amount,
+            'slipSender' => $this->latestSlip?->sender_name,
             'customerId' => $this->customer_id ? (string) $this->customer_id : null,
             'customerName' => $this->customer?->display_name,
             'booking' => $booking ? [

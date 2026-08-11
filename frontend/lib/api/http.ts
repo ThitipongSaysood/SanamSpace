@@ -91,6 +91,23 @@ async function getOrUndefined<T>(path: string): Promise<T | undefined> {
   }
 }
 
+// Read a QR from an image using the browser's BarcodeDetector (Chrome/Android —
+// where the customer app mostly runs). Returns the raw payload (unique per bank
+// transfer) or null when unsupported or no QR is found. Never throws.
+type BarcodeDetectorCtor = new (opts?: { formats?: string[] }) => {
+  detect(source: ImageBitmapSource): Promise<{ rawValue: string }[]>;
+};
+async function readSlipQr(file: File): Promise<string | null> {
+  try {
+    const Detector = (globalThis as { BarcodeDetector?: BarcodeDetectorCtor }).BarcodeDetector;
+    if (!Detector || typeof createImageBitmap !== "function") return null;
+    const codes = await new Detector({ formats: ["qr_code"] }).detect(await createImageBitmap(file));
+    return codes[0]?.rawValue ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export const httpApi: Api = {
   async lineLogin(payload?: LinePayload): Promise<{ token: string; user: User }> {
     const res = await req<{ token: string; user: User }>("/auth/line/login", {
@@ -122,9 +139,15 @@ export const httpApi: Api = {
 
   createPayment: (bookingId, method) =>
     req<Payment>("/payments", { method: "POST", body: { bookingId, method } }),
-  uploadSlip: (paymentId, file) => {
+  uploadSlip: async (paymentId, file) => {
     const fd = new FormData();
-    if (file) fd.append("slip", file);
+    if (file) {
+      fd.append("slip", file);
+      // Best-effort: read the slip's QR so the server can catch a re-used slip
+      // even when the image was re-saved. Skipped where BarcodeDetector is absent.
+      const qr = await readSlipQr(file);
+      if (qr) fd.append("qrPayload", qr);
+    }
     return req<Payment>(`/payments/${paymentId}/upload-slip`, { method: "POST", body: fd });
   },
   // No approvePayment here. Approving a slip is a staff decision made in the

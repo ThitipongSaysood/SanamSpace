@@ -776,6 +776,18 @@ function PaymentTab({ settings }: { settings: OwnerSettings }) {
 
   const set = (key: keyof OwnerSettings, value: string) => setForm((f) => ({ ...f, [key]: value }));
 
+  // Auto slip-check saves on its own (gated endpoint, its own plan feature) so
+  // it never rides along with — or gets blocked by — the general save button.
+  const slipMode = useMutation({
+    mutationFn: (mode: "manual" | "auto") => toastSave(ownerApi.updateSlipVerifyMode(mode)),
+    onSuccess: (updated) => {
+      qc.setQueryData(["owner", "settings"], updated);
+      qc.invalidateQueries({ queryKey: ["owner", "settings"] });
+    },
+    // Plan doesn't include it (402) or any failure → undo the optimistic flip.
+    onError: () => set("slipVerifyMode", settings.slipVerifyMode ?? "manual"),
+  });
+
   /*
    * Two cards, because these are two different ways to be paid.
    *
@@ -850,7 +862,12 @@ function PaymentTab({ settings }: { settings: OwnerSettings }) {
           </div>
           <Switch
             checked={form.slipVerifyMode === "auto"}
-            onCheckedChange={(v) => set("slipVerifyMode", v ? "auto" : "manual")}
+            disabled={slipMode.isPending}
+            onCheckedChange={(v) => {
+              const mode = v ? "auto" : "manual";
+              set("slipVerifyMode", mode); // optimistic; reverted onError
+              slipMode.mutate(mode);
+            }}
             aria-label="ตรวจสลิปอัตโนมัติ"
           />
         </div>

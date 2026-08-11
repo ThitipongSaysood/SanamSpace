@@ -101,6 +101,24 @@ class SlipAutoVerifyTest extends TestCase
         $this->assertSame('verified', $slip->fresh()->verify_status);
     }
 
+    public function test_auto_mode_needs_the_plan_feature(): void
+    {
+        $this->configure('auto');
+        $this->bindVerifier($this->goodSlip());
+        $slip = $this->pendingSlip();
+
+        // Take slip_auto_verify off this org's plan → auto falls back to manual.
+        $planId = \App\Models\Subscription::forOrganization($this->org()->id)->value('plan_id');
+        $featureId = \Illuminate\Support\Facades\DB::table('features')->where('code', 'slip_auto_verify')->value('id');
+        \Illuminate\Support\Facades\DB::table('plan_features')
+            ->where('plan_id', $planId)->where('feature_id', $featureId)->delete();
+        \App\Support\PlanFeatures::flush();
+
+        app(SlipVerificationService::class)->process($slip);
+
+        $this->assertSame('pending_review', $slip->payment->fresh()->status);
+    }
+
     public function test_manual_mode_never_auto_approves(): void
     {
         $this->configure('manual');

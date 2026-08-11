@@ -23,7 +23,10 @@ class AppServiceProvider extends ServiceProvider
         // a real driver (SlipOK/EasySlip) slots in here without touching callers.
         $this->app->bind(\App\Services\Slip\SlipVerifier::class, function () {
             return match (config('services.slip.driver')) {
-                // 'slipok' => new \App\Services\Slip\SlipOkVerifier(...),
+                'slipok' => new \App\Services\Slip\SlipOkVerifier(
+                    (string) config('services.slip.endpoint'),
+                    (string) config('services.slip.key'),
+                ),
                 default => new \App\Services\Slip\NullSlipVerifier(),
             };
         });

@@ -57,7 +57,6 @@ class SettingController extends Controller
             'fontFamily' => ['sometimes', 'nullable', 'string', 'max:100'],
             'timezone' => ['sometimes', 'string', 'max:100'],
             'checkinEnabled' => ['sometimes', 'boolean'],
-            'slipVerifyMode' => ['sometimes', 'in:manual,auto'],
             // Deposits: hold the slot for part of the money, take the rest at
             // the desk. `percent` is a share of the booking, `fixed` a flat baht.
             'depositEnabled' => ['sometimes', 'boolean'],
@@ -121,7 +120,6 @@ class SettingController extends Controller
             'fontFamily' => 'font_family',
             'timezone' => 'timezone',
             'checkinEnabled' => 'checkin_enabled',
-            'slipVerifyMode' => 'slip_verify_mode',
             'depositEnabled' => 'deposit_enabled',
             'depositType' => 'deposit_type',
             'depositValue' => 'deposit_value',
@@ -166,6 +164,28 @@ class SettingController extends Controller
         if ($updates) {
             $setting->update($updates);
         }
+
+        return new OwnerSettingResource($this->settingsFor($org->fresh()));
+    }
+
+    /**
+     * PUT /owner/settings/slip-verify-mode
+     *
+     * Switch automatic slip checking on or off. Kept off the general settings
+     * save because auto mode calls a paid provider per slip — the route is
+     * gated by `feature:slip_auto_verify` so only a plan that includes it can
+     * reach here at all.
+     */
+    public function updateSlipVerifyMode(Request $request): OwnerSettingResource
+    {
+        $org = $this->currentOrganization($request);
+        $setting = $this->settingsFor($org);
+
+        $validated = $request->validate([
+            'slipVerifyMode' => ['required', 'in:manual,auto'],
+        ]);
+
+        $setting->update(['slip_verify_mode' => $validated['slipVerifyMode']]);
 
         return new OwnerSettingResource($this->settingsFor($org->fresh()));
     }

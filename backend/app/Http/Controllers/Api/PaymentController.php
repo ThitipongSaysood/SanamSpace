@@ -119,6 +119,11 @@ class PaymentController extends Controller
         $path = $file->store('slips/'.$payment->organization_id, 'public');
         $absoluteUrl = url(Storage::url($path));
 
+        // A slip's QR payload is unique per transfer; hash it into a compact ref
+        // so a re-saved image (new file hash) is still caught as a reuse.
+        $qrPayload = $data['qrPayload'] ?? null;
+        $transRef = $data['transRef'] ?? (filled($qrPayload) ? sha1($qrPayload) : null);
+
         $slip = $payment->slips()->create([
             'organization_id' => $payment->organization_id,
             'file_path' => $path,
@@ -126,8 +131,8 @@ class PaymentController extends Controller
             'original_name' => $file->getClientOriginalName(),
             'uploaded_at' => now(),
             'sha256' => $sha256,
-            'qr_payload' => $data['qrPayload'] ?? null,
-            'trans_ref' => $data['transRef'] ?? null,
+            'qr_payload' => $qrPayload,
+            'trans_ref' => $transRef,
         ]);
 
         $payment->update([

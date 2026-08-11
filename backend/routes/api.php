@@ -303,6 +303,9 @@ Route::middleware('auth:sanctum')->group(function () {
         // --- Settings (org settings + org name) ---
         Route::get('/settings', [OwnerSettingController::class, 'show']);
         Route::put('/settings', [OwnerSettingController::class, 'update'])->middleware('permission:settings.manage');
+        // Auto slip-check calls a paid provider per slip, so its toggle is gated
+        // on the plan feature rather than riding along with the general save.
+        Route::put('/settings/slip-verify-mode', [OwnerSettingController::class, 'updateSlipVerifyMode'])->middleware('permission:settings.manage')->middleware('feature:slip_auto_verify');
 
         // --- LINE reply templates (the receipt/cancel cards the builder edits) ---
         Route::get('/line-templates', [OwnerLineTemplateController::class, 'index'])->middleware('permission:settings.manage');

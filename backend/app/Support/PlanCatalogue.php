@@ -34,6 +34,8 @@ class PlanCatalogue
         'membership' => ['สมาชิก + คะแนนสะสม + ของรางวัล', ['business', 'pro']],
         'coupon' => ['คูปองส่วนลด', ['business', 'pro']],
         'banner' => ['แบนเนอร์/ป๊อปอัปต้อนรับ', ['business', 'pro']],
+        // Costs real money to run: the slip-verify provider charges per check.
+        'slip_auto_verify' => ['ตรวจสลิปอัตโนมัติ', ['business', 'pro']],
 
         // --- Pro: marketing to the customer base ---
         'crm' => ['CRM (เซกเมนต์ · RFM)', ['pro']],

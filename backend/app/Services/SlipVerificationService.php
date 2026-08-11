@@ -6,6 +6,7 @@ use App\Models\OrganizationSetting;
 use App\Models\Payment;
 use App\Models\PaymentSlip;
 use App\Services\Slip\SlipVerifier;
+use App\Support\PlanFeatures;
 use App\Support\SlipVerification;
 use Illuminate\Support\Facades\Log;
 
@@ -23,6 +24,9 @@ use Illuminate\Support\Facades\Log;
  */
 class SlipVerificationService
 {
+    /** Provider calls per venue per month — a backstop on the per-check cost. */
+    private const MONTHLY_AUTO_LIMIT = 1000;
+
     public function __construct(
         private SlipVerifier $verifier,
         private DepositService $deposits,
@@ -58,6 +62,15 @@ class SlipVerificationService
             return; // venue reviews slips by hand
         }
 
+        // Auto-verify is a paid feature and each check costs money — gate on the
+        // plan, then cap the calls per month so a bad month can't run up a bill.
+        if (! PlanFeatures::allows($slip->organization_id, 'slip_auto_verify')) {
+            return;
+        }
+        if ($this->monthlyCallsUsed($slip->organization_id) >= self::MONTHLY_AUTO_LIMIT) {
+            return; // over the cap → fall to manual for the rest of the month
+        }
+
         try {
             $v = $this->verifier->verify($slip);
 
@@ -85,6 +98,17 @@ class SlipVerificationService
             // Provider down / timeout → fall back to manual, never block the flow.
             Log::warning('slip auto-verify failed', ['slip' => $slip->id, 'error' => $e->getMessage()]);
         }
+    }
+
+    /** How many billable provider checks this venue has run this month. Non-
+     *  provider sources (dedupe-only) don't cost anything, so they don't count. */
+    private function monthlyCallsUsed(?string $orgId): int
+    {
+        return PaymentSlip::query()
+            ->where('organization_id', $orgId)
+            ->whereNotIn('verify_source', ['manual', 'hash', 'qr', 'null'])
+            ->where('created_at', '>=', now()->startOfMonth())
+            ->count();
     }
 
     /** All must hold to auto-approve: real slip · covers the amount · paid into

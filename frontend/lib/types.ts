@@ -706,6 +706,9 @@ export type OwnerPayment = {
   /** Phase 0 slip screening: "duplicate" = same file/ref already used elsewhere. */
   slipVerifyStatus?: string | null;
   slipDuplicate?: boolean;
+  /** What the verifier read off the slip (auto mode) — pre-fills manual review. */
+  slipAmount?: number | null;
+  slipSender?: string | null;
   customerName?: string;
   customerId?: string | null;
   booking?: { code: string; courtName: string; date: string; start: string; end: string };

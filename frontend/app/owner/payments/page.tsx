@@ -113,6 +113,12 @@ function PaymentRow({ payment, onView }: { payment: OwnerPayment; onView: (v: Vi
             ⚠ สลิปนี้เคยใช้แล้ว
           </div>
         )}
+        {payment.slipAmount != null && (
+          <div className="mt-1 text-[11px] text-muted-foreground">
+            🔎 อ่านจากสลิป ฿{fmt.format(payment.slipAmount)}
+            {payment.slipSender ? ` · จาก ${payment.slipSender}` : ""}
+          </div>
+        )}
       </td>
 
       <td className="px-4 py-3">
@@ -187,6 +193,12 @@ function PaymentCard({ payment, onView }: { payment: OwnerPayment; onView: (v: V
           {payment.slipDuplicate && (
             <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
               ⚠ สลิปนี้เคยใช้แล้ว
+            </div>
+          )}
+          {payment.slipAmount != null && (
+            <div className="mt-1 text-[11px] text-muted-foreground">
+              🔎 อ่านจากสลิป ฿{fmt.format(payment.slipAmount)}
+              {payment.slipSender ? ` · จาก ${payment.slipSender}` : ""}
             </div>
           )}
           {payment.booking && (

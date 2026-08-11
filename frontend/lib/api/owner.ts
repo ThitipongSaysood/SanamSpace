@@ -604,6 +604,15 @@ export const ownerApi = {
     },
   ) => req<OwnerSettings>("/owner/settings", { method: "PUT", body: patch }),
 
+  // Auto slip-check toggle. Separate endpoint because it is gated on the
+  // slip_auto_verify plan feature — a plan without it gets 402 here, while the
+  // rest of the settings save is unaffected.
+  updateSlipVerifyMode: (mode: "manual" | "auto") =>
+    req<OwnerSettings>("/owner/settings/slip-verify-mode", {
+      method: "PUT",
+      body: { slipVerifyMode: mode },
+    }),
+
   // --- LINE reply templates (builder) ---
   getLineTemplates: () => req<LineTemplate[]>("/owner/line-templates"),
 
