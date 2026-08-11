@@ -14,6 +14,9 @@ class PlatformSetting extends Model
     protected $casts = [
         // SMTP password is stored encrypted at rest (Laravel encrypts on write, decrypts on read).
         'mail_password' => 'encrypted',
+        // Slip-verification provider secret, encrypted the same way.
+        'slip_verify_key' => 'encrypted',
+        'slip_verify_enabled' => 'boolean',
         'session_timeout_minutes' => 'integer',
         'password_min_length' => 'integer',
         'two_factor_required' => 'boolean',

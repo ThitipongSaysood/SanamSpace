@@ -17,6 +17,9 @@ class SettingController extends Controller
         'currency' => 'currency',
         'dateFormat' => 'date_format',
         'language' => 'language',
+        'slipVerifyEnabled' => 'slip_verify_enabled',
+        'slipVerifyDriver' => 'slip_verify_driver',
+        'slipVerifyEndpoint' => 'slip_verify_endpoint',
         'mailMailer' => 'mail_mailer',
         'mailHost' => 'mail_host',
         'mailPort' => 'mail_port',
@@ -59,6 +62,12 @@ class SettingController extends Controller
             'currency' => ['sometimes', 'string', 'max:10'],
             'dateFormat' => ['sometimes', 'string', 'max:30'],
             'language' => ['sometimes', 'string', 'max:10'],
+
+            // --- Slip verification (platform Slip2Go integration; key is write-only) ---
+            'slipVerifyEnabled' => ['sometimes', 'boolean'],
+            'slipVerifyDriver' => ['sometimes', 'string', 'in:null,slip2go,slipok'],
+            'slipVerifyEndpoint' => ['sometimes', 'nullable', 'string', 'max:500'],
+            'slipVerifyKey' => ['sometimes', 'nullable', 'string', 'max:500'],
 
             // --- Mail / SMTP ---
             'mailMailer' => ['sometimes', 'string', 'in:log,smtp,sendmail'],
@@ -113,6 +122,11 @@ class SettingController extends Controller
         // so leaving the field blank in the UI keeps the existing password.
         if ($request->filled('mailPassword')) {
             $updates['mail_password'] = $validated['mailPassword'];
+        }
+
+        // Same rule for the slip provider key: a blank submit keeps the stored one.
+        if ($request->filled('slipVerifyKey')) {
+            $updates['slip_verify_key'] = $validated['slipVerifyKey'];
         }
 
         if ($updates) {

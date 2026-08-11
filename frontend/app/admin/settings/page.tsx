@@ -104,8 +104,8 @@ function ToggleRow({
 /** Shared form behaviour: local copy of settings, save via updateSettings, success flag. */
 function useSettingsForm(settings: PlatformSettings) {
   const qc = useQueryClient();
-  const [form, setForm] = useState<PlatformSettings>({ ...settings, mailPassword: "" });
-  useEffect(() => setForm({ ...settings, mailPassword: "" }), [settings]);
+  const [form, setForm] = useState<PlatformSettings>({ ...settings, mailPassword: "", slipVerifyKey: "" });
+  useEffect(() => setForm({ ...settings, mailPassword: "", slipVerifyKey: "" }), [settings]);
 
   const mutation = useMutation({
     mutationFn: () => superAdminApi.updateSettings(form),
@@ -285,6 +285,55 @@ function PaymentTab({ settings }: { settings: PlatformSettings }) {
         <Field k="bankName" label="ธนาคาร" form={form} set={set} placeholder="กสิกรไทย" />
         <Field k="bankAccountName" label="ชื่อบัญชี" form={form} set={set} />
         <Field k="bankAccountNumber" label="เลขที่บัญชี" form={form} set={set} />
+      </Card>
+
+      <Card
+        title="ตรวจสลิปอัตโนมัติ (Slip2Go)"
+        desc="การเชื่อมต่อระดับแพลตฟอร์ม — บัญชีผู้ให้บริการเดียวที่ทุกสนามใช้ร่วมกัน สนามมีแค่สวิตช์เปิด/ปิดของตัวเอง (ตามแพ็กเกจ)"
+      >
+        <div className="sm:col-span-2">
+          <ToggleRow
+            label="เปิดใช้งานทั้งระบบ (สวิตช์รวม)"
+            desc="ปิดที่นี่ = ทุกสนามหยุดตรวจสลิปอัตโนมัติทันที ไม่ว่าแพ็กเกจหรือสวิตช์ของสนามจะเปิดอยู่"
+            on={!!form.slipVerifyEnabled}
+            onToggle={() => setField("slipVerifyEnabled", !form.slipVerifyEnabled)}
+          />
+        </div>
+        {form.slipVerifyEnabled && (
+          <>
+            <div className="space-y-1.5">
+              <Label htmlFor="ps-slipVerifyDriver">ผู้ให้บริการ</Label>
+              <select
+                id="ps-slipVerifyDriver"
+                value={form.slipVerifyDriver ?? "null"}
+                onChange={(e) => set("slipVerifyDriver", e.target.value)}
+                className="h-9 w-full rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
+              >
+                <option value="null">ปิด (ยังไม่เชื่อมต่อ — ตรวจสลิปซ้ำอย่างเดียว)</option>
+                <option value="slip2go">Slip2Go</option>
+                <option value="slipok">SlipOK</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ps-slipVerifyKey">API Secret</Label>
+              <Input
+                id="ps-slipVerifyKey"
+                type="password"
+                value={form.slipVerifyKey ?? ""}
+                placeholder={form.slipVerifyKeySet ? "•••••••• (ตั้งค่าแล้ว — เว้นว่างเพื่อคงเดิม)" : "วาง API Secret จากแดชบอร์ดผู้ให้บริการ"}
+                onChange={(e) => set("slipVerifyKey", e.target.value)}
+              />
+            </div>
+            <Field
+              k="slipVerifyEndpoint"
+              label="Endpoint (ไม่ต้องกรอกถ้าใช้ค่าเริ่มต้นของผู้ให้บริการ)"
+              form={form}
+              set={set}
+              placeholder="https://connect.slip2go.com/api/verify-slip/qr-code/info"
+              full
+            />
+          </>
+        )}
       </Card>
       <SaveBar mutation={mutation} />
     </form>

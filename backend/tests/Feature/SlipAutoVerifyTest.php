@@ -43,6 +43,11 @@ class SlipAutoVerifyTest extends TestCase
             ['organization_id' => $this->org()->id],
             ['slip_verify_mode' => $mode, 'promptpay_id' => '0812345678'],
         );
+        // The platform master switch is the admin's gate; on by default here so
+        // each test can isolate the org toggle / plan / provider behaviour.
+        \App\Models\PlatformSetting::query()->firstOrCreate([])->update([
+            'slip_verify_enabled' => true, 'slip_verify_driver' => 'slip2go',
+        ]);
     }
 
     /** Bind a stub provider that returns $result (or throws). */
@@ -99,6 +104,19 @@ class SlipAutoVerifyTest extends TestCase
         $this->assertSame('approved', $slip->payment->fresh()->status);
         $this->assertSame('confirmed', $slip->payment->booking->fresh()->status);
         $this->assertSame('verified', $slip->fresh()->verify_status);
+    }
+
+    public function test_platform_master_switch_off_keeps_everything_manual(): void
+    {
+        $this->configure('auto');
+        $this->bindVerifier($this->goodSlip());
+        // Admin flips the global switch off — no venue auto-verifies.
+        \App\Models\PlatformSetting::query()->firstOrCreate([])->update(['slip_verify_enabled' => false]);
+        $slip = $this->pendingSlip();
+
+        app(SlipVerificationService::class)->process($slip);
+
+        $this->assertSame('pending_review', $slip->payment->fresh()->status);
     }
 
     public function test_auto_mode_needs_the_plan_feature(): void

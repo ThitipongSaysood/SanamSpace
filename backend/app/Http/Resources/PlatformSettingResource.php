@@ -24,6 +24,13 @@ class PlatformSettingResource extends JsonResource
             'mailFromName' => $this->mail_from_name,
             'mailPasswordSet' => filled($this->mail_password),
 
+            // --- Slip verification (platform-level Slip2Go integration) ---
+            // The key is write-only: only whether one is set is ever sent back.
+            'slipVerifyEnabled' => (bool) $this->slip_verify_enabled,
+            'slipVerifyDriver' => $this->slip_verify_driver ?: 'null',
+            'slipVerifyEndpoint' => $this->slip_verify_endpoint,
+            'slipVerifyKeySet' => filled($this->slip_verify_key),
+
             // --- Platform billing payment details ---
             'companyName' => $this->company_name,
             'taxId' => $this->tax_id,

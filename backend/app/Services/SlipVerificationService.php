@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\OrganizationSetting;
 use App\Models\Payment;
 use App\Models\PaymentSlip;
+use App\Models\PlatformSetting;
 use App\Services\Slip\SlipVerifier;
 use App\Support\PlanFeatures;
 use App\Support\SlipVerification;
@@ -62,6 +63,14 @@ class SlipVerificationService
             return; // venue reviews slips by hand
         }
 
+        // Platform master switch (admin). The operator owns the one paid Slip2Go
+        // account, so a global off stops every venue regardless of plan/toggle.
+        $platform = PlatformSetting::query()->first();
+        $masterOn = $platform ? (bool) $platform->slip_verify_enabled : (bool) config('services.slip.enabled', false);
+        if (! $masterOn) {
+            return;
+        }
+
         // Auto-verify is a paid feature and each check costs money — gate on the
         // plan, then cap the calls per month so a bad month can't run up a bill.
         if (! PlanFeatures::allows($slip->organization_id, 'slip_auto_verify')) {
@@ -77,7 +86,7 @@ class SlipVerificationService
             // Keep whatever the provider could read, even if it doesn't clear the
             // bar — it pre-fills the manual review.
             $slip->update([
-                'verify_source' => (string) config('services.slip.driver', 'null'),
+                'verify_source' => (string) ($platform?->slip_verify_driver ?: config('services.slip.driver', 'null')),
                 'verified_amount' => $v->amount,
                 'sender_name' => $v->senderName,
                 'receiver_ref' => $v->receiverRef,

@@ -19,21 +19,38 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        // Slip-verification provider (Phase 1). Default = Null (dedupe only);
-        // a real driver (Slip2Go/SlipOK) slots in here without touching callers.
+        // Slip-verification provider (Phase 1). The connection is platform-level
+        // (admin-set on PlatformSetting), with the env config as a fallback for
+        // local/CI. Default = Null (dedupe only); a real driver slots in here
+        // without touching callers.
         $this->app->bind(\App\Services\Slip\SlipVerifier::class, function () {
-            return match (config('services.slip.driver')) {
-                'slip2go' => new \App\Services\Slip\Slip2GoVerifier(
-                    (string) config('services.slip.endpoint'),
-                    (string) config('services.slip.key'),
-                ),
-                'slipok' => new \App\Services\Slip\SlipOkVerifier(
-                    (string) config('services.slip.endpoint'),
-                    (string) config('services.slip.key'),
-                ),
+            $cfg = $this->slipProviderConfig();
+
+            return match ($cfg['driver']) {
+                'slip2go' => new \App\Services\Slip\Slip2GoVerifier($cfg['endpoint'], $cfg['key']),
+                'slipok' => new \App\Services\Slip\SlipOkVerifier($cfg['endpoint'], $cfg['key']),
                 default => new \App\Services\Slip\NullSlipVerifier(),
             };
         });
+    }
+
+    /**
+     * The slip provider connection: the admin-set platform settings win, with
+     * the env config as a fallback so a local/CI box works without the DB row.
+     * Wrapped in rescue() because the binding may resolve before the table
+     * exists (e.g. during `migrate`), where it must quietly fall back to config.
+     *
+     * @return array{driver: string, key: ?string, endpoint: ?string}
+     */
+    private function slipProviderConfig(): array
+    {
+        $p = rescue(fn () => \App\Models\PlatformSetting::query()->first(), null, false);
+
+        return [
+            'driver' => (string) ($p?->slip_verify_driver ?: config('services.slip.driver', 'null')),
+            'key' => $p?->slip_verify_key ?: config('services.slip.key'),
+            'endpoint' => $p?->slip_verify_endpoint ?: config('services.slip.endpoint'),
+        ];
     }
 
     /**

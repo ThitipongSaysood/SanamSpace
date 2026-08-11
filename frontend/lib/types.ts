@@ -1456,6 +1456,12 @@ export type PlatformSettings = {
   mailFromName: string | null;
   mailPasswordSet: boolean;
   mailPassword?: string; // write-only: blank = keep existing
+  // Slip verification — the platform's Slip2Go integration + global on/off.
+  slipVerifyEnabled: boolean;
+  slipVerifyDriver: "null" | "slip2go" | "slipok";
+  slipVerifyEndpoint: string | null;
+  slipVerifyKeySet: boolean;
+  slipVerifyKey?: string; // write-only: blank = keep existing
   // Platform billing payment details — where venues send their renewal money.
   promptpayId: string | null;
   /** Payee name the venue sees on the pay dialog. */

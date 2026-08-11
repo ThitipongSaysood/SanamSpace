@@ -58,6 +58,8 @@ return [
     // only. A real driver (slip2go/slipok) reads key/endpoint here; slip2go
     // needs only the key (endpoint defaults to its documented QR URL).
     'slip' => [
+        // Fallbacks only: admin normally sets these on the platform settings.
+        'enabled' => env('SLIP_VERIFY_ENABLED', false),
         'driver' => env('SLIP_VERIFY_DRIVER', 'null'),
         'key' => env('SLIP_VERIFY_KEY'),
         'endpoint' => env('SLIP_VERIFY_ENDPOINT'),
