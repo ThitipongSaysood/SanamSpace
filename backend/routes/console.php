@@ -9,9 +9,10 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 // Release the court slot held by a booking nobody paid for, past its hold
-// window (config('booking.hold_minutes')). Needs `php artisan schedule:run`
-// wired to cron on the server (* * * * *) — see .agents deploy notes.
-Schedule::command('bookings:expire-unpaid')->everyFiveMinutes()->withoutOverlapping();
+// window (config('booking.hold_minutes'), 5 min). Every minute, so a short hold
+// is swept close to its deadline rather than up to 5 min late. Needs
+// `php artisan schedule:run` wired to cron on the server (* * * * *).
+Schedule::command('bookings:expire-unpaid')->everyMinute()->withoutOverlapping();
 
 // Points expiry is a daily question, not a per-minute one. Run it in the
 // morning so a customer warned about expiry has the day to come and spend.

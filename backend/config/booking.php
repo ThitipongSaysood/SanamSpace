@@ -15,6 +15,6 @@ return [
     |
     */
 
-    'hold_minutes' => (int) env('BOOKING_HOLD_MINUTES', 30),
+    'hold_minutes' => (int) env('BOOKING_HOLD_MINUTES', 5),
 
 ];

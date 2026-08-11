@@ -8,6 +8,7 @@ import {
 import type { ComponentType } from "react";
 import { api } from "@/lib/api/client";
 import { useBooking } from "@/lib/api/queries";
+import { useCountdown } from "@/lib/use-countdown";
 import { SlipUploader } from "@/components/slip-uploader";
 import { PromptPayQR } from "@/components/promptpay-qr";
 import { AppHeader } from "@/components/app-header";
@@ -41,6 +42,11 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
   // package is redeemed on a booking that has some.
   const [owedAfterPackage, setOwedAfterPackage] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // Pay-by countdown for the unpaid hold (created_at + hold window, from the
+  // server as booking.expiresAt). Called before the early returns so the hook
+  // order stays stable; it no-ops on an undefined deadline.
+  const { label: payLabel, secondsLeft: paySecondsLeft } = useCountdown(booking?.expiresAt);
 
   // Load pay instructions (real PromptPay QR + venue bank details) once a payment exists.
   useEffect(() => {
@@ -176,10 +182,48 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
     );
   }
 
+  // Hold ran out before payment landed — the scheduled sweep has released the
+  // slot, so don't strand the customer on a pay screen for a booking that no
+  // longer exists. (approved / pending_review already returned above.)
+  const holdExpired = !!booking.expiresAt && paySecondsLeft <= 0;
+  if (holdExpired) {
+    return (
+      <main className="flex min-h-dvh flex-col items-center justify-center px-6 text-center">
+        <div className="grid size-24 place-items-center rounded-full bg-slate-100 text-slate-400">
+          <Clock className="size-12" />
+        </div>
+        <h1 className="mt-6 text-2xl font-bold">หมดเวลาชำระเงิน</h1>
+        <p className="mt-3 text-sm text-muted-foreground">
+          การจองนี้เกินเวลาชำระเงินแล้ว<br />ระบบได้ปล่อยช่วงเวลานี้ให้ผู้อื่นจองได้
+        </p>
+        <div className="mt-8 w-full max-w-xs space-y-3">
+          <Button className="h-12 w-full rounded-xl bg-brand text-base font-semibold hover:bg-brand/90" onClick={() => router.push("/search")}>
+            จองใหม่
+          </Button>
+          <Button variant="outline" className="h-12 w-full rounded-xl border-black/10 text-base font-semibold" onClick={() => router.push("/home")}>
+            กลับหน้าหลัก
+          </Button>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="pb-24">
       <AppHeader title="ชำระเงิน" />
       <div className="space-y-4 p-4">
+        {booking.expiresAt && paySecondsLeft > 0 && (
+          // Ticking pay-by deadline, so the customer knows the slot is held only
+          // briefly — matches the app-wide "รอชำระเงิน" banner.
+          <div className="flex items-center justify-between rounded-2xl bg-amber-50 px-4 py-3 ring-1 ring-amber-200">
+            <span className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-900">
+              <Clock className="size-4" /> ชำระภายใน
+            </span>
+            <span className={`text-lg font-bold tabular-nums ${paySecondsLeft <= 60 ? "text-red-600" : "text-amber-700"}`}>
+              {payLabel}
+            </span>
+          </div>
+        )}
         {owedAfterPackage !== null && (
           <div className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-900 ring-1 ring-amber-200">
             <p className="font-semibold">ใช้แพ็กเกจกับค่าสนามเรียบร้อย</p>

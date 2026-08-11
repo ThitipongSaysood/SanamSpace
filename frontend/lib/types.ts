@@ -120,6 +120,12 @@ export type Booking = {
   rentals?: BookingRental[];
   status: BookingStatus;
   createdAt: string;
+  /**
+   * Pay-by deadline for an unpaid hold (created_at + hold window). The app
+   * counts down to it and clears the "waiting to pay" prompt once it passes.
+   * Null when it is no longer a live hold (slip sent / confirmed / cancelled).
+   */
+  expiresAt?: string | null;
   /** What the check-in QR encodes. Not the code — that is guessable. */
   checkinToken?: string | null;
   /** When the counter scanned them in. Null = has not arrived. */

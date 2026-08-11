@@ -67,6 +67,14 @@ class BookingResource extends JsonResource
             ]),
             'status' => $this->status,
             'createdAt' => $this->created_at?->toIso8601String(),
+            // The pay-by deadline for an unpaid hold: created_at + the hold
+            // window. The app counts down to it and clears the "รอชำระเงิน"
+            // prompt when it passes (the scheduled sweep frees the slot). Null
+            // once it is no longer a live hold — the slip is in, or it is
+            // confirmed/cancelled — so nothing keeps ticking that shouldn't.
+            'expiresAt' => $this->status === 'pending_payment'
+                ? $this->created_at?->copy()->addMinutes((int) config('booking.hold_minutes', 5))->toIso8601String()
+                : null,
             // Booking status alone cannot tell "not paid yet" from "slip sent,
             // waiting for the venue" — both sit at pending_payment, and the app
             // was asking people to pay a second time because of it.

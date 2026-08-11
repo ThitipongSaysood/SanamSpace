@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { useTenant } from "@/lib/tenant/tenant-context";
 import { BottomNav } from "@/components/bottom-nav";
 import { SportLoader } from "@/components/sport-loader";
+import { PendingPaymentBanner } from "@/components/pending-payment-banner";
 
 // Tab routes show the bottom nav; pushed flow screens (venue/booking/payment)
 // are full-bleed. Compared venue-relative, since every path here is /v/{slug}/…
@@ -59,6 +60,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className={`mx-auto min-h-dvh max-w-md bg-app text-foreground ${showNav ? "pb-16" : ""}`}>
+      <PendingPaymentBanner />
       {children}
       {showNav && <BottomNav />}
     </div>
