@@ -1,199 +1,222 @@
 # SanamSpace
 
-> **White‑Label, Multi‑Tenant SaaS สำหรับธุรกิจสนามกีฬา** — ยกระดับจาก "ระบบจองสนาม" ไปสู่ **Venue Operating System (Venue OS)**
+> **White-Label, Multi-Tenant SaaS สำหรับธุรกิจสนามกีฬา** — Venue Operating System ที่รวม **Booking · Payment · CRM · Membership · Loyalty · Marketing · Analytics** ไว้ในที่เดียว
 
-SanamSpace เป็นแพลตฟอร์มเดียวที่รวม **Booking · Payment · CRM · Membership · Loyalty · Revenue Management · Analytics** ไว้ด้วยกัน รองรับสนามหลายประเภท (แบดมินตัน ฟุตบอล ฟุตซอล เทนนิส พิคเคิลบอล บาสเกตบอล วอลเลย์บอล ฯลฯ) โดยแต่ละสนาม/องค์กรเป็น **Tenant แยกข้อมูลกัน 100%**
+แต่ละสนาม/องค์กรเป็น **Tenant แยกข้อมูลกัน 100%** รองรับหลายกีฬา (แบดมินตัน ฟุตซอล เทนนิส พิคเคิลบอล ฯลฯ) เจ้าของสนามบริหารทุกอย่างจากพอร์ทัลเดียว ลูกค้าจอง/จ่าย/สะสมแต้มผ่านมือถือ (LINE เป็นหลัก)
 
-> ℹ️ **เรื่องชื่อ:** repo และเอกสารชุดแรกใช้ชื่อ **SanamSpace** ส่วนเอกสารสถาปัตยกรรมชุดหลังหลายฉบับใช้โค้ดเนม **"PlayCourt"** — ทั้งสองหมายถึงโปรเจกต์เดียวกัน
-
-> 🚧 **สถานะปัจจุบัน:** repository นี้อยู่ในขั้น **Design / Specification** — เก็บเอกสารออกแบบระบบ (PRD, สถาปัตยกรรม, Database, API, UX) และภาพอ้างอิง ยังไม่มีโค้ด application
+> ✅ **สถานะ:** เป็น **monorepo ที่ทำงานได้จริง** — Laravel 13 API + Next.js 16 App Router พร้อมชุดเทสต์ (backend 627 · frontend unit 31 · e2e) ไม่ใช่แค่เอกสารออกแบบอีกต่อไป (เอกสาร spec ชุดแรกยังเก็บไว้ใน [`structure/`](structure/))
 
 ---
 
 ## สารบัญ
 
 - [ภาพรวม](#ภาพรวม)
+- [Tech Stack](#tech-stack)
+- [3 พอร์ทัล](#3-พอร์ทัล)
 - [ความสามารถหลัก](#ความสามารถหลัก)
-- [ผู้ใช้งานและแอป](#ผู้ใช้งานและแอป)
-- [สถาปัตยกรรม](#สถาปัตยกรรม)
-- [แพ็กเกจและ Feature Flag](#แพ็กเกจและ-feature-flag)
-- [โครงสร้างข้อมูล (Database)](#โครงสร้างข้อมูล-database)
-- [API](#api)
-- [Roadmap](#roadmap)
+- [เริ่มต้นใช้งาน (Getting Started)](#เริ่มต้นใช้งาน-getting-started)
+- [การทดสอบ](#การทดสอบ)
 - [โครงสร้าง Repository](#โครงสร้าง-repository)
-- [ดัชนีเอกสาร](#ดัชนีเอกสาร)
+- [กติกาสถาปัตยกรรมที่สำคัญ](#กติกาสถาปัตยกรรมที่สำคัญ)
+- [แพ็กเกจและ Feature Flag](#แพ็กเกจและ-feature-flag)
+- [ดัชนีเอกสารออกแบบ](#ดัชนีเอกสารออกแบบ)
 - [`.agents/` — Shared AI Context](#agents--shared-ai-context)
 
 ---
 
 ## ภาพรวม
 
-เป้าหมายของ SanamSpace คือเป็น **ระบบปฏิบัติการของสนามกีฬา** ที่เจ้าของสนามใช้บริหารทุกอย่างในที่เดียว และให้ลูกค้าจอง/จ่าย/สะสมแต้มผ่านมือถือ (LINE เป็นหลัก)
-
 หลักคิด 3 ข้อ:
 
-- **Multi‑Tenant First** — ทุกข้อมูลผูกกับ `organization_id` ไม่มีการเข้าถึงข้ามสนาม
-- **White Label** — แต่ละสนามปรับแบรนด์ได้เอง (โลโก้ สี โดเมน หน้า login)
-- **Feature Flag Driven** — เปิด/ปิดฟีเจอร์ตาม Subscription Plan โดยไม่ hardcode ในโค้ด
+- **Multi-Tenant First** — ทุกข้อมูลผูกกับ `organization_id` · tenant resolve จาก `X-Venue-Slug` **ไม่มี fallback** (resolve ไม่ได้ = 404) ไม่มีการเข้าถึงข้ามสนาม
+- **White Label** — แต่ละสนามปรับแบรนด์เองได้ (โลโก้ · 3 สีธีม · หน้าลูกค้า) เห็นผลทันทีในแอปลูกค้า
+- **Feature Flag Driven** — เปิด/ปิดฟีเจอร์และ limit ตาม Subscription Plan (`feature:*`, `limit:*` middleware) ไม่ hardcode
+
+---
+
+## Tech Stack
+
+| ชั้น | เทคโนโลยี |
+|---|---|
+| **Backend** | PHP 8.3 · Laravel 13 · REST API ใต้ `/api/v1` |
+| **Frontend** | Next.js 16 (App Router) · React 19 · Tailwind CSS · TanStack Query |
+| **Database** | **Dev: SQLite** · **Prod: MySQL 8** (utf8mb4) — UUID PK, soft delete |
+| **Auth** | LINE LIFF (ลูกค้า) · Email/Password + token (Owner/Admin) |
+| **Notification** | LINE Messaging API (Flex receipt builder + broadcast) |
+| **Storage** | local/`storage` (dev) — เสิร์ฟผ่าน `php artisan storage:link` |
+| **Deploy** | Ubuntu + Nginx + PHP-FPM (VPS) — ดู [DEPLOYMENT.md](DEPLOYMENT.md) |
+
+> ⚠️ **Dev เป็น SQLite แต่ Prod เป็น MySQL** และ CI **ไม่รันเทสต์** — ก่อน release ต้องรัน migrate + suite บน MySQL จริง (unsigned column รับค่าลบผ่าน SQLite แต่ 500 บน MySQL) ดูรายละเอียดใน [`.agents/AGENTS.md`](.agents/AGENTS.md)
+
+---
+
+## 3 พอร์ทัล
+
+ทุกพอร์ทัลใช้ API ชุดเดียวกัน:
+
+| พอร์ทัล | Route | ผู้ใช้ | ไฮไลต์ |
+|---|---|---|---|
+| **Customer App** | `/v/{slug}` (LINE LIFF / PWA) | ลูกค้า | จองสนาม · จ่าย/อัปโหลดสลิป · เครดิต/แพ็กเกจ · สมาชิก/แต้ม · QR เช็คอิน · โปรโมชั่น |
+| **Owner Portal** | `/owner` | เจ้าของ/พนักงาน | ปฏิทินจอง · ตรวจสลิป · CRM · คูปอง/โปรโมชั่น · แต้ม · สแกน/เช็คอิน · รายงาน · ตั้งค่าแบรนด์ · LINE reply builder |
+| **Admin Portal** | `/admin` | Super Admin | จัดการ Organization · Subscription/Billing · Plan/Feature · Announcement · Support |
+
+> หน้าลูกค้าอยู่ใต้ `/v/{slug}` เพราะเป็น **LINE LIFF Endpoint URL** — เปลี่ยน path ไม่ได้ (ต้องแก้ที่ LINE console ทุกสนาม)
 
 ---
 
 ## ความสามารถหลัก
 
-| โดเมน | รายละเอียด |
+| โดเมน | ที่มีจริงในระบบ |
 |---|---|
-| 🗓️ **Booking** | จองคอร์ทหลายกีฬา, ตารางเวลา, Check‑in/Check‑out, ประวัติการจอง, Waitlist, Auto‑Rebooking |
-| 💳 **Payment** | โอนเงิน + อัปโหลดสลิป, ตรวจสลิป (OCR + กันสลิปซ้ำ), Refund, Invoice/Tax Invoice, Payment Gateway, PromptPay |
-| 👥 **CRM & Loyalty** | โปรไฟล์ลูกค้า, Segment, Customer Timeline, Membership (Silver/Gold/Platinum), Points, Wallet, Package |
-| 📣 **Marketing** | คูปอง, โปรโมชั่น, Happy Hour, Broadcast ผ่าน LINE OA, Campaign |
-| 💰 **Revenue** | Dynamic Pricing (Peak/Off‑Peak), Find Player, Auto Promotion เมื่อสนามว่าง |
-| 📊 **Analytics** | Revenue / Booking / Utilization / Membership / MRR Dashboard, Export Report |
-| 🏆 **Future Modules** | Tournament, Coach Booking, Marketplace |
-| 🎨 **White Label** | Custom Logo/Color/Domain/Login, Dedicated Server (Enterprise) |
+| 🗓️ **Booking** | ปฏิทินแยกคอร์ท (วัน/สัปดาห์/เดือน) · จองหน้าเคาน์เตอร์ (walk-in) · กันจองซ้ำด้วย lock ต่อคอร์ท+วัน · ยกเลิก/ปล่อย slot · ช่วงเวลาตามการตั้งค่าสนาม |
+| 💳 **Payment** | โอน+อัปโหลดสลิป · ตรวจ/อนุมัติสลิป (กันสลิปซ้ำ) · มัดจำ · PromptPay QR · Refund (คืนเป็นเครดิต) |
+| 💰 **Credit & Packages** | เครดิต (บาท) กับชั่วโมงแพ็กเกจ **แยกกันไม่รวม** · จ่ายด้วยเครดิต/แพ็กเกจ · ทุกการเคลื่อนไหวบันทึกว่าใครทำ |
+| 🎟️ **ส่วนลด** | คูปอง (โค้ด · %/บาท · ขั้นต่ำ · เพดาน · วันใช้ได้) · ส่วนลดตามระดับสมาชิก · **โปรโมชั่นผูกคูปอง** (กดโปร→จอง+ใส่โค้ดอัตโนมัติ) |
+| 👥 **CRM & Loyalty** | โปรไฟล์+ไทม์ไลน์ลูกค้า · โน้ต/งานติดตาม · Segment · Membership (Silver/Gold/Platinum) · แต้ม+หมดอายุ+แลกรางวัล |
+| 📣 **Marketing** | Broadcast ผ่าน LINE OA (บันทึกผลส่งรายคน) · แบนเนอร์/ต้อนรับ · **LINE reply builder** (ออกแบบการ์ด Flex ตอนจอง/ชำระ/ยกเลิก แบบลากวาง) |
+| ✅ **Check-in** | ลูกค้าแสดง QR · พนักงานสแกน · **`/scan` สแกนเนอร์สำหรับเคาน์เตอร์** (ติดตั้งเป็น PWA ได้) · สถานะอัปเดตเอง |
+| 📊 **Analytics** | Dashboard รายได้/การจอง/utilization · รายงาน export |
+| 🧾 **Platform** | Subscription/Billing · Plan + Feature Flag + Usage Limit · White-label theming |
 
 ---
 
-## ผู้ใช้งานและแอป
+## เริ่มต้นใช้งาน (Getting Started)
 
-**4 บทบาทหลัก:** Customer · Staff · Owner · Super Admin
-(ฝั่ง Staff แบ่งย่อยเป็น Manager / Reception / Cashier / Marketing / Coach / Accountant / Viewer — สิทธิ์คุมด้วย RBAC ที่ scope ตาม `organization_id` ดู [Permission Matrix](structure/Permission_Matrix_v1.md))
+**ต้องมี:** PHP 8.3 · Composer · Node.js 20+ · npm
 
-**3 แอป ใช้ API ชุดเดียวกัน:**
+### 1) Backend (Laravel API — พอร์ต 8000)
 
-1. **Customer App** — LINE LIFF / PWA + Mobile (React Native / Expo): จองสนาม, จ่ายเงิน, สมาชิก, Wallet, QR Check‑in
-2. **Owner Admin Portal** — Dashboard, จัดการ Booking/Court/Payment, CRM, Report
-3. **Super Admin Portal** — จัดการ Tenant, Subscription, Billing, Feature, Platform Analytics
-
----
-
-## สถาปัตยกรรม
-
-**หลักการ:** Multi‑Tenant First · API First · Feature Flag Driven · Event Driven
-
-```
-Customer PWA / Owner Portal / Super Admin Portal
-                    │
-              API Layer (PHP)
-                    │
-             Business Services
-                    │
-              MySQL Database
-        ├─ Cloudflare R2 (ไฟล์/สลิป/รูป)
-        ├─ LINE Messaging API (แจ้งเตือน)
-        └─ Job Queue (Cron)
+```bash
+cd backend
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate --seed          # สร้าง schema + ข้อมูลเดโม (SanamSpaceSeeder)
+php artisan storage:link            # ไม่งั้นรูป/สลิปที่อัปโหลดจะ 404
+php artisan serve                   # http://localhost:8000
 ```
 
-**Tech Stack** (อ้างอิง [System Architecture v1](structure/SanamSpace_System_Architecture_v1.md)):
+> Dev ใช้ SQLite โดยอัตโนมัติ (`database/database.sqlite`) — ไม่ต้องตั้งค่า DB
 
-| ชั้น | เทคโนโลยี |
-|---|---|
-| Frontend | Next.js, React, Tailwind CSS, LINE LIFF |
-| Backend | PHP 8.3, REST API |
-| Database | MySQL 8 (InnoDB, UTF8MB4) — PK เป็น BIGINT/UUID, soft delete |
-| Storage | Cloudflare R2 |
-| Notification | LINE Messaging API (+ Email / SMS / Push) |
-| Queue / Jobs | MySQL `jobs` + Cron (`* * * * *`) |
-| Auth | LINE LIFF (ลูกค้า) · Email/Password (แอดมิน) |
-| Analytics | BigQuery + Looker Studio |
-| Deploy | Ubuntu + Nginx + PHP‑FPM + MySQL (VPS) |
+### 2) Frontend (Next.js — พอร์ต 3000)
 
-> 📝 หมายเหตุ: [PRD v2](structure/SanamSpace_PRD_Master_v2.md) ลิสต์ทางเลือกอื่นไว้ด้วย (เช่น Supabase/Firebase, Omise/GB Prime Pay) แต่สถาปัตยกรรมที่ยึดเป็นหลักคือชุด PHP 8.3 + MySQL ข้างต้น
+```bash
+cd frontend
+npm install
+# frontend/.env.local :
+#   NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+npm run dev                         # http://localhost:3000
+```
 
----
+> ถ้าไม่ตั้ง `NEXT_PUBLIC_API_URL` → พอร์ทัล owner/admin จะยิง API ผิดพอร์ต (404 ทุก call รวมล็อกอิน) ส่วนแอปลูกค้าจะ fallback ไป in-memory mock เงียบๆ · `NEXT_PUBLIC_*` ถูก inline ตอน start ต้อง restart `npm run dev` หลังแก้
 
-## แพ็กเกจและ Feature Flag
+### 3) ล็อกอินเดโม
 
-แบ่งเป็น 4 แพ็กเกจ คุมความสามารถผ่าน Feature Flag (ดูตารางเต็มใน [Feature Matrix](structure/Feature_Matrix_v1.md)):
-
-| Plan | ราคา/เดือน | กลุ่มเป้าหมาย |
+| พอร์ทัล | เข้าที่ | บัญชี |
 |---|---|---|
-| **Starter** | 990 THB | สนามเปิดใหม่ 1 สาขา (≤10 คอร์ท) |
-| **Business** | 1,990 THB | สนามเล็ก–กลาง ที่มีสมาชิกประจำ (CRM/Membership/Wallet) |
-| **Pro** | 3,990 THB | สนามที่ทำ CRM + การตลาดจริงจัง, Multi‑Branch, API |
-| **Enterprise** | Custom | Chain หลายสาขา, White Label เต็มรูปแบบ, Dedicated Server |
+| Owner | `/owner` | `owner@everyday.test` / `password` |
+| Customer | `/v/everyday-badminton?autologin=1` | auto-login (เฉพาะ dev) |
 
-**กฎสถาปัตยกรรม:** ห้าม hardcode ฟีเจอร์ · ทุกฟีเจอร์เปิดผ่าน Feature Flag · Add‑on แยกจาก Plan หลัก · Enterprise override ได้ · รองรับ Usage‑Based Billing ในอนาคต
+> venue เดโม: `everyday-badminton`, `tsr-arena`
 
 ---
 
-## โครงสร้างข้อมูล (Database)
+## การทดสอบ
 
-Multi‑tenant schema แบ่งเป็น 10 โดเมน (ดู [ER Diagram](structure/SanamSpace_ER_Diagram_Master_v1.md) และ [Database Architecture ฉบับเต็ม](structure/SanamSpace_Database_Architecture_v1_Full.md)):
+```bash
+# Backend — PHPUnit (in-memory SQLite)
+cd backend && php artisan test
 
-`Platform` · `User & Permission` · `Subscription` · `Customer & LINE` · `Venue & Court` · `Booking` · `Payment` · `Membership & Wallet` · `CRM & Notification` · `Analytics`
+# Frontend — type-check · lint · unit (Vitest)
+cd frontend && npx tsc --noEmit && npm run lint && npm run test
 
-หลักการ: ทุกตารางของสนามมี `organization_id` · ลูกค้า LINE คนเดียวมีได้หลาย Customer Profile (แต้ม/Wallet/Membership ไม่ปนกันข้ามสนาม) · มาตรฐานคอลัมน์ `created_at` / `updated_at` / `deleted_at`
+# Frontend — e2e (Playwright, ต้องมี dev server รันอยู่)
+cd frontend && npx playwright test --workers=1
+```
 
----
-
-## API
-
-REST API ภายใต้ base path **`/api/v1`** (รายการเต็มใน [API Specification](structure/API_Specification_v1.md)) ครอบคลุม:
-
-`auth` · `organizations` · `branches` · `courts` (+ schedules) · `bookings` (+ cancel/checkin/checkout) · `payments` (+ upload‑slip/verify/reject) · `refunds` · `customers` · `memberships` · `wallets` · `promotions`/`coupons` · `crm` (segments/timeline) · `notifications`/`broadcasts` · `reports` · `subscriptions` · `admin` (users/roles/permissions)
-
----
-
-## Roadmap
-
-| Phase | โฟกัส | เป้าหมาย |
-|---|---|---|
-| **1 — MVP** (8–12 สัปดาห์) | Multi‑Tenant Core, LINE Login, Booking, Check‑in/out, Manual Transfer + Slip Verify, Customer + Reminder | 5–10 สนามแรก |
-| **2 — Growth** | CRM (Segment/Broadcast/Timeline), Loyalty (Membership/Wallet/Package/Points), Analytics | 50+ สนาม |
-| **3 — Scale** | Automation (CRM/Rebooking), Integrations (Payment Gateway/Public API/Webhook), White Label (Custom Domain/Branding) | 100+ สนาม |
-| **4 — Enterprise** | Tournament, Coach, Marketplace, Data Warehouse / BI | 500+ สนาม |
-
-รายละเอียดใน [Development Roadmap](structure/Development_Roadmap_v1.md)
+**Baseline ที่ต้องรักษา:** backend เขียว · `tsc --noEmit` clean · vitest เขียว · **lint 0 errors** · e2e เขียว
 
 ---
 
 ## โครงสร้าง Repository
 
-**ปัจจุบัน** (ขั้น spec):
-
 ```
 .
-├── structure/   # เอกสารออกแบบระบบทั้งหมด (PRD, Architecture, DB, API, UX)
-├── image/       # ภาพหน้าจอ/อ้างอิงดีไซน์
-├── .agents/     # Shared AI context (ดูด้านล่าง)
+├── backend/          # Laravel 13 API
+│   ├── app/
+│   │   ├── Http/Controllers/Api/{Owner,Admin,…}   # แยกตามพอร์ทัล
+│   │   ├── Http/Resources/         # API response shapes
+│   │   ├── Http/Middleware/        # tenant · permission · feature · limit
+│   │   ├── Models/  Services/  Support/
+│   │   └── ...
+│   ├── database/migrations · seeders
+│   ├── routes/api.php
+│   └── tests/{Feature,Unit}/
+├── frontend/         # Next.js 16 App Router
+│   ├── app/
+│   │   ├── owner/     # Owner Portal
+│   │   ├── admin/     # Super Admin Portal
+│   │   └── v/[slug]/  # Customer App (LINE LIFF)
+│   ├── components/  lib/{api,tenant,auth}/
+│   └── e2e/          # Playwright specs
+├── structure/        # เอกสารออกแบบชุดแรก (PRD, Architecture, DB, API)
+├── docs/  image/  infra/
+├── .agents/          # Shared AI context (ดูด้านล่าง)
+├── DEPLOYMENT.md
 └── README.md
 ```
 
-**โครงสร้างเป้าหมาย** ตอนเริ่มพัฒนา (จาก [Project Structure](structure/Project_Structure_v1.md)) เป็น monorepo: `frontend/` (Next.js) · `backend/` (PHP 8.3 — Controllers/Services/Repositories/Middleware/Jobs/Events) · `database/` (migrations/seeders/views) · `infra/` (nginx/cron/deploy) · `docs/`
+---
 
-เอกสาร UX จัดเก็บตามมาตรฐานใน `docs/ux/` (1 Screen = 1 File, 1 Flow = 1 File) — ดู [UX Folder Structure](structure/SanamSpace_UX_Folder_Structure_v1.md)
+## กติกาสถาปัตยกรรมที่สำคัญ
+
+รายละเอียดเต็มใน [`.agents/AGENTS.md`](.agents/AGENTS.md) — สรุปข้อที่พลาดไม่ได้:
+
+- **Multi-tenancy:** ทุกอย่าง scope ด้วย `organization_id` · resolve จาก `X-Venue-Slug` **ไม่มี fallback** · path `/v/{slug}` = LINE LIFF ห้ามเปลี่ยน
+- **เงิน:** ผ่าน shared service (Refund/Credit/Deposit/Discount) เท่านั้น · state transition guarded · เพิ่ม double-processing test ทุกครั้ง · เครดิต(บาท) ≠ ชั่วโมงแพ็กเกจ · `confirmed ≠ จ่ายครบ` (เช็ค `paid_amount`)
+- **Dev SQLite / Prod MySQL / CI ไม่รันเทสต์** → รัน migrate+test บน MySQL ก่อน release
+- **UI feedback ผ่าน `toast`/`toastSave`** (`@/lib/toast`) ไม่ใช้ `window.alert` · **feature flag ของลูกค้าอยู่ที่ `/orgs/{slug}/public`** (API GET เป็น `cache:"no-store"`)
 
 ---
 
-## ดัชนีเอกสาร
+## แพ็กเกจและ Feature Flag
+
+คุมความสามารถ + limit ผ่าน Feature Flag / Plan (ดู [Feature Matrix](structure/Feature_Matrix_v1.md)) — limit เชิงโครงสร้าง (สาขา/คอร์ท/พนักงาน) hard-block, limit เชิงปริมาณ (จำนวนจอง) ไม่บล็อกรายได้ venue
+
+| Plan | กลุ่มเป้าหมาย |
+|---|---|
+| **Starter** | สนามเปิดใหม่ 1 สาขา |
+| **Business** | สนามเล็ก–กลางที่มีสมาชิกประจำ (CRM/Membership) |
+| **Pro** | สนามที่ทำการตลาดจริงจัง, Multi-Branch |
+| **Enterprise** | Chain หลายสาขา, White Label เต็มรูปแบบ |
+
+---
+
+## ดัชนีเอกสารออกแบบ
+
+เอกสาร spec ชุดแรก (ก่อนลงมือโค้ด) เก็บใน [`structure/`](structure/) — บางส่วนอาจต่างจากที่ implement จริง ให้ยึดโค้ด + `.agents/AGENTS.md` เป็นหลัก:
 
 | เอกสาร | เนื้อหา |
 |---|---|
-| [PRD Master v2](structure/SanamSpace_PRD_Master_v2.md) | Product Requirements ฉบับล่าสุด (vision, modules, MVP) |
-| [PRD Master v1](structure/SanamSpace_PRD_Master_v1.md) | PRD ฉบับแรก |
-| [System Architecture v1](structure/SanamSpace_System_Architecture_v1.md) | สถาปัตยกรรมระบบ + tech stack |
-| [Database Architecture (Full)](structure/SanamSpace_Database_Architecture_v1_Full.md) | สคีมาฐานข้อมูลฉบับเต็ม |
-| [ER Diagram Master v1](structure/SanamSpace_ER_Diagram_Master_v1.md) | ความสัมพันธ์ระหว่างตารางตามโดเมน |
-| [Feature Matrix v1](structure/Feature_Matrix_v1.md) | ฟีเจอร์แยกตาม Plan + ราคา |
-| [Permission Matrix v1](structure/Permission_Matrix_v1.md) | RBAC: บทบาท × โมดูล |
-| [API Specification v1](structure/API_Specification_v1.md) | REST endpoints |
-| [Development Roadmap v1](structure/Development_Roadmap_v1.md) | แผนพัฒนา 4 เฟส |
-| [Project Structure v1](structure/Project_Structure_v1.md) | โครงสร้างโค้ดเป้าหมาย |
-| [UX Folder Structure v1](structure/SanamSpace_UX_Folder_Structure_v1.md) | มาตรฐานจัดเก็บเอกสาร UX |
+| [PRD Master v2](structure/SanamSpace_PRD_Master_v2.md) | Product Requirements |
+| [System Architecture v1](structure/SanamSpace_System_Architecture_v1.md) | สถาปัตยกรรม + tech stack (ฉบับ spec) |
+| [Database Architecture (Full)](structure/SanamSpace_Database_Architecture_v1_Full.md) | สคีมาฐานข้อมูล |
+| [ER Diagram Master v1](structure/SanamSpace_ER_Diagram_Master_v1.md) | ความสัมพันธ์ตาราง |
+| [Feature Matrix v1](structure/Feature_Matrix_v1.md) | ฟีเจอร์ × Plan |
+| [Permission Matrix v1](structure/Permission_Matrix_v1.md) | RBAC บทบาท × โมดูล |
+| [API Specification v1](structure/API_Specification_v1.md) | REST endpoints (ฉบับ spec) |
 
 ---
 
 ## `.agents/` — Shared AI Context
 
-โปรเจกต์นี้ใช้โฟลเดอร์ [`.agents/`](.agents/) เพื่อให้ผู้ช่วย AI (Claude, Cursor, Codex ฯลฯ) แชร์ context ข้าม session ได้:
+โปรเจกต์ใช้โฟลเดอร์ [`.agents/`](.agents/) ให้ผู้ช่วย AI แชร์ context ข้าม session:
 
-- **`AGENTS.md`** — กติกาที่ AI ต้องอ่านก่อนเริ่มงาน
-- **`active.md`** — งานที่กำลังทำ / ติดอะไร / step ถัดไป
-- **`sessions/`** — checkpoint แต่ละรอบ ไว้ resume ต่อ
-- **`topics/`** — โน้ตยาวข้าม task
-- **`private/`** — โน้ตส่วนตัว (gitignored ไม่ขึ้น repo)
-- **`skills/`** — skills ที่ติดตั้งไว้ในโปรเจกต์
+- **`AGENTS.md`** — กติกาที่ต้องอ่านก่อนเริ่มงาน (multi-tenancy, money, dev/prod DB, gotchas)
+- **`active.md`** — งานล่าสุด / สถานะ / step ถัดไป
+- **`sessions/`** — checkpoint แต่ละรอบ ไว้ resume
+- **`topics/`** — โน้ตยาวข้าม task · **`private/`** — โน้ตส่วนตัว (gitignored)
 
 ---
 
-<sub>© SanamSpace — เอกสารภายใน (Proprietary &amp; Confidential)</sub>
+<sub>© SanamSpace — Proprietary &amp; Confidential</sub>
