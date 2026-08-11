@@ -2,8 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Booking;
-use App\Services\NotificationService;
+use App\Services\BookingExpiryService;
 use Illuminate\Console\Command;
 
 /**
@@ -23,25 +22,9 @@ class ExpireUnpaidBookings extends Command
 
     protected $description = 'Cancel pending_payment bookings past their hold window and free the slot';
 
-    public function handle(NotificationService $notifications): int
+    public function handle(BookingExpiryService $expiry): int
     {
-        $cutoff = now()->subMinutes((int) config('booking.hold_minutes', 30));
-
-        $expired = 0;
-
-        Booking::query()
-            ->where('status', 'pending_payment')
-            ->where('created_at', '<=', $cutoff)
-            // Leave alone anything the customer has already paid for and is
-            // just waiting on the venue to approve.
-            ->whereDoesntHave('payments', fn ($q) => $q->where('status', 'pending_review'))
-            ->chunkById(200, function ($bookings) use (&$expired, $notifications) {
-                foreach ($bookings as $booking) {
-                    $booking->update(['status' => 'cancelled']);
-                    $notifications->bookingExpired($booking);
-                    $expired++;
-                }
-            });
+        $expired = $expiry->sweep();
 
         $this->info("Expired {$expired} unpaid booking(s).");
 

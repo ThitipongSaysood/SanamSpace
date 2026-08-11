@@ -124,4 +124,31 @@ class ExpireUnpaidBookingsTest extends TestCase
             'end' => '19:00',
         ])->assertCreated();
     }
+
+    public function test_opening_my_bookings_lazily_clears_my_overdue_hold(): void
+    {
+        // A customer whose hold has already timed out must not see it still
+        // "รอชำระเงิน" just because no cron has swept it yet — the list clears it.
+        $token = $this->postJson('/api/v1/auth/line/login', [
+            'organizationSlug' => 'everyday-badminton',
+            'lineUserId' => 'Ulazy',
+            'displayName' => 'Lazy Viewer',
+        ])->json('token');
+
+        $customerId = Customer::where('display_name', 'Lazy Viewer')->value('id');
+        $booking = Booking::create([
+            'organization_id' => $this->org->id,
+            'branch_id' => $this->court->branch_id,
+            'court_id' => $this->court->id,
+            'customer_id' => $customerId,
+            'code' => 'BKLAZY01',
+            'date' => '2026-09-01', 'start' => '18:00', 'end' => '19:00',
+            'amount' => 250, 'status' => 'pending_payment',
+        ]);
+        Booking::where('id', $booking->id)->update(['created_at' => now()->subMinutes(40)]);
+
+        $this->withToken($token)->getJson('/api/v1/bookings')->assertOk();
+
+        $this->assertSame('cancelled', $booking->fresh()->status);
+    }
 }

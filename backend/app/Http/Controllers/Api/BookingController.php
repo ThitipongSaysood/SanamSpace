@@ -26,8 +26,13 @@ class BookingController extends Controller
     /**
      * GET /bookings -> Booking[] (current customer's bookings, newest first).
      */
-    public function index(Request $request): AnonymousResourceCollection
+    public function index(Request $request, \App\Services\BookingExpiryService $expiry): AnonymousResourceCollection
     {
+        // Clear this customer's timed-out holds first, so the list never shows a
+        // booking still marked "รอชำระเงิน" after its window has passed — it is
+        // cancelled and its slot freed here, not only when the cron next runs.
+        $expiry->sweep($request->user()->id);
+
         $bookings = Booking::query()
             ->with(['branch.organization', 'court', 'rentals', 'latestPayment', 'customerPackage'])
             ->where('customer_id', $request->user()->id)
