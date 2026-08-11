@@ -8,6 +8,7 @@ use App\Models\Promotion;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Validation\Rule;
 
 class PromotionController extends Controller
 {
@@ -21,6 +22,7 @@ class PromotionController extends Controller
 
         $promotions = Promotion::query()
             ->forOrganization($orgId)
+            ->with('coupon')
             ->orderBy('sort_order')
             ->orderBy('created_at')
             ->get();
@@ -40,6 +42,9 @@ class PromotionController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'subtitle' => ['nullable', 'string', 'max:255'],
             'tag' => ['required', 'string', 'max:255'],
+            // Optional link to one of this venue's own coupons.
+            'couponId' => ['sometimes', 'nullable', 'string', Rule::exists('coupons', 'id')->where('organization_id', $orgId)],
+            'isActive' => ['sometimes', 'boolean'],
         ]);
 
         $nextSort = (int) Promotion::query()
@@ -51,10 +56,12 @@ class PromotionController extends Controller
             'title' => $validated['title'],
             'subtitle' => $validated['subtitle'] ?? null,
             'tag' => $validated['tag'],
+            'coupon_id' => $validated['couponId'] ?? null,
+            'is_active' => $validated['isActive'] ?? true,
             'sort_order' => $nextSort,
         ]);
 
-        return (new OwnerPromotionResource($promotion))
+        return (new OwnerPromotionResource($promotion->load('coupon')))
             ->response()
             ->setStatusCode(201);
     }
@@ -67,10 +74,14 @@ class PromotionController extends Controller
     {
         $promotion = $this->findScoped($request, $id);
 
+        $orgId = $request->attributes->get('currentOrganizationId');
+
         $validated = $request->validate([
             'title' => ['sometimes', 'required', 'string', 'max:255'],
             'subtitle' => ['sometimes', 'nullable', 'string', 'max:255'],
             'tag' => ['sometimes', 'required', 'string', 'max:255'],
+            'couponId' => ['sometimes', 'nullable', 'string', Rule::exists('coupons', 'id')->where('organization_id', $orgId)],
+            'isActive' => ['sometimes', 'boolean'],
             'sortOrder' => ['sometimes', 'integer', 'min:0'],
         ]);
 
@@ -80,6 +91,12 @@ class PromotionController extends Controller
                 $updates[$field] = $validated[$field];
             }
         }
+        if (array_key_exists('couponId', $validated)) {
+            $updates['coupon_id'] = $validated['couponId'];
+        }
+        if (array_key_exists('isActive', $validated)) {
+            $updates['is_active'] = $validated['isActive'];
+        }
         if (array_key_exists('sortOrder', $validated)) {
             $updates['sort_order'] = $validated['sortOrder'];
         }
@@ -88,7 +105,7 @@ class PromotionController extends Controller
             $promotion->update($updates);
         }
 
-        return new OwnerPromotionResource($promotion->fresh());
+        return new OwnerPromotionResource($promotion->fresh()->load('coupon'));
     }
 
     /**

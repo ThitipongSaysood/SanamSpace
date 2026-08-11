@@ -5,6 +5,7 @@ import { ArrowDown, ArrowUp, ImageOff, Maximize2, Megaphone, Plus, Trash2 } from
 import type { OwnerWelcomeBanner, WelcomeBannerInput } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
 import { Loading, ErrorState } from "@/components/states";
+import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -429,20 +430,19 @@ function BannerEditor({
             />
           </div>
 
-          <label className="flex items-start gap-3 rounded-xl bg-app p-3">
-            <input
-              type="checkbox"
-              checked={form.popup}
-              onChange={(e) => set("popup", e.target.checked)}
-              className="mt-0.5 size-4 accent-[var(--brand-primary)]"
-            />
-            <span className="text-sm">
+          <div className="flex items-start justify-between gap-3 rounded-xl bg-app p-3">
+            <div className="text-sm">
               เด้งเป็น popup ตอนลูกค้าเข้าแอป
               <span className="mt-0.5 block text-xs text-muted-foreground">
                 ลูกค้าปิดแล้วจะไม่เด้งซ้ำ จนกว่าจะเปลี่ยนรูปหรือข้อความ — เปิดหลายอันได้ ลูกค้าจะกด “ถัดไป” ดูทีละอัน
               </span>
-            </span>
-          </label>
+            </div>
+            <Switch
+              checked={form.popup}
+              onCheckedChange={(v) => set("popup", v)}
+              aria-label="เด้งเป็น popup ตอนลูกค้าเข้าแอป"
+            />
+          </div>
         </div>
       </div>
     </Modal>

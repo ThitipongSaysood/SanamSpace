@@ -21,6 +21,9 @@ class OwnerPromotionResource extends JsonResource
             'subtitle' => $this->subtitle,
             'tag' => $this->tag,
             'sortOrder' => (int) $this->sort_order,
+            'isActive' => (bool) $this->is_active,
+            'couponId' => $this->coupon_id ? (string) $this->coupon_id : null,
+            'couponCode' => $this->whenLoaded('coupon', fn () => $this->coupon?->code),
         ];
     }
 }

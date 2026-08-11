@@ -97,8 +97,18 @@ export const mockApi = {
   },
   // Mock mode has no coupon store; the shape is right so the field can be
   // built and tested, but no code is ever accepted.
-  async previewCoupon(_courtId: string, _code: string, _amount: number): Promise<CouponPreview> {
+  async previewCoupon(_courtId: string, code: string, amount: number): Promise<CouponPreview> {
     await delay();
+    // Demo codes so the promo → auto-apply flow works in mock mode too.
+    const c = code.trim().toUpperCase();
+    if (c === "SAVE10" || c === "SANAM10") {
+      const discount = Math.round(amount * 0.1);
+      return { code: c, description: "ลด 10%", discount, payable: Math.max(0, amount - discount) };
+    }
+    if (c === "FIRST100") {
+      const discount = Math.min(100, amount);
+      return { code: c, description: "ลด ฿100", discount, payable: Math.max(0, amount - discount) };
+    }
     throw new Error("ไม่พบคูปองนี้");
   },
   async payWithCredit(bookingId: string, _amount?: number): Promise<Booking> {

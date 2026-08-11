@@ -9,6 +9,7 @@ import Link from "next/link";
 import { CustomerName } from "@/components/customer-peek";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
@@ -96,20 +97,19 @@ function EarningSettings({ settings, onSaved }: { settings: OwnerSettings; onSav
 
   return (
     <section className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
-      <label className="flex items-start gap-3">
-        <input
-          type="checkbox"
-          checked={form.pointsEnabled}
-          onChange={(e) => setForm((f) => ({ ...f, pointsEnabled: e.target.checked }))}
-          className="mt-0.5 size-4 accent-[var(--brand-primary)]"
-        />
-        <span className="text-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="text-sm">
           เปิดใช้ระบบคะแนนสะสม
           <span className="mt-0.5 block text-xs text-muted-foreground">
             ปิดอยู่ = ลูกค้าจองแล้วไม่ได้คะแนน คะแนนเดิมยังอยู่
           </span>
-        </span>
-      </label>
+        </div>
+        <Switch
+          checked={form.pointsEnabled}
+          onCheckedChange={(v) => setForm((f) => ({ ...f, pointsEnabled: v }))}
+          aria-label="เปิดใช้ระบบคะแนนสะสม"
+        />
+      </div>
 
       {form.pointsEnabled && (
         <>
@@ -192,22 +192,21 @@ function EarningSettings({ settings, onSaved }: { settings: OwnerSettings; onSav
             </p>
           </div>
           <div className="space-y-2 rounded-xl border border-black/10 p-3">
-            <label className="flex items-start gap-3">
-              <input
-                type="checkbox"
-                checked={form.selfRedeemEnabled}
-                onChange={(e) => setForm((f) => ({ ...f, selfRedeemEnabled: e.target.checked }))}
-                className="mt-0.5 size-4 accent-[var(--brand-primary)]"
-              />
-              <span className="text-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div className="text-sm">
                 ให้ลูกค้ากดแลกเองในแอปได้
                 {/* Off until asked for: a code nobody at the counter is
                     expecting is worse than no button at all. */}
                 <span className="mt-0.5 block text-xs text-muted-foreground">
                   เครดิตกับชั่วโมงเข้าให้ทันที · ของในร้านจะได้รหัสมารับที่เคาน์เตอร์ ถ้าไม่มารับตามเวลา คะแนนคืนอัตโนมัติ
                 </span>
-              </span>
-            </label>
+              </div>
+              <Switch
+                checked={form.selfRedeemEnabled}
+                onCheckedChange={(v) => setForm((f) => ({ ...f, selfRedeemEnabled: v }))}
+                aria-label="ให้ลูกค้ากดแลกเองในแอปได้"
+              />
+            </div>
 
             {form.selfRedeemEnabled && (
               <div className="space-y-1.5 sm:max-w-[16rem]">
@@ -224,22 +223,21 @@ function EarningSettings({ settings, onSaved }: { settings: OwnerSettings; onSav
           </div>
 
           <div className="space-y-2 rounded-xl border border-black/10 p-3">
-            <label className="flex items-start gap-3">
-              <input
-                type="checkbox"
-                checked={form.pointsExpiryEnabled}
-                onChange={(e) => setForm((f) => ({ ...f, pointsExpiryEnabled: e.target.checked }))}
-                className="mt-0.5 size-4 accent-[var(--brand-primary)]"
-              />
-              <span className="text-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div className="text-sm">
                 ให้คะแนนหมดอายุ
                 {/* Off by default and said plainly: this removes value the
                     customer earned, so it must never be a quiet default. */}
                 <span className="mt-0.5 block text-xs text-muted-foreground">
                   คะแนนที่หมดอายุจะถูกล้างเป็น 0 · ระดับสมาชิกไม่ลดลง · ระบบแจ้งลูกค้าล่วงหน้าให้อัตโนมัติ
                 </span>
-              </span>
-            </label>
+              </div>
+              <Switch
+                checked={form.pointsExpiryEnabled}
+                onCheckedChange={(v) => setForm((f) => ({ ...f, pointsExpiryEnabled: v }))}
+                aria-label="ให้คะแนนหมดอายุ"
+              />
+            </div>
 
             {form.pointsExpiryEnabled && (
               <div className="grid gap-2 sm:grid-cols-2">
@@ -546,15 +544,14 @@ function RewardEditor({
           </div>
         )}
 
-        <label className="flex items-center gap-2 sm:col-span-2">
-          <input
-            type="checkbox"
+        <div className="flex items-center gap-2.5 sm:col-span-2">
+          <Switch
             checked={form.isActive}
-            onChange={(e) => set("isActive", e.target.checked)}
-            className="size-4 accent-[var(--brand-primary)]"
+            onCheckedChange={(v) => set("isActive", v)}
+            aria-label="เปิดให้แลก"
           />
           <span className="text-sm">เปิดให้แลก</span>
-        </label>
+        </div>
 
         {save.isError && (
           <p className="sm:col-span-2 text-sm text-brand-danger">{(save.error as Error).message}</p>

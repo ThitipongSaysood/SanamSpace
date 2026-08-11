@@ -596,7 +596,14 @@ export type WalletTopupInstructions = {
   bank: { bankName: string | null; accountName: string | null; accountNumber: string | null } | null;
 };
 
-export type Promotion = { id: string; title: string; subtitle: string; tag: "ส่วนลด" | "แพ็กเกจ" };
+export type Promotion = {
+  id: string;
+  title: string;
+  subtitle: string;
+  tag: "ส่วนลด" | "แพ็กเกจ";
+  /** Code to pre-apply when the customer taps this promo (null = announcement). */
+  couponCode?: string | null;
+};
 
 /** The customer's own marketing consent (PDPA). `consent: null` = never asked. */
 export type MarketingConsent = {
@@ -780,6 +787,11 @@ export type OwnerPromotion = {
   subtitle: string;
   tag: "ส่วนลด" | "แพ็กเกจ";
   sortOrder: number;
+  /** Off → hidden from the customer app. */
+  isActive: boolean;
+  /** Optional coupon this promo applies when a customer taps it. */
+  couponId?: string | null;
+  couponCode?: string | null;
 };
 
 // active = เปิด, inactive = ปิด

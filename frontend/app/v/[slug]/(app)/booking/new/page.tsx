@@ -45,7 +45,10 @@ function SectionTitle({ n, children }: { n: number; children: React.ReactNode })
 
 function NewBookingInner() {
   const router = useRouter();
-  const venueId = useSearchParams().get("venueId") ?? "everyday-badminton";
+  const sp = useSearchParams();
+  const venueId = sp.get("venueId") ?? "everyday-badminton";
+  // A promo can hand us a coupon to apply the moment there's a price for it.
+  const initialCoupon = sp.get("coupon") ?? undefined;
   const { data: courts } = useCourts(venueId);
   const dates = useMemo(() => genDates(14), []);
   const [courtId, setCourtId] = useState<string | undefined>();
@@ -327,6 +330,7 @@ function NewBookingInner() {
               amount={subtotal}
               applied={coupon}
               onApply={setCoupon}
+              initialCode={initialCoupon}
             />
           </section>
         )}
@@ -397,22 +401,25 @@ function CouponField({
   amount,
   applied,
   onApply,
+  initialCode,
 }: {
   courtId: string;
   amount: number;
   applied: CouponPreview | null;
   onApply: (c: CouponPreview | null) => void;
+  initialCode?: string;
 }) {
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState((initialCode ?? "").toUpperCase());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function check() {
-    if (!code.trim()) return;
+  async function check(value: string = code) {
+    const trimmed = value.trim();
+    if (!trimmed) return;
     setBusy(true);
     setError(null);
     try {
-      onApply(await api.previewCoupon(courtId, code.trim(), amount));
+      onApply(await api.previewCoupon(courtId, trimmed, amount));
     } catch (e) {
       onApply(null);
       setError((e as Error).message || "ใช้คูปองนี้ไม่ได้");
@@ -420,6 +427,17 @@ function CouponField({
       setBusy(false);
     }
   }
+
+  // A coupon handed in by a promo applies itself as soon as the field appears
+  // (which only happens once a court + slot give it a price to check against).
+  const autoTried = useRef(false);
+  useEffect(() => {
+    if (initialCode && amount > 0 && !applied && !autoTried.current) {
+      autoTried.current = true;
+      check(initialCode);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialCode, amount, applied]);
 
   if (applied) {
     return (
@@ -457,7 +475,7 @@ function CouponField({
         />
         <Button
           type="button"
-          onClick={check}
+          onClick={() => check()}
           disabled={busy || !code.trim()}
           className="h-11 shrink-0 rounded-xl px-5"
         >

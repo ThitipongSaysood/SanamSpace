@@ -20,6 +20,7 @@ import type { LineBlock, LineBlockType, LineButton, LineTemplateEvent, OwnerCust
 import { ownerApi } from "@/lib/api/owner";
 import { toast, toastSave } from "@/lib/toast";
 import { Loading, ErrorState } from "@/components/states";
+import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -204,15 +205,14 @@ export default function LineTemplatesPage() {
         <div className="space-y-4">
           {/* Enable + save */}
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
-            <label className="flex cursor-pointer items-center gap-2.5">
-              <input
-                type="checkbox"
+            <div className="flex items-center gap-2.5">
+              <Switch
                 checked={draft.enabled}
-                onChange={(e) => setDraft((d) => ({ ...d, enabled: e.target.checked }))}
-                className="size-4 accent-brand"
+                onCheckedChange={(v) => setDraft((d) => ({ ...d, enabled: v }))}
+                aria-label="ส่งการ์ดนี้ให้ลูกค้า"
               />
               <span className="text-sm font-medium">ส่งการ์ดนี้ให้ลูกค้า</span>
-            </label>
+            </div>
             <div className="flex items-center gap-3">
               {save.isSuccess && !dirty && (
                 <span className="inline-flex items-center gap-1 text-sm font-medium text-brand">

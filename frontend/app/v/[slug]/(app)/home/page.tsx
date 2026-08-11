@@ -96,10 +96,11 @@ export default function HomePage() {
   // on the membership screen, not on the screen people open to see what is next.
   const toCollect = (redemptions ?? []).filter((r) => r.status === "pending");
   const unread = notifications?.length ?? 0;
-  // The banner shows the venue's OWN first promotion. It used to be a
-  // hard-coded "โปรโมชั่นลด 10%" that every venue displayed whether or not it
-  // ran one — so the strip is simply absent when a venue has none.
-  const promo = promotions?.[0] ?? null;
+  // All the venue's live promotions, shown on the home so a customer sees every
+  // one without an extra tap; capped so a long list doesn't push the page down,
+  // with "ดูทั้งหมด" for the rest.
+  const allPromos = promotions ?? [];
+  const shownPromos = allPromos.slice(0, 3);
 
   // A single-branch venue is the normal case: booking goes straight to picking
   // a court and a time, with no sport-picker or venue-search detour in between.
@@ -299,24 +300,46 @@ export default function HomePage() {
           <WelcomeCard key={banner.id} banner={banner} />
         ))}
 
-        {promo && (
-          <Link
-            href="/promotions"
-            className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-brand to-brand-secondary p-4 text-white shadow-sm transition active:scale-[0.99]"
-          >
-            <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-white/20">
-              <Tag className="size-5" />
+        {shownPromos.length > 0 && (
+          <section aria-labelledby="home-promos">
+            <div className="mb-2 flex items-center justify-between">
+              <h2 id="home-promos" className="text-lg font-bold">โปรโมชั่น</h2>
+              {allPromos.length > shownPromos.length && (
+                <Link href="/promotions" className="text-sm font-semibold text-brand">
+                  ดูทั้งหมด
+                </Link>
+              )}
             </div>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-semibold">{promo.title}</div>
-              {promo.subtitle && <div className="truncate text-xs text-white/85">{promo.subtitle}</div>}
+            <div className="space-y-2.5">
+              {shownPromos.map((p) => (
+                // A coupon-linked promo jumps into booking with the code applied;
+                // a plain announcement opens the promotions list for its details.
+                <Link
+                  key={p.id}
+                  href={p.couponCode ? `/booking/new?coupon=${encodeURIComponent(p.couponCode)}` : "/promotions"}
+                  className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-brand to-brand-secondary p-4 text-white shadow-sm transition active:scale-[0.99]"
+                >
+                  <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-white/20">
+                    <Tag className="size-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-semibold">{p.title}</div>
+                    {p.subtitle && <div className="truncate text-xs text-white/85">{p.subtitle}</div>}
+                    {p.couponCode && (
+                      <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-semibold">
+                        จองเลย · ใช้โค้ด {p.couponCode}
+                      </div>
+                    )}
+                  </div>
+                  {p.tag && (
+                    <span className="shrink-0 rounded-full bg-brand-accent px-3 py-1 text-xs font-bold text-black/80">
+                      {p.tag}
+                    </span>
+                  )}
+                </Link>
+              ))}
             </div>
-            {promo.tag && (
-              <span className="shrink-0 rounded-full bg-brand-accent px-3 py-1 text-xs font-bold text-black/80">
-                {promo.tag}
-              </span>
-            )}
-          </Link>
+          </section>
         )}
 
         {/* Only shown when there is actually a choice to make. */}

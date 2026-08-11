@@ -24,6 +24,8 @@ class PromotionController extends Controller
 
         $promotions = Promotion::query()
             ->forOrganization($org->id)
+            ->where('is_active', true)
+            ->with('coupon')
             ->orderBy('sort_order')
             ->orderBy('created_at')
             ->get();

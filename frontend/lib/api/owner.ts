@@ -618,12 +618,12 @@ export const ownerApi = {
 
   getOwnerPromotions: () => req<OwnerPromotion[]>("/owner/promotions"),
 
-  createPromotion: (body: { title: string; subtitle: string; tag: string }) =>
+  createPromotion: (body: { title: string; subtitle: string; tag: string; couponId?: string | null; isActive?: boolean }) =>
     req<OwnerPromotion>("/owner/promotions", { method: "POST", body }),
 
   updatePromotion: (
     id: string,
-    body: Partial<{ title: string; subtitle: string; tag: string }>,
+    body: Partial<{ title: string; subtitle: string; tag: string; couponId: string | null; isActive: boolean }>,
   ) => req<OwnerPromotion>(`/owner/promotions/${id}`, { method: "PUT", body }),
 
   deletePromotion: (id: string) =>

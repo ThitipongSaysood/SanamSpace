@@ -3,13 +3,30 @@ import { toastSave } from "@/lib/toast";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { Check, Link2, Palette, Store, Wallet } from "lucide-react";
+import {
+  Bell,
+  CalendarCheck,
+  CalendarDays,
+  CalendarPlus,
+  Check,
+  ChevronRight,
+  Crown,
+  History,
+  Home,
+  Link2,
+  Package,
+  Palette,
+  Store,
+  User,
+  Wallet,
+} from "lucide-react";
 import type { OwnerSettings } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
 import { Loading, ErrorState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 
 const TABS = [
   { key: "info", label: "ข้อมูลสนาม", icon: Store },
@@ -301,7 +318,7 @@ function StorefrontTab({ settings }: { settings: OwnerSettings }) {
       <div className="space-y-6 lg:col-span-2">
         {/* Logo */}
         <section className="space-y-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
-          <Label>โลโก้สนาม</Label>
+          <h2 className="text-sm font-semibold">โลโก้สนาม</h2>
           <div className="flex items-center gap-3">
             {form.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -340,7 +357,7 @@ function StorefrontTab({ settings }: { settings: OwnerSettings }) {
         {/* Brand colours */}
         <section className="space-y-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
           <div>
-            <Label>ธีมสีแบรนด์</Label>
+            <h2 className="text-sm font-semibold">ธีมสีแบรนด์</h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
               ใช้กับทั้งแอปของลูกค้า — ปุ่ม แถบล่าง และแบนเนอร์
             </p>
@@ -380,58 +397,70 @@ function StorefrontTab({ settings }: { settings: OwnerSettings }) {
             })}
           </div>
 
-          <p className="text-xs text-muted-foreground">หรือกำหนดเองทีละสี</p>
-          {(
-            [
-              ["primaryColor", "สีหลัก", "ปุ่มหลัก · เมนูล่างที่กำลังใช้งาน"],
-              ["secondaryColor", "สีรอง", "ไล่เฉดคู่กับสีหลักบนแบนเนอร์"],
-              ["accentColor", "สีเน้น", "ป้ายเน้น เช่น ส่วนลดและคะแนน"],
-            ] as const
-          ).map(([key, label, hint]) => (
-            <div key={key} className="space-y-1.5">
-              <div className="flex items-baseline gap-2">
-                <span className="text-xs font-medium">{label}</span>
-                <span className="truncate text-xs text-muted-foreground">{hint}</span>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                {/* Swatches for all three, not just the primary: the circles
-                    used to set only สีหลัก, so the other two could be changed
-                    by the native picker alone — the slowest way to choose a
-                    colour, and the reason most venues never touched them. */}
-                {SWATCHES.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    aria-label={`${label} ${c}`}
-                    onClick={() => set(key, c)}
-                    className={`size-7 rounded-full ring-2 ring-offset-2 transition ${
-                      (form[key] as string)?.toLowerCase() === c ? "ring-foreground" : "ring-transparent"
-                    }`}
-                    style={{ background: c }}
-                  />
-                ))}
-                <input
-                  type="color"
-                  aria-label={`${label} — เลือกเอง`}
-                  value={(form[key] as string) || "#000000"}
-                  onChange={(e) => set(key, e.target.value)}
-                  className="h-8 w-12 cursor-pointer rounded-lg border border-input bg-transparent"
-                />
-              </div>
-            </div>
-          ))}
+          {/* Fine-tune each colour on its own. A colour "well" shows the current
+              value and opens the native picker; the quick swatches cover all
+              three (they once set only สีหลัก, so the other two could be changed
+              by the slow native picker alone — why most venues never touched
+              them). */}
+          <div className="space-y-4 border-t border-black/5 pt-4">
+            <p className="text-xs font-medium text-muted-foreground">หรือกำหนดเองทีละสี</p>
+            {(
+              [
+                ["primaryColor", "สีหลัก", "ปุ่มหลัก · เมนูล่างที่กำลังใช้งาน"],
+                ["secondaryColor", "สีรอง", "ไล่เฉดคู่กับสีหลักบนแบนเนอร์"],
+                ["accentColor", "สีเน้น", "ป้ายเน้น เช่น ส่วนลดและคะแนน"],
+              ] as const
+            ).map(([key, label, hint]) => {
+              const value = (form[key] as string) || "";
+              return (
+                <div key={key} className="flex items-start gap-3">
+                  <label
+                    className="relative mt-0.5 size-11 shrink-0 cursor-pointer rounded-xl ring-1 ring-black/10 ring-offset-1 transition hover:ring-black/25"
+                    style={{ background: value || "#e5e7eb" }}
+                    title="เลือกสีเอง"
+                  >
+                    <input
+                      type="color"
+                      aria-label={`${label} — เลือกสีเอง`}
+                      value={value || "#000000"}
+                      onChange={(e) => set(key, e.target.value)}
+                      className="absolute inset-0 cursor-pointer opacity-0"
+                    />
+                  </label>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-sm font-medium">{label}</span>
+                      <span className="truncate text-xs text-muted-foreground">{hint}</span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      {SWATCHES.map((c) => {
+                        const on = value.toLowerCase() === c;
+                        return (
+                          <button
+                            key={c}
+                            type="button"
+                            aria-label={`${label} ${c}`}
+                            aria-pressed={on}
+                            onClick={() => set(key, c)}
+                            className={`size-6 rounded-full ring-2 ring-offset-1 transition ${
+                              on ? "ring-foreground" : "ring-transparent hover:ring-black/20"
+                            }`}
+                            style={{ background: c }}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </section>
 
         <section className="space-y-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
           <h2 className="text-sm font-semibold">เช็คอินด้วย QR</h2>
-          <label className="flex items-start gap-3">
-            <input
-              type="checkbox"
-              checked={form.checkinEnabled !== false}
-              onChange={(e) => set("checkinEnabled", e.target.checked)}
-              className="mt-0.5 size-4 accent-[var(--brand-primary)]"
-            />
-            <span className="text-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div className="text-sm">
               ให้ลูกค้าแสดง QR แล้วพนักงานสแกนตอนมาถึง
               <span className="mt-0.5 block text-xs text-muted-foreground">
                 ปิดแล้วลูกค้าจะไม่เห็นหน้า QR ในแอป — เหมาะกับสนามเล็กที่พนักงานจำลูกค้าได้อยู่แล้ว ·
@@ -440,26 +469,30 @@ function StorefrontTab({ settings }: { settings: OwnerSettings }) {
                   เช็คอิน
                 </Link>
               </span>
-            </span>
-          </label>
+            </div>
+            <Switch
+              checked={form.checkinEnabled !== false}
+              onCheckedChange={(v) => set("checkinEnabled", v)}
+              aria-label="เช็คอินด้วย QR"
+            />
+          </div>
         </section>
 
         <section className="space-y-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
           <h2 className="text-sm font-semibold">มัดจำ</h2>
-          <label className="flex items-start gap-3">
-            <input
-              type="checkbox"
-              checked={form.depositEnabled === true}
-              onChange={(e) => set("depositEnabled", e.target.checked)}
-              className="mt-0.5 size-4 accent-[var(--brand-primary)]"
-            />
-            <span className="text-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div className="text-sm">
               ให้ลูกค้าจ่ายมัดจำเพื่อจองคอร์ท แล้วจ่ายส่วนที่เหลือที่สนาม
               <span className="mt-0.5 block text-xs text-muted-foreground">
                 จ่ายมัดจำแล้วคอร์ทถูกกันไว้ทันที · ยอดที่เหลือรับได้ที่หน้ารายการจอง
               </span>
-            </span>
-          </label>
+            </div>
+            <Switch
+              checked={form.depositEnabled === true}
+              onCheckedChange={(v) => set("depositEnabled", v)}
+              aria-label="มัดจำ"
+            />
+          </div>
 
           {form.depositEnabled && (
             <div className="grid gap-3 sm:grid-cols-2">
@@ -496,16 +529,6 @@ function StorefrontTab({ settings }: { settings: OwnerSettings }) {
           )}
         </section>
 
-        <section className="rounded-2xl bg-white p-5 text-sm shadow-sm ring-1 ring-black/5">
-          <h2 className="text-sm font-semibold">ข้อความต้อนรับ / แบนเนอร์</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            ย้ายไปอยู่เมนู{" "}
-            <Link href="/owner/banner" className="font-semibold text-brand">
-              แบนเนอร์/ต้อนรับ
-            </Link>{" "}
-            แล้ว
-          </p>
-        </section>
       </div>
 
       <div className="lg:col-span-1">
@@ -547,12 +570,30 @@ function BrandPreview({ form }: { form: OwnerSettings }) {
   const accent = form.accentColor || "#F59E0B";
   const initials = (form.logoText || form.orgName || "?").trim().slice(0, 2).toUpperCase();
 
+  // Show the whole home the way a customer sees it, in the venue's colours.
+  const pointsOn = form.pointsEnabled ?? false;
+  const tint = `${primary}1A`; // 10% wash for icon chips / status pills
+  const tiles = [
+    { icon: History, title: "ประวัติการจอง", sub: "ดูการจองทั้งหมด" },
+    ...(pointsOn ? [{ icon: Crown, title: "แต้มสะสม", sub: "สิทธิพิเศษสมาชิก" }] : []),
+    { icon: Package, title: "แพ็กเกจ", sub: "ซื้อชั่วโมงล่วงหน้า" },
+    { icon: Store, title: "ข้อมูลสนาม", sub: "รูป · รีวิว · แผนที่" },
+  ];
+  const nav = [
+    { icon: Home, label: "หน้าหลัก" },
+    { icon: CalendarDays, label: "การจอง" },
+    { icon: Bell, label: "แจ้งเตือน" },
+    { icon: User, label: "โปรไฟล์" },
+  ];
+
   return (
     <div className="space-y-2 border-t border-black/5 pt-4">
       <Label>ตัวอย่างหน้าลูกค้า</Label>
-      <div className="overflow-hidden rounded-2xl ring-1 ring-black/10">
-        {/* App header */}
-        <div className="flex items-center gap-2.5 bg-white px-3 py-2.5">
+      {/* A faithful mock of the customer home, so an owner sees the whole thing
+          in their own colours — not just a swatch. */}
+      <div className="overflow-hidden rounded-2xl bg-[oklch(0.969_0.007_155)] ring-1 ring-black/10">
+        {/* Header */}
+        <div className="flex items-center gap-2 bg-white px-3 py-2.5">
           {form.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={form.logoUrl} alt="" className="size-8 rounded-lg object-cover" />
@@ -564,11 +605,39 @@ function BrandPreview({ form }: { form: OwnerSettings }) {
               {initials}
             </span>
           )}
-          <span className="truncate text-sm font-semibold">{form.orgName || "ชื่อสนาม"}</span>
+          <span className="truncate text-sm font-bold uppercase tracking-wide">{form.orgName || "ชื่อสนาม"}</span>
+          <span className="ml-auto text-muted-foreground">
+            <Bell className="size-4" />
+          </span>
+          <span className="grid size-6 place-items-center rounded-full text-[10px] font-bold" style={{ background: tint, color: primary }}>
+            ส
+          </span>
         </div>
 
-        {/* The promo banner — the surface all three colours land on */}
-        <div className="space-y-2.5 bg-[oklch(0.969_0.007_155)] p-3">
+        <div className="space-y-2.5 p-3">
+          {/* Greeting + standing */}
+          <div
+            className="rounded-2xl p-3 text-white"
+            style={{ background: `linear-gradient(135deg, ${primary}, ${secondary})` }}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="text-[10px] text-white/85">สวัสดี</div>
+                <div className="text-sm font-bold">คุณลูกค้า</div>
+                <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-white/20 px-1.5 py-0.5 text-[9px] font-semibold">
+                  <Crown className="size-2.5" /> Silver
+                </span>
+              </div>
+              {pointsOn && (
+                <div className="shrink-0 text-right">
+                  <div className="text-[9px] text-white/85">คะแนนสะสม</div>
+                  <div className="text-lg font-bold leading-none">0</div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* The venue's live welcome banner, if any */}
           {banner?.imageUrl && (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={banner.imageUrl} alt="แบนเนอร์" className="block h-auto w-full rounded-xl" />
@@ -583,16 +652,65 @@ function BrandPreview({ form }: { form: OwnerSettings }) {
               )}
             </div>
           )}
+
+          {/* Book a court — the primary action */}
+          <div className="flex items-center gap-2.5 rounded-2xl bg-white p-3">
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl text-white" style={{ background: primary }}>
+              <CalendarPlus className="size-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-bold">จองสนาม</div>
+              <div className="truncate text-[10px] text-muted-foreground">เลือกคอร์ท วัน และเวลาที่ต้องการ</div>
+            </div>
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+          </div>
+
+          {/* Shortcut tiles */}
+          <div className="grid grid-cols-2 gap-2">
+            {tiles.map((t) => {
+              const Icon = t.icon;
+              return (
+                <div key={t.title} className="rounded-2xl bg-white p-2.5">
+                  <span className="grid size-7 place-items-center rounded-lg" style={{ background: tint, color: primary }}>
+                    <Icon className="size-4" />
+                  </span>
+                  <div className="mt-1.5 text-[11px] font-bold leading-tight">{t.title}</div>
+                  <div className="truncate text-[9px] text-muted-foreground">{t.sub}</div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Upcoming booking */}
+          <div className="flex items-center justify-between pt-0.5">
+            <span className="text-xs font-bold">การจองที่กำลังจะถึง</span>
+            <span className="text-[10px] font-semibold" style={{ color: primary }}>ดูทั้งหมด</span>
+          </div>
+          <div className="flex items-center gap-2.5 rounded-2xl bg-white p-2.5">
+            <span className="grid size-8 shrink-0 place-items-center rounded-lg" style={{ background: tint, color: primary }}>
+              <CalendarCheck className="size-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold">Court 1</span>
+                <span className="rounded-full px-1.5 py-0.5 text-[8px] font-semibold" style={{ background: tint, color: primary }}>
+                  ยืนยันแล้ว
+                </span>
+              </div>
+              <div className="truncate text-[9px] text-muted-foreground">{form.orgName || "สนาม"} · 20:00–21:00</div>
+            </div>
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+          </div>
+
+          {/* Promo — where all three colours land */}
           {promo ? (
             <div
-              className="flex items-center gap-2.5 rounded-xl p-3 text-white"
+              className="flex items-center gap-2.5 rounded-2xl p-3 text-white"
               style={{ background: `linear-gradient(to right, ${primary}, ${secondary})` }}
             >
               <div className="min-w-0 flex-1">
                 <div className="truncate text-xs font-semibold">{promo.title}</div>
-                {promo.subtitle && (
-                  <div className="truncate text-[10px] text-white/85">{promo.subtitle}</div>
-                )}
+                {promo.subtitle && <div className="truncate text-[10px] text-white/85">{promo.subtitle}</div>}
               </div>
               {promo.tag && (
                 <span
@@ -604,18 +722,28 @@ function BrandPreview({ form }: { form: OwnerSettings }) {
               )}
             </div>
           ) : (
-            <div className="rounded-xl border border-dashed border-black/15 p-3 text-center text-[10px] text-muted-foreground">
+            <div className="rounded-2xl border border-dashed border-black/15 p-3 text-center text-[10px] text-muted-foreground">
               ยังไม่มีโปรโมชั่น — เพิ่มได้ที่เมนู “โปรโมชั่น” แล้วจะแสดงตรงนี้
             </div>
           )}
+        </div>
 
-          <button
-            type="button"
-            className="w-full rounded-xl py-2 text-xs font-semibold text-white"
-            style={{ background: primary }}
-          >
-            จองสนาม
-          </button>
+        {/* Bottom nav */}
+        <div className="flex items-center justify-around border-t border-black/5 bg-white px-1 py-1.5">
+          {nav.map((n, i) => {
+            const Icon = n.icon;
+            const on = i === 0;
+            return (
+              <div
+                key={n.label}
+                className={`flex flex-col items-center gap-0.5 ${on ? "" : "text-muted-foreground"}`}
+                style={on ? { color: primary } : undefined}
+              >
+                <Icon className="size-4" />
+                <span className={`text-[8px] ${on ? "font-semibold" : ""}`}>{n.label}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
       <p className="text-xs text-muted-foreground">

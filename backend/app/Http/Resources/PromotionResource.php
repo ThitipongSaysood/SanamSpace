@@ -18,6 +18,9 @@ class PromotionResource extends JsonResource
             'title' => $this->title,
             'subtitle' => $this->subtitle,
             'tag' => $this->tag,
+            // The code to pre-apply when the customer taps this promo (or null
+            // for a plain announcement). Only surfaced for a live coupon.
+            'couponCode' => $this->whenLoaded('coupon', fn () => $this->coupon?->is_active ? $this->coupon->code : null),
         ];
     }
 }

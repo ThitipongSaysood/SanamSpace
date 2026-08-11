@@ -103,7 +103,7 @@ export const wallet: Wallet = {
 };
 
 export const promotions: Promotion[] = [
-  { id: "promo-1", title: "จองก่อน 16:00 น. ลด 10%", subtitle: "ทุกวัน จันทร์–ศุกร์", tag: "ส่วนลด" },
+  { id: "promo-1", title: "จองก่อน 16:00 น. ลด 10%", subtitle: "ทุกวัน จันทร์–ศุกร์", tag: "ส่วนลด", couponCode: "SAVE10" },
   { id: "promo-2", title: "Happy Hour", subtitle: "18:00–20:00", tag: "แพ็กเกจ" },
   { id: "promo-3", title: "สมาชิก Gold ลดเพิ่ม 5%", subtitle: "ทุกการจอง", tag: "ส่วนลด" },
 ];

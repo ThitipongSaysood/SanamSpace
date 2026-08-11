@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { QrScanner } from "@/components/qr-scanner";
 
 const RECENT_KEY = ["owner", "checkin", "recent"];
+const RECENT_PER_PAGE = 8;
 
 /**
  * Turning a staff phone into the venue's scanner.
@@ -90,6 +91,27 @@ export default function OwnerScanPage() {
 
   const { data: settings } = useQuery({ queryKey: ["owner", "settings"], queryFn: ownerApi.getSettings });
   const { data: recent } = useQuery({ queryKey: RECENT_KEY, queryFn: ownerApi.getRecentCheckins });
+
+  // Page the recent-check-ins list, but fit as many rows as the card is tall so
+  // it fills the column — only the overflow spills onto the next page.
+  const [recentPage, setRecentPage] = useState(1);
+  const [recentPerPage, setRecentPerPage] = useState(RECENT_PER_PAGE);
+  const recentListRef = useRef<HTMLUListElement>(null);
+  useEffect(() => {
+    const ul = recentListRef.current;
+    if (!ul) return;
+    const ro = new ResizeObserver(() => {
+      const row = ul.querySelector("li");
+      const rowH = row?.getBoundingClientRect().height || 64;
+      const fit = Math.max(1, Math.floor(ul.clientHeight / rowH));
+      setRecentPerPage((p) => (p === fit ? p : fit));
+    });
+    ro.observe(ul);
+    return () => ro.disconnect();
+  }, [recent]);
+  const recentPageCount = Math.max(1, Math.ceil((recent?.length ?? 0) / recentPerPage));
+  const recentSafePage = Math.min(recentPage, recentPageCount);
+  const recentPaged = (recent ?? []).slice((recentSafePage - 1) * recentPerPage, recentSafePage * recentPerPage);
 
   const submit = useMutation({
     mutationFn: (code: string) => ownerApi.scan(code),
@@ -204,30 +226,57 @@ export default function OwnerScanPage() {
           <InstallOnPhone />
         </div>
 
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
           <ResultCard result={result} />
 
-          <section className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
-            <h2 className="border-b border-black/5 px-4 py-3 font-semibold">เช็คอินล่าสุด</h2>
+          {/* Fills the rest of the column so it ends level with the scanner on
+              the left; the list scrolls and the pager stays pinned at the foot. */}
+          <section className="flex flex-1 flex-col overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
+            <h2 className="shrink-0 border-b border-black/5 px-4 py-3 font-semibold">เช็คอินล่าสุด</h2>
             {!recent || recent.length === 0 ? (
-              <p className="p-6 text-center text-sm text-muted-foreground">ยังไม่มีใครเช็คอินวันนี้</p>
+              <p className="grid flex-1 place-items-center p-6 text-center text-sm text-muted-foreground">ยังไม่มีใครเช็คอินวันนี้</p>
             ) : (
-              <ul className="divide-y divide-black/5">
-                {recent.map((b) => (
-                  <li key={b.id} className="flex items-center gap-3 px-4 py-3">
-                    <span className="grid size-8 shrink-0 place-items-center rounded-full bg-brand/10 text-brand">
-                      <CheckCircle2 className="size-4" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium"><CustomerName id={b.customerId} name={b.customerName} fallback="—" /></div>
-                      <div className="truncate text-xs text-muted-foreground">
-                        {b.courtName ?? "—"} · {b.start}–{b.end}
+              <div className="flex flex-1 flex-col">
+                <ul ref={recentListRef} className="flex-1 divide-y divide-black/5 overflow-y-auto">
+                  {recentPaged.map((b) => (
+                    <li key={b.id} className="flex items-center gap-3 px-4 py-3">
+                      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-brand/10 text-brand">
+                        <CheckCircle2 className="size-4" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium"><CustomerName id={b.customerId} name={b.customerName} fallback="—" /></div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          {b.courtName ?? "—"} · {b.start}–{b.end}
+                        </div>
                       </div>
-                    </div>
-                    <span className="shrink-0 text-xs text-muted-foreground">{thaiTime(b.checkedInAt)}</span>
-                  </li>
-                ))}
-              </ul>
+                      <span className="shrink-0 text-xs text-muted-foreground">{thaiTime(b.checkedInAt)}</span>
+                    </li>
+                  ))}
+                </ul>
+                {recentPageCount > 1 && (
+                  <div className="flex shrink-0 items-center justify-between gap-2 border-t border-black/5 px-4 py-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setRecentPage(recentSafePage - 1)}
+                      disabled={recentSafePage <= 1}
+                      className="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-black/10 transition hover:bg-app disabled:opacity-40 disabled:hover:bg-transparent"
+                    >
+                      ก่อนหน้า
+                    </button>
+                    <span className="text-xs text-muted-foreground">
+                      หน้า {recentSafePage} / {recentPageCount}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setRecentPage(recentSafePage + 1)}
+                      disabled={recentSafePage >= recentPageCount}
+                      className="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-black/10 transition hover:bg-app disabled:opacity-40 disabled:hover:bg-transparent"
+                    >
+                      ถัดไป
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
           </section>
         </div>

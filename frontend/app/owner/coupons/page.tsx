@@ -5,6 +5,7 @@ import { Plus, Trash2 } from "lucide-react";
 import type { OwnerCoupon } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
+import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -296,15 +297,14 @@ function CouponEditor({
           />
         </div>
 
-        <label className="flex items-center gap-2 sm:col-span-2">
-          <input
-            type="checkbox"
+        <div className="flex items-center gap-2.5 sm:col-span-2">
+          <Switch
             checked={form.isActive}
-            onChange={(e) => set("isActive", e.target.checked)}
-            className="size-4 accent-[var(--brand-primary)]"
+            onCheckedChange={(v) => set("isActive", v)}
+            aria-label="เปิดใช้คูปองนี้"
           />
           <span className="text-sm">เปิดใช้คูปองนี้</span>
-        </label>
+        </div>
 
         {save.isError && (
           <p className="sm:col-span-2 text-sm text-brand-danger">{(save.error as Error).message}</p>
