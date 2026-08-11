@@ -75,8 +75,30 @@ test("the counter checks a customer in, and a second scan is not an error", asyn
   const headers = await ownerHeaders(request);
 
   // A slot happening right now, so the time window is open.
+  //
+  // Both halves of this used to break for eight hours a day and pass for the
+  // other sixteen. `now + 55 minutes` crossed midnight after 23:05 and produced
+  // an end EARLIER than its start, which the API rightly refuses (`after:start`)
+  // — so every court "failed" and the test reported that the venue was fully
+  // booked. And the date came from `toISOString()`, which is UTC: between
+  // midnight and 07:00 in Bangkok that is YESTERDAY, so the booking landed on
+  // the wrong day while the times said today.
+  //
+  // A booking cannot span midnight in this product, so the slot is clipped to
+  // the end of the venue's day and the date is taken from the local clock.
   const now = new Date();
   const hh = (d: Date) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  const localDate = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+  const endOfDay = new Date(now);
+  endOfDay.setHours(23, 59, 0, 0);
+  const end = new Date(Math.min(now.getTime() + 55 * 60_000, endOfDay.getTime()));
+  const start = new Date(Math.min(now.getTime() - 5 * 60_000, end.getTime() - 10 * 60_000));
+
+  // In the last minute of the day no slot can both be in progress and end
+  // before midnight — that is the product's rule, not a gap in the test.
+  test.skip(end.getTime() <= now.getTime(), "no in-progress slot can exist this close to midnight");
   const courts = (await (await request.get(`${BASE}/owner/courts`, { headers })).json()).data as { id: string }[];
   const customers = (await (await request.get(`${BASE}/owner/customers`, { headers })).json()).data as {
     id: string;
@@ -91,9 +113,9 @@ test("the counter checks a customer in, and a second scan is not an error", asyn
       data: {
         courtId: court.id,
         customerId: customers[0].id,
-        date: new Date().toISOString().slice(0, 10),
-        start: hh(new Date(now.getTime() - 5 * 60_000)),
-        end: hh(new Date(now.getTime() + 55 * 60_000)),
+        date: localDate(now),
+        start: hh(start),
+        end: hh(end),
         status: "confirmed",
       },
       failOnStatusCode: false,

@@ -28,6 +28,10 @@ class OwnerCheckinTest extends TestCase
     {
         parent::setUp();
         $this->seed(SanamSpaceSeeder::class);
+
+        // bookingNow() puts the slot at now-10m .. now+1h — which after 23:00
+        // ended at "00:xx" on today's date, i.e. before it started.
+        $this->freezeVenueClockAtMidday($this->org()->id);
     }
 
     private function as(string $token): self

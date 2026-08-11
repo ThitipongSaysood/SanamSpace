@@ -34,6 +34,8 @@ class OperationsTest extends TestCase
         // The seeder fills today with demo bookings; this screen is entirely
         // about today, so they would drown every assertion below.
         Booking::query()->forOrganization($this->org()->id)->forceDelete();
+        // Every test here places a booking at an offset from "now".
+        $this->freezeVenueClockAtMidday($this->org()->id);
     }
 
     // ---- the timeline is actually today ------------------------------------

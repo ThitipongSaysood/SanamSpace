@@ -32,6 +32,8 @@ class CourtBoardTest extends TestCase
     {
         parent::setUp();
         $this->seed(SanamSpaceSeeder::class);
+        // Every test here places a booking at an offset from "now".
+        $this->freezeVenueClockAtMidday($this->org()->id);
     }
 
     public function test_a_court_being_played_on_says_who_is_on_it_and_for_how_long(): void

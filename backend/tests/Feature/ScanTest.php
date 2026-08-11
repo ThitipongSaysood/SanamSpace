@@ -41,6 +41,9 @@ class ScanTest extends TestCase
             ['organization_id' => $this->org()->id],
             ['points_enabled' => true, 'self_redeem_enabled' => true],
         );
+
+        // The scanner checks people into a booking built around "now".
+        $this->freezeVenueClockAtMidday($this->org()->id);
     }
 
     // ---- what a scan can be ------------------------------------------------
