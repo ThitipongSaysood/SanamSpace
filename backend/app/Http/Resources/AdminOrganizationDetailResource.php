@@ -82,6 +82,19 @@ class AdminOrganizationDetailResource extends JsonResource
                 'courts' => (int) ($this->courts_count ?? 0),
                 'customers' => (int) ($this->customers_count ?? 0),
             ],
+            // What this venue rents, per branch.
+            //
+            // Per branch and not per venue because that is where it is stored,
+            // and branches of one venue genuinely differ — flattening them to a
+            // single list would make saving one branch silently rewrite the
+            // others. These two values drive the customer app's loading screen
+            // and its notification icon, so a platform admin setting a venue up
+            // needs to be able to reach them.
+            'branches' => $this->whenLoaded('branches', fn () => $this->branches->map(fn ($b) => [
+                'id' => (string) $b->id,
+                'name' => $b->name,
+                'sports' => array_values((array) ($b->sports ?? [])),
+            ])->values()->all(), []),
         ];
     }
 }

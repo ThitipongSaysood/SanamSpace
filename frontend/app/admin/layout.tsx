@@ -19,6 +19,7 @@ import {
   Settings,
   ShieldCheck,
   ToggleRight,
+  Trophy,
   Users,
   X,
   type LucideIcon,
@@ -35,6 +36,10 @@ const NAV: NavItem[] = [
   { label: "การสมัครใช้งาน", href: "/admin/subscriptions", icon: CreditCard },
   { label: "แพ็กเกจ", href: "/admin/plans", icon: Package },
   { label: "ฟีเจอร์", href: "/admin/features", icon: ToggleRight },
+  // Next to ฟีเจอร์ rather than inside a venue's drawer: like features, the
+  // sport catalogue is one list the whole platform shares. Per-venue is which
+  // of them that venue rents, and that stays with the venue's own portal.
+  { label: "ประเภทกีฬา", href: "/admin/sports", icon: Trophy },
   { label: "การชำระเงิน", href: "/admin/payments", icon: Banknote },
   { label: "การคืนเงิน", href: "/admin/refunds", icon: RotateCcw },
   { label: "รายการเรียกเก็บเงิน", href: "/admin/billing", icon: ReceiptText },

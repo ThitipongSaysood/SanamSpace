@@ -1,6 +1,5 @@
 "use client";
 import { useState } from "react";
-import type { Sport } from "@/lib/types";
 import { SportMedia } from "@/components/media";
 
 /**
@@ -15,7 +14,7 @@ export function VenueMedia({
   className = "",
 }: {
   src?: string | null;
-  sport: Sport;
+  sport: string;
   alt?: string;
   className?: string;
 }) {

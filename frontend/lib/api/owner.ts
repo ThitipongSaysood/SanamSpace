@@ -63,6 +63,7 @@ import type {
   OwnerWalletRow,
   OwnerWalletTopup,
   Sport,
+  SportMeta,
   User,
 } from "@/lib/types";
 import { toPage } from "./paged";
@@ -342,6 +343,16 @@ export const ownerApi = {
 
   rejectRefund: (id: string, note?: string) =>
     req<OwnerRefund>(`/owner/refunds/${id}/reject`, { method: "POST", body: { note } }),
+
+  /**
+   * The sports this venue may choose from — the platform's catalogue.
+   *
+   * Both the court form and the branch form used to ship their own list, and
+   * the two disagreed: the court dropdown offered four sports while the branch
+   * was a free-text box, so a venue could name a sport on its branch that it
+   * could not then create a court for.
+   */
+  getSports: () => req<SportMeta[]>("/owner/sports"),
 
   // --- Courts (คอร์ท) management ---
   getCourts: () => req<OwnerCourt[]>("/owner/courts"),

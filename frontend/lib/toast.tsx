@@ -8,26 +8,19 @@ import { AppToast, type ToastKind } from "@/components/app-toast";
  * changes in one place.
  */
 
-const SPORT_EMOJI: Record<string, string> = {
-  badminton: "🏸",
-  tennis: "🎾",
-  pickleball: "🎾",
-  squash: "🎾",
-  futsal: "⚽",
-  football: "⚽",
-  soccer: "⚽",
-  basketball: "🏀",
-  volleyball: "🏐",
-  takraw: "🏐",
-  tabletennis: "🏓",
-  pingpong: "🏓",
-};
-
-// The venue's sport, set by the tenant context on load. Module-level so a plain
-// (non-React) toast call can reach it.
-let sportEmoji = "🏸";
-export function setToastSport(sport?: string | null) {
-  sportEmoji = (sport && SPORT_EMOJI[sport.toLowerCase()]) || "🏸";
+// The venue's sport icon, set by the tenant context on load. Module-level so a
+// plain (non-React) toast call can reach it.
+//
+// This file used to hold its own table of twelve sport keys and translate here.
+// It was one of six such tables, no two of them agreeing, and anything it did
+// not recognise silently became a shuttlecock — a tennis venue's customers were
+// shown badminton on every toast. The emoji arrives already resolved from the
+// platform catalogue now; the shuttlecock remains only as the icon for "no
+// venue", which is the owner and admin portals.
+const NO_VENUE = "🏸";
+let sportEmoji = NO_VENUE;
+export function setToastSport(emoji?: string | null) {
+  sportEmoji = emoji || NO_VENUE;
 }
 
 const DURATION: Record<ToastKind, number> = {

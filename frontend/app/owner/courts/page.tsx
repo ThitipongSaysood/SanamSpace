@@ -3,7 +3,7 @@ import { toast } from "@/lib/toast";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Ban, Image as ImageIcon, LayoutGrid, Pencil, Plus, Power, Trash2, X } from "lucide-react";
-import type { OwnerBranch, OwnerCourt, OwnerCourtBlock, Sport } from "@/lib/types";
+import type { OwnerBranch, OwnerCourt, OwnerCourtBlock, SportMeta } from "@/lib/types";
 import { ownerApi, type CourtInput } from "@/lib/api/owner";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
@@ -14,13 +14,31 @@ const COURTS_KEY = ["owner", "courts"];
 const BRANCHES_KEY = ["owner", "branches"];
 const fmt = new Intl.NumberFormat("th-TH");
 
-const SPORTS: Sport[] = ["badminton", "football", "futsal", "tennis"];
-const SPORT_LABEL: Record<string, string> = {
-  badminton: "แบดมินตัน",
-  football: "ฟุตบอล",
-  futsal: "ฟุตซอล",
-  tennis: "เทนนิส",
-};
+// The sports come from the platform catalogue (GET /owner/sports). This file
+// used to name four of them itself while the branch form next door was a
+// free-text box and the customer app knew ten — so a venue could put "tennis"
+// on its branch and have no way to create a tennis court.
+const SPORTS_KEY = ["owner", "sports"];
+
+/**
+ * The options a court may be set to: everything the platform currently offers,
+ * plus whatever this court already is.
+ *
+ * The second half matters — a sport switched off after a venue built courts on
+ * it would otherwise vanish from the dropdown, so the next unrelated edit
+ * (a price change, a photo) would quietly re-label the court as badminton.
+ */
+function sportOptions(catalogue: SportMeta[] | undefined, current: string): SportMeta[] {
+  const list = catalogue ?? [];
+
+  return list.some((s) => s.key === current) || !current
+    ? list
+    : [...list, { key: current, name: current, emoji: "🏟️", color: "#64748b" }];
+}
+
+function sportName(catalogue: SportMeta[] | undefined, key: string): string {
+  return catalogue?.find((s) => s.key === key)?.name ?? key;
+}
 
 const selectClass =
   "h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
@@ -28,10 +46,12 @@ const selectClass =
 export default function OwnerCourtsPage() {
   const courts = useQuery({ queryKey: COURTS_KEY, queryFn: ownerApi.getCourts });
   const branches = useQuery({ queryKey: BRANCHES_KEY, queryFn: ownerApi.getBranches });
+  const sports = useQuery({ queryKey: SPORTS_KEY, queryFn: ownerApi.getSports });
   // null = list · "new" = create · OwnerCourt = edit. Form renders full-width.
   const [editing, setEditing] = useState<OwnerCourt | "new" | null>(null);
 
   const branchList = branches.data ?? [];
+  const sportList = sports.data ?? [];
   const noBranch = !branches.isLoading && branchList.length === 0;
 
   if (editing) {
@@ -77,7 +97,7 @@ export default function OwnerCourtsPage() {
       {courts.data && courts.data.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {courts.data.map((c) => (
-            <CourtCard key={c.id} court={c} onEdit={() => setEditing(c)} />
+            <CourtCard key={c.id} court={c} sports={sportList} onEdit={() => setEditing(c)} />
           ))}
         </div>
       )}
@@ -88,7 +108,7 @@ export default function OwnerCourtsPage() {
 type FormState = {
   branchId: string;
   name: string;
-  sport: Sport;
+  sport: string;
   pricePerHour: string;
   imageUrl: string;
   floor: string;
@@ -107,6 +127,7 @@ function CourtForm({
   onClose: () => void;
 }) {
   const qc = useQueryClient();
+  const sports = useQuery({ queryKey: SPORTS_KEY, queryFn: ownerApi.getSports });
   const [form, setForm] = useState<FormState>(
     court
       ? {
@@ -250,12 +271,15 @@ function CourtForm({
           <select
             id="court-sport"
             value={form.sport}
-            onChange={(e) => setForm((f) => ({ ...f, sport: e.target.value as Sport }))}
+            onChange={(e) => setForm((f) => ({ ...f, sport: e.target.value }))}
             className={selectClass}
           >
-            {SPORTS.map((s) => (
-              <option key={s} value={s}>
-                {SPORT_LABEL[s]}
+            {/* A court being edited may hold a sport the platform has since
+                switched off. Keeping it as an option means saving anything
+                else on this court does not silently change what it is. */}
+            {sportOptions(sports.data, form.sport).map((s) => (
+              <option key={s.key} value={s.key}>
+                {s.name}
               </option>
             ))}
           </select>
@@ -311,7 +335,7 @@ function CourtForm({
   );
 }
 
-function CourtCard({ court, onEdit }: { court: OwnerCourt; onEdit: () => void }) {
+function CourtCard({ court, sports, onEdit }: { court: OwnerCourt; sports: SportMeta[]; onEdit: () => void }) {
   const qc = useQueryClient();
   const [blocksOpen, setBlocksOpen] = useState(false);
 
@@ -353,7 +377,7 @@ function CourtCard({ court, onEdit }: { court: OwnerCourt; onEdit: () => void })
       <div className="mt-3 flex-1">
         <div className="font-semibold">{court.name}</div>
         <div className="mt-0.5 text-sm text-muted-foreground">
-          {SPORT_LABEL[court.sport] ?? court.sport}
+          {sportName(sports, court.sport)}
           {court.branchName ? ` · ${court.branchName}` : ""}
         </div>
         <div className="mt-2 text-lg font-bold text-brand">

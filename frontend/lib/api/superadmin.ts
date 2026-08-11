@@ -18,6 +18,7 @@ import type {
   BillingDocument,
   PlatformDashboard,
   PlatformFeature,
+  PlatformSport,
   PlatformSettings,
   Plan,
   User,
@@ -203,6 +204,19 @@ export const superAdminApi = {
     }>,
   ) => req<AdminOrganizationDetail>(`/admin/organizations/${id}/settings`, { method: "PUT", body: patch }),
 
+  /**
+   * Which sports a branch rents.
+   *
+   * Sent per branch, not per venue: the value is stored on the branch, and one
+   * venue's branches really do differ. It decides that venue's loading screen
+   * and notification icon, so the API records an audit row for it.
+   */
+  updateBranchSports: (orgId: string, branchId: string, sports: string[]) =>
+    req<AdminOrganizationDetail>(`/admin/organizations/${orgId}/branches/${branchId}/sports`, {
+      method: "PUT",
+      body: { sports },
+    }),
+
   deleteOrg: (id: string) => req<void>(`/admin/organizations/${id}`, { method: "DELETE" }),
 
   impersonateOrg: (id: string) =>
@@ -242,6 +256,22 @@ export const superAdminApi = {
       `/admin/features/${featureId}/plans/${planId}`,
       { method: "PUT", body: { enabled } },
     ),
+
+  // --- Sport types (platform-wide) ---
+  // Not per-venue: the emoji and colour here drive the customer app's loading
+  // screen and notification icon for every venue that rents that sport.
+  getSports: () => req<PlatformSport[]>("/admin/sports"),
+
+  createSport: (body: Pick<PlatformSport, "key" | "name" | "emoji" | "color">) =>
+    req<PlatformSport>("/admin/sports", { method: "POST", body }),
+
+  updateSport: (
+    id: string,
+    body: Partial<{ key: string; name: string; emoji: string; color: string; sort_order: number; is_active: boolean }>,
+  ) => req<PlatformSport>(`/admin/sports/${id}`, { method: "PUT", body }),
+
+  /** Refused by the API while any venue still names it. */
+  deleteSport: (id: string) => req<{ deleted: boolean }>(`/admin/sports/${id}`, { method: "DELETE" }),
 
   getPayments: () => req<AdminPayment[]>("/admin/payments"),
 

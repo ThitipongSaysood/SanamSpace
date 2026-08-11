@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import type { SportMeta } from "@/lib/types";
 
 /**
  * The first-entry loading screen for the customer app: a ball that bounces and
@@ -7,23 +8,20 @@ import { useEffect, useState } from "react";
  * design in sanamspace_morphing_ball_loader.html.
  */
 
-type Sport = { name: string; emoji: string; color: string };
-
-// Sport key → how it looks in the loader. Keys match the venue's `sports`.
-const SPORT_META: Record<string, Sport> = {
-  badminton: { name: "แบดมินตัน", emoji: "🏸", color: "#ef4444" },
-  tennis: { name: "เทนนิส", emoji: "🎾", color: "#a3e635" },
-  pickleball: { name: "พิคเคิลบอล", emoji: "🎾", color: "#a3e635" },
-  futsal: { name: "ฟุตซอล", emoji: "⚽", color: "#10b981" },
-  football: { name: "ฟุตบอล", emoji: "⚽", color: "#10b981" },
-  soccer: { name: "ฟุตบอล", emoji: "⚽", color: "#10b981" },
-  pingpong: { name: "ปิงปอง", emoji: "🏓", color: "#eab308" },
-  tabletennis: { name: "ปิงปอง", emoji: "🏓", color: "#eab308" },
-  basketball: { name: "บาสเกตบอล", emoji: "🏀", color: "#ea580c" },
-  volleyball: { name: "วอลเลย์บอล", emoji: "🏐", color: "#3b82f6" },
-};
-
-const FALLBACK: Sport = SPORT_META.badminton;
+// This file used to carry its own table of ten sports — one of six such tables
+// in the codebase, no two agreeing. It knew more sports than a venue could
+// actually pick, and dropped in silence anything it did not know, so a venue
+// renting something unlisted watched a shuttlecock bounce. The venue now
+// arrives with its own sports already described (`tenant.sportMeta`), sourced
+// from the one catalogue the platform admin edits.
+//
+// While that is still arriving, this screen shows NOTHING rather than a guess.
+// A default of badminton put a shuttlecock on screen for the first 125ms of
+// every entry — measured — and a tennis venue's customers watched it swap to a
+// tennis ball. The venue's branding is read from localStorage in an effect, so
+// the first render never has it; a default here is therefore not an edge case,
+// it is what everyone sees first. An empty ball for an eighth of a second says
+// "loading", which is true. A shuttlecock says "badminton", which may not be.
 
 const CSS = `
 @keyframes sl-bounce {
@@ -48,11 +46,10 @@ const CSS = `
 }
 `;
 
-export function SportLoader({ sports }: { sports?: string[] }) {
-  // Only the sports this venue rents. Unknown keys are dropped; an empty list
-  // falls back to a single ball so the screen is never blank.
-  const list: Sport[] = (sports ?? []).map((k) => SPORT_META[k?.toLowerCase()]).filter(Boolean);
-  const items = list.length > 0 ? list : [FALLBACK];
+export function SportLoader({ sports }: { sports?: SportMeta[] }) {
+  // Only the sports this venue rents. Nothing is dropped any more: whatever the
+  // venue offers, the server describes.
+  const items = sports ?? [];
 
   const [i, setI] = useState(0);
   const [rot, setRot] = useState(0);
@@ -68,7 +65,9 @@ export function SportLoader({ sports }: { sports?: string[] }) {
     return () => window.clearInterval(id);
   }, [items.length]);
 
-  const sport = items[i % items.length];
+  // Undefined until the venue is known — the ball still bounces, it just has
+  // not been told what it is yet.
+  const sport: SportMeta | undefined = items[i % items.length];
 
   return (
     <div
@@ -84,9 +83,15 @@ export function SportLoader({ sports }: { sports?: string[] }) {
     >
       <div className="relative mb-8 flex h-48 flex-col items-center justify-end">
         <div className="sl-ball flex items-center justify-center">
-          <span className="sl-emoji" style={{ transform: `rotate(${rot}deg)` }}>
-            {sport.emoji}
-          </span>
+          {sport ? (
+            <span className="sl-emoji" style={{ transform: `rotate(${rot}deg)` }}>
+              {sport.emoji}
+            </span>
+          ) : (
+            // Holds the ball's place at exactly its size, so nothing jumps when
+            // the venue's own sport arrives a frame or two later.
+            <span className="size-[80px] rounded-full bg-white/10" />
+          )}
         </div>
         <div className="sl-shadow" />
       </div>
@@ -95,12 +100,16 @@ export function SportLoader({ sports }: { sports?: string[] }) {
         <h1 className="mb-2 text-4xl font-bold tracking-wider text-white">
           Sanam<span style={{ color: "#10b981", textShadow: "0 0 20px rgba(16,185,129,0.4)" }}>Space</span>
         </h1>
+        {/* Fixed height whether or not the sport is named yet — the chip
+            appearing must not shift the wordmark above it. */}
         <div className="flex h-8 items-center justify-center">
           <p className="flex items-center gap-2 text-lg font-light tracking-wide text-slate-400">
             เตรียมสนาม
-            <span className="rounded-full bg-slate-800 px-3 py-1 text-sm font-medium" style={{ color: sport.color }}>
-              {sport.name}
-            </span>
+            {sport && (
+              <span className="rounded-full bg-slate-800 px-3 py-1 text-sm font-medium" style={{ color: sport.color }}>
+                {sport.name}
+              </span>
+            )}
           </p>
         </div>
         <div className="mt-4 flex justify-center gap-1.5">

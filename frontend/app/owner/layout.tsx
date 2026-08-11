@@ -3,13 +3,13 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { setToastSport } from "@/lib/toast";
 import {
   Activity,
   BarChart3,
   Bell,
   Building2,
   CalendarCheck,
-  BadgePercent,
   ChevronDown,
   Coins,
   Crown,
@@ -114,8 +114,10 @@ const NAV_GROUPS: NavGroup[] = [
   {
     title: "การตลาด",
     items: [
+      // Coupons live inside this page as a tab now — they are the rule behind
+      // the banner, and two menus meant writing the words on one screen and
+      // the condition on another.
       { label: "โปรโมชั่น", href: "/owner/promotions", icon: Tag },
-      { label: "คูปองส่วนลด", href: "/owner/coupons", icon: BadgePercent, feature: "coupon" },
       { label: "แพ็กเกจชั่วโมง", href: "/owner/packages", icon: Ticket, feature: "package" },
       { label: "ยิงโปร LINE", href: "/owner/broadcast", icon: Send, feature: "broadcast" },
       { label: "ข้อความตอบกลับ LINE", href: "/owner/line-templates", icon: MessageSquareText },
@@ -308,6 +310,34 @@ function SidebarContent({
   );
 }
 
+/**
+ * Put this venue's own sport on its toasts.
+ *
+ * The back office was showing a badminton shuttlecock to every venue on the
+ * platform, tennis courts included, because the tenant context only themed the
+ * customer app and handed every other surface the same default. The owner
+ * portal is not "every other surface" — it belongs to one venue.
+ *
+ * Read from the two lists the venue's own screens already load, so this costs
+ * nothing after the first page: which sports it rents (branches) and what each
+ * one looks like (the platform catalogue). The first sport of the first branch
+ * is the primary one, the same rule the customer app follows.
+ */
+function useOwnerToastSport(enabled: boolean) {
+  const branches = useQuery({ queryKey: ["owner", "branches"], queryFn: ownerApi.getBranches, enabled });
+  const sports = useQuery({ queryKey: ["owner", "sports"], queryFn: ownerApi.getSports, enabled });
+
+  const primary = branches.data?.flatMap((b) => b.sports ?? [])[0];
+  const emoji = sports.data?.find((s) => s.key === primary)?.emoji;
+
+  useEffect(() => {
+    if (!enabled) return;
+    // Only once it is actually known — setting null first would show the
+    // platform default for a moment, which is the wrong sport all over again.
+    if (emoji) setToastSport(emoji);
+  }, [enabled, emoji]);
+}
+
 export default function OwnerLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -316,6 +346,8 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
   const [ready, setReady] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  useOwnerToastSport(!isLoginRoute);
 
   // Guard runs client-side; the login route is exempt to avoid a redirect loop.
   useEffect(() => {

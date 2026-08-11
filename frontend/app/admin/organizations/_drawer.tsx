@@ -47,6 +47,127 @@ function Bar({ label, used, limit }: { label: string; used: number; limit: numbe
   );
 }
 
+/**
+ * Which sports this venue rents, per branch.
+ *
+ * The venue's own portal edits this too — this is here for the admin setting a
+ * customer up, or fixing one whose app is showing the wrong sport. It is not
+ * cosmetic: these keys decide the loading screen and the notification icon in
+ * that venue's customer app, and until the catalogue existed they were typed
+ * into a free-text box where an unrecognised word was dropped in silence and
+ * the venue fell back to badminton.
+ *
+ * Per branch rather than one list for the venue, because that is where the
+ * value is stored. Flattening them would make saving one branch quietly
+ * rewrite the others — and a venue whose branches differ is the normal case,
+ * not the exception.
+ */
+function SportsSection({ org }: { org: AdminOrganizationDetail }) {
+  const qc = useQueryClient();
+  const catalogue = useQuery({ queryKey: ["admin", "sports"], queryFn: superAdminApi.getSports });
+
+  const save = useMutation({
+    mutationFn: ({ branchId, sports }: { branchId: string; sports: string[] }) =>
+      superAdminApi.updateBranchSports(org.id, branchId, sports),
+    onSuccess: () => {
+      toast.success("บันทึกประเภทกีฬาแล้ว");
+      qc.invalidateQueries({ queryKey: ["admin", "organizations"] });
+      qc.invalidateQueries({ queryKey: ["admin", "organization", org.id] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Only the ones a venue may still be given. A sport switched off stays
+  // visible below when a branch already holds it — hiding it would suggest the
+  // branch does not rent it.
+  const active = (catalogue.data ?? []).filter((s) => s.isActive);
+
+  return (
+    <section className="rounded-xl bg-app/60 p-4">
+      <h3 className="text-sm font-semibold">ประเภทกีฬา</h3>
+      <p className="mt-0.5 text-xs text-muted-foreground">
+        ใช้กำหนดไอคอนแจ้งเตือนและหน้าโหลดของแอปลูกค้า · แก้ชื่อ/ไอคอน/สี ได้ที่เมนู ประเภทกีฬา
+      </p>
+
+      {org.branches.length === 0 ? (
+        <p className="mt-3 text-sm text-muted-foreground">สนามนี้ยังไม่มีสาขา</p>
+      ) : (
+        <div className="mt-3 space-y-4">
+          {org.branches.map((branch) => {
+            // Only what is not already on this branch — offering a sport the
+            // branch has would be an option that does nothing.
+            const addable = active.filter((s) => !branch.sports.includes(s.key));
+            const busy = save.isPending && save.variables?.branchId === branch.id;
+
+            const write = (sports: string[]) => save.mutate({ branchId: branch.id, sports });
+
+            return (
+              <div key={branch.id} className="space-y-2">
+                <div className="text-xs font-medium text-muted-foreground">{branch.name}</div>
+
+                {/* A dropdown to add, a list to remove. A single <select>
+                    cannot express this on its own: a branch rents more than one
+                    sport, and `multiple` is a control nobody operates well. */}
+                <select
+                  value=""
+                  disabled={busy || addable.length === 0}
+                  onChange={(e) => e.target.value && write([...branch.sports, e.target.value])}
+                  className="h-9 w-full rounded-lg border border-black/10 bg-white px-2.5 text-sm outline-none focus-visible:border-brand focus-visible:ring-3 focus-visible:ring-brand/30 disabled:opacity-50"
+                >
+                  <option value="">
+                    {addable.length === 0 ? "เลือกครบทุกประเภทแล้ว" : "+ เพิ่มประเภทกีฬา…"}
+                  </option>
+                  {addable.map((s) => (
+                    <option key={s.key} value={s.key}>
+                      {s.emoji} {s.name}
+                    </option>
+                  ))}
+                </select>
+
+                {branch.sports.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">ยังไม่ได้เลือก — แอปลูกค้าจะขึ้นเป็นแบดมินตัน</p>
+                ) : (
+                  <ul className="divide-y divide-black/5 rounded-lg bg-white ring-1 ring-black/5">
+                    {branch.sports.map((key, i) => {
+                      // A key the catalogue no longer offers still shows, so it
+                      // can be seen and removed rather than silently kept.
+                      const meta = active.find((s) => s.key === key);
+
+                      return (
+                        <li key={key} className="flex items-center gap-2 px-2.5 py-1.5 text-sm">
+                          <span aria-hidden>{meta?.emoji ?? "🏟️"}</span>
+                          <span className="flex-1">{meta?.name ?? key}</span>
+                          {i === 0 && (
+                            <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-medium text-brand">
+                              หลัก
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            disabled={busy}
+                            aria-label={`เอา ${meta?.name ?? key} ออก`}
+                            onClick={() => write(branch.sports.filter((k) => k !== key))}
+                            className="rounded p-0.5 text-muted-foreground transition hover:text-red-500 disabled:opacity-50"
+                          >
+                            <X className="size-3.5" />
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+          <p className="text-xs text-muted-foreground">
+            ตัวแรกในรายการคือกีฬาหลัก ใช้เป็นไอคอนแจ้งเตือนของแอปลูกค้า
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
+
 /** The lengths a venue actually buys. */
 const RENEW_MONTHS = [1, 3, 6, 12] as const;
 const TRIAL_DAYS = [7, 14, 30] as const;
@@ -65,7 +186,10 @@ function SubscriptionTab({ org, onDone }: { org: AdminOrganizationDetail; onDone
   const [markPaid, setMarkPaid] = useState(false);
   const [planId, setPlanId] = useState("");
   const [trialPlanId, setTrialPlanId] = useState("");
-  const [trialDays, setTrialDays] = useState<number>(14);
+  // 30 because that is what the landing page promises. A default of 14 means
+  // whoever opens a venue without changing the dropdown quietly gives half the
+  // trial that was advertised.
+  const [trialDays, setTrialDays] = useState<number>(30);
   const [showExpiry, setShowExpiry] = useState(false);
   const [endsAt, setEndsAt] = useState(sub?.endsAt ? sub.endsAt.slice(0, 10) : "");
   const [reason, setReason] = useState("");
@@ -527,6 +651,8 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
                     )}
                   </Row>
                 </section>
+
+                <SportsSection org={data} />
 
                 <CustomerLink
                   slug={data.id}

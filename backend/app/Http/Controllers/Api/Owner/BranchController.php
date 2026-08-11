@@ -112,7 +112,11 @@ class BranchController extends Controller
             'closeTime' => ['sometimes', 'nullable', 'date_format:H:i'],
             'status' => ['sometimes', Rule::in(['active', 'inactive'])],
             'sports' => ['sometimes', 'array'],
-            'sports.*' => ['string', 'max:50'],
+            // Against the catalogue, not `max:50`. These two values decide the
+            // customer app's loading screen and its notification icon, and a
+            // word the platform does not know was dropped without a sound —
+            // a tennis venue showed its customers a shuttlecock.
+            'sports.*' => ['string', Rule::exists('sports', 'key')],
             'facilities' => ['sometimes', 'array'],
             'facilities.*' => ['string', 'max:100'],
             'imageUrl' => ['sometimes', 'nullable', 'string', 'max:2000'],

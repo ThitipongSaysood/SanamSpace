@@ -1,4 +1,15 @@
-export type Sport = "badminton" | "football" | "futsal" | "tennis";
+/**
+ * A sport key, e.g. "badminton", "pickleball".
+ *
+ * Deliberately not a union any more. It was `"badminton" | "football" |
+ * "futsal" | "tennis"` — a claim the platform only ever had four sports, which
+ * was never true (the app could draw ten) and is now decided by a table the
+ * admin edits. A union here cannot know what is in that table, and pretending
+ * otherwise only pushed casts into every call site.
+ *
+ * What a key means is `SportMeta`; which keys exist is the catalogue.
+ */
+export type Sport = string;
 
 export type DayHours = { day: string; open: string; close: string };
 
@@ -419,6 +430,8 @@ export type OwnerCreditMovement = {
 export type CouponPreview = {
   code: string;
   description: string | null;
+  /** "ทุกวัน 07:00–16:00" when the coupon only applies to certain hours. */
+  condition?: string | null;
   discount: number;
   payable: number;
 };
@@ -436,6 +449,18 @@ export type OwnerCoupon = {
   usedCount: number;
   startsAt: string | null;
   endsAt: string | null;
+  /**
+   * When the coupon may be used, on the venue's own clock. Null means no
+   * restriction. The WHOLE booking must fit inside the window — a 15:00–17:00
+   * slot does not qualify for a 07:00–16:00 coupon, because half of it is peak
+   * time the venue never offered.
+   */
+  validFromTime: string | null;
+  validToTime: string | null;
+  /** ISO weekdays, 1 = Monday … 7 = Sunday. Null or empty = every day. */
+  validDays: number[] | null;
+  /** The same rule in words, built server-side so it cannot drift. */
+  conditionLabel: string | null;
   isActive: boolean;
 };
 
@@ -466,6 +491,14 @@ export type OrgPublic = {
   sport?: string | null;
   /** Every sport the venue rents — the loader cycles through these. */
   sports?: string[];
+  /**
+   * What each of those sports looks like, in the platform's order.
+   *
+   * The loader and the notification toast used to hold their own tables of
+   * emoji and colours, which is how they came to know ten and twelve sports
+   * while a venue could only pick four. Same order as `sports`.
+   */
+  sportMeta?: SportMeta[];
   lineOaUrl: string | null;
   phone: string | null;
 };
@@ -1111,6 +1144,14 @@ export type AdminOrganizationDetail = {
     endsAt: string | null;
   };
   counts: { branches: number; courts: number; customers: number };
+  /**
+   * What each branch rents.
+   *
+   * Per branch rather than one list for the venue, because that is where the
+   * value lives and branches of one venue genuinely differ — collapsing them
+   * would make saving one quietly rewrite the rest.
+   */
+  branches: { id: string; name: string; sports: string[] }[];
   plan?: Plan | null;
 };
 
@@ -1522,6 +1563,29 @@ export type PlatformFeature = {
   code: string;
   name: string;
   planCodes: string[];
+};
+
+/**
+ * A sport type as the platform defines it.
+ *
+ * `emoji` and `color` live here rather than in the components that draw them:
+ * adding a sport used to mean editing two frontend files and shipping a
+ * release, which is why the list in each of them had drifted apart.
+ */
+export type SportMeta = {
+  key: string;
+  name: string;
+  emoji: string;
+  color: string;
+};
+
+/** A catalogue row as the admin screen edits it. */
+export type PlatformSport = SportMeta & {
+  id: string;
+  sortOrder: number;
+  isActive: boolean;
+  /** How many venues would lose their icon if this were removed. */
+  venueCount: number;
 };
 
 /** One arrival, as the counter sees it. */

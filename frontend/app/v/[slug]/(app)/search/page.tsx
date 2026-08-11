@@ -3,13 +3,10 @@ import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Search, ChevronDown } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
-import { sportMeta } from "@/components/media";
 import { useVenues } from "@/lib/api/queries";
+import { useTenant } from "@/lib/tenant/tenant-context";
 import { VenueCard } from "@/components/venue-card";
 import { Loading, EmptyState, ErrorState } from "@/components/states";
-import type { Sport } from "@/lib/types";
-
-const sportKeys = Object.keys(sportMeta) as Sport[];
 
 const selectCls =
   "h-11 w-full appearance-none rounded-xl bg-white px-3.5 pr-9 text-sm ring-1 ring-black/10 focus:outline-none focus:ring-2 focus:ring-brand";
@@ -27,12 +24,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function SearchInner() {
+  // The venue's own sports, not a list of four written into the app. The filter
+  // used to offer แบดมินตัน/ฟุตบอล/ฟุตซอล/เทนนิส to every venue on the
+  // platform, so most of its options searched for something nobody rented.
+  const { tenant } = useTenant();
   const sportParam = useSearchParams().get("sport");
-  const initialSport =
-    sportParam && sportKeys.includes(sportParam as Sport) ? (sportParam as Sport) : "";
+  const initialSport = tenant.sportMeta.some((s) => s.key === sportParam) ? (sportParam as string) : "";
 
   const [keyword, setKeyword] = useState("");
-  const [sport, setSport] = useState<"" | Sport>(initialSport);
+  const [sport, setSport] = useState<string>(initialSport);
   const [location, setLocation] = useState("all");
   const [date, setDate] = useState("25 มิ.ย. 2569");
   const [time, setTime] = useState("16:00 - 20:00");
@@ -43,7 +43,7 @@ function SearchInner() {
   const results = (venues ?? []).filter((v) => {
     const matchKeyword =
       keyword.trim() === "" || v.name.toLowerCase().includes(keyword.trim().toLowerCase());
-    const matchSport = sport === "" || v.sports.includes(sport);
+    const matchSport = sport === "" || (v.sports as string[]).includes(sport);
     return matchKeyword && matchSport;
   });
 
@@ -72,13 +72,13 @@ function SearchInner() {
           <Field label="ประเภทกีฬา">
             <select
               value={sport}
-              onChange={(e) => setSport(e.target.value as "" | Sport)}
+              onChange={(e) => setSport(e.target.value)}
               className={selectCls}
             >
               <option value="">ทุกประเภท</option>
-              {sportKeys.map((k) => (
-                <option key={k} value={k}>
-                  {sportMeta[k].label}
+              {tenant.sportMeta.map((s) => (
+                <option key={s.key} value={s.key}>
+                  {s.name}
                 </option>
               ))}
             </select>

@@ -52,7 +52,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // Show the venue's sport loader while the session restores (and briefly after,
   // so the first-entry animation is actually seen). Once ready with no user, the
   // effect above redirects to login.
-  if (!ready || (user && !minShown)) return <SportLoader sports={tenant.sports} />;
+  if (!ready || (user && !minShown)) return <SportLoader sports={tenant.sportMeta} />;
   if (!user) return null;
 
   const relative = path?.replace(/^\/v\/[^/]+/, "") || "/";

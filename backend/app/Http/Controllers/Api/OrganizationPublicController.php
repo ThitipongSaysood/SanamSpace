@@ -75,8 +75,44 @@ class OrganizationPublicController extends Controller
             // app themes to what the venue actually rents.
             'sport' => $sports->first() ?: 'badminton',
             'sports' => $sports->isNotEmpty() ? $sports->all() : ['badminton'],
+            // …and what each of those looks like. The loader and the toast used
+            // to keep their own table of emoji and colours, which is why they
+            // knew ten and twelve sports respectively while the venue could
+            // only pick four. They read this instead, so a sport added in the
+            // admin screen works everywhere without a release.
+            'sportMeta' => $this->meta($sports),
             'lineOaUrl' => $s?->line_oa_url,
             'phone' => $s?->phone,
         ]);
+    }
+
+    /**
+     * The catalogue entries for the sports this venue rents, in the platform's
+     * order.
+     *
+     * A key with no catalogue row still gets an entry rather than being
+     * dropped: a venue whose branch names something unrecognised used to fall
+     * silently back to a badminton shuttlecock, which is a worse answer than a
+     * neutral one. Its own key is the label, which at least says what happened.
+     */
+    private function meta(\Illuminate\Support\Collection $sports): array
+    {
+        $keys = $sports->isNotEmpty() ? $sports->all() : ['badminton'];
+
+        $known = \App\Models\Sport::query()
+            ->whereIn('key', $keys)
+            ->ordered()
+            ->get()
+            ->keyBy('key');
+
+        return collect($keys)
+            ->map(fn (string $key) => $known->get($key)?->toMeta() ?? [
+                'key' => $key,
+                'name' => $key,
+                'emoji' => '🏟️',
+                'color' => '#64748b',
+            ])
+            ->values()
+            ->all();
     }
 }

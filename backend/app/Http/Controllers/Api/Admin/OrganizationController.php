@@ -170,6 +170,46 @@ class OrganizationController extends Controller
         return new AdminOrganizationDetailResource($this->load($org->fresh()));
     }
 
+    /**
+     * PUT /admin/organizations/{id}/branches/{branchId}/sports
+     *
+     * Which sports a branch rents, set from the platform side.
+     *
+     * The venue's own portal can do this too — this exists for the admin
+     * setting a customer up, or fixing one that got it wrong. It is not a small
+     * field: it decides the loading screen and the notification icon in that
+     * venue's app, which is exactly why it is worth an audit row. Changing what
+     * someone else's customers see should leave a trace.
+     *
+     * Scoped to the branch and not the whole venue, because that is how the
+     * data is stored and branches of one venue really do differ.
+     */
+    public function updateBranchSports(Request $request, string $id, string $branchId): AdminOrganizationDetailResource
+    {
+        $org = $this->find($id);
+
+        $data = $request->validate([
+            'sports' => ['present', 'array'],
+            'sports.*' => ['string', Rule::exists('sports', 'key')],
+        ]);
+
+        $branch = \App\Models\Branch::query()
+            ->where('organization_id', $org->id)
+            ->where('id', $branchId)
+            ->firstOrFail();
+
+        $sports = array_values(array_unique($data['sports']));
+        $branch->update(['sports' => $sports]);
+
+        AdminAudit::record(
+            'แก้ประเภทกีฬาของสนาม',
+            "{$org->name} · {$branch->name} · ".(implode(', ', $sports) ?: 'ไม่ระบุ'),
+            $org->id,
+        );
+
+        return new AdminOrganizationDetailResource($this->load($org->fresh()));
+    }
+
     /** PUT /admin/organizations/{id}/plan — change the org's subscription plan. */
     public function changePlan(Request $request, string $id): AdminOrganizationDetailResource
     {
@@ -354,7 +394,13 @@ class OrganizationController extends Controller
 
     private function load(Organization $org): Organization
     {
-        return $org->load(['activeSubscription.plan', 'settings', 'organizationUsers.user', 'organizationUsers.role'])
-            ->loadCount(['branches', 'courts', 'customers']);
+        return $org->load([
+            'activeSubscription.plan',
+            'settings',
+            'organizationUsers.user',
+            'organizationUsers.role',
+            // Ordered so the drawer's list does not reshuffle between saves.
+            'branches' => fn ($q) => $q->orderBy('created_at'),
+        ])->loadCount(['branches', 'courts', 'customers']);
     }
 }

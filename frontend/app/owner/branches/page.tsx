@@ -94,7 +94,7 @@ type FormState = {
   name: string;
   address: string;
   phone: string;
-  sports: string;
+  sports: string[];
   openTime: string;
   closeTime: string;
   description: string;
@@ -116,7 +116,7 @@ function initialForm(branch?: OwnerBranch): FormState {
     name: branch?.name ?? "",
     address: branch?.address ?? "",
     phone: branch?.phone ?? "",
-    sports: (branch?.sports ?? []).join(", "),
+    sports: branch?.sports ?? [],
     openTime: branch?.openTime ?? "",
     closeTime: branch?.closeTime ?? "",
     description: branch?.description ?? "",
@@ -132,6 +132,7 @@ function initialForm(branch?: OwnerBranch): FormState {
 
 function BranchForm({ branch, onClose }: { branch?: OwnerBranch; onClose: () => void }) {
   const qc = useQueryClient();
+  const sports = useQuery({ queryKey: ["owner", "sports"], queryFn: ownerApi.getSports });
   const [form, setForm] = useState<FormState>(() => initialForm(branch));
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -144,10 +145,7 @@ function BranchForm({ branch, onClose }: { branch?: OwnerBranch; onClose: () => 
         phone: form.phone.trim() || null,
         openTime: form.openTime || null,
         closeTime: form.closeTime || null,
-        sports: form.sports
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean),
+        sports: form.sports,
         facilities: form.facilities,
         imageUrl: form.imageUrl || null,
         planImageUrl: form.planImageUrl || null,
@@ -240,9 +238,45 @@ function BranchForm({ branch, onClose }: { branch?: OwnerBranch; onClose: () => 
               <Label htmlFor="b-phone">เบอร์โทร</Label>
               <Input id="b-phone" value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="081-234-5678" />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="b-sports">กีฬา (คั่นด้วย ,)</Label>
-              <Input id="b-sports" value={form.sports} onChange={(e) => set("sports", e.target.value)} placeholder="badminton, futsal" />
+            {/*
+              * Picked, not typed.
+              *
+              * This was a text box the owner typed comma-separated keys into,
+              * and it is what decides the customer app's loading screen and
+              * its notification icon. A word the platform did not know was
+              * dropped in silence and the venue fell back to badminton — so a
+              * tennis venue showed its customers a shuttlecock, with nothing
+              * anywhere saying why. There was no list of valid words either;
+              * the only hint was the placeholder.
+              */}
+            <div className="space-y-1.5 md:col-span-2">
+              <Label>กีฬาที่เปิดให้บริการ</Label>
+              <div className="flex flex-wrap gap-2">
+                {(sports.data ?? []).map((sport) => {
+                  const on = form.sports.includes(sport.key);
+                  return (
+                    <button
+                      key={sport.key}
+                      type="button"
+                      onClick={() =>
+                        set("sports", on ? form.sports.filter((k) => k !== sport.key) : [...form.sports, sport.key])
+                      }
+                      aria-pressed={on}
+                      className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition ${
+                        on
+                          ? "border-brand bg-brand/10 font-medium text-brand"
+                          : "border-input text-muted-foreground hover:border-brand/40"
+                      }`}
+                    >
+                      <span aria-hidden>{sport.emoji}</span>
+                      {sport.name}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                ตัวแรกที่เลือกคือกีฬาหลัก ใช้เป็นไอคอนแจ้งเตือนของแอปลูกค้า
+              </p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="b-open">เวลาเปิด (ทั่วไป)</Label>

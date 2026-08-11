@@ -25,6 +25,7 @@ use App\Http\Controllers\Api\Admin\PaymentController as AdminPaymentController;
 use App\Http\Controllers\Api\Admin\PlanController as AdminPlanController;
 use App\Http\Controllers\Api\Admin\RoleController as AdminRoleController;
 use App\Http\Controllers\Api\Admin\SettingController as AdminSettingController;
+use App\Http\Controllers\Api\Admin\SportController as AdminSportController;
 use App\Http\Controllers\Api\Admin\SubscriptionController as AdminSubscriptionController;
 use App\Http\Controllers\Api\Admin\SupportTicketController as AdminSupportTicketController;
 use App\Http\Controllers\Api\Admin\TransactionController as AdminTransactionController;
@@ -59,6 +60,7 @@ use App\Http\Controllers\Api\Owner\RentalItemController as OwnerRentalItemContro
 use App\Http\Controllers\Api\Owner\RentalReturnController as OwnerRentalReturnController;
 use App\Http\Controllers\Api\Owner\RewardController as OwnerRewardController;
 use App\Http\Controllers\Api\Owner\SaleController as OwnerSaleController;
+use App\Http\Controllers\Api\Owner\SportController as OwnerSportController;
 use App\Http\Controllers\Api\Owner\WelcomeBannerController as OwnerWelcomeBannerController;
 use App\Http\Controllers\Api\Owner\SettingController as OwnerSettingController;
 use App\Http\Controllers\Api\Owner\LineTemplateController as OwnerLineTemplateController;
@@ -252,6 +254,11 @@ Route::middleware('auth:sanctum')->group(function () {
         // --- Image upload (venue cover / gallery / floor-plan) ---
         Route::post('/uploads', [OwnerUploadController::class, 'store'])->middleware('limit.storage:file');
 
+        // The platform's sport catalogue, read-only — what the branch and court
+        // forms offer. No permission gate: it is a list of words, and both
+        // forms behind it are already gated on court.manage.
+        Route::get('/sports', [OwnerSportController::class, 'index']);
+
         // --- Branches (สนาม/สาขา) management CRUD ---
         Route::get('/branches', [OwnerBranchController::class, 'index']);
         Route::post('/branches', [OwnerBranchController::class, 'store'])->middleware('permission:court.manage')->middleware('limit:branch');
@@ -416,6 +423,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/organizations/{id}/expiry', [AdminOrganizationController::class, 'setExpiry']);
         Route::post('/organizations/{id}/trial', [AdminOrganizationController::class, 'startTrial']);
         Route::put('/organizations/{id}/settings', [AdminOrganizationController::class, 'updateSettings']);
+        // Which sports a branch rents — the venue's own portal edits this too,
+        // but a platform admin setting a customer up needs to reach it.
+        Route::put('/organizations/{id}/branches/{branchId}/sports', [AdminOrganizationController::class, 'updateBranchSports']);
         Route::delete('/organizations/{id}', [AdminOrganizationController::class, 'destroy']);
 
         Route::get('/subscriptions', [AdminSubscriptionController::class, 'index']);
@@ -434,6 +444,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/features', [AdminFeatureController::class, 'index']);
         // One cell of the plan × feature grid. See FeatureController::setPlan.
         Route::put('/features/{id}/plans/{planId}', [AdminFeatureController::class, 'setPlan']);
+
+        // --- Sport types (platform-wide: key, ชื่อ, emoji, colour) ---
+        // Not per-venue. The emoji and colour drive the customer app's loading
+        // screen and notification icon for every venue that rents that sport.
+        Route::get('/sports', [AdminSportController::class, 'index']);
+        Route::post('/sports', [AdminSportController::class, 'store']);
+        Route::put('/sports/{id}', [AdminSportController::class, 'update']);
+        Route::delete('/sports/{id}', [AdminSportController::class, 'destroy']);
 
         Route::get('/payments', [AdminPaymentController::class, 'index']);
         // --- Refunds (platform oversight across all orgs; approve/reject override) ---

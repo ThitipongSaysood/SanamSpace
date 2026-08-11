@@ -46,13 +46,6 @@ const BRAND = "var(--brand-primary)";
 const STATUS_COLORS = { completed: "#16A34A", pending: "#F59E0B", cancelled: "#EF4444" };
 const SPORT_COLORS = ["#16A34A", "#0EA5E9", "#F59E0B", "#8B5CF6", "#EC4899", "#14B8A6"];
 
-const SPORT_LABELS: Record<string, string> = {
-  badminton: "แบดมินตัน",
-  football: "ฟุตบอล",
-  futsal: "ฟุตซอล",
-  tennis: "เทนนิส",
-};
-
 const CHANNEL_LABELS: Record<string, string> = {
   app: "แอปพลิเคชัน",
   walk_in: "หน้าร้าน",
@@ -85,8 +78,17 @@ function toBookingStatus(s: string): BookingStatus {
   }
 }
 
-function sportLabel(s: string) {
-  return SPORT_LABELS[s] ?? s;
+/**
+ * Name a sport from the platform catalogue.
+ *
+ * This used to be four labels written into this file. A venue renting anything
+ * else read its own revenue chart labelled `pickleball`, in English, because
+ * the map had no entry and the key fell through as the label.
+ */
+function useSportLabel() {
+  const { data } = useQuery({ queryKey: ["owner", "sports"], queryFn: ownerApi.getSports });
+
+  return (key: string) => data?.find((s) => s.key === key)?.name ?? key;
 }
 function channelLabel(c: string) {
   return CHANNEL_LABELS[c] ?? c;
@@ -217,6 +219,7 @@ function PlatformAnnouncements() {
 }
 
 function DashboardBody({ d }: { d: OwnerDashboard }) {
+  const sportLabel = useSportLabel();
   const series = d.revenueSeries ?? [];
   const totalRevenue = series.reduce((sum, p) => sum + p.revenue, 0);
 

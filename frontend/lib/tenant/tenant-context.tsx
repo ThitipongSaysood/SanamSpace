@@ -5,7 +5,7 @@ import { api } from "@/lib/api/client";
 import { tenant as defaultTenant } from "@/config/tenant";
 import { themeToCssVars, type TenantTheme } from "@/lib/theme";
 import { setToastSport } from "@/lib/toast";
-import type { OrgPublic, PublicWelcomeBanner } from "@/lib/types";
+import type { OrgPublic, PublicWelcomeBanner, SportMeta } from "@/lib/types";
 
 const STORAGE_KEY = "sanamspace.venue";
 
@@ -32,6 +32,13 @@ export type TenantBranding = {
   sport: string | null;
   /** Every sport the venue rents — the first-entry loader cycles these. */
   sports: string[];
+  /**
+   * What each of those sports looks like: ชื่อ, emoji, colour.
+   *
+   * Carried from the server rather than looked up in a table here, because
+   * three components each kept their own table and none of them agreed.
+   */
+  sportMeta: SportMeta[];
   lineOaUrl: string | null;
   phone: string | null;
 };
@@ -48,6 +55,7 @@ const DEFAULT: TenantBranding = {
   pointsEnabled: false,
   sport: null,
   sports: [],
+  sportMeta: [],
   lineOaUrl: defaultTenant.lineOaUrl,
   phone: defaultTenant.phone,
 };
@@ -61,6 +69,7 @@ function fromOrg(o: OrgPublic): TenantBranding {
     pointsEnabled: o.pointsEnabled ?? false,
     sport: o.sport ?? null,
     sports: o.sports ?? [],
+    sportMeta: o.sportMeta ?? [],
     lineOaUrl: o.lineOaUrl, phone: o.phone,
   };
 }
@@ -77,11 +86,29 @@ function applyTheme(theme: TenantTheme, fontFamily?: string | null) {
   document.body.style.setProperty("--font-sans", fontFamily || "var(--font-prompt)");
 }
 
-// The per-venue theme applies ONLY to the customer App. The Owner and Admin
-// portals (and the marketing /landing) keep the platform's default brand.
-function isVenueThemed(pathname: string | null): boolean {
-  if (!pathname) return true;
-  return !["/owner", "/admin", "/landing"].some((p) => pathname === p || pathname.startsWith(p + "/"));
+/**
+ * Which of the three surfaces this path belongs to.
+ *
+ * It used to be a boolean — venue-themed or not — which lumped the owner's back
+ * office in with the platform's admin screens. They are not the same thing: a
+ * platform admin is looking at every venue at once, but the owner portal
+ * belongs to exactly one venue, and telling that venue's staff their sport is
+ * badminton when they rent tennis courts is simply wrong.
+ *
+ * Colours still only apply to the customer app (the owner portal keeps the
+ * platform's green — see the branding spec); this split exists so the owner
+ * portal can set its OWN sport icon, which it does from its layout.
+ */
+type Surface = "venue" | "owner" | "platform";
+
+function surfaceOf(pathname: string | null): Surface {
+  if (!pathname) return "venue";
+  const startsWith = (p: string) => pathname === p || pathname.startsWith(p + "/");
+
+  if (startsWith("/owner")) return "owner";
+  if (startsWith("/admin") || startsWith("/landing")) return "platform";
+
+  return "venue";
 }
 
 type TenantValue = { tenant: TenantBranding; setVenue: (o: OrgPublic) => void };
@@ -110,10 +137,20 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
   // brand on Owner/Admin/landing. This is what keeps the venue colour from
   // bleeding into the back-office portals (same origin shares the body element).
   useEffect(() => {
-    const venue = isVenueThemed(pathname);
+    const surface = surfaceOf(pathname);
+    const venue = surface === "venue";
     applyTheme(venue ? tenant.theme : DEFAULT.theme, venue ? tenant.fontFamily : null);
-    // Toasts pick up the venue's sport for their icon (customer app only).
-    setToastSport(venue ? tenant.sport : null);
+
+    // Toasts pick up the venue's sport for their icon. The emoji travels with
+    // the venue now — toast.tsx used to keep its own table of twelve sports and
+    // fall back to a shuttlecock for anything else.
+    //
+    // The owner portal is skipped rather than cleared: it sets its own venue's
+    // sport from its layout, and clearing here would race it — every in-portal
+    // navigation re-runs this effect and would flick the icon back.
+    if (surface !== "owner") {
+      setToastSport(venue ? (tenant.sportMeta.find((s) => s.key === tenant.sport)?.emoji ?? null) : null);
+    }
   }, [pathname, tenant]);
 
   // Re-read the venue's branding whenever a customer opens the app.
@@ -124,7 +161,7 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
   // visible meanwhile, so the refresh is silent rather than a flash of default.
   const slug = tenant.slug;
   useEffect(() => {
-    if (!slug || !isVenueThemed(pathname)) return;
+    if (!slug || surfaceOf(pathname) !== "venue") return;
 
     let active = true;
     api

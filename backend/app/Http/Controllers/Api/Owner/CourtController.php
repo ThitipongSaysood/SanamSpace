@@ -118,7 +118,10 @@ class CourtController extends Controller
                 Rule::exists('branches', 'id')->where('organization_id', $orgId),
             ],
             'name' => [$required, 'string', 'max:255'],
-            'sport' => [$required, 'string', 'max:50'],
+            // Same catalogue the branch validates against — the court form's
+            // hard-coded four and the branch's free text were two different
+            // vocabularies for one column.
+            'sport' => [$required, 'string', Rule::exists('sports', 'key')],
             'pricePerHour' => [$creating ? 'required' : 'sometimes', 'numeric', 'min:0'],
             'status' => ['sometimes', Rule::in(['active', 'inactive'])],
             'imageUrl' => ['sometimes', 'nullable', 'string', 'max:2000'],
