@@ -46,6 +46,7 @@ class OwnerSettingResource extends JsonResource
             'fontFamily' => $this->font_family,
             'timezone' => $this->timezone,
             'checkinEnabled' => (bool) ($this->checkin_enabled ?? true),
+            'slipVerifyMode' => $this->slip_verify_mode ?: 'manual',
             'depositEnabled' => (bool) ($this->deposit_enabled ?? false),
             'depositType' => $this->deposit_type ?? 'percent',
             'depositValue' => (float) ($this->deposit_value ?? 0),

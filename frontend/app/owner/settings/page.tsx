@@ -839,6 +839,24 @@ function PaymentTab({ settings }: { settings: OwnerSettings }) {
         bankFields,
       )}
 
+      <section className="space-y-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 xl:col-span-2">
+        <h2 className="text-sm font-semibold">ตรวจสลิป</h2>
+        <div className="flex items-start justify-between gap-3">
+          <div className="text-sm">
+            ตรวจสลิปอัตโนมัติ
+            <span className="mt-0.5 block text-xs text-muted-foreground">
+              เปิดแล้ว สลิปที่ระบบตรวจผ่าน (ของจริง · ยอดพอ · เข้าบัญชีสนาม) จะอนุมัติให้เอง · ที่ไม่ชัวร์ยังเข้าคิวตรวจเองเหมือนเดิม · ระบบกันสลิปซ้ำทำงานทั้งสองแบบ
+            </span>
+          </div>
+          <Switch
+            checked={form.slipVerifyMode === "auto"}
+            onCheckedChange={(v) => set("slipVerifyMode", v ? "auto" : "manual")}
+            aria-label="ตรวจสลิปอัตโนมัติ"
+          />
+        </div>
+        <p className="text-xs text-amber-600">ต้องเชื่อมต่อผู้ให้บริการตรวจสลิปก่อนจึงจะทำงาน (ยังไม่ได้ตั้งค่า)</p>
+      </section>
+
       <SaveRow mutation={mutation} className="xl:col-span-2" />
     </form>
   );

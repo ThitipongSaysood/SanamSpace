@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Payment extends Model
@@ -35,6 +36,12 @@ class Payment extends Model
     public function slips(): HasMany
     {
         return $this->hasMany(PaymentSlip::class);
+    }
+
+    /** The slip the owner is actually reviewing (the most recent upload). */
+    public function latestSlip(): HasOne
+    {
+        return $this->hasOne(PaymentSlip::class)->latestOfMany();
     }
 
     public function refunds(): HasMany

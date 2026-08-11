@@ -32,6 +32,10 @@ class OwnerPaymentResource extends JsonResource
             'amount' => (float) $this->amount,
             'status' => $this->status,
             'slipUrl' => $this->slip_url,
+            // Phase 0 slip screening — a re-used slip is flagged so staff don't
+            // approve one ฿250 transfer for five bookings.
+            'slipVerifyStatus' => $this->latestSlip?->verify_status,
+            'slipDuplicate' => $this->latestSlip?->verify_status === 'duplicate',
             'customerId' => $this->customer_id ? (string) $this->customer_id : null,
             'customerName' => $this->customer?->display_name,
             'booking' => $booking ? [

@@ -703,6 +703,9 @@ export type OwnerPayment = {
   amount: number;
   status: PaymentStatus;
   slipUrl?: string;
+  /** Phase 0 slip screening: "duplicate" = same file/ref already used elsewhere. */
+  slipVerifyStatus?: string | null;
+  slipDuplicate?: boolean;
   customerName?: string;
   customerId?: string | null;
   booking?: { code: string; courtName: string; date: string; start: string; end: string };
@@ -727,6 +730,8 @@ export type OwnerSettings = {
   orgName: string;
   /** Whether staff scan customers in at the counter. */
   checkinEnabled?: boolean;
+  /** How transfer slips are checked: "manual" (staff) or "auto" (verifier). */
+  slipVerifyMode?: "manual" | "auto";
   /**
    * Points. A flat number per booking (the venue chose that over per-baht), and
    * the ladder tiers are judged on — tier names must match `memberDiscounts`,

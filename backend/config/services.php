@@ -54,4 +54,12 @@ return [
         'customer_app_url' => env('CUSTOMER_APP_URL'),
     ],
 
+    // Slip auto-verification provider (Phase 1). `null` = no external call, dedupe
+    // only. A real driver (slipok/easyslip) reads key/endpoint here.
+    'slip' => [
+        'driver' => env('SLIP_VERIFY_DRIVER', 'null'),
+        'key' => env('SLIP_VERIFY_KEY'),
+        'endpoint' => env('SLIP_VERIFY_ENDPOINT'),
+    ],
+
 ];

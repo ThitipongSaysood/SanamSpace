@@ -102,29 +102,42 @@ class PaymentController extends Controller
      * Stores the slip on the public disk, records it, and moves the payment
      * to pending_review with an absolute slipUrl.
      */
-    public function uploadSlip(Request $request, string $id): PaymentResource
+    public function uploadSlip(Request $request, string $id, \App\Services\SlipVerificationService $slips): PaymentResource
     {
-        $request->validate([
+        // transRef / qrPayload are optional — the app decodes the slip's QR when
+        // it can and sends them so a re-saved image is still caught as a reuse.
+        $data = $request->validate([
             'slip' => ['required', 'image', 'mimes:jpeg,jpg,png', 'max:5120'],
+            'transRef' => ['sometimes', 'nullable', 'string', 'max:120'],
+            'qrPayload' => ['sometimes', 'nullable', 'string', 'max:1000'],
         ]);
 
         $payment = $this->findOwned($request, $id);
 
         $file = $request->file('slip');
+        $sha256 = hash_file('sha256', $file->getRealPath());
         $path = $file->store('slips/'.$payment->organization_id, 'public');
         $absoluteUrl = url(Storage::url($path));
 
-        $payment->slips()->create([
+        $slip = $payment->slips()->create([
+            'organization_id' => $payment->organization_id,
             'file_path' => $path,
             'url' => $absoluteUrl,
             'original_name' => $file->getClientOriginalName(),
             'uploaded_at' => now(),
+            'sha256' => $sha256,
+            'qr_payload' => $data['qrPayload'] ?? null,
+            'trans_ref' => $data['transRef'] ?? null,
         ]);
 
         $payment->update([
             'slip_url' => $absoluteUrl,
             'status' => 'pending_review',
         ]);
+
+        // Screen for a re-used slip, then auto-approve if the venue is in auto
+        // mode and the slip passes verification (otherwise it waits in the queue).
+        $slips->process($slip);
 
         return new PaymentResource($payment->fresh());
     }

@@ -106,7 +106,14 @@ function PaymentRow({ payment, onView }: { payment: OwnerPayment; onView: (v: Vi
         />
       </td>
 
-      <td className="px-4 py-3 font-medium"><CustomerName id={payment.customerId} name={payment.customerName} /></td>
+      <td className="px-4 py-3 font-medium">
+        <CustomerName id={payment.customerId} name={payment.customerName} />
+        {payment.slipDuplicate && (
+          <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
+            ⚠ สลิปนี้เคยใช้แล้ว
+          </div>
+        )}
+      </td>
 
       <td className="px-4 py-3">
         {payment.booking ? (
@@ -177,6 +184,11 @@ function PaymentCard({ payment, onView }: { payment: OwnerPayment; onView: (v: V
         />
         <div className="min-w-0 flex-1">
           <div className="font-semibold"><CustomerName id={payment.customerId} name={payment.customerName} /></div>
+          {payment.slipDuplicate && (
+            <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
+              ⚠ สลิปนี้เคยใช้แล้ว
+            </div>
+          )}
           {payment.booking && (
             <div className="mt-0.5 text-sm text-muted-foreground">
               {payment.booking.courtName} · {payment.booking.date}

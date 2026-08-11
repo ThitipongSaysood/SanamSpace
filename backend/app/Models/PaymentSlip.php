@@ -16,6 +16,9 @@ class PaymentSlip extends Model
     {
         return [
             'uploaded_at' => 'datetime',
+            'trans_date' => 'datetime',
+            'verified_amount' => 'float',
+            'verify_payload' => 'array',
         ];
     }
 

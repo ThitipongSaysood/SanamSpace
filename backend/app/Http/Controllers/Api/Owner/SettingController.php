@@ -57,6 +57,7 @@ class SettingController extends Controller
             'fontFamily' => ['sometimes', 'nullable', 'string', 'max:100'],
             'timezone' => ['sometimes', 'string', 'max:100'],
             'checkinEnabled' => ['sometimes', 'boolean'],
+            'slipVerifyMode' => ['sometimes', 'in:manual,auto'],
             // Deposits: hold the slot for part of the money, take the rest at
             // the desk. `percent` is a share of the booking, `fixed` a flat baht.
             'depositEnabled' => ['sometimes', 'boolean'],
@@ -120,6 +121,7 @@ class SettingController extends Controller
             'fontFamily' => 'font_family',
             'timezone' => 'timezone',
             'checkinEnabled' => 'checkin_enabled',
+            'slipVerifyMode' => 'slip_verify_mode',
             'depositEnabled' => 'deposit_enabled',
             'depositType' => 'deposit_type',
             'depositValue' => 'deposit_value',

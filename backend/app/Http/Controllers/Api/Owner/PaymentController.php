@@ -27,7 +27,7 @@ class PaymentController extends Controller
 
         $payments = Payment::query()
             ->forOrganization($orgId)
-            ->with(['booking.court', 'customer'])
+            ->with(['booking.court', 'customer', 'latestSlip'])
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
             // A slip for a booking that no longer stands is not work: approving
             // it would confirm a cancelled slot. Cancel/delete now closes the
@@ -74,7 +74,7 @@ class PaymentController extends Controller
 
         $notifications->paymentApproved($payment);
 
-        return new OwnerPaymentResource($payment->fresh(['booking.court', 'customer']));
+        return new OwnerPaymentResource($payment->fresh(['booking.court', 'customer', 'latestSlip']));
     }
 
     /**
@@ -90,7 +90,7 @@ class PaymentController extends Controller
 
         $notifications->paymentRejected($payment);
 
-        return new OwnerPaymentResource($payment->fresh(['booking.court', 'customer']));
+        return new OwnerPaymentResource($payment->fresh(['booking.court', 'customer', 'latestSlip']));
     }
 
     /**
