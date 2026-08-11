@@ -74,20 +74,36 @@ export function toastSave<T>(
   promise: Promise<T>,
   msg?: { loading?: string; success?: string },
 ): Promise<T> {
-  // A custom toast can't be reliably swapped in place by id, so dismiss the
-  // "saving…" toast outright the moment the promise settles, then show the
-  // result as its own toast — otherwise the loading toast (duration: Infinity)
-  // hangs forever next to the success one.
-  const id = toast.loading(msg?.loading ?? "กำลังบันทึก...");
+  // Delayed spinner. A fast save (our endpoints answer in ~15ms) resolves before
+  // sonner has even mounted a loading toast — so dismissing it in .then() races
+  // the mount, the dismiss is lost, and the loading card (duration: Infinity)
+  // hangs forever next to the result. The button already shows "saving…", so the
+  // toast is only worth showing when the save is genuinely slow: arm it after a
+  // short delay, and cancel that timer if the promise settles first. When it
+  // does fire, the toast is fully mounted by the time we dismiss it, so the
+  // dismiss sticks. An explicit id + finite duration are extra insurance.
+  const id = `save-${(saveSeq = (saveSeq + 1) % 1e9)}`;
+  let shown = false;
+  const timer = setTimeout(() => {
+    shown = true;
+    toast.loading(msg?.loading ?? "กำลังบันทึก...", { id, duration: 20_000 });
+  }, 400);
+  const settle = () => {
+    clearTimeout(timer);
+    if (shown) toast.dismiss(id);
+  };
   promise.then(
     () => {
-      toast.dismiss(id);
+      settle();
       toast.success(msg?.success ?? "บันทึกแล้ว");
     },
     (e) => {
-      toast.dismiss(id);
+      settle();
       toast.error(e instanceof Error && e.message ? e.message : "ไม่สำเร็จ กรุณาลองใหม่");
     },
   );
   return promise;
 }
+
+// Monotonic counter for unique, explicit loading-toast ids (see toastSave).
+let saveSeq = 0;
