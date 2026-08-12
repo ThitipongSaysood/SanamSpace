@@ -102,10 +102,18 @@ export default function HomePage() {
   const allPromos = promotions ?? [];
   const shownPromos = allPromos.slice(0, 3);
 
-  // A single-branch venue is the normal case: booking goes straight to picking
-  // a court and a time, with no sport-picker or venue-search detour in between.
-  const venue = venues?.length === 1 ? venues[0] : null;
+  // Booking always goes straight to the booking screen now — it asks which
+  // branch when there is more than one, so the old detour through search
+  // (which was the only way a multi-branch venue could be handled here) is
+  // no longer needed.
+  const branches = venues ?? [];
+  const venue = branches[0] ?? null;
   const bookHref = venue ? `/booking/new?venueId=${venue.id}` : "/search";
+
+  // "ข้อมูลสนาม" is about ONE place — its photos, its map, its reviews. With
+  // several branches there is no single answer, so the customer picks first
+  // rather than being shown whichever one came back first.
+  const infoHref = branches.length === 1 ? `/venue/${venue?.branchId}` : "/search";
 
   return (
     <main>
@@ -233,10 +241,10 @@ export default function HomePage() {
           <ShortcutCard href="/packages" icon={Package} title="แพ็กเกจ" subtitle="ซื้อชั่วโมงล่วงหน้า" />
           {venue && (
             <ShortcutCard
-              href={`/venue/${venue.id}`}
+              href={infoHref}
               icon={Store}
               title="ข้อมูลสนาม"
-              subtitle="รูป · รีวิว · แผนที่"
+              subtitle={branches.length === 1 ? "รูป · รีวิว · แผนที่" : `เลือกสาขา (${branches.length})`}
             />
           )}
         </div>

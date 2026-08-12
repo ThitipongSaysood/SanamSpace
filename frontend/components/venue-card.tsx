@@ -6,7 +6,11 @@ import { VenueLink } from "@/lib/tenant/venue-nav";
 export function VenueCard({ venue }: { venue: Venue }) {
   return (
     <VenueLink
-      href={`/venue/${venue.id}`}
+      // The BRANCH, not the venue. `venue.id` is the organization slug, which
+      // every branch shares — a two-branch venue drew two cards that both led
+      // to the same page, and whichever branch that page happened to resolve
+      // was not the one the customer tapped.
+      href={`/venue/${venue.branchId}`}
       className="flex gap-3 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-black/5 transition active:scale-[0.99]"
     >
       <VenueMedia

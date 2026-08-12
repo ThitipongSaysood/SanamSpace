@@ -48,7 +48,10 @@ export default function VenueDetailPage({ params }: { params: Promise<{ venueId:
   if (isError) return <ErrorState onRetry={() => refetch()} />;
   if (!venue) return <EmptyState message="ไม่พบสนามนี้" />;
 
-  const base = `/venue/${venue.id}`;
+  // Keyed to the branch being viewed, so every sub-page stays on it. Built
+  // from `venue.id` — the organization slug — the links walked back to
+  // whichever branch that slug resolved to, silently switching location.
+  const base = `/venue/${venue.branchId}`;
   const menu: { href: string; icon: IconType; label: string }[] = [
     { href: `${base}/facilities`, icon: LayoutGrid, label: "สิ่งอำนวยความสะดวก" },
     { href: `${base}/map`, icon: Map, label: "แผนผังสนาม" },
