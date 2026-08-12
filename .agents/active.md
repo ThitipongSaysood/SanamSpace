@@ -1,6 +1,34 @@
 # Active Task
 
-_Last updated: 2026-08-11 (~23:50) · Last agent: Claude (Opus 5)_
+_Last updated: 2026-08-12 (~21:30) · Last agent: Claude (Opus 5)_
+
+## ✅ Done 2026-08-12 (~21:30) — demo venue per plan, branches reach the customer app, double-payment on Back
+**Committed + pushed.** backend **678/678** (2,966 assertions) · e2e **44/44** · vitest **43/43** · tsc clean ·
+lint **0 errors**. 5 commits `b72dc61`→`ee95158`. Full detail:
+`sessions/2026-08-12-2130-demo-per-plan-branches-and-double-payment.md`.
+- **🔴 Back after sending a slip re-opened the payment form** — pay, upload, view booking, Back, and the whole
+  pay screen returns; the customer's next step is to pay twice. The page kept payment state in
+  `useState(null)`, so every guard on it died with the mount. Reads `booking.paymentStatus` now. Reproduced
+  before **and** after; the 2 new tests were confirmed to fail on the old page.
+- **Demo data reset: one venue per plan.** Pro `everyday-badminton` 2 สาขา/10 คอร์ท · Business `tsr-arena`
+  3/9 · Starter `badhall-ladprao` (ใหม่) 1/4 — sized under each plan's own ceiling. All three now have an
+  owner login; two had none. Rewards + products and points were **never seeded at all** — the whole rewards
+  flow had been running on rows someone made by hand in dev.
+- **Multi-branch reached the customer app.** `VenueResource.id` is the org slug, so a 2-branch venue returned
+  two rows under one id; a court named only its venue. Both carry `branchId` now. Booking asks which branch
+  (only when there is more than one) and lists that branch's courts; every venue link goes to the branch that
+  was tapped.
+- **Three e2e specs had been passing on leftovers** — `checkin` skipped ITSELF on a fresh database ("no
+  confirmed booking"), which reads green while testing nothing. They set up what they need now.
+- **Reverted deliberately:** seeding a week of demo bookings (broke 11 tests that assume the venue starts
+  empty). Dashboard/operations stay empty until real bookings exist; `DemoBookingsSeeder` covers that case.
+
+### ⚠️ Blocking the trial offer (investigated, user deferred)
+- Landing CTA is `href="#line"` — **a dead anchor on all four buttons**.
+- **An owner created from the admin screen can never log in**: password is `Str::random(24)`, never sent, and
+  there is no invite / set-password / forgot-password anywhere in the system.
+- "30 วัน" has two paths: creating a venue with a plan sets `ends_at` +30d but not `trial_start_at`, so it is
+  not recorded as a trial. Should call `startTrial` instead of writing `addDays(30)` a second time.
 
 ## ✅ Done 2026-08-11 (~23:50) — sport catalogue, coupon time windows, landing rewrite, nightly-failing tests
 **Committed + pushed.** backend **676/676** (2,922 assertions) · e2e **44/44** · vitest **41/41** · tsc clean ·
