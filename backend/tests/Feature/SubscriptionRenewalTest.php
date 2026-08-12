@@ -307,8 +307,10 @@ class SubscriptionRenewalTest extends TestCase
     {
         $this->expire($this->everyday());
 
+        // The customer-facing venue is still readable at all — how many
+        // branches it has is not what an unpaid platform bill would change.
         $this->withHeader('X-Venue-Slug', 'everyday-badminton')
-            ->getJson('/api/v1/branches')->assertOk()->assertJsonCount(1, 'data');
+            ->getJson('/api/v1/branches')->assertOk()->assertJsonPath('data.0.id', 'everyday-badminton');
 
         $courtId = $this->getJson('/api/v1/courts?venueId=everyday-badminton')->json('data.0.id');
 

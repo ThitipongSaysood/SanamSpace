@@ -36,11 +36,12 @@ class SuperAdminApiTest extends TestCase
                 'totalOrganizations', 'activeSubscriptions', 'totalBookings',
                 'totalRevenue', 'totalCustomers', 'mrr',
             ])
-            ->assertJsonPath('totalOrganizations', 2)
-            ->assertJsonPath('activeSubscriptions', 2)
+            // One demo venue per plan tier.
+            ->assertJsonPath('totalOrganizations', 3)
+            ->assertJsonPath('activeSubscriptions', 3)
             ->assertJsonPath('totalCustomers', 1)
-            // Pro 3990 + Business 1990.
-            ->assertJsonPath('mrr', 5980);
+            // Pro 3990 + Business 1990 + Starter 990.
+            ->assertJsonPath('mrr', 6970);
     }
 
     public function test_organizations_lists_all_orgs_with_plan_and_counts(): void
@@ -48,18 +49,27 @@ class SuperAdminApiTest extends TestCase
         $response = $this->withToken($this->superToken())
             ->getJson('/api/v1/admin/organizations')
             ->assertOk()
-            ->assertJsonCount(2, 'data');
+            ->assertJsonCount(3, 'data');
 
         // Keyed by slug id for order-independent assertions.
         $orgs = collect($response->json('data'))->keyBy('id');
 
+        // Court counts come from the fixture: the assertion is that the list
+        // reports each venue's own total, not that the demo has a given size.
+        $courtsOf = fn (string $slug) => \App\Models\Court::query()
+            ->forOrganization(\App\Models\Organization::where('slug', $slug)->value('id'))
+            ->count();
+
         $this->assertSame('Pro', $orgs['everyday-badminton']['planName']);
         $this->assertSame('active', $orgs['everyday-badminton']['subscriptionStatus']);
-        $this->assertSame(6, $orgs['everyday-badminton']['courtCount']);
+        $this->assertSame($courtsOf('everyday-badminton'), $orgs['everyday-badminton']['courtCount']);
         $this->assertSame(1, $orgs['everyday-badminton']['customerCount']);
 
         $this->assertSame('Business', $orgs['tsr-arena']['planName']);
-        $this->assertSame(4, $orgs['tsr-arena']['courtCount']);
+        $this->assertSame($courtsOf('tsr-arena'), $orgs['tsr-arena']['courtCount']);
+
+        // The tier the platform sells cheapest is on the list too.
+        $this->assertSame('Starter', $orgs['badhall-ladprao']['planName']);
     }
 
     public function test_organization_detail_includes_plan_settings_and_counts(): void
@@ -70,7 +80,9 @@ class SuperAdminApiTest extends TestCase
             ->assertJsonPath('data.id', 'everyday-badminton')
             ->assertJsonPath('data.plan.code', 'pro')
             ->assertJsonPath('data.subscriptionStatus', 'active')
-            ->assertJsonPath('data.counts.courts', 6)
+            ->assertJsonPath('data.counts.courts', \App\Models\Court::query()->forOrganization(
+                \App\Models\Organization::where('slug', 'everyday-badminton')->value('id'),
+            )->count())
             ->assertJsonPath('data.settings.email', 'contact@everyday.test');
     }
 
@@ -79,7 +91,7 @@ class SuperAdminApiTest extends TestCase
         $this->withToken($this->superToken())
             ->getJson('/api/v1/admin/subscriptions')
             ->assertOk()
-            ->assertJsonCount(2, 'data')
+            ->assertJsonCount(3, 'data')
             ->assertJsonStructure([
                 'data' => [['id', 'organizationName', 'planName', 'price', 'status', 'startedAt', 'endsAt']],
             ]);

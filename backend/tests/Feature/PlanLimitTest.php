@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Branch;
+use App\Models\Court;
 use App\Models\Organization;
 use App\Models\Plan;
 use App\Models\Subscription;
@@ -70,8 +71,10 @@ class PlanLimitTest extends TestCase
 
     public function test_a_venue_at_its_court_ceiling_cannot_add_another(): void
     {
-        // The demo venue has 6 courts already.
-        $token = $this->withLimits(['court_limit' => 6]);
+        // Read from the fixture, not written out: the point is a venue sitting
+        // exactly ON its ceiling, whatever that number happens to be.
+        $courts = Court::query()->forOrganization($this->org->id)->count();
+        $token = $this->withLimits(['court_limit' => $courts]);
         $branchId = Branch::query()->forOrganization($this->org->id)->value('id');
 
         $this->as($token)->postJson('/api/v1/owner/courts', [
@@ -84,13 +87,13 @@ class PlanLimitTest extends TestCase
             ->assertJsonPath('code', 'plan_limit_reached')
             // The refusal has to name the number, or the owner's only next step
             // is to contact support.
-            ->assertJsonPath('limit', 6)
-            ->assertJsonPath('used', 6);
+            ->assertJsonPath('limit', $courts)
+            ->assertJsonPath('used', $courts);
     }
 
     public function test_raising_the_ceiling_lets_it_through(): void
     {
-        $token = $this->withLimits(['court_limit' => 7]);
+        $token = $this->withLimits(['court_limit' => Court::query()->forOrganization($this->org->id)->count() + 1]);
         $branchId = Branch::query()->forOrganization($this->org->id)->value('id');
 
         $this->as($token)->postJson('/api/v1/owner/courts', [
@@ -202,12 +205,13 @@ class PlanLimitTest extends TestCase
 
     public function test_the_subscription_reports_usage_against_every_limit(): void
     {
-        $token = $this->withLimits(['branch_limit' => 2, 'court_limit' => 8, 'staff_limit' => 5]);
+        $courts = Court::query()->forOrganization($this->org->id)->count();
+        $token = $this->withLimits(['branch_limit' => 2, 'court_limit' => $courts + 2, 'staff_limit' => 5]);
 
         $limits = $this->as($token)->getJson('/api/v1/owner/subscription')->assertOk()->json('data.limits');
 
-        $this->assertSame(6, $limits['court']['used']);
-        $this->assertSame(8, $limits['court']['limit']);
+        $this->assertSame($courts, $limits['court']['used']);
+        $this->assertSame($courts + 2, $limits['court']['limit']);
         $this->assertTrue($limits['court']['enforced']);
         $this->assertSame('คอร์ท', $limits['court']['label']);
     }

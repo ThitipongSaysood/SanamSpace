@@ -17,8 +17,10 @@ use App\Models\OrganizationUser;
 use App\Models\Permission;
 use App\Support\RolePermissions;
 use App\Models\Plan;
+use App\Models\Product;
 use App\Models\Promotion;
 use App\Models\Review;
+use App\Models\Reward;
 use App\Models\Role;
 use App\Models\Subscription;
 use App\Models\User;
@@ -80,6 +82,14 @@ class SanamSpaceSeeder extends Seeder
             'bank_name' => 'กสิกรไทย',
             'bank_account_name' => 'บจก. เอฟเวอรี่เดย์ แบดมินตัน',
             'bank_account_number' => '123-4-56789-0',
+            // The demo venue seeds rewards, memberships and a points ledger, so
+            // leaving the programme switched off hid all of it — the customer
+            // app hides the points UI when a venue does not run one.
+            //
+            // `self_redeem_enabled` deliberately stays OFF: redeeming from the
+            // app rather than at the counter is a choice a venue makes, and
+            // RewardTest asserts it is refused until they make it.
+            'points_enabled' => true,
         ]);
 
         $everydayBranch = Branch::create([
@@ -214,6 +224,226 @@ class SanamSpaceSeeder extends Seeder
         ]);
 
         $this->seedEverydayExtras($everyday, $everydayBranch, $customer);
+        $this->seedRewards($everyday);
+
+        // One demo venue per plan, each shaped like a venue on that plan really
+        // is — see seedPlanShapes().
+        $this->seedPlanShapes($everyday, $tsr, $plans, $ownerRole);
+    }
+
+    /**
+     * Make each demo venue look like its plan.
+     *
+     * The three plans differ in exactly one visible way — how much a venue may
+     * open — and every demo venue used to be one branch with a handful of
+     * courts, so opening Starter and Pro side by side showed the same picture.
+     * A demo that cannot tell ฿990 from ฿3,990 cannot be used to sell either.
+     *
+     * Sized against the plan's own limits (`plans.branch_limit` etc.), and
+     * deliberately under them: a venue sitting exactly on its cap has no room
+     * to demonstrate what happens when you add one more, which is the other
+     * half of what the limits are for.
+     *
+     * Everyday Badminton keeps its original branch and its six courts exactly
+     * as they were. Its whole customer history — bookings, CRM, wallet,
+     * coupons — hangs off them, and so does most of the test suite.
+     */
+    private function seedPlanShapes(Organization $everyday, Organization $tsr, array $plans, ?Role $ownerRole): void
+    {
+        // --- Pro: unlimited, so it is the one with more than one branch ---
+        $everydayNorth = Branch::create([
+            'organization_id' => $everyday->id,
+            'name' => 'Everyday Badminton · รัตนาธิเบศร์',
+            'address' => 'ถนนรัตนาธิเบศร์ นนทบุรี',
+            'phone' => '081-234-5679',
+            'open_time' => '09:00',
+            'close_time' => '23:00',
+            'distance_km' => 3.4,
+            'rating' => 4.7,
+            'review_count' => 64,
+            'sports' => ['badminton'],
+            'facilities' => ['parking', 'shower', 'cafe', 'wifi', 'aircon'],
+            'description' => 'สาขาที่สอง คอร์ทมาตรฐานเดียวกัน ที่จอดรถกว้างกว่า',
+        ]);
+
+        // sort_order continues past the first branch's six, so "the first
+        // court" is still Court 1 for everything that asks for one.
+        for ($i = 1; $i <= 4; $i++) {
+            Court::create(array_merge([
+                'organization_id' => $everyday->id,
+                'branch_id' => $everydayNorth->id,
+                'name' => "RTN {$i}",
+                'sport' => 'badminton',
+                'price_per_hour' => 280,
+                'sort_order' => 10 + $i,
+            ], self::BADMINTON_SPEC));
+        }
+
+        // --- Business: 3 branches / 30 courts. Show the multi-branch case. ---
+        $tsrBranches = [
+            ['name' => 'TSR Arena · ธัญบุรี', 'address' => 'ธัญบุรี ปทุมธานี', 'sports' => ['futsal'], 'courts' => [['ฟุตซอล A', 'futsal', 700], ['ฟุตซอล B', 'futsal', 700]]],
+            ['name' => 'TSR Arena · รังสิต', 'address' => 'รังสิต ปทุมธานี', 'sports' => ['badminton', 'tabletennis'], 'courts' => [['RS 1', 'badminton', 240], ['RS 2', 'badminton', 240], ['โต๊ะปิงปอง 1', 'tabletennis', 120]]],
+        ];
+
+        foreach ($tsrBranches as $i => $def) {
+            $branch = Branch::create([
+                'organization_id' => $tsr->id,
+                'name' => $def['name'],
+                'address' => $def['address'],
+                'open_time' => '09:00',
+                'close_time' => '23:00',
+                'distance_km' => 5.0 + $i,
+                'rating' => 4.5,
+                'review_count' => 40 + $i * 7,
+                'sports' => $def['sports'],
+                'facilities' => ['parking', 'cafe'],
+            ]);
+
+            foreach ($def['courts'] as $j => [$name, $sport, $price]) {
+                Court::create([
+                    'organization_id' => $tsr->id,
+                    'branch_id' => $branch->id,
+                    'name' => $name,
+                    'sport' => $sport,
+                    'price_per_hour' => $price,
+                    'sort_order' => 20 + $i * 10 + $j,
+                ]);
+            }
+        }
+
+        $this->seedOwner($tsr, $ownerRole, 'TSR Owner', 'owner@tsr.test', '02-000-0000');
+
+        // --- Starter: one branch, and that is the whole point of the tier ---
+        $starter = Organization::create([
+            'name' => 'แบดฮอลล์ ลาดพร้าว',
+            'slug' => 'badhall-ladprao',
+            'business_type' => 'badminton',
+            'status' => 'active',
+            'timezone' => 'Asia/Bangkok',
+        ]);
+
+        OrganizationSetting::create([
+            'organization_id' => $starter->id,
+            'primary_color' => '#EA580C',
+            'secondary_color' => '#C2410C',
+            'accent_color' => '#F97316',
+            'phone' => '02-111-2222',
+            'email' => 'contact@badhall.test',
+            'address' => 'ลาดพร้าว กรุงเทพฯ',
+            'timezone' => 'Asia/Bangkok',
+            'promptpay_id' => '021112222',
+            'promptpay_name' => 'แบดฮอลล์ ลาดพร้าว',
+        ]);
+
+        $starterBranch = Branch::create([
+            'organization_id' => $starter->id,
+            'name' => 'แบดฮอลล์ ลาดพร้าว',
+            'address' => 'ลาดพร้าว กรุงเทพฯ',
+            'phone' => '02-111-2222',
+            'open_time' => '10:00',
+            'close_time' => '22:00',
+            'distance_km' => 4.8,
+            'rating' => 4.4,
+            'review_count' => 31,
+            'sports' => ['badminton'],
+            'facilities' => ['parking', 'wifi'],
+            'description' => 'สนามแบดมินตันย่านลาดพร้าว 4 คอร์ท เปิดทุกวัน',
+        ]);
+
+        for ($i = 1; $i <= 4; $i++) {
+            Court::create(array_merge([
+                'organization_id' => $starter->id,
+                'branch_id' => $starterBranch->id,
+                'name' => "คอร์ท {$i}",
+                'sport' => 'badminton',
+                'price_per_hour' => 200,
+                'sort_order' => $i,
+            ], self::BADMINTON_SPEC));
+        }
+
+        Subscription::create([
+            'organization_id' => $starter->id,
+            'plan_id' => $plans['starter']->id,
+            'status' => 'active',
+            'started_at' => now()->subDays(12),
+            'ends_at' => now()->addDays(18),
+        ]);
+
+        $this->seedOwner($starter, $ownerRole, 'Badhall Owner', 'owner@badhall.test', '02-111-2222');
+    }
+
+    /**
+     * Things a customer can spend points on.
+     *
+     * There were none. The rewards screen, the redemption QR and the counter's
+     * collection flow were all built, tested and shipped against rows that only
+     * ever existed because somebody had created them by hand in the dev
+     * database — the first `migrate:fresh` emptied the screen and failed the
+     * e2e spec that had been passing on them for weeks.
+     *
+     * One of each type, so the demo shows all three ways a reward can pay out.
+     */
+    private function seedRewards(Organization $org): void
+    {
+        // A product reward needs a product behind it — without one the app
+        // renders it "ของหมด" and the button is dead, which is exactly how the
+        // seeded catalogue looked before: three rewards, one of them unusable.
+        $water = Product::create([
+            'organization_id' => $org->id,
+            'name' => 'น้ำดื่ม',
+            'category' => 'เครื่องดื่ม',
+            'price' => 15,
+            'stock_qty' => 120,
+            'low_stock_threshold' => 20,
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+
+        Product::create([
+            'organization_id' => $org->id,
+            'name' => 'ลูกขนไก่ (หลอด)',
+            'category' => 'อุปกรณ์',
+            'price' => 450,
+            'stock_qty' => 24,
+            'low_stock_threshold' => 5,
+            'is_active' => true,
+            'sort_order' => 2,
+        ]);
+
+        $rewards = [
+            ['name' => 'น้ำดื่ม 1 ขวด', 'points_cost' => 50, 'type' => 'product', 'product_id' => $water->id, 'credit_amount' => null, 'hours' => null],
+            ['name' => 'ส่วนลด 100 บาท', 'points_cost' => 150, 'type' => 'credit', 'product_id' => null, 'credit_amount' => 100, 'hours' => null],
+            ['name' => 'เล่นฟรี 1 ชั่วโมง', 'points_cost' => 300, 'type' => 'hours', 'product_id' => null, 'credit_amount' => null, 'hours' => 1],
+        ];
+
+        foreach ($rewards as $i => $reward) {
+            Reward::create($reward + [
+                'organization_id' => $org->id,
+                'is_active' => true,
+                'sort_order' => $i + 1,
+            ]);
+        }
+    }
+
+    /** A venue with no owner cannot be opened, which makes it a poor demo. */
+    private function seedOwner(Organization $org, ?Role $ownerRole, string $name, string $email, string $phone): void
+    {
+        $user = User::create([
+            'name' => $name,
+            'display_name' => $name,
+            'email' => $email,
+            'phone' => $phone,
+            'password' => Hash::make('password'),
+        ]);
+
+        OrganizationUser::create([
+            'organization_id' => $org->id,
+            'user_id' => $user->id,
+            'role_id' => $ownerRole?->id,
+            'display_name' => $name,
+            'status' => 'active',
+            'joined_at' => now(),
+        ]);
     }
 
     /**

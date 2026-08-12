@@ -218,7 +218,19 @@ class SportCatalogueTest extends TestCase
     {
         $keys = collect($this->getJson('/api/v1/orgs/tsr-arena/public')->assertOk()->json('sportMeta'))->pluck('key');
 
-        $this->assertEqualsCanonicalizing(['badminton', 'futsal'], $keys->all());
+        // TSR runs three branches on the Business tier, and the payload is the
+        // union across them — asserted against the fixture so growing the demo
+        // venue does not read as a regression.
+        $expected = \App\Models\Branch::query()
+            ->where('organization_id', Organization::where('slug', 'tsr-arena')->value('id'))
+            ->get()
+            ->flatMap(fn ($b) => (array) $b->sports)
+            ->unique()
+            ->values()
+            ->all();
+
+        $this->assertEqualsCanonicalizing($expected, $keys->all());
+        $this->assertContains('futsal', $keys->all());
     }
 
     // ---- the platform side of a venue's own sports --------------------------

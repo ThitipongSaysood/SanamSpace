@@ -68,7 +68,12 @@ class OwnerApiTest extends TestCase
                 'recentBookings',
             ])
             // 6 Everyday courts (NOT 10 across both orgs) + the seeded customer.
-            ->assertJsonPath('courtCount', 6)
+            // Counted from the fixture rather than written out: how many courts
+            // the demo venue has is a seeding decision, the dashboard agreeing
+            // with the database is the assertion.
+            ->assertJsonPath('courtCount', Court::query()->forOrganization(
+                Organization::where('slug', 'everyday-badminton')->value('id'),
+            )->count())
             ->assertJsonPath('totalCustomers', 1)
             // revenueSeries is always the last 7 days, zero-filled.
             ->assertJsonCount(7, 'revenueSeries')
@@ -206,10 +211,15 @@ class OwnerApiTest extends TestCase
         $this->assertSame('pending_review', $tsrPayment->fresh()->status);
         $this->assertSame('pending_payment', $tsrBooking->fresh()->status);
 
-        // Everyday courts only (6), never TSR's 4.
+        // Everyday's courts only, never TSR's.
         $this->app['auth']->forgetGuards();
-        $this->withToken($owner)->getJson('/api/v1/owner/courts')
-            ->assertOk()->assertJsonCount(6, 'data');
+        $courts = $this->withToken($owner)->getJson('/api/v1/owner/courts')->assertOk()->json('data');
+
+        $this->assertNotEmpty($courts);
+        $this->assertEmpty(
+            collect($courts)->pluck('id')->intersect(Court::where('organization_id', $tsr->id)->pluck('id')),
+            "the owner's court list must never contain another venue's courts",
+        );
     }
 
     public function test_non_staff_user_is_forbidden(): void

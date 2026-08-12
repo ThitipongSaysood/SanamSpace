@@ -30,8 +30,18 @@ async function setCheckin(request: Req, enabled: boolean) {
   expect(res.ok()).toBeTruthy();
 }
 
-/** Sign in as the customer and return their token plus a confirmed booking. */
-async function customerBooking(page: import("@playwright/test").Page) {
+/**
+ * Sign in as the customer and return a confirmed booking of theirs, making one
+ * through the owner's counter if they have none.
+ *
+ * The three specs below used to `test.skip()` themselves when the customer had
+ * nothing booked — and on a freshly seeded database that is always, because the
+ * seeder creates no bookings. They ran only while an earlier run's leftovers
+ * were still in the shared dev database, and reported "skipped" rather than
+ * "failed" the moment it was reset, so nothing ever complained. A spec that
+ * needs a booking should make one.
+ */
+async function customerBooking(page: import("@playwright/test").Page, request?: Req) {
   await page.goto(`/v/${SLUG}`);
   await page.getByRole("button", { name: "เข้าสู่ระบบด้วย LINE" }).click();
   await expect(page).toHaveURL(new RegExp(`/v/${SLUG}/home`));
@@ -45,14 +55,38 @@ async function customerBooking(page: import("@playwright/test").Page) {
     return (await r.json()).data as { id: string; status: string; checkinToken: string; code: string }[];
   }, token);
 
-  return bookings.find((b) => b.status === "confirmed") ?? null;
+  const existing = bookings.find((b) => b.status === "confirmed");
+  if (existing || !request) return existing ?? null;
+
+  // Booked from the counter, at a fixed hour tomorrow: a slot built from "now"
+  // crosses midnight late in the evening and is refused (end must be after
+  // start), which is the trap this suite has already been caught by once.
+  const headers = await ownerHeaders(request);
+  const courts = (await (await request.get(`${BASE}/owner/courts`, { headers })).json()).data as { id: string }[];
+  const customers = (await (await request.get(`${BASE}/owner/customers`, { headers })).json()).data as { id: string }[];
+  const tomorrow = new Date(Date.now() + 864e5);
+  const date = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`;
+
+  for (const court of courts) {
+    const created = await request.post(`${BASE}/owner/bookings`, {
+      headers,
+      data: { courtId: court.id, customerId: customers[0].id, date, start: "10:00", end: "11:00", status: "confirmed" },
+      failOnStatusCode: false,
+    });
+    if (created.ok()) {
+      const made = (await created.json()).data as { id: string; status: string; checkinToken: string; code: string };
+      return made;
+    }
+  }
+
+  return null;
 }
 
 test("the customer's QR is real, and it encodes the check-in token", async ({ page, request }) => {
   test.skip(!process.env.E2E_OWNER, "requires backend (E2E_OWNER=1)");
 
   await setCheckin(request, true);
-  const booking = await customerBooking(page);
+  const booking = await customerBooking(page, request);
   test.skip(!booking, "no confirmed booking to show a QR for");
 
   await page.goto(`/v/${SLUG}/booking/${booking!.id}/qr`);
@@ -160,7 +194,7 @@ test("a venue that switches check-in off stops showing its customers a QR", asyn
   test.skip(!process.env.E2E_OWNER, "requires backend (E2E_OWNER=1)");
 
   await setCheckin(request, false);
-  const booking = await customerBooking(page);
+  const booking = await customerBooking(page, request);
   test.skip(!booking, "no confirmed booking to check");
 
   await page.goto(`/v/${SLUG}/booking/${booking!.id}`);
@@ -207,7 +241,7 @@ test("the counter can switch check-in off from its own screen", async ({ page, r
 test("a customer cannot check themselves in", async ({ page, request }) => {
   test.skip(!process.env.E2E_OWNER, "requires backend (E2E_OWNER=1)");
 
-  const booking = await customerBooking(page);
+  const booking = await customerBooking(page, request);
   test.skip(!booking, "no confirmed booking to check");
 
   const token = await page.evaluate(() => window.localStorage.getItem("sanamspace.token"));

@@ -5,6 +5,28 @@ const VENUE = "everyday-badminton";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000/api/v1";
 
+/**
+ * Turn the loyalty programme on for this venue, and allow redeeming from the
+ * app rather than only at the counter.
+ *
+ * This spec used to assume both. They default to false and nothing here set
+ * them, so the run only passed while an earlier run had left the flags on in
+ * the shared dev database — the first `migrate:fresh` failed it. Set the state
+ * you depend on.
+ */
+async function enablePoints(request: import("@playwright/test").APIRequestContext) {
+  const login = await request.post(`${API}/auth/admin/login`, {
+    data: { email: "owner@everyday.test", password: "password" },
+  });
+  const token = (await login.json()).token as string;
+
+  const res = await request.put(`${API}/owner/settings`, {
+    headers: { Authorization: `Bearer ${token}`, "X-Venue-Slug": VENUE },
+    data: { pointsEnabled: true, selfRedeemEnabled: true },
+  });
+  expect(res.ok()).toBeTruthy();
+}
+
 /** Give the customer enough points to redeem, through the owner's own endpoint. */
 async function topUpPoints(request: import("@playwright/test").APIRequestContext, memberNo: string) {
   const login = await request.post(`${API}/auth/admin/login`, {
@@ -36,6 +58,8 @@ test.skip(!process.env.E2E_OWNER, "requires backend + NEXT_PUBLIC_API_URL (run w
  * the same library the counter's scanner uses.
  */
 test("a reward redeemed in the app is collected at the counter", async ({ page, request }) => {
+  await enablePoints(request);
+
   await page.goto(`/v/${VENUE}`);
   await page.getByRole("button", { name: "เข้าสู่ระบบด้วย LINE" }).click();
   await expect(page).toHaveURL(new RegExp(`/v/${VENUE}/home`));
