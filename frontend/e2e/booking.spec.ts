@@ -35,8 +35,21 @@ test("customer can book a court end-to-end", async ({ page, request }) => {
   await page.locator('a[href*="/venue/"]').first().click();
   await page.getByRole("button", { name: "จองสนาม" }).click();
 
-  // Everything on one page: pick court, keep default date, pick a time.
+  // Everything on one page: pick branch (when the venue has more than one),
+  // pick court, keep default date, pick a time.
+  //
+  // The branch step only appears for a multi-branch venue — a venue with one
+  // is not making a choice — so this waits for the court heading either way
+  // and clicks a branch only if it is there.
+  // Wait for the screen before asking what is on it: `isVisible()` does not
+  // auto-wait, so checking for the branch step the instant after navigating
+  // answered "no" every time and skipped it.
   await expect(page.getByRole("heading", { name: "เลือกคอร์ท" })).toBeVisible();
+
+  const branchStep = page.getByRole("heading", { name: "เลือกสาขา" });
+  if (await branchStep.isVisible().catch(() => false)) {
+    await page.getByRole("button", { name: /คอร์ท$/ }).first().click();
+  }
   await page.getByRole("button", { name: /Court 1/ }).click();
   // Any free slot: this test books for real, so a fixed hour would only be
   // bookable once against a persistent database.

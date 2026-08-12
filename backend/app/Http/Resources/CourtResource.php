@@ -16,6 +16,11 @@ class CourtResource extends JsonResource
         return [
             'id' => $this->id,
             'venueId' => $this->branch?->organization?->slug ?? $this->branch_id,
+            // Which branch it stands in. A customer picking a court at a
+            // multi-branch venue is picking a place to drive to, and this
+            // payload used to say only which VENUE it belonged to.
+            'branchId' => (string) $this->branch_id,
+            'branchName' => $this->branch?->name,
             'name' => $this->name,
             'sport' => $this->sport,
             'pricePerHour' => (float) $this->price_per_hour,

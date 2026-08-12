@@ -23,6 +23,13 @@ class VenueResource extends JsonResource
 
         return [
             'id' => $this->organization?->slug ?? $this->id,
+            // The branch's own id, alongside the venue's.
+            //
+            // `id` is the organization slug — this app was built when a venue
+            // was one branch, so the two were the same thing. They are not: a
+            // venue with two branches returns two rows under one `id`, and
+            // nothing downstream could tell them apart or ask for one of them.
+            'branchId' => (string) $this->id,
             'name' => $this->name,
             'sports' => $this->sports ?? [],
             'rating' => (float) $this->rating,

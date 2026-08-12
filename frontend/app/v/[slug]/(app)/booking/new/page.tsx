@@ -2,7 +2,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useVenueRouter as useRouter } from "@/lib/tenant/venue-nav";
-import { CheckCircle2, Circle, Minus, Package, Plus, Ticket, X } from "lucide-react";
+import { Check, CheckCircle2, Circle, Minus, Package, Plus, Ticket, X } from "lucide-react";
 import type { CouponPreview } from "@/lib/types";
 import { api } from "@/lib/api/client";
 import { useCourts, useSchedule, useCreateBooking, useRentals } from "@/lib/api/queries";
@@ -52,7 +52,33 @@ function NewBookingInner() {
   const { data: courts } = useCourts(venueId);
   const dates = useMemo(() => genDates(14), []);
   const [courtId, setCourtId] = useState<string | undefined>();
+  const [branchId, setBranchId] = useState<string | undefined>();
   const [date, setDate] = useState(dates[0].iso);
+  /**
+   * The venue's branches, in the order its courts come back.
+   *
+   * A venue can run several, and they are different places to drive to. Until
+   * this screen knew that, a two-branch venue listed every court it owned as
+   * one flat list with nothing saying where any of them were.
+   */
+  const branches = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const c of courts ?? []) {
+      if (!seen.has(c.branchId)) seen.set(c.branchId, c.branchName ?? "");
+    }
+
+    return [...seen].map(([id, name]) => ({ id, name }));
+  }, [courts]);
+
+  // One branch is not a choice, so it is not a step — the venue that has only
+  // ever had one must not grow a picker with a single option in it.
+  const picksBranch = branches.length > 1;
+  const activeBranch = picksBranch ? branchId : branches[0]?.id;
+  const visibleCourts = useMemo(
+    () => (activeBranch ? (courts ?? []).filter((c) => c.branchId === activeBranch) : []),
+    [courts, activeBranch],
+  );
+
   const court = courts?.find((c) => c.id === courtId);
   const { data: schedule } = useSchedule(courtId, date);
   const [selected, setSelected] = useState<Slot[]>([]);
@@ -155,11 +181,51 @@ function NewBookingInner() {
     >
       <AppHeader title="จองสนาม" />
       <div className="space-y-6 p-4">
+        {/* 0. branch — only when there is more than one to choose between */}
+        {picksBranch && (
+          <section>
+            <SectionTitle n={1}>เลือกสาขา</SectionTitle>
+            <div className="space-y-2.5">
+              {branches.map((b) => {
+                const active = activeBranch === b.id;
+                const count = (courts ?? []).filter((c) => c.branchId === b.id).length;
+
+                return (
+                  <button
+                    key={b.id}
+                    aria-pressed={active}
+                    onClick={() => {
+                      setBranchId(b.id);
+                      // The court belonged to the branch just left.
+                      setCourtId(undefined);
+                      setSelected([]);
+                    }}
+                    className={`flex w-full items-center justify-between gap-3 rounded-2xl p-3.5 text-left shadow-sm ring-1 transition ${
+                      active ? "bg-brand/10 ring-brand" : "bg-white ring-black/5 hover:ring-brand/30"
+                    }`}
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate font-semibold">{b.name || "สาขา"}</span>
+                      <span className="mt-0.5 block text-sm text-muted-foreground">{count} คอร์ท</span>
+                    </span>
+                    {active && <Check className="size-5 shrink-0 text-brand" />}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
         {/* 1. court */}
         <section>
-          <SectionTitle n={1}>เลือกคอร์ท</SectionTitle>
+          <SectionTitle n={picksBranch ? 2 : 1}>เลือกคอร์ท</SectionTitle>
+          {picksBranch && !activeBranch ? (
+            <p className="rounded-2xl bg-white p-4 text-sm text-muted-foreground ring-1 ring-black/5">
+              เลือกสาขาก่อน แล้วจะแสดงคอร์ทของสาขานั้น
+            </p>
+          ) : (
           <div className="space-y-2.5">
-            {courts.map((c) => {
+            {visibleCourts.map((c) => {
               const active = courtId === c.id;
               return (
                 <button
@@ -196,11 +262,12 @@ function NewBookingInner() {
               );
             })}
           </div>
+          )}
         </section>
 
         {/* 2. date — horizontal strip */}
         <section ref={dateRef} className="scroll-mt-20">
-          <SectionTitle n={2}>เลือกวันที่</SectionTitle>
+          <SectionTitle n={picksBranch ? 3 : 2}>เลือกวันที่</SectionTitle>
           <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {dates.map((d) => {
               const active = date === d.iso;
@@ -228,7 +295,7 @@ function NewBookingInner() {
 
         {/* 3. time */}
         <section ref={timeRef} className="scroll-mt-20">
-          <SectionTitle n={3}>เลือกเวลา</SectionTitle>
+          <SectionTitle n={picksBranch ? 4 : 3}>เลือกเวลา</SectionTitle>
           {!court ? (
             <div className="rounded-2xl bg-white p-6 text-center text-sm text-muted-foreground shadow-sm ring-1 ring-black/5">
               เลือกคอร์ทก่อนเพื่อดูเวลาว่าง
@@ -254,7 +321,7 @@ function NewBookingInner() {
         {/* 4. equipment — only once there is a slot to check availability against */}
         {ready && (rentalItems?.length ?? 0) > 0 && (
           <section>
-            <SectionTitle n={4}>เช่าอุปกรณ์ (ไม่บังคับ)</SectionTitle>
+            <SectionTitle n={picksBranch ? 5 : 4}>เช่าอุปกรณ์ (ไม่บังคับ)</SectionTitle>
             <div className="space-y-2.5">
               {rentalItems!.map((item) => {
                 const qty = rentals[item.id] ?? 0;

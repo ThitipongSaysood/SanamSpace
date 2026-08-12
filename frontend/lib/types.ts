@@ -16,7 +16,10 @@ export type DayHours = { day: string; open: string; close: string };
 export type CourtSpec = { sport: string; floor: string; aircon: string; height: string; lighting: string; standard: string; players: string };
 
 export type Venue = {
+  /** The venue (organization) slug — shared by every branch it runs. */
   id: string;
+  /** This branch's own id. Use it whenever one branch is meant, not the venue. */
+  branchId: string;
   name: string;
   sports: Sport[];
   rating: number;        // 0..5
@@ -40,6 +43,15 @@ export type Venue = {
 export type Court = {
   id: string;
   venueId: string;
+  /**
+   * The branch this court stands in.
+   *
+   * A venue can have several, and they are different places to drive to — the
+   * payload used to say only which venue a court belonged to, which is no help
+   * to someone choosing between them.
+   */
+  branchId: string;
+  branchName?: string | null;
   name: string;          // "Court 1"
   sport: Sport;
   pricePerHour: number;  // THB

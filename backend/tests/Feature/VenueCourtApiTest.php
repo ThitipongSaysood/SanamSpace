@@ -119,6 +119,54 @@ class VenueCourtApiTest extends TestCase
             ->assertNotFound();
     }
 
+    /**
+     * A court says which branch it stands in, and a venue row says which branch
+     * it is.
+     *
+     * Both payloads used to answer only "which VENUE" — `id` on a branch was
+     * the organization slug, so a two-branch venue returned two rows under one
+     * id and nothing downstream could tell them apart or ask for one. That was
+     * invisible while every venue had exactly one branch, and wrong the moment
+     * one did not: the customer's booking screen listed every court the venue
+     * owned as one flat list, across places they would have to drive between.
+     */
+    public function test_a_court_says_which_branch_it_stands_in(): void
+    {
+        $courts = $this->getJson('/api/v1/courts?venueId=everyday-badminton')->assertOk()->json('data');
+
+        $branches = \App\Models\Branch::query()
+            ->where('organization_id', \App\Models\Organization::where('slug', 'everyday-badminton')->value('id'))
+            ->pluck('name', 'id');
+
+        $this->assertGreaterThan(1, $branches->count(), 'this only means something at a multi-branch venue');
+
+        foreach ($courts as $court) {
+            $this->assertArrayHasKey('branchId', $court);
+            $this->assertTrue($branches->has($court['branchId']), 'the court names a branch of this venue');
+            $this->assertSame($branches[$court['branchId']], $court['branchName']);
+        }
+
+        // …and every branch is represented, so filtering by one cannot silently
+        // hide a court the venue is renting out.
+        $this->assertEqualsCanonicalizing(
+            $branches->keys()->all(),
+            collect($courts)->pluck('branchId')->unique()->values()->all(),
+        );
+    }
+
+    public function test_a_venue_row_carries_its_own_branch_id(): void
+    {
+        $rows = $this->withHeader('X-Venue-Slug', 'everyday-badminton')
+            ->getJson('/api/v1/branches')->assertOk()->json('data');
+
+        $ids = collect($rows)->pluck('branchId');
+
+        // One row per branch, each with its own id — the shared `id` (the venue
+        // slug) cannot tell two branches apart.
+        $this->assertSame($ids->count(), $ids->unique()->count());
+        $this->assertSame(['everyday-badminton'], collect($rows)->pluck('id')->unique()->values()->all());
+    }
+
     public function test_courts_filtered_by_venue_slug(): void
     {
         // The filter, not the fixture: every court that comes back must belong
