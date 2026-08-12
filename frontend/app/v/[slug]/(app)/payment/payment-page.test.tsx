@@ -86,6 +86,47 @@ describe("PaymentPage flow (C2 + C3)", () => {
     });
   });
 
+  /**
+   * Coming BACK to this screen must not offer to take the money again.
+   *
+   * The page kept the payment in local state, so pressing Back and returning
+   * re-mounted it with that state empty and drew the whole pay form for a
+   * booking whose slip had already been sent — the customer's own next step
+   * was to pay a second time, and nothing on screen said otherwise. The
+   * booking already carries the latest payment's status; this asserts the
+   * screen believes the server rather than what it happens to remember.
+   */
+  it("shows the waiting screen on a fresh mount when the slip is already in", async () => {
+    const booking = await api.createBooking({
+      venueId: "everyday-badminton", courtId: "court-1",
+      date: "2026-06-20", start: "14:00", end: "15:00",
+    });
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 30_000 } } });
+
+    // Exactly what a re-mount reads: no local state, a booking the server says
+    // is waiting on the venue.
+    qc.setQueryData(["booking", booking.id], { ...booking, paymentStatus: "pending_review" });
+
+    renderPayment(booking.id, qc);
+
+    expect(await screen.findByText("ส่งสลิปแล้ว")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "ดำเนินการชำระเงิน" })).not.toBeInTheDocument();
+  });
+
+  it("shows the confirmed screen on a fresh mount once the venue has approved", async () => {
+    const booking = await api.createBooking({
+      venueId: "everyday-badminton", courtId: "court-1",
+      date: "2026-06-20", start: "15:00", end: "16:00",
+    });
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 30_000 } } });
+    qc.setQueryData(["booking", booking.id], { ...booking, paymentStatus: "approved" });
+
+    renderPayment(booking.id, qc);
+
+    expect(await screen.findByText("ยืนยันการชำระเงินแล้ว!")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "ดำเนินการชำระเงิน" })).not.toBeInTheDocument();
+  });
+
   it("keeps the submit button disabled until a slip is attached", async () => {
     const user = userEvent.setup();
     const booking = await api.createBooking({

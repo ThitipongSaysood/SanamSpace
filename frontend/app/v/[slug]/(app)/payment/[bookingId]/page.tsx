@@ -61,6 +61,19 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
   if (isLoading) return <Loading />;
   if (!booking) return <EmptyState message="ไม่พบการจอง" />;
 
+  /**
+   * What the SERVER says about this payment, not what this page remembers.
+   *
+   * `payment` is local state, so pressing Back and returning re-mounted the
+   * screen with it null and drew the whole pay form again — for a booking
+   * whose slip had already been sent. The customer's own next step was to pay
+   * a second time, and nothing on screen said otherwise.
+   *
+   * The booking already carries the latest payment's status; local state is
+   * only the faster copy of it for the moment just after acting.
+   */
+  const paymentStatus = payment?.status ?? booking.paymentStatus ?? null;
+
   const bookingHours = hoursBetween(booking.start, booking.end);
   const eligiblePackage = (myPackages.data ?? []).find(
     (p) => p.status === "active" && p.remainingHours >= bookingHours,
@@ -137,8 +150,9 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
     }
   }
 
-  // Confirmed by the venue (or paid instantly with a package)
-  if (payment?.status === "approved" || redeemed) {
+  // Confirmed by the venue (or paid instantly with a package/credit, both of
+  // which record an approved payment server-side and so survive a reload).
+  if (paymentStatus === "approved" || redeemed) {
     return (
       <main className="flex min-h-dvh flex-col items-center justify-center px-6 text-center">
         <div className="grid size-24 place-items-center rounded-full bg-brand text-white shadow-lg shadow-brand/30">
@@ -160,7 +174,7 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
   }
 
   // Slip submitted → waiting for the venue to verify
-  if (payment?.status === "pending_review") {
+  if (paymentStatus === "pending_review") {
     return (
       <main className="flex min-h-dvh flex-col items-center justify-center px-6 text-center">
         <div className="grid size-24 place-items-center rounded-full bg-amber-100 text-amber-600">
