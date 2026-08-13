@@ -11,31 +11,31 @@ import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { BillingDocument, OpenPdfButton } from "@/components/billing-document";
 import type { AdminInvoice, AdminSubscription } from "@/lib/types";
+import { useMessages, useLocale } from "@/lib/i18n/context";
+import { fmt as interp, intlLocale } from "@/lib/i18n/format";
+import type { Locale } from "@/lib/i18n/config";
 
 const fmt = new Intl.NumberFormat("th-TH");
-const PERIODS = [
-  { months: 1, label: "1 เดือน" },
-  { months: 3, label: "3 เดือน" },
-  { months: 6, label: "6 เดือน" },
-  { months: 12, label: "1 ปี" },
-];
+const PERIOD_MONTHS = [1, 3, 6, 12];
 
-function fmtDate(iso?: string | null) {
+function fmtDate(iso: string | null | undefined, locale: Locale) {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
+  return new Date(iso).toLocaleDateString(intlLocale(locale), { day: "numeric", month: "short", year: "numeric" });
 }
 
-const STATUS: Record<string, { label: string; cls: string }> = {
-  unpaid: { label: "รอชำระ", cls: "bg-amber-100 text-amber-700" },
-  overdue: { label: "เกินกำหนด", cls: "bg-red-100 text-red-700" },
-  pending_review: { label: "รอตรวจสอบ", cls: "bg-blue-100 text-blue-700" },
-  paid: { label: "ชำระแล้ว", cls: "bg-brand/10 text-brand" },
-  rejected: { label: "ไม่ผ่าน", cls: "bg-red-100 text-red-700" },
+const STATUS_CLS: Record<string, string> = {
+  unpaid: "bg-amber-100 text-amber-700",
+  overdue: "bg-red-100 text-red-700",
+  pending_review: "bg-blue-100 text-blue-700",
+  paid: "bg-brand/10 text-brand",
+  rejected: "bg-red-100 text-red-700",
 };
 
 function StatusChip({ status }: { status: string }) {
-  const m = STATUS[status] ?? { label: status, cls: "bg-slate-100 text-slate-600" };
-  return <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${m.cls}`}>{m.label}</span>;
+  const t = useMessages("owner").billing;
+  const cls = STATUS_CLS[status] ?? "bg-slate-100 text-slate-600";
+  const label = (t.status as Record<string, string>)[status] ?? status;
+  return <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>{label}</span>;
 }
 
 /**
@@ -51,13 +51,14 @@ function StatusChip({ status }: { status: string }) {
  * plan exists.
  */
 function PlanUsage({ limits }: { limits?: AdminSubscription["limits"] }) {
+  const t = useMessages("owner").billing;
   const rows = Object.entries(limits ?? {}).filter(([, v]) => v.limit != null);
 
   if (rows.length === 0) return null;
 
   return (
     <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
-      <h2 className="text-sm font-semibold">การใช้งานตามแพ็กเกจ</h2>
+      <h2 className="text-sm font-semibold">{t.planUsageTitle}</h2>
       <div className="mt-3 space-y-3">
         {rows.map(([key, row]) => {
           const pct = Math.min(100, Math.round((row.used / (row.limit || 1)) * 100));
@@ -67,7 +68,7 @@ function PlanUsage({ limits }: { limits?: AdminSubscription["limits"] }) {
               <div className="flex items-baseline justify-between text-sm">
                 <span className="text-muted-foreground">
                   {row.label}
-                  {!row.enforced && <span className="ml-1 text-xs">(นับไว้ดู ไม่ได้ปิดกั้น)</span>}
+                  {!row.enforced && <span className="ml-1 text-xs">{t.notEnforced}</span>}
                 </span>
                 <span className={`font-medium ${full && row.enforced ? "text-rose-600" : ""}`}>
                   {fmt.format(row.used)} / {fmt.format(row.limit ?? 0)}
@@ -80,7 +81,7 @@ function PlanUsage({ limits }: { limits?: AdminSubscription["limits"] }) {
                 />
               </div>
               {full && row.enforced && (
-                <p className="mt-1 text-xs text-rose-600">ใช้ครบแล้ว — เพิ่มอีกไม่ได้จนกว่าจะอัปเกรดแพ็กเกจ</p>
+                <p className="mt-1 text-xs text-rose-600">{t.limitReached}</p>
               )}
             </div>
           );
@@ -91,6 +92,8 @@ function PlanUsage({ limits }: { limits?: AdminSubscription["limits"] }) {
 }
 
 export default function OwnerBillingPage() {
+  const t = useMessages("owner").billing;
+  const { locale } = useLocale();
   const qc = useQueryClient();
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["owner", "billing"],
@@ -136,8 +139,8 @@ export default function OwnerBillingPage() {
   return (
     <div className="space-y-5">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight">แพ็กเกจและการต่ออายุ</h1>
-        <p className="text-sm text-muted-foreground">ดูวันหมดอายุ ต่ออายุ และแจ้งโอนเงิน</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
+        <p className="text-sm text-muted-foreground">{t.subtitle}</p>
       </header>
 
       {/* --- Current plan --- */}
@@ -153,26 +156,26 @@ export default function OwnerBillingPage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 text-sm font-semibold">
-              <CalendarClock className="size-4 text-brand" /> แพ็กเกจปัจจุบัน
+              <CalendarClock className="size-4 text-brand" /> {t.currentPlan}
             </div>
-            <div className="mt-2 text-2xl font-bold">{sub?.planName ?? "—"}</div>
+            <div className="mt-2 text-2xl font-bold">{sub?.planName ?? t.dash}</div>
             {sub?.price != null && (
               <div className="text-sm text-muted-foreground">
-                ฿{fmt.format(sub.price)} / {sub.interval === "year" ? "ปี" : "เดือน"}
+                ฿{fmt.format(sub.price)} / {sub.interval === "year" ? t.perYear : t.perMonth}
               </div>
             )}
           </div>
 
           <div className="text-right">
-            <div className="text-xs text-muted-foreground">หมดอายุ</div>
-            <div className="text-lg font-semibold">{fmtDate(sub?.endsAt)}</div>
+            <div className="text-xs text-muted-foreground">{t.expiresLabel}</div>
+            <div className="text-lg font-semibold">{fmtDate(sub?.endsAt, locale)}</div>
             {days !== null && (
               <div
                 className={`mt-1 text-sm font-semibold ${
                   sub?.isExpired ? "text-red-600" : expiringSoon ? "text-amber-700" : "text-muted-foreground"
                 }`}
               >
-                {sub?.isExpired ? `หมดอายุแล้ว ${Math.abs(days)} วัน` : `เหลืออีก ${days} วัน`}
+                {sub?.isExpired ? interp(t.expiredDays, { n: Math.abs(days) }) : interp(t.daysLeft, { n: days })}
               </div>
             )}
           </div>
@@ -182,8 +185,8 @@ export default function OwnerBillingPage() {
           <p className="mt-4 flex items-start gap-2 rounded-xl bg-white/70 p-3 text-sm text-red-800">
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />
             <span>
-              แพ็กเกจหมดอายุแล้ว ระบบจัดการสนามถูกล็อกไว้ชั่วคราว —{" "}
-              <b>หน้าจองของลูกค้ายังใช้งานได้ตามปกติ</b> ต่ออายุด้านล่างเพื่อกลับมาใช้งาน
+              {t.expiredNotePre}
+              <b>{t.expiredNoteBold}</b>{t.expiredNotePost}
             </span>
           </p>
         )}
@@ -197,88 +200,88 @@ export default function OwnerBillingPage() {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-sm font-semibold">ใบแจ้งหนี้ {invoice.number}</h2>
+                <h2 className="text-sm font-semibold">{interp(t.invoiceNo, { number: invoice.number })}</h2>
                 <StatusChip status={invoice.status} />
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
-                {invoice.periodMonths ?? 1} เดือน · ครบกำหนด {invoice.dueDate}
-                {invoice.source === "admin" ? " · ออกโดยผู้ดูแลระบบ" : ""}
+                {interp(t.invoiceMeta, { months: invoice.periodMonths ?? 1, due: invoice.dueDate })}
+                {invoice.source === "admin" ? t.byAdmin : ""}
               </p>
               <div className="mt-2 text-2xl font-bold text-brand">฿{fmt.format(invoice.amount)}</div>
             </div>
             <Button className="h-11 gap-2 rounded-xl px-6" onClick={() => setPayOpen(true)}>
               <QrCode className="size-4" />
-              {invoice.status === "pending_review" ? "ดูสถานะ" : "ชำระเงิน"}
+              {invoice.status === "pending_review" ? t.viewStatus : t.pay}
             </Button>
           </div>
         </section>
       ) : (
         <section className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
-          <h2 className="text-sm font-semibold">ต่ออายุ</h2>
+          <h2 className="text-sm font-semibold">{t.renewTitle}</h2>
           <div className="flex flex-wrap gap-2">
-            {PERIODS.map((p) => (
+            {PERIOD_MONTHS.map((m) => (
               <button
-                key={p.months}
+                key={m}
                 type="button"
-                onClick={() => setMonths(p.months)}
-                aria-pressed={months === p.months}
+                onClick={() => setMonths(m)}
+                aria-pressed={months === m}
                 className={`h-10 rounded-xl px-4 text-sm font-semibold transition ${
-                  months === p.months
+                  months === m
                     ? "bg-brand text-brand-foreground"
                     : "bg-app text-foreground ring-1 ring-black/10 hover:ring-brand/40"
                 }`}
               >
-                {p.label}
+                {(t.periods as Record<string, string>)[String(m)]}
               </button>
             ))}
           </div>
           {sub?.price != null && (
             <p className="text-sm text-muted-foreground">
-              ยอดที่ต้องชำระ <b className="text-foreground">฿{fmt.format(sub.price * months)}</b>
+              {t.amountDue} <b className="text-foreground">฿{fmt.format(sub.price * months)}</b>
             </p>
           )}
           <Button onClick={() => renew.mutate()} disabled={renew.isPending} className="h-11 rounded-xl px-6">
-            {renew.isPending ? "กำลังสร้างใบแจ้งหนี้..." : "ต่ออายุ"}
+            {renew.isPending ? t.creating : t.renew}
           </Button>
         </section>
       )}
 
       {/* --- History --- */}
       <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
-        <h2 className="mb-3 text-sm font-semibold">ประวัติการชำระเงิน</h2>
+        <h2 className="mb-3 text-sm font-semibold">{t.historyTitle}</h2>
         {(invoicesQ.data ?? []).length === 0 ? (
-          <p className="text-sm text-muted-foreground">ยังไม่มีรายการ</p>
+          <p className="text-sm text-muted-foreground">{t.noRecords}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="stack-table w-full md:min-w-[520px] text-sm">
               <thead className="text-left text-xs text-muted-foreground">
                 <tr>
-                  <th className="pb-2 font-medium">เลขที่</th>
-                  <th className="pb-2 font-medium">ระยะเวลา</th>
-                  <th className="pb-2 font-medium">ยอด</th>
-                  <th className="pb-2 font-medium">วันที่ออก</th>
-                  <th className="pb-2 font-medium">สถานะ</th>
-                  <th className="pb-2 text-right font-medium">เอกสาร</th>
+                  <th className="pb-2 font-medium">{t.colNumber}</th>
+                  <th className="pb-2 font-medium">{t.colPeriod}</th>
+                  <th className="pb-2 font-medium">{t.colAmount}</th>
+                  <th className="pb-2 font-medium">{t.colIssued}</th>
+                  <th className="pb-2 font-medium">{t.colStatus}</th>
+                  <th className="pb-2 text-right font-medium">{t.colDoc}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5">
                 {(invoicesQ.data ?? []).map((inv) => (
                   <tr key={inv.id}>
-                    <td data-label="เลขที่" className="py-2.5 font-mono text-xs">{inv.number}</td>
-                    <td data-label="ระยะเวลา" className="py-2.5">{inv.periodMonths ?? 1} เดือน</td>
-                    <td data-label="ยอด" className="py-2.5 tabular-nums">฿{fmt.format(inv.amount)}</td>
-                    <td data-label="วันที่ออก" className="py-2.5 text-muted-foreground">{inv.issueDate}</td>
-                    <td data-label="สถานะ" className="py-2.5"><StatusChip status={inv.status} /></td>
-                    <td data-label="เอกสาร" className="py-2.5 text-right">
+                    <td data-label={t.colNumber} className="py-2.5 font-mono text-xs">{inv.number}</td>
+                    <td data-label={t.colPeriod} className="py-2.5">{interp(t.monthsUnit, { n: inv.periodMonths ?? 1 })}</td>
+                    <td data-label={t.colAmount} className="py-2.5 tabular-nums">฿{fmt.format(inv.amount)}</td>
+                    <td data-label={t.colIssued} className="py-2.5 text-muted-foreground">{inv.issueDate}</td>
+                    <td data-label={t.colStatus} className="py-2.5"><StatusChip status={inv.status} /></td>
+                    <td data-label={t.colDoc} className="py-2.5 text-right">
                       <button
                         type="button"
                         onClick={() => setDocId(inv.id)}
                         className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-xs font-semibold text-brand ring-1 ring-brand/20 transition hover:bg-brand/10"
                       >
                         {inv.status === "paid" ? (
-                          <><Receipt className="size-3.5" /> ใบเสร็จ</>
+                          <><Receipt className="size-3.5" /> {t.receipt}</>
                         ) : (
-                          <><FileText className="size-3.5" /> ใบแจ้งหนี้</>
+                          <><FileText className="size-3.5" /> {t.invoiceDoc}</>
                         )}
                       </button>
                     </td>
@@ -302,6 +305,7 @@ export default function OwnerBillingPage() {
  * what the platform issued.
  */
 function DocumentDialog({ invoiceId, onClose }: { invoiceId: string; onClose: () => void }) {
+  const t = useMessages("owner").billing;
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["owner", "billing", "document", invoiceId],
     queryFn: () => ownerApi.getBillingDocument(invoiceId),
@@ -309,13 +313,13 @@ function DocumentDialog({ invoiceId, onClose }: { invoiceId: string; onClose: ()
 
   return (
     <Modal
-      title={data?.title ?? "เอกสาร"}
+      title={data?.title ?? t.documentTitle}
       onClose={onClose}
       width="max-w-2xl"
       footer={
         <>
           <Button type="button" variant="outline" onClick={onClose}>
-            ปิด
+            {t.close}
           </Button>
           {data && (
             <OpenPdfButton kind={data.kind} onFetch={() => ownerApi.getBillingDocumentPdf(invoiceId)} />
@@ -346,6 +350,7 @@ function PayDialog({
   payTo: string | null;
   onClose: () => void;
 }) {
+  const t = useMessages("owner").billing;
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -375,21 +380,21 @@ function PayDialog({
 
   return (
     <Modal
-      title={waiting ? "สถานะการชำระเงิน" : "ชำระเงินเพื่อต่ออายุ"}
+      title={waiting ? t.payStatusTitle : t.payTitle}
       onClose={onClose}
       width="max-w-lg"
       footer={
         waiting ? (
           <Button type="button" variant="outline" onClick={onClose}>
-            ปิด
+            {t.close}
           </Button>
         ) : (
           <>
             <Button type="button" variant="outline" onClick={onClose}>
-              ปิด
+              {t.close}
             </Button>
             <Button type="button" disabled={!file || upload.isPending} onClick={() => upload.mutate()}>
-              {upload.isPending ? "กำลังส่ง..." : "ส่งสลิป"}
+              {upload.isPending ? t.sending : t.sendSlip}
             </Button>
           </>
         )
@@ -398,18 +403,18 @@ function PayDialog({
       <div className="space-y-4">
         <div className="flex items-baseline justify-between gap-3">
           <div>
-            <div className="text-xs text-muted-foreground">ใบแจ้งหนี้ {invoice.number}</div>
-            <div className="text-sm text-muted-foreground">ต่ออายุ {invoice.periodMonths ?? 1} เดือน</div>
+            <div className="text-xs text-muted-foreground">{interp(t.invoiceNo, { number: invoice.number })}</div>
+            <div className="text-sm text-muted-foreground">{interp(t.renewMonths, { n: invoice.periodMonths ?? 1 })}</div>
           </div>
           <div className="text-right">
-            <div className="text-xs text-muted-foreground">ยอดที่ต้องชำระ</div>
+            <div className="text-xs text-muted-foreground">{t.amountDue}</div>
             <div className="text-2xl font-bold text-brand">฿{fmt.format(invoice.amount)}</div>
           </div>
         </div>
 
         {invoice.rejectReason && (
           <p className="rounded-xl bg-red-50 p-3 text-sm text-red-800">
-            สลิปก่อนหน้าไม่ผ่าน: {invoice.rejectReason} — กรุณาโอนใหม่และแนบสลิปอีกครั้ง
+            {interp(t.prevRejected, { reason: invoice.rejectReason })}
           </p>
         )}
 
@@ -417,46 +422,46 @@ function PayDialog({
           <div className="flex items-start gap-3 rounded-xl bg-blue-50 p-4 text-sm text-blue-900">
             <Hourglass className="mt-0.5 size-5 shrink-0" />
             <div>
-              <div className="font-semibold">ส่งสลิปแล้ว รอผู้ดูแลระบบตรวจสอบ</div>
-              <p className="mt-0.5">ระบบจะต่ออายุให้อัตโนมัติเมื่อตรวจสอบเรียบร้อย</p>
+              <div className="font-semibold">{t.slipSubmitted}</div>
+              <p className="mt-0.5">{t.autoRenewNote}</p>
             </div>
           </div>
         ) : (
           <>
             {how?.promptpay ? (
               <div className="rounded-xl bg-app p-4 text-center">
-                <div className="text-sm font-semibold">สแกนจ่ายด้วย PromptPay</div>
+                <div className="text-sm font-semibold">{t.scanPromptpay}</div>
                 <div className="mt-3 flex justify-center">
                   <PromptPayQR payload={how.promptpay.payload} size={220} />
                 </div>
                 {payTo && <div className="mt-2 text-xs text-muted-foreground">{payTo}</div>}
-                <p className="mt-1 text-xs text-muted-foreground">ยอดถูกใส่ใน QR แล้ว ไม่ต้องกรอกเอง</p>
+                <p className="mt-1 text-xs text-muted-foreground">{t.amountInQr}</p>
               </div>
             ) : (
               <p className="rounded-xl bg-app p-4 text-sm text-muted-foreground">
-                ผู้ดูแลระบบยังไม่ได้ตั้งค่า PromptPay — กรุณาโอนผ่านบัญชีธนาคารด้านล่าง
+                {t.noPromptpay}
               </p>
             )}
 
             <div className="rounded-xl bg-app p-4">
-              <div className="text-sm font-semibold">หรือโอนผ่านบัญชีธนาคาร</div>
+              <div className="text-sm font-semibold">{t.orBank}</div>
               {how?.bank ? (
                 <dl className="mt-2 space-y-1 text-sm">
                   <div className="flex justify-between gap-3">
-                    <dt className="text-muted-foreground">ธนาคาร</dt>
+                    <dt className="text-muted-foreground">{t.bankName}</dt>
                     <dd className="font-medium">{how.bank.bankName}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
-                    <dt className="text-muted-foreground">ชื่อบัญชี</dt>
+                    <dt className="text-muted-foreground">{t.accountName}</dt>
                     <dd className="font-medium">{how.bank.accountName}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
-                    <dt className="text-muted-foreground">เลขบัญชี</dt>
+                    <dt className="text-muted-foreground">{t.accountNumber}</dt>
                     <dd className="font-mono font-medium">{how.bank.accountNumber}</dd>
                   </div>
                 </dl>
               ) : (
-                <p className="mt-2 text-sm text-muted-foreground">ยังไม่ได้ตั้งค่าบัญชีรับเงิน</p>
+                <p className="mt-2 text-sm text-muted-foreground">{t.noBankSet}</p>
               )}
             </div>
 
@@ -476,7 +481,7 @@ function PayDialog({
                   className="h-10 gap-2 rounded-xl"
                   onClick={() => fileRef.current?.click()}
                 >
-                  <Upload className="size-4" /> {file ? "เปลี่ยนสลิป" : "แนบสลิปโอนเงิน"}
+                  <Upload className="size-4" /> {file ? t.changeSlip : t.attachSlip}
                 </Button>
                 {file && (
                   <span className="inline-flex items-center gap-1.5 text-sm text-brand">
