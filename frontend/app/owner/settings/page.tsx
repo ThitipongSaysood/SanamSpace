@@ -27,12 +27,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { useMessages } from "@/lib/i18n/context";
+import { fmt as interp } from "@/lib/i18n/format";
 
 const TABS = [
-  { key: "info", label: "ข้อมูลสนาม", icon: Store },
-  { key: "storefront", label: "หน้าลูกค้า", icon: Palette },
-  { key: "payment", label: "การชำระเงิน", icon: Wallet },
-  { key: "integrations", label: "การเชื่อมต่อ", icon: Link2 },
+  { key: "info", icon: Store },
+  { key: "storefront", icon: Palette },
+  { key: "payment", icon: Wallet },
+  { key: "integrations", icon: Link2 },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -52,16 +54,17 @@ type TabKey = (typeof TABS)[number]["key"];
 /** Single colours, for adjusting any one of the three by hand. */
 const SWATCHES = ["#16a34a", "#0ea5e9", "#6366f1", "#a855f7", "#ec4899", "#ef4444", "#f59e0b", "#14b8a6"];
 
-const PALETTES: { name: string; primary: string; secondary: string; accent: string }[] = [
-  { name: "เขียวสนาม", primary: "#16A34A", secondary: "#059669", accent: "#F59E0B" },
-  { name: "น้ำเงินคอร์ท", primary: "#0EA5E9", secondary: "#2563EB", accent: "#FACC15" },
-  { name: "ม่วงไนต์", primary: "#6366F1", secondary: "#8B5CF6", accent: "#F9A8D4" },
-  { name: "ส้มอิฐ", primary: "#EA580C", secondary: "#DC2626", accent: "#FDE047" },
-  { name: "เทอร์ควอยซ์", primary: "#14B8A6", secondary: "#0891B2", accent: "#FDE047" },
-  { name: "ดำ–ทอง", primary: "#18181B", secondary: "#3F3F46", accent: "#EAB308" },
+const PALETTES: { primary: string; secondary: string; accent: string }[] = [
+  { primary: "#16A34A", secondary: "#059669", accent: "#F59E0B" },
+  { primary: "#0EA5E9", secondary: "#2563EB", accent: "#FACC15" },
+  { primary: "#6366F1", secondary: "#8B5CF6", accent: "#F9A8D4" },
+  { primary: "#EA580C", secondary: "#DC2626", accent: "#FDE047" },
+  { primary: "#14B8A6", secondary: "#0891B2", accent: "#FDE047" },
+  { primary: "#18181B", secondary: "#3F3F46", accent: "#EAB308" },
 ];
 
 export default function OwnerSettingsPage() {
+  const ts = useMessages("owner").settings;
   const [tab, setTab] = useState<TabKey>("info");
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["owner", "settings"],
@@ -71,8 +74,8 @@ export default function OwnerSettingsPage() {
   return (
     <div className="space-y-5">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight">ตั้งค่า</h1>
-        <p className="text-sm text-muted-foreground">ตั้งค่าระบบและข้อมูลสนาม</p>
+        <h1 className="text-2xl font-bold tracking-tight">{ts.title}</h1>
+        <p className="text-sm text-muted-foreground">{ts.subtitle}</p>
       </header>
 
       <div className="flex flex-wrap gap-1 border-b border-black/5">
@@ -87,7 +90,7 @@ export default function OwnerSettingsPage() {
                 : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
-            <t.icon className="size-4" /> {t.label}
+            <t.icon className="size-4" /> {ts.tab[t.key]}
           </button>
         ))}
       </div>
@@ -180,31 +183,33 @@ function SaveRow({
   mutation: ReturnType<typeof useOwnerSettingsForm>["mutation"];
   className?: string;
 }) {
+  const t = useMessages("owner").settings;
   return (
     <div className={`flex flex-wrap items-center gap-3 border-t border-black/5 pt-4 ${className}`}>
       <Button type="submit" disabled={mutation.isPending} className="min-w-52">
-        {mutation.isPending ? "กำลังบันทึก..." : "บันทึกการเปลี่ยนแปลง"}
+        {mutation.isPending ? t.saving : t.saveChanges}
       </Button>
       {mutation.isSuccess && !mutation.isPending && (
         <span className="inline-flex items-center gap-1 text-sm font-medium text-brand">
-          <Check className="size-4" /> บันทึกแล้ว
+          <Check className="size-4" /> {t.saved}
         </span>
       )}
-      {mutation.isError && <span className="text-sm text-brand-danger">บันทึกไม่สำเร็จ ลองอีกครั้ง</span>}
+      {mutation.isError && <span className="text-sm text-brand-danger">{t.saveFailed}</span>}
     </div>
   );
 }
 
 function InfoTab({ settings }: { settings: OwnerSettings }) {
+  const t = useMessages("owner").settings;
   const { form, set, mutation } = useOwnerSettingsForm(settings);
 
   const fields: { key: keyof OwnerSettings; label: string; type?: string; full?: boolean }[] = [
-    { key: "orgName", label: "ชื่อสนาม", full: true },
-    { key: "phone", label: "เบอร์โทรศัพท์", type: "tel" },
-    { key: "email", label: "อีเมล", type: "email" },
-    { key: "lineOaUrl", label: "LINE OA", type: "url" },
-    { key: "googleMapUrl", label: "Google Map URL", type: "url" },
-    { key: "address", label: "ที่อยู่", full: true },
+    { key: "orgName", label: t.fOrgName, full: true },
+    { key: "phone", label: t.fPhone, type: "tel" },
+    { key: "email", label: t.fEmail, type: "email" },
+    { key: "lineOaUrl", label: t.fLineOa, type: "url" },
+    { key: "googleMapUrl", label: t.fGoogleMap, type: "url" },
+    { key: "address", label: t.fAddress, full: true },
   ];
 
   /*
@@ -227,7 +232,7 @@ function InfoTab({ settings }: { settings: OwnerSettings }) {
       className="grid items-start gap-6 xl:grid-cols-2"
     >
       <section className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
-        <h2 className="text-sm font-semibold">ข้อมูลสนาม</h2>
+        <h2 className="text-sm font-semibold">{t.venueInfoTitle}</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           {fields.map((f) => (
             <div key={f.key} className={`space-y-1.5 ${f.full ? "sm:col-span-2" : ""}`}>
@@ -246,23 +251,23 @@ function InfoTab({ settings }: { settings: OwnerSettings }) {
       {/* Billing identity — what appears as the buyer on invoices/receipts. */}
       <section className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
         <div>
-          <h2 className="text-sm font-semibold">ข้อมูลสำหรับออกใบเสร็จ/ใบกำกับภาษี</h2>
+          <h2 className="text-sm font-semibold">{t.billingTitle}</h2>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            ใช้เป็นชื่อผู้ซื้อบนใบแจ้งหนี้และใบเสร็จของค่าบริการระบบ — เว้นว่างได้ ระบบจะใช้ชื่อสนาม
+            {t.billingHint}
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label htmlFor="s-billingName">ชื่อผู้เสียภาษี / ชื่อบริษัท</Label>
+            <Label htmlFor="s-billingName">{t.billingNameLabel}</Label>
             <Input
               id="s-billingName"
               value={form.billingName ?? ""}
               onChange={(e) => set("billingName", e.target.value)}
-              placeholder="บริษัท ... จำกัด"
+              placeholder={t.billingNamePlaceholder}
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="s-taxId">เลขประจำตัวผู้เสียภาษี</Label>
+            <Label htmlFor="s-taxId">{t.taxIdLabel}</Label>
             <Input
               id="s-taxId"
               value={form.taxId ?? ""}
@@ -271,21 +276,21 @@ function InfoTab({ settings }: { settings: OwnerSettings }) {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="s-billingBranch">สำนักงานใหญ่ / สาขา</Label>
+            <Label htmlFor="s-billingBranch">{t.billingBranchLabel}</Label>
             <Input
               id="s-billingBranch"
               value={form.billingBranch ?? ""}
               onChange={(e) => set("billingBranch", e.target.value)}
-              placeholder="สำนักงานใหญ่"
+              placeholder={t.billingBranchPlaceholder}
             />
           </div>
           <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="s-billingAddress">ที่อยู่สำหรับออกเอกสาร</Label>
+            <Label htmlFor="s-billingAddress">{t.billingAddressLabel}</Label>
             <Input
               id="s-billingAddress"
               value={form.billingAddress ?? ""}
               onChange={(e) => set("billingAddress", e.target.value)}
-              placeholder="เว้นว่างเพื่อใช้ที่อยู่สนาม"
+              placeholder={t.billingAddressPlaceholder}
             />
           </div>
         </div>
@@ -302,6 +307,7 @@ function InfoTab({ settings }: { settings: OwnerSettings }) {
  * is business facts, and this one is the shopfront.
  */
 function StorefrontTab({ settings }: { settings: OwnerSettings }) {
+  const t = useMessages("owner").settings;
   const { form, set, mutation } = useOwnerSettingsForm(settings);
   const logo = useImageUpload((url) => set("logoUrl", url));
 
@@ -318,13 +324,13 @@ function StorefrontTab({ settings }: { settings: OwnerSettings }) {
       <div className="space-y-6 lg:col-span-2">
         {/* Logo */}
         <section className="space-y-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
-          <h2 className="text-sm font-semibold">โลโก้สนาม</h2>
+          <h2 className="text-sm font-semibold">{t.logoTitle}</h2>
           <div className="flex items-center gap-3">
             {form.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={form.logoUrl}
-                alt="โลโก้"
+                alt={t.logoAlt}
                 className="size-16 shrink-0 rounded-2xl object-cover ring-1 ring-black/10"
               />
             ) : (
@@ -337,7 +343,7 @@ function StorefrontTab({ settings }: { settings: OwnerSettings }) {
             )}
             <div className="flex flex-col gap-1.5">
               <label className="cursor-pointer rounded-lg border border-input px-3 py-1.5 text-center text-sm hover:bg-app">
-                {logo.busy ? "กำลังอัปโหลด..." : "เปลี่ยนรูป"}
+                {logo.busy ? t.uploading : t.changeImage}
                 <input type="file" accept="image/*" className="hidden" onChange={logo.onFile} disabled={logo.busy} />
               </label>
               {form.logoUrl && (
@@ -346,24 +352,24 @@ function StorefrontTab({ settings }: { settings: OwnerSettings }) {
                   onClick={() => set("logoUrl", null)}
                   className="text-xs text-muted-foreground hover:text-brand-danger"
                 >
-                  ลบโลโก้
+                  {t.removeLogo}
                 </button>
               )}
             </div>
           </div>
-          {logo.failed && <p className="text-xs text-brand-danger">อัปโหลดไม่สำเร็จ</p>}
+          {logo.failed && <p className="text-xs text-brand-danger">{t.uploadFailed}</p>}
         </section>
 
         {/* Brand colours */}
         <section className="space-y-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
           <div>
-            <h2 className="text-sm font-semibold">ธีมสีแบรนด์</h2>
+            <h2 className="text-sm font-semibold">{t.themeTitle}</h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              ใช้กับทั้งแอปของลูกค้า — ปุ่ม แถบล่าง และแบนเนอร์
+              {t.themeHint}
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {PALETTES.map((pal) => {
+            {PALETTES.map((pal, i) => {
               // Selected only when all three match — a palette is the set, and
               // saying "เขียวสนาม" while the accent has been changed by hand
               // would be a lie the venue then has to un-pick.
@@ -374,7 +380,7 @@ function StorefrontTab({ settings }: { settings: OwnerSettings }) {
 
               return (
                 <button
-                  key={pal.name}
+                  key={i}
                   type="button"
                   onClick={() => {
                     set("primaryColor", pal.primary);
@@ -391,7 +397,7 @@ function StorefrontTab({ settings }: { settings: OwnerSettings }) {
                     style={{ background: `linear-gradient(135deg, ${pal.primary}, ${pal.secondary})` }}
                   />
                   <span className="size-4 shrink-0 rounded-full" style={{ background: pal.accent }} />
-                  <span className="truncate text-xs font-medium">{pal.name}</span>
+                  <span className="truncate text-xs font-medium">{t.paletteNames[i]}</span>
                 </button>
               );
             })}
@@ -403,12 +409,12 @@ function StorefrontTab({ settings }: { settings: OwnerSettings }) {
               by the slow native picker alone — why most venues never touched
               them). */}
           <div className="space-y-4 border-t border-black/5 pt-4">
-            <p className="text-xs font-medium text-muted-foreground">หรือกำหนดเองทีละสี</p>
+            <p className="text-xs font-medium text-muted-foreground">{t.customPerColor}</p>
             {(
               [
-                ["primaryColor", "สีหลัก", "ปุ่มหลัก · เมนูล่างที่กำลังใช้งาน"],
-                ["secondaryColor", "สีรอง", "ไล่เฉดคู่กับสีหลักบนแบนเนอร์"],
-                ["accentColor", "สีเน้น", "ป้ายเน้น เช่น ส่วนลดและคะแนน"],
+                ["primaryColor", t.colorPrimaryLabel, t.colorPrimaryHint],
+                ["secondaryColor", t.colorSecondaryLabel, t.colorSecondaryHint],
+                ["accentColor", t.colorAccentLabel, t.colorAccentHint],
               ] as const
             ).map(([key, label, hint]) => {
               const value = (form[key] as string) || "";
@@ -417,11 +423,11 @@ function StorefrontTab({ settings }: { settings: OwnerSettings }) {
                   <label
                     className="relative mt-0.5 size-11 shrink-0 cursor-pointer rounded-xl ring-1 ring-black/10 ring-offset-1 transition hover:ring-black/25"
                     style={{ background: value || "#e5e7eb" }}
-                    title="เลือกสีเอง"
+                    title={t.pickColor}
                   >
                     <input
                       type="color"
-                      aria-label={`${label} — เลือกสีเอง`}
+                      aria-label={interp(t.pickColorAria, { label })}
                       value={value || "#000000"}
                       onChange={(e) => set(key, e.target.value)}
                       className="absolute inset-0 cursor-pointer opacity-0"
@@ -439,7 +445,7 @@ function StorefrontTab({ settings }: { settings: OwnerSettings }) {
                           <button
                             key={c}
                             type="button"
-                            aria-label={`${label} ${c}`}
+                            aria-label={interp(t.swatchAria, { label, color: c })}
                             aria-pressed={on}
                             onClick={() => set(key, c)}
                             className={`size-6 rounded-full ring-2 ring-offset-1 transition ${
@@ -458,59 +464,58 @@ function StorefrontTab({ settings }: { settings: OwnerSettings }) {
         </section>
 
         <section className="space-y-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
-          <h2 className="text-sm font-semibold">เช็คอินด้วย QR</h2>
+          <h2 className="text-sm font-semibold">{t.checkinTitle}</h2>
           <div className="flex items-start justify-between gap-3">
             <div className="text-sm">
-              ให้ลูกค้าแสดง QR แล้วพนักงานสแกนตอนมาถึง
+              {t.checkinDesc}
               <span className="mt-0.5 block text-xs text-muted-foreground">
-                ปิดแล้วลูกค้าจะไม่เห็นหน้า QR ในแอป — เหมาะกับสนามเล็กที่พนักงานจำลูกค้าได้อยู่แล้ว ·
-                พนักงานสแกนที่เมนู{" "}
+                {t.checkinHintPre}
                 <Link href="/owner/checkin" className="font-semibold text-brand">
-                  เช็คอิน
+                  {t.checkinLink}
                 </Link>
               </span>
             </div>
             <Switch
               checked={form.checkinEnabled !== false}
               onCheckedChange={(v) => set("checkinEnabled", v)}
-              aria-label="เช็คอินด้วย QR"
+              aria-label={t.checkinTitle}
             />
           </div>
         </section>
 
         <section className="space-y-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
-          <h2 className="text-sm font-semibold">มัดจำ</h2>
+          <h2 className="text-sm font-semibold">{t.depositTitle}</h2>
           <div className="flex items-start justify-between gap-3">
             <div className="text-sm">
-              ให้ลูกค้าจ่ายมัดจำเพื่อจองคอร์ท แล้วจ่ายส่วนที่เหลือที่สนาม
+              {t.depositDesc}
               <span className="mt-0.5 block text-xs text-muted-foreground">
-                จ่ายมัดจำแล้วคอร์ทถูกกันไว้ทันที · ยอดที่เหลือรับได้ที่หน้ารายการจอง
+                {t.depositHint}
               </span>
             </div>
             <Switch
               checked={form.depositEnabled === true}
               onCheckedChange={(v) => set("depositEnabled", v)}
-              aria-label="มัดจำ"
+              aria-label={t.depositTitle}
             />
           </div>
 
           {form.depositEnabled && (
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="deposit-type">คิดแบบ</Label>
+                <Label htmlFor="deposit-type">{t.depositTypeLabel}</Label>
                 <select
                   id="deposit-type"
                   value={form.depositType ?? "percent"}
                   onChange={(e) => set("depositType", e.target.value as "percent" | "fixed")}
                   className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
                 >
-                  <option value="percent">เปอร์เซ็นต์ของยอดจอง</option>
-                  <option value="fixed">จำนวนเงินคงที่</option>
+                  <option value="percent">{t.depositPercent}</option>
+                  <option value="fixed">{t.depositFixed}</option>
                 </select>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="deposit-value">
-                  {form.depositType === "fixed" ? "จำนวนเงิน (บาท)" : "เปอร์เซ็นต์"}
+                  {form.depositType === "fixed" ? t.depositFixedValue : t.depositPercentValue}
                 </Label>
                 <Input
                   id="deposit-value"
@@ -523,7 +528,7 @@ function StorefrontTab({ settings }: { settings: OwnerSettings }) {
               {/* Said plainly: a deposit at or above the price is just paying
                   in full, and the backend stores it as no deposit at all. */}
               <p className="sm:col-span-2 text-xs text-muted-foreground">
-                ถ้ามัดจำมากกว่าหรือเท่ากับยอดจอง ระบบจะถือว่าจ่ายเต็มจำนวน
+                {t.depositNote}
               </p>
             </div>
           )}
@@ -550,6 +555,7 @@ function StorefrontTab({ settings }: { settings: OwnerSettings }) {
  * that picking a colour did something, without opening their own /v/{slug}.
  */
 function BrandPreview({ form }: { form: OwnerSettings }) {
+  const m = useMessages("owner").settings;
   // The real home shows the venue's own first promotion, so the preview does
   // too — a preview that invents content is worse than no preview.
   const { data: promos } = useQuery({
@@ -574,21 +580,21 @@ function BrandPreview({ form }: { form: OwnerSettings }) {
   const pointsOn = form.pointsEnabled ?? false;
   const tint = `${primary}1A`; // 10% wash for icon chips / status pills
   const tiles = [
-    { icon: History, title: "ประวัติการจอง", sub: "ดูการจองทั้งหมด" },
-    ...(pointsOn ? [{ icon: Crown, title: "แต้มสะสม", sub: "สิทธิพิเศษสมาชิก" }] : []),
-    { icon: Package, title: "แพ็กเกจ", sub: "ซื้อชั่วโมงล่วงหน้า" },
-    { icon: Store, title: "ข้อมูลสนาม", sub: "รูป · รีวิว · แผนที่" },
+    { icon: History, title: m.tileHistory, sub: m.tileHistorySub },
+    ...(pointsOn ? [{ icon: Crown, title: m.tilePoints, sub: m.tilePointsSub }] : []),
+    { icon: Package, title: m.tilePackages, sub: m.tilePackagesSub },
+    { icon: Store, title: m.tileVenue, sub: m.tileVenueSub },
   ];
   const nav = [
-    { icon: Home, label: "หน้าหลัก" },
-    { icon: CalendarDays, label: "การจอง" },
-    { icon: Bell, label: "แจ้งเตือน" },
-    { icon: User, label: "โปรไฟล์" },
+    { icon: Home, label: m.navHome },
+    { icon: CalendarDays, label: m.navBookings },
+    { icon: Bell, label: m.navNotif },
+    { icon: User, label: m.navProfile },
   ];
 
   return (
     <div className="space-y-2 border-t border-black/5 pt-4">
-      <Label>ตัวอย่างหน้าลูกค้า</Label>
+      <Label>{m.previewLabel}</Label>
       {/* A faithful mock of the customer home, so an owner sees the whole thing
           in their own colours — not just a swatch. */}
       <div className="overflow-hidden rounded-2xl bg-[oklch(0.969_0.007_155)] ring-1 ring-black/10">
@@ -605,12 +611,12 @@ function BrandPreview({ form }: { form: OwnerSettings }) {
               {initials}
             </span>
           )}
-          <span className="truncate text-sm font-bold uppercase tracking-wide">{form.orgName || "ชื่อสนาม"}</span>
+          <span className="truncate text-sm font-bold uppercase tracking-wide">{form.orgName || m.venueNamePh}</span>
           <span className="ml-auto text-muted-foreground">
             <Bell className="size-4" />
           </span>
           <span className="grid size-6 place-items-center rounded-full text-[10px] font-bold" style={{ background: tint, color: primary }}>
-            ส
+            {m.greetCustomer.slice(0, 1)}
           </span>
         </div>
 
@@ -622,15 +628,15 @@ function BrandPreview({ form }: { form: OwnerSettings }) {
           >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <div className="text-[10px] text-white/85">สวัสดี</div>
-                <div className="text-sm font-bold">คุณลูกค้า</div>
+                <div className="text-[10px] text-white/85">{m.greetHi}</div>
+                <div className="text-sm font-bold">{m.greetCustomer}</div>
                 <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-white/20 px-1.5 py-0.5 text-[9px] font-semibold">
                   <Crown className="size-2.5" /> Silver
                 </span>
               </div>
               {pointsOn && (
                 <div className="shrink-0 text-right">
-                  <div className="text-[9px] text-white/85">คะแนนสะสม</div>
+                  <div className="text-[9px] text-white/85">{m.pointsLabel}</div>
                   <div className="text-lg font-bold leading-none">0</div>
                 </div>
               )}
@@ -640,7 +646,7 @@ function BrandPreview({ form }: { form: OwnerSettings }) {
           {/* The venue's live welcome banner, if any */}
           {banner?.imageUrl && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={banner.imageUrl} alt="แบนเนอร์" className="block h-auto w-full rounded-xl" />
+            <img src={banner.imageUrl} alt={m.bannerAlt} className="block h-auto w-full rounded-xl" />
           )}
           {(banner?.title || banner?.message) && (
             <div className="rounded-xl bg-white p-2.5">
@@ -659,8 +665,8 @@ function BrandPreview({ form }: { form: OwnerSettings }) {
               <CalendarPlus className="size-5" />
             </span>
             <div className="min-w-0 flex-1">
-              <div className="text-xs font-bold">จองสนาม</div>
-              <div className="truncate text-[10px] text-muted-foreground">เลือกคอร์ท วัน และเวลาที่ต้องการ</div>
+              <div className="text-xs font-bold">{m.bookTitle}</div>
+              <div className="truncate text-[10px] text-muted-foreground">{m.bookSub}</div>
             </div>
             <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
           </div>
@@ -683,8 +689,8 @@ function BrandPreview({ form }: { form: OwnerSettings }) {
 
           {/* Upcoming booking */}
           <div className="flex items-center justify-between pt-0.5">
-            <span className="text-xs font-bold">การจองที่กำลังจะถึง</span>
-            <span className="text-[10px] font-semibold" style={{ color: primary }}>ดูทั้งหมด</span>
+            <span className="text-xs font-bold">{m.upcomingTitle}</span>
+            <span className="text-[10px] font-semibold" style={{ color: primary }}>{m.seeAll}</span>
           </div>
           <div className="flex items-center gap-2.5 rounded-2xl bg-white p-2.5">
             <span className="grid size-8 shrink-0 place-items-center rounded-lg" style={{ background: tint, color: primary }}>
@@ -694,10 +700,10 @@ function BrandPreview({ form }: { form: OwnerSettings }) {
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-bold">Court 1</span>
                 <span className="rounded-full px-1.5 py-0.5 text-[8px] font-semibold" style={{ background: tint, color: primary }}>
-                  ยืนยันแล้ว
+                  {m.confirmed}
                 </span>
               </div>
-              <div className="truncate text-[9px] text-muted-foreground">{form.orgName || "สนาม"} · 20:00–21:00</div>
+              <div className="truncate text-[9px] text-muted-foreground">{form.orgName || m.venuePh2} · 20:00–21:00</div>
             </div>
             <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
           </div>
@@ -723,7 +729,7 @@ function BrandPreview({ form }: { form: OwnerSettings }) {
             </div>
           ) : (
             <div className="rounded-2xl border border-dashed border-black/15 p-3 text-center text-[10px] text-muted-foreground">
-              ยังไม่มีโปรโมชั่น — เพิ่มได้ที่เมนู “โปรโมชั่น” แล้วจะแสดงตรงนี้
+              {m.noPromo}
             </div>
           )}
         </div>
@@ -747,13 +753,14 @@ function BrandPreview({ form }: { form: OwnerSettings }) {
         </div>
       </div>
       <p className="text-xs text-muted-foreground">
-        กด “บันทึกการเปลี่ยนแปลง” แล้วลูกค้าจะเห็นทันทีที่เปิดแอปครั้งถัดไป
+        {m.previewSaveNote}
       </p>
     </div>
   );
 }
 
 function PaymentTab({ settings }: { settings: OwnerSettings }) {
+  const t = useMessages("owner").settings;
   const qc = useQueryClient();
   const [form, setForm] = useState<OwnerSettings>(settings);
 
@@ -799,14 +806,14 @@ function PaymentTab({ settings }: { settings: OwnerSettings }) {
   type PayField = { key: keyof OwnerSettings; label: string; placeholder?: string; hint?: string; full?: boolean };
 
   const promptpayFields: PayField[] = [
-    { key: "promptpayId", label: "PromptPay (เบอร์ / เลขบัตร ปชช. / e-Wallet)", placeholder: "0812345678", hint: "ใช้สร้าง QR ให้ลูกค้าสแกนจ่าย", full: true },
-    { key: "promptpayName", label: "ชื่อที่แสดงบน QR", placeholder: "ชื่อสนาม", full: true },
+    { key: "promptpayId", label: t.ppIdLabel, placeholder: "0812345678", hint: t.ppIdHint, full: true },
+    { key: "promptpayName", label: t.ppNameLabel, placeholder: t.ppNamePlaceholder, full: true },
   ];
 
   const bankFields: PayField[] = [
-    { key: "bankName", label: "ธนาคาร", placeholder: "กสิกรไทย" },
-    { key: "bankAccountNumber", label: "เลขที่บัญชี", placeholder: "123-4-56789-0" },
-    { key: "bankAccountName", label: "ชื่อบัญชี", full: true },
+    { key: "bankName", label: t.bankNameLabel, placeholder: t.bankNamePlaceholder },
+    { key: "bankAccountNumber", label: t.bankAcctNumLabel, placeholder: "123-4-56789-0" },
+    { key: "bankAccountName", label: t.bankAcctNameLabel, full: true },
   ];
 
   const payCard = (title: string, hint: string, list: PayField[]) => (
@@ -841,23 +848,23 @@ function PaymentTab({ settings }: { settings: OwnerSettings }) {
       className="grid items-start gap-6 xl:grid-cols-2"
     >
       {payCard(
-        "PromptPay (QR ตามยอด)",
-        "ระบบสร้าง QR ตามยอดที่ต้องจ่ายให้อัตโนมัติ — ลูกค้าสแกนแล้วโอนได้ทันที",
+        t.ppTitle,
+        t.ppHint,
         promptpayFields,
       )}
       {payCard(
-        "บัญชีธนาคาร (โอนเอง + แนบสลิป)",
-        "แสดงให้ลูกค้าที่โอนเองจากแอปธนาคาร แล้วแนบสลิปให้สนามตรวจ",
+        t.bankTitle,
+        t.bankHint,
         bankFields,
       )}
 
       <section className="space-y-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 xl:col-span-2">
-        <h2 className="text-sm font-semibold">ตรวจสลิป</h2>
+        <h2 className="text-sm font-semibold">{t.slipTitle}</h2>
         <div className="flex items-start justify-between gap-3">
           <div className="text-sm">
-            ตรวจสลิปอัตโนมัติ
+            {t.slipAuto}
             <span className="mt-0.5 block text-xs text-muted-foreground">
-              เปิดแล้ว สลิปที่ระบบตรวจผ่าน (ของจริง · ยอดพอ · เข้าบัญชีสนาม) จะอนุมัติให้เอง · ที่ไม่ชัวร์ยังเข้าคิวตรวจเองเหมือนเดิม · ระบบกันสลิปซ้ำทำงานทั้งสองแบบ
+              {t.slipAutoHint}
             </span>
           </div>
           <Switch
@@ -868,10 +875,10 @@ function PaymentTab({ settings }: { settings: OwnerSettings }) {
               set("slipVerifyMode", mode); // optimistic; reverted onError
               slipMode.mutate(mode);
             }}
-            aria-label="ตรวจสลิปอัตโนมัติ"
+            aria-label={t.slipAuto}
           />
         </div>
-        <p className="text-xs text-amber-600">ต้องเชื่อมต่อผู้ให้บริการตรวจสลิปก่อนจึงจะทำงาน (ยังไม่ได้ตั้งค่า)</p>
+        <p className="text-xs text-amber-600">{t.slipNotConnected}</p>
       </section>
 
       <SaveRow mutation={mutation} className="xl:col-span-2" />
@@ -880,6 +887,7 @@ function PaymentTab({ settings }: { settings: OwnerSettings }) {
 }
 
 function IntegrationsTab({ settings }: { settings: OwnerSettings }) {
+  const t = useMessages("owner").settings;
   const qc = useQueryClient();
 
   // Plain identifiers edit in place; the two secrets are WRITE-ONLY — we keep
@@ -921,15 +929,15 @@ function IntegrationsTab({ settings }: { settings: OwnerSettings }) {
     <div className="grid items-start gap-6 xl:grid-cols-2">
       {/* LINE Official Account status (URL is edited on the "ข้อมูลสนาม" tab) */}
       <section className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
-        <h2 className="text-sm font-semibold">การเชื่อมต่อ</h2>
+        <h2 className="text-sm font-semibold">{t.connectionsTitle}</h2>
         <div className="flex items-center justify-between rounded-xl bg-app/60 p-4">
           <div className="flex items-center gap-3">
             <span className="grid size-10 place-items-center rounded-xl bg-[#06C755] text-sm font-bold text-white">
               LINE
             </span>
             <div>
-              <div className="text-sm font-semibold">LINE Official Account</div>
-              <div className="text-xs text-muted-foreground">{settings.lineOaUrl || "ยังไม่ได้เชื่อมต่อ"}</div>
+              <div className="text-sm font-semibold">{t.lineOaTitle}</div>
+              <div className="text-xs text-muted-foreground">{settings.lineOaUrl || t.notConnectedUrl}</div>
             </div>
           </div>
           <span
@@ -937,10 +945,10 @@ function IntegrationsTab({ settings }: { settings: OwnerSettings }) {
               settings.lineOaUrl ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"
             }`}
           >
-            {settings.lineOaUrl ? "เชื่อมต่อแล้ว" : "ยังไม่เชื่อมต่อ"}
+            {settings.lineOaUrl ? t.connected : t.notConnectedShort}
           </span>
         </div>
-        <p className="text-xs text-muted-foreground">แก้ไข LINE OA URL ได้ที่แท็บ “ข้อมูลสนาม”</p>
+        <p className="text-xs text-muted-foreground">{t.editOaHint}</p>
       </section>
 
       {/* LINE (เชื่อมต่อ) — per-venue LINE Login / LIFF / Messaging credentials.
@@ -957,9 +965,9 @@ function IntegrationsTab({ settings }: { settings: OwnerSettings }) {
       >
         <section className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
           <div>
-            <h2 className="text-sm font-semibold">LINE (เชื่อมต่อ)</h2>
+            <h2 className="text-sm font-semibold">{t.lineConnectTitle}</h2>
             <p className="text-xs text-muted-foreground">
-              ตั้งค่าบัญชี LINE ของสนามเอง — ใช้สำหรับ LINE Login / LIFF และการส่งข้อความผ่าน Messaging API
+              {t.lineConnectHint}
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -981,7 +989,7 @@ function IntegrationsTab({ settings }: { settings: OwnerSettings }) {
                 placeholder="1660000000-abcdEFGh"
                 onChange={(e) => setLiffId(e.target.value)}
               />
-              <p className="text-xs text-muted-foreground">LIFF app ID (ฝั่งหน้าเว็บลูกค้า)</p>
+              <p className="text-xs text-muted-foreground">{t.liffHint}</p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="line-channel-secret">Channel Secret</Label>
@@ -995,8 +1003,8 @@ function IntegrationsTab({ settings }: { settings: OwnerSettings }) {
               />
               <p className="text-xs text-muted-foreground">
                 {settings.lineChannelSecretSet
-                  ? "ตั้งค่าแล้ว · เว้นว่างเพื่อใช้ค่าเดิม / กรอกใหม่เพื่อเปลี่ยน"
-                  : "เก็บแบบเข้ารหัส ไม่แสดงค่าเดิมกลับมา"}
+                  ? t.secretSet
+                  : t.channelSecretUnset}
               </p>
             </div>
             <div className="space-y-1.5">
@@ -1011,8 +1019,8 @@ function IntegrationsTab({ settings }: { settings: OwnerSettings }) {
               />
               <p className="text-xs text-muted-foreground">
                 {settings.lineMessagingTokenSet
-                  ? "ตั้งค่าแล้ว · เว้นว่างเพื่อใช้ค่าเดิม / กรอกใหม่เพื่อเปลี่ยน"
-                  : "OA Messaging API token · เก็บแบบเข้ารหัส"}
+                  ? t.secretSet
+                  : t.tokenUnset}
               </p>
             </div>
           </div>
