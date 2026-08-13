@@ -9,6 +9,8 @@ import { ownerApi } from "@/lib/api/owner";
 import { Loading, ErrorState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
+import { useMessages } from "@/lib/i18n/context";
+import { fmt as interp } from "@/lib/i18n/format";
 
 const fmt = new Intl.NumberFormat("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
@@ -23,6 +25,7 @@ type Cart = Record<string, number>;
  * it is never the thing standing between the shelf and the truth.
  */
 export default function OwnerPosPage() {
+  const t = useMessages("owner").pos;
   const qc = useQueryClient();
   const [cart, setCart] = useState<Cart>({});
   const [done, setDone] = useState<OwnerSale | null>(null);
@@ -81,17 +84,16 @@ export default function OwnerPosPage() {
     <div className="space-y-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">ขายหน้าร้าน</h1>
-          <p className="text-sm text-muted-foreground">แตะสินค้าเพื่อเพิ่มลงตะกร้า แล้วเลือกวิธีรับเงิน</p>
+          <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
+          <p className="text-sm text-muted-foreground">{t.subtitle}</p>
         </div>
         <div className="flex items-center gap-4">
           {summaryQ.data && (
             <div className="text-right">
-              <div className="text-xs text-muted-foreground">ยอดขายวันนี้</div>
+              <div className="text-xs text-muted-foreground">{t.todaySales}</div>
               <div className="text-xl font-bold text-brand">฿{fmt.format(summaryQ.data.total)}</div>
               <div className="text-xs text-muted-foreground">
-                {summaryQ.data.saleCount} รายการ · เงินสด ฿{fmt.format(summaryQ.data.cashTotal)} · โอน ฿
-                {fmt.format(summaryQ.data.transferTotal)}
+                {interp(t.summaryLine, { count: summaryQ.data.saleCount, cash: fmt.format(summaryQ.data.cashTotal), transfer: fmt.format(summaryQ.data.transferTotal) })}
               </div>
             </div>
           )}
@@ -99,7 +101,7 @@ export default function OwnerPosPage() {
             href="/owner/products"
             className="inline-flex items-center gap-1.5 rounded-lg border border-input px-3 py-2 text-sm font-medium hover:bg-app"
           >
-            <Package className="size-4" /> จัดการสินค้า
+            <Package className="size-4" /> {t.manageProducts}
           </Link>
         </div>
       </header>
@@ -109,13 +111,13 @@ export default function OwnerPosPage() {
           <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-brand/10 text-brand">
             <Package className="size-6" />
           </div>
-          <p className="mt-3 font-semibold">ยังไม่มีสินค้า</p>
-          <p className="mt-0.5 text-sm text-muted-foreground">เพิ่มน้ำดื่ม ขนม หรือลูกขนไก่ ก่อนเริ่มขาย</p>
+          <p className="mt-3 font-semibold">{t.noProducts}</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">{t.noProductsHint}</p>
           <Link
             href="/owner/products"
             className="mt-4 inline-flex h-10 items-center rounded-xl bg-brand px-5 text-sm font-semibold text-brand-foreground"
           >
-            เพิ่มสินค้า
+            {t.addProduct}
           </Link>
         </div>
       ) : (
@@ -143,7 +145,7 @@ export default function OwnerPosPage() {
                 <StockNote product={p} />
                 {cart[p.id] > 0 && (
                   <span className="mt-1 inline-flex w-fit items-center rounded-full bg-brand px-2 py-0.5 text-xs font-bold text-brand-foreground">
-                    ในตะกร้า {cart[p.id]}
+                    {interp(t.inCart, { n: cart[p.id] })}
                   </span>
                 )}
               </button>
@@ -154,32 +156,32 @@ export default function OwnerPosPage() {
           <aside className="lg:sticky lg:top-4 lg:self-start">
             <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
               <header className="flex items-center justify-between border-b border-black/5 px-4 py-3">
-                <h2 className="font-semibold">ตะกร้า</h2>
+                <h2 className="font-semibold">{t.cart}</h2>
                 {lines.length > 0 && (
                   <button
                     type="button"
                     onClick={() => setCart({})}
                     className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-brand-danger"
                   >
-                    <Trash2 className="size-3.5" /> ล้าง
+                    <Trash2 className="size-3.5" /> {t.clear}
                   </button>
                 )}
               </header>
 
               {lines.length === 0 ? (
-                <p className="p-8 text-center text-sm text-muted-foreground">ยังไม่ได้เลือกสินค้า</p>
+                <p className="p-8 text-center text-sm text-muted-foreground">{t.cartEmpty}</p>
               ) : (
                 <ul className="divide-y divide-black/5">
                   {lines.map(({ product, qty }) => (
                     <li key={product.id} className="flex items-center gap-2 px-4 py-3">
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-medium">{product.name}</div>
-                        <div className="text-xs text-muted-foreground">฿{fmt.format(product.price)} / ชิ้น</div>
+                        <div className="text-xs text-muted-foreground">{interp(t.perPiece, { price: fmt.format(product.price) })}</div>
                       </div>
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
-                          aria-label={`ลด ${product.name}`}
+                          aria-label={interp(t.decAria, { name: product.name })}
                           onClick={() => setQty(product.id, qty - 1)}
                           className="grid size-8 place-items-center rounded-lg bg-app text-muted-foreground"
                         >
@@ -188,7 +190,7 @@ export default function OwnerPosPage() {
                         <span className="w-7 text-center text-sm font-semibold tabular-nums">{qty}</span>
                         <button
                           type="button"
-                          aria-label={`เพิ่ม ${product.name}`}
+                          aria-label={interp(t.incAria, { name: product.name })}
                           onClick={() => setQty(product.id, Math.min(qty + 1, product.stockQty))}
                           disabled={qty >= product.stockQty}
                           className="grid size-8 place-items-center rounded-lg bg-app text-muted-foreground disabled:opacity-40"
@@ -206,7 +208,7 @@ export default function OwnerPosPage() {
 
               <div className="border-t border-black/5 p-4">
                 <div className="flex items-baseline justify-between">
-                  <span className="text-sm text-muted-foreground">รวมทั้งหมด</span>
+                  <span className="text-sm text-muted-foreground">{t.total}</span>
                   <span className="text-2xl font-bold text-brand">฿{fmt.format(total)}</span>
                 </div>
 
@@ -224,7 +226,7 @@ export default function OwnerPosPage() {
                     disabled={lines.length === 0 || sell.isPending}
                     onClick={() => sell.mutate("cash")}
                   >
-                    <Banknote className="size-4" /> เงินสด
+                    <Banknote className="size-4" /> {t.cash}
                   </Button>
                   <Button
                     type="button"
@@ -232,7 +234,7 @@ export default function OwnerPosPage() {
                     disabled={lines.length === 0 || sell.isPending}
                     onClick={() => sell.mutate("transfer")}
                   >
-                    <QrCode className="size-4" /> โอน / QR
+                    <QrCode className="size-4" /> {t.transferQr}
                   </Button>
                 </div>
               </div>
@@ -257,17 +259,19 @@ export default function OwnerPosPage() {
 
 /** Warns, never blocks — "nearly out" is information, not a refusal. */
 function StockNote({ product }: { product: OwnerProduct }) {
+  const t = useMessages("owner").pos;
   if (product.stockState === "out") {
-    return <span className="mt-0.5 text-xs font-semibold text-brand-danger">หมด</span>;
+    return <span className="mt-0.5 text-xs font-semibold text-brand-danger">{t.stockOut}</span>;
   }
   if (product.stockState === "low") {
-    return <span className="mt-0.5 text-xs font-semibold text-amber-600">ใกล้หมด · เหลือ {product.stockQty}</span>;
+    return <span className="mt-0.5 text-xs font-semibold text-amber-600">{interp(t.stockLow, { n: product.stockQty })}</span>;
   }
-  return <span className="mt-0.5 text-xs text-muted-foreground">เหลือ {product.stockQty}</span>;
+  return <span className="mt-0.5 text-xs text-muted-foreground">{interp(t.stockLeft, { n: product.stockQty })}</span>;
 }
 
 /** The QR the customer scans. Drawn from the venue's own PromptPay id. */
 function PromptPayDialog({ sale, onClose }: { sale: OwnerSale; onClose: () => void }) {
+  const t = useMessages("owner").pos;
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["owner", "sale-promptpay", sale.id],
     queryFn: () => ownerApi.getSalePromptPay(sale.id),
@@ -290,11 +294,11 @@ function PromptPayDialog({ sale, onClose }: { sale: OwnerSale; onClose: () => vo
 
   return (
     <Modal
-      title={`รับเงิน ฿${fmt.format(sale.total)}`}
+      title={interp(t.receiveTitle, { amount: fmt.format(sale.total) })}
       onClose={onClose}
       footer={
         <Button type="button" onClick={onClose}>
-          รับเงินแล้ว
+          {t.received}
         </Button>
       }
     >
@@ -305,7 +309,7 @@ function PromptPayDialog({ sale, onClose }: { sale: OwnerSale; onClose: () => vo
           <p className="rounded-xl bg-brand-accent/15 p-4 text-sm">
             {(error as Error).message}
             <span className="mt-1 block text-xs text-muted-foreground">
-              ขายไปแล้ว (ใบเสร็จ {sale.code}) — รับเงินด้วยวิธีอื่นได้เลย
+              {interp(t.soldFallback, { code: sale.code })}
             </span>
           </p>
         )}
@@ -323,13 +327,14 @@ function PromptPayDialog({ sale, onClose }: { sale: OwnerSale; onClose: () => vo
 }
 
 function SaleDone({ sale, onClose }: { sale: OwnerSale; onClose: () => void }) {
+  const t = useMessages("owner").pos;
   return (
     <Modal
-      title="ขายเรียบร้อย"
+      title={t.saleDone}
       onClose={onClose}
       footer={
         <Button type="button" onClick={onClose}>
-          ขายรายการต่อไป
+          {t.nextSale}
         </Button>
       }
     >
@@ -349,7 +354,7 @@ function SaleDone({ sale, onClose }: { sale: OwnerSale; onClose: () => void }) {
           ))}
         </ul>
         <p className="text-xs text-muted-foreground">
-          รับเงิน: {sale.paymentMethod === "cash" ? "เงินสด" : "โอน / QR"}
+          {interp(t.receivedVia, { method: sale.paymentMethod === "cash" ? t.cash : t.transferQr })}
         </p>
       </div>
     </Modal>

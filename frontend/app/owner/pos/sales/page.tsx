@@ -10,6 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { RowActions, rowAction } from "@/components/ui/row-action";
+import { useMessages, useLocale } from "@/lib/i18n/context";
+import { fmt as interp, intlLocale } from "@/lib/i18n/format";
+import type { Locale } from "@/lib/i18n/config";
 
 const SALES_KEY = ["owner", "sales"];
 const fmt = new Intl.NumberFormat("th-TH");
@@ -19,12 +22,10 @@ function today(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function time(iso?: string | null): string {
+function time(iso: string | null | undefined, locale: Locale): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
+  return new Date(iso).toLocaleTimeString(intlLocale(locale), { hour: "2-digit", minute: "2-digit" });
 }
-
-const METHOD_LABEL: Record<string, string> = { cash: "เงินสด", transfer: "โอน/QR" };
 
 /**
  * The day's receipts.
@@ -37,6 +38,7 @@ const METHOD_LABEL: Record<string, string> = { cash: "เงินสด", trans
 export default function OwnerSalesPage() {
   const [date, setDate] = useState(today);
   const [voiding, setVoiding] = useState<OwnerSale | null>(null);
+  const t = useMessages("owner").posSales;
 
   const salesQ = useQuery({
     queryKey: [...SALES_KEY, date],
@@ -56,21 +58,21 @@ export default function OwnerSalesPage() {
     <div className="space-y-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">ประวัติการขาย</h1>
-          <p className="text-sm text-muted-foreground">บิลทั้งหมดของวัน — ดูรายการและยกเลิกบิลที่คิดผิดได้</p>
+          <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
+          <p className="text-sm text-muted-foreground">{t.subtitle}</p>
         </div>
         <div className="w-44 space-y-1.5">
-          <Label htmlFor="date">วันที่</Label>
+          <Label htmlFor="date">{t.date}</Label>
           <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         </div>
       </header>
 
       {summary && (
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Stat label="ยอดขายรวม" value={`฿${fmt.format(summary.total)}`} tone="brand" />
-          <Stat label="จำนวนบิล" value={String(summary.saleCount)} />
-          <Stat label="เงินสด" value={`฿${fmt.format(summary.cashTotal)}`} />
-          <Stat label="โอน/QR" value={`฿${fmt.format(summary.transferTotal)}`} />
+          <Stat label={t.statTotal} value={`฿${fmt.format(summary.total)}`} tone="brand" />
+          <Stat label={t.statCount} value={String(summary.saleCount)} />
+          <Stat label={t.method.cash} value={`฿${fmt.format(summary.cashTotal)}`} />
+          <Stat label={t.method.transfer} value={`฿${fmt.format(summary.transferTotal)}`} />
         </section>
       )}
 
@@ -78,14 +80,14 @@ export default function OwnerSalesPage() {
           six today" is the number that says something is wrong at the counter. */}
       {summary && summary.voidedCount > 0 && (
         <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          วันนี้มีบิลที่ยกเลิก {summary.voidedCount} บิล — ยอดขายด้านบนไม่รวมบิลเหล่านี้แล้ว
+          {interp(t.voidedNote, { n: summary.voidedCount })}
         </p>
       )}
 
       {salesQ.isLoading && <Loading />}
       {salesQ.isError && <ErrorState onRetry={() => salesQ.refetch()} />}
       {!salesQ.isLoading && !salesQ.isError && sales.length === 0 && (
-        <EmptyState message="ยังไม่มีการขายในวันนี้" />
+        <EmptyState message={t.empty} />
       )}
 
       {sales.length > 0 && (
@@ -101,13 +103,13 @@ export default function OwnerSalesPage() {
               <table className="w-full text-sm">
                 <thead className="bg-app text-left text-xs font-medium text-muted-foreground">
                   <tr>
-                    <th className="px-4 py-3">บิล</th>
-                    <th className="px-4 py-3">เวลา</th>
-                    <th className="px-4 py-3">รายการ</th>
-                    <th className="px-4 py-3">ผู้ขาย</th>
-                    <th className="px-4 py-3 text-right">ยอด</th>
-                    <th className="px-4 py-3">สถานะ</th>
-                    <th className="w-32 px-4 py-3 text-right">จัดการ</th>
+                    <th className="px-4 py-3">{t.colBill}</th>
+                    <th className="px-4 py-3">{t.colTime}</th>
+                    <th className="px-4 py-3">{t.colItems}</th>
+                    <th className="px-4 py-3">{t.colSeller}</th>
+                    <th className="px-4 py-3 text-right">{t.colAmount}</th>
+                    <th className="px-4 py-3">{t.colStatus}</th>
+                    <th className="w-32 px-4 py-3 text-right">{t.colActions}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/5">
@@ -149,39 +151,42 @@ function Lines({ sale }: { sale: OwnerSale }) {
 }
 
 function StatusPill({ sale }: { sale: OwnerSale }) {
+  const t = useMessages("owner").posSales;
   if (sale.status === "voided") {
     return (
       <span
         className="inline-block rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-medium text-rose-700"
         title={sale.voidReason ?? undefined}
       >
-        ยกเลิกแล้ว
+        {t.statusVoided}
       </span>
     );
   }
   return (
     <span className="inline-block rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
-      สำเร็จ
+      {t.statusOk}
     </span>
   );
 }
 
 function SaleRow({ sale, onVoid }: { sale: OwnerSale; onVoid: () => void }) {
+  const t = useMessages("owner").posSales;
+  const { locale } = useLocale();
   const voided = sale.status === "voided";
 
   return (
     <tr className={`hover:bg-app/60 ${voided ? "opacity-60" : ""}`}>
       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{sale.code}</td>
-      <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{time(sale.soldAt)}</td>
+      <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{time(sale.soldAt, locale)}</td>
       <td className="px-4 py-3">
         <Lines sale={sale} />
       </td>
-      <td className="px-4 py-3">{sale.sellerName ?? "—"}</td>
+      <td className="px-4 py-3">{sale.sellerName ?? t.dash}</td>
       <td className="px-4 py-3 text-right">
         <div className={`font-semibold ${voided ? "text-muted-foreground line-through" : "text-brand"}`}>
           ฿{fmt.format(sale.total)}
         </div>
-        <div className="text-xs text-muted-foreground">{METHOD_LABEL[sale.paymentMethod] ?? sale.paymentMethod}</div>
+        <div className="text-xs text-muted-foreground">{(t.method as Record<string, string>)[sale.paymentMethod] ?? sale.paymentMethod}</div>
       </td>
       <td className="px-4 py-3">
         <StatusPill sale={sale} />
@@ -190,7 +195,7 @@ function SaleRow({ sale, onVoid }: { sale: OwnerSale; onVoid: () => void }) {
         <RowActions>
           {!voided && (
             <button type="button" onClick={onVoid} className={rowAction()}>
-              <Undo2 className="size-3.5" /> ยกเลิกบิล
+              <Undo2 className="size-3.5" /> {t.voidBill}
             </button>
           )}
         </RowActions>
@@ -200,6 +205,8 @@ function SaleRow({ sale, onVoid }: { sale: OwnerSale; onVoid: () => void }) {
 }
 
 function SaleCard({ sale, onVoid }: { sale: OwnerSale; onVoid: () => void }) {
+  const t = useMessages("owner").posSales;
+  const { locale } = useLocale();
   const voided = sale.status === "voided";
 
   return (
@@ -208,7 +215,7 @@ function SaleCard({ sale, onVoid }: { sale: OwnerSale; onVoid: () => void }) {
         <div className="min-w-0">
           <div className="font-mono text-xs text-muted-foreground">{sale.code}</div>
           <div className="text-sm text-muted-foreground">
-            {time(sale.soldAt)} · {METHOD_LABEL[sale.paymentMethod] ?? sale.paymentMethod}
+            {time(sale.soldAt, locale)} · {(t.method as Record<string, string>)[sale.paymentMethod] ?? sale.paymentMethod}
           </div>
         </div>
         <StatusPill sale={sale} />
@@ -228,7 +235,7 @@ function SaleCard({ sale, onVoid }: { sale: OwnerSale; onVoid: () => void }) {
             onClick={onVoid}
             className="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold text-brand-danger ring-1 ring-brand-danger/20"
           >
-            <Undo2 className="size-4" /> ยกเลิกบิล
+            <Undo2 className="size-4" /> {t.voidBill}
           </button>
         )}
       </div>
@@ -243,6 +250,7 @@ function SaleCard({ sale, onVoid }: { sale: OwnerSale; onVoid: () => void }) {
  * answer later. Stock goes back on the shelf as part of the same call.
  */
 function VoidDialog({ sale, onClose }: { sale: OwnerSale; onClose: () => void }) {
+  const t = useMessages("owner").posSales;
   const qc = useQueryClient();
   const [reason, setReason] = useState("");
 
@@ -257,22 +265,22 @@ function VoidDialog({ sale, onClose }: { sale: OwnerSale; onClose: () => void })
 
   return (
     <Modal
-      title={`ยกเลิกบิล ${sale.code}`}
+      title={interp(t.voidTitle, { code: sale.code })}
       onClose={onClose}
       footer={
         <>
           <Button type="button" variant="outline" onClick={onClose}>
-            ปิด
+            {t.close}
           </Button>
           <Button type="button" onClick={() => voidIt.mutate()} disabled={voidIt.isPending}>
-            {voidIt.isPending ? "กำลังยกเลิก…" : "ยืนยันยกเลิกบิล"}
+            {voidIt.isPending ? t.voiding : t.confirmVoid}
           </Button>
         </>
       }
     >
       <div className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          สินค้าในบิลนี้จะถูกคืนเข้าสต็อก และยอดขายของวันจะลดลง ฿{fmt.format(sale.total)}
+          {interp(t.voidBody, { amount: fmt.format(sale.total) })}
         </p>
 
         <div className="rounded-xl bg-app p-3 text-sm">
@@ -280,12 +288,12 @@ function VoidDialog({ sale, onClose }: { sale: OwnerSale; onClose: () => void })
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="reason">เหตุผล (ไม่บังคับ)</Label>
+          <Label htmlFor="reason">{t.reasonLabel}</Label>
           <Input
             id="reason"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="เช่น คิดเงินผิดรายการ"
+            placeholder={t.reasonPlaceholder}
           />
         </div>
 

@@ -1,5 +1,5 @@
 "use client";
-import { BadgeCheck, CheckCircle2, Sparkles } from "lucide-react";
+import { CheckCircle2, Sparkles } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
@@ -10,8 +10,8 @@ import { fmt, intlLocale } from "@/lib/i18n/format";
 import { api } from "@/lib/api/client";
 import { Loading, ErrorState } from "@/components/states";
 import { SlideToConfirm } from "@/components/slide-to-confirm";
-import { useTenant } from "@/lib/tenant/tenant-context";
-import type { CustomerReward } from "@/lib/types";
+import { useTenant, type TenantBranding } from "@/lib/tenant/tenant-context";
+import type { CustomerReward, Membership, SportMeta } from "@/lib/types";
 
 export default function MembershipPage() {
   const { tenant } = useTenant();
@@ -40,52 +40,7 @@ export default function MembershipPage() {
         <ErrorState onRetry={() => refetch()} />
       ) : (
         <div className="space-y-4 p-4">
-          <div className="rounded-2xl bg-gradient-to-br from-amber-300 to-amber-500 p-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="grid size-12 shrink-0 place-items-center rounded-xl bg-white/30 text-amber-900">
-                <BadgeCheck className="size-7" />
-              </div>
-              <div>
-                <div className="font-bold text-amber-950">{mm.memberPrefix} {membership.tier}</div>
-                <div className="text-xs text-amber-900/80">{membership.memberId}</div>
-              </div>
-            </div>
-            <div className="mt-4 rounded-xl bg-white/85 p-3.5">
-              <div className="text-xs text-muted-foreground">{mm.yourPoints}</div>
-              <div className="mt-0.5 text-2xl font-bold text-foreground">
-                {membership.points.toLocaleString()} {mm.pointsUnit}
-              </div>
-              <div className="mt-0.5 text-xs text-muted-foreground">
-                {fmt(mm.validUntil, { date: membership.expiresAt ?? "" })}
-              </div>
-
-              {/* A tier badge with no way to understand it is decoration. This
-                  is the sentence that makes the number mean something. */}
-              {membership.nextTier && membership.pointsToNextTier != null && (
-                <div className="mt-3 border-t border-black/5 pt-2.5">
-                  <div className="flex items-baseline justify-between text-xs">
-                    <span className="text-muted-foreground">
-                      {fmt(mm.toNextTier, { n: membership.pointsToNextTier, tier: membership.nextTier })}
-                    </span>
-                  </div>
-                  <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-black/10">
-                    <div
-                      className="h-full rounded-full bg-brand transition-all"
-                      style={{
-                        width: `${Math.min(
-                          100,
-                          Math.round(
-                            ((membership.lifetimePoints ?? 0) /
-                              ((membership.lifetimePoints ?? 0) + membership.pointsToNextTier)) * 100,
-                          ),
-                        )}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+          <MembershipStealthCard membership={membership} tenant={tenant} />
 
           {/* Only when the venue actually filled some in — the list used to
               render an empty box for everyone, because `benefits` is `[]` by
@@ -123,6 +78,132 @@ export default function MembershipPage() {
       )}
     </main>
   );
+}
+
+function MembershipStealthCard({ membership, tenant }: { membership: Membership; tenant: TenantBranding }) {
+  const mm = useMessages("app").membership;
+  const sport = primarySport(tenant);
+  const progress = tierProgress(membership);
+
+  return (
+    <section
+      className="relative overflow-hidden rounded-[1.25rem] bg-[#232325] p-5 text-zinc-200"
+      style={{
+        boxShadow:
+          "-8px -8px 24px rgba(255,255,255,0.035), 12px 14px 34px rgba(0,0,0,0.46), inset 1px 1px 2px rgba(255,255,255,0.055), inset -1px -1px 2px rgba(0,0,0,0.35)",
+      }}
+    >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-[0.045] mix-blend-screen"
+        style={{
+          backgroundImage:
+            "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
+        }}
+      />
+
+      <div className="relative flex min-h-[214px] flex-col justify-between">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div
+              className="grid size-12 shrink-0 place-items-center rounded-xl bg-[#1f1f21]"
+              style={{
+                boxShadow:
+                  "inset 2px 2px 5px rgba(0,0,0,0.62), inset -1px -1px 2px rgba(255,255,255,0.06), 1px 1px 2px rgba(255,255,255,0.035)",
+              }}
+            >
+              <span
+                className="text-[1.7rem] leading-none drop-shadow-[0_2px_5px_rgba(0,0,0,0.5)]"
+                style={{ color: sport?.color ?? "rgb(212 212 216)" }}
+                aria-label={sport?.name}
+                role={sport ? "img" : undefined}
+              >
+                {sport?.emoji ?? "◇"}
+              </span>
+            </div>
+            <div className="min-w-0">
+              <div className="truncate text-sm font-bold uppercase tracking-[0.12em] text-zinc-200 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
+                {mm.memberPrefix} {membership.tier}
+                {sport && (
+                  <span className="ml-1.5 text-[10px] font-normal normal-case tracking-normal text-zinc-500">
+                    {sport.name}
+                  </span>
+                )}
+              </div>
+              <div className="mt-1 font-mono text-sm font-bold tracking-wider text-[#19191b] [text-shadow:1px_1px_1px_rgba(255,255,255,0.12),-1px_-1px_1px_rgba(0,0,0,0.82)]">
+                {membership.memberId}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-1 flex gap-1" aria-hidden>
+            <span className="size-1.5 rounded-full bg-zinc-600" />
+            <span className="size-1.5 rounded-full bg-zinc-600" />
+          </div>
+        </div>
+
+        <div className="mt-8 flex items-end justify-between gap-4 px-0.5">
+          <div>
+            <div className="mb-1 text-[10px] font-medium uppercase tracking-[0.22em] text-zinc-500">
+              {mm.yourPoints}
+            </div>
+            <div className="flex items-end gap-2">
+              <span className="text-5xl font-light leading-none tracking-tight text-zinc-50 drop-shadow-[0_2px_8px_rgba(255,255,255,0.06)]">
+                {membership.points.toLocaleString()}
+              </span>
+              <span className="mb-1 text-sm font-medium text-zinc-500">{mm.pointsUnit}</span>
+            </div>
+          </div>
+          <div className="shrink-0 text-right">
+            <div className="mb-1 text-[10px] uppercase tracking-[0.22em] text-zinc-500">
+              {membership.expiresAt ? fmt(mm.validUntil, { date: "" }).trim() : ""}
+            </div>
+            <div className="font-mono text-xs font-medium text-zinc-300">
+              {membership.expiresAt ?? "—"}
+            </div>
+          </div>
+        </div>
+
+        {membership.nextTier && membership.pointsToNextTier != null && (
+          <div className="relative mt-5 border-t border-white/5 pt-4">
+            <div aria-hidden className="absolute left-0 top-0 h-px w-full bg-black/45" />
+            <div className="mb-2 text-xs font-medium text-zinc-400">
+              {fmt(mm.toNextTier, { n: membership.pointsToNextTier, tier: membership.nextTier })}
+            </div>
+            <div
+              className="h-2 overflow-hidden rounded-full bg-[#18181a]"
+              style={{ boxShadow: "inset 2px 2px 4px rgba(0,0,0,0.8), inset -1px -1px 2px rgba(255,255,255,0.045)" }}
+            >
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-zinc-500 to-zinc-200 shadow-[0_0_8px_rgba(255,255,255,0.22)] transition-all"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function primarySport(tenant: TenantBranding): SportMeta | null {
+  const byPrimary = tenant.sportMeta.find((s) => s.key === tenant.sport);
+  if (byPrimary) return byPrimary;
+
+  const firstKey = tenant.sports[0];
+  const byFirstVenueSport = firstKey ? tenant.sportMeta.find((s) => s.key === firstKey) : undefined;
+  return byFirstVenueSport ?? tenant.sportMeta[0] ?? null;
+}
+
+function tierProgress(membership: Membership): number {
+  if (!membership.nextTier || membership.pointsToNextTier == null) return 0;
+
+  const lifetime = Math.max(0, membership.lifetimePoints ?? 0);
+  const remaining = Math.max(0, membership.pointsToNextTier);
+  const target = lifetime + remaining;
+
+  if (target <= 0) return 100;
+  return Math.min(100, Math.round((lifetime / target) * 100));
 }
 
 /**
