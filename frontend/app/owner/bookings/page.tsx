@@ -7,6 +7,9 @@ import type { OwnerBooking, OwnerBranch, OwnerCourt } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { BookingDialog, type Dialog } from "./booking-dialog";
+import { useMessages } from "@/lib/i18n/context";
+import { useLocale } from "@/lib/i18n/context";
+import { fmt as interp, intlLocale } from "@/lib/i18n/format";
 import { Button } from "@/components/ui/button";
 
 const HOUR_PX = 56;
@@ -20,8 +23,6 @@ const BOOKINGS_KEY = ["owner", "bookings"];
 // `Branch.weekHours[].day` is a full Thai weekday name; index this by
 // Date.getday() (0 = Sunday) to look up that date's override.
 const TH_DAY_BY_DOW = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
-const DOW = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."];
-const TH_MONTH = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
 
 type View = "day" | "week" | "month";
 
@@ -148,6 +149,9 @@ export default function OwnerBookingsPage() {
   const courts = courtsQ.data ?? [];
   const branches = useMemo(() => branchesQ.data ?? [], [branchesQ.data]);
 
+  const bk = useMessages("owner").bookings;
+  const { locale } = useLocale();
+  const tag = intlLocale(locale);
   const byDate = useMemo(() => {
     const m = new Map<string, OwnerBooking[]>();
     for (const b of bookings) {
@@ -163,7 +167,7 @@ export default function OwnerBookingsPage() {
     mutationFn: (v: { id: string; courtId: string; start: string; end: string }) =>
       ownerApi.updateBooking(v.id, { courtId: v.courtId, start: v.start, end: v.end }),
     onSuccess: () => qc.invalidateQueries({ queryKey: BOOKINGS_KEY }),
-    onError: (e: Error) => toast.error(e.message || "ย้ายการจองไม่สำเร็จ"),
+    onError: (e: Error) => toast.error(e.message || bk.moveFailed),
   });
 
   function onMove(bookingId: string, courtId: string, startMin: number) {
@@ -192,10 +196,10 @@ export default function OwnerBookingsPage() {
 
   const rangeLabel =
     view === "month"
-      ? `${TH_MONTH[anchor.getMonth()]} ${(anchor.getFullYear() + 543) % 100}`
+      ? anchor.toLocaleDateString(tag, { month: "short", year: "numeric" })
       : view === "day"
-        ? `${DOW[anchor.getDay()]} ${anchor.getDate()} ${TH_MONTH[anchor.getMonth()]} ${(anchor.getFullYear() + 543) % 100}`
-        : `${weekDays[0].getDate()} - ${weekDays[6].getDate()} ${TH_MONTH[weekDays[6].getMonth()]} ${(weekDays[6].getFullYear() + 543) % 100}`;
+        ? anchor.toLocaleDateString(tag, { weekday: "short", day: "numeric", month: "short", year: "numeric" })
+        : `${weekDays[0].getDate()} - ${weekDays[6].toLocaleDateString(tag, { day: "numeric", month: "short", year: "numeric" })}`;
 
   const isLoading = bookingsQ.isLoading || courtsQ.isLoading || branchesQ.isLoading;
 
@@ -203,8 +207,8 @@ export default function OwnerBookingsPage() {
     <div className="space-y-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">การจอง</h1>
-          <p className="text-sm text-muted-foreground">ตารางจองแยกตามคอร์ท — คลิกช่องว่างเพื่อสร้าง, ลากเพื่อย้าย</p>
+          <h1 className="text-2xl font-bold tracking-tight">{bk.title}</h1>
+          <p className="text-sm text-muted-foreground">{bk.subtitle}</p>
         </div>
         <Button
           type="button"
@@ -213,7 +217,7 @@ export default function OwnerBookingsPage() {
           }
           disabled={courts.length === 0}
         >
-          <Plus className="size-4" /> สร้างการจอง
+          <Plus className="size-4" /> {bk.create}
         </Button>
       </header>
 
@@ -221,9 +225,9 @@ export default function OwnerBookingsPage() {
         <div className="flex gap-1 rounded-xl bg-white p-1 ring-1 ring-black/5">
           {(
             [
-              { key: "day", label: "วัน" },
-              { key: "week", label: "สัปดาห์" },
-              { key: "month", label: "เดือน" },
+              { key: "day", label: bk.viewDay },
+              { key: "week", label: bk.viewWeek },
+              { key: "month", label: bk.viewMonth },
             ] as const
           ).map((t) => (
             <button
@@ -239,15 +243,15 @@ export default function OwnerBookingsPage() {
           ))}
         </div>
         <div className="flex items-center gap-1">
-          <button type="button" aria-label="ก่อนหน้า" onClick={() => move(-1)} className="grid size-8 place-items-center rounded-lg bg-white text-muted-foreground ring-1 ring-black/5 hover:bg-app">
+          <button type="button" aria-label={bk.prev} onClick={() => move(-1)} className="grid size-8 place-items-center rounded-lg bg-white text-muted-foreground ring-1 ring-black/5 hover:bg-app">
             <ChevronLeft className="size-4" />
           </button>
           <span className="min-w-[170px] text-center text-sm font-semibold">{rangeLabel}</span>
-          <button type="button" aria-label="ถัดไป" onClick={() => move(1)} className="grid size-8 place-items-center rounded-lg bg-white text-muted-foreground ring-1 ring-black/5 hover:bg-app">
+          <button type="button" aria-label={bk.next} onClick={() => move(1)} className="grid size-8 place-items-center rounded-lg bg-white text-muted-foreground ring-1 ring-black/5 hover:bg-app">
             <ChevronRight className="size-4" />
           </button>
           <button type="button" onClick={() => setAnchor(new Date())} className="ml-1 rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-muted-foreground ring-1 ring-black/5 hover:bg-app">
-            วันนี้
+            {bk.today}
           </button>
         </div>
       </div>
@@ -257,7 +261,7 @@ export default function OwnerBookingsPage() {
 
       {!isLoading && !bookingsQ.isError && view === "day" && (
         courts.length === 0 ? (
-          <EmptyState message="ยังไม่มีคอร์ท — เพิ่มคอร์ทก่อนเพื่อใช้ตารางจอง" />
+          <EmptyState message={bk.noCourts} />
         ) : (
           <CourtDayGrid
             courts={courts}
@@ -270,11 +274,12 @@ export default function OwnerBookingsPage() {
           />
         )
       )}
-      {!isLoading && !bookingsQ.isError && view === "week" && <WeekGrid days={weekDays} byDate={byDate} start={gridStart} end={gridEnd} onEdit={(b) => setDialog({ mode: "edit", booking: b })} />}
+      {!isLoading && !bookingsQ.isError && view === "week" && <WeekGrid days={weekDays} byDate={byDate} start={gridStart} end={gridEnd} tag={tag} onEdit={(b) => setDialog({ mode: "edit", booking: b })} />}
       {!isLoading && !bookingsQ.isError && view === "month" && (
         <MonthGrid
           anchor={anchor}
           byDate={byDate}
+          tag={tag}
           onPickDay={(d) => { setAnchor(d); setView("day"); }}
         />
       )}
@@ -301,6 +306,7 @@ function CourtDayGrid({
   onEdit: (b: OwnerBooking) => void;
   onMove: (bookingId: string, courtId: string, startMin: number) => void;
 }) {
+  const bk = useMessages("owner").bookings;
   const totalH = (end - start) * HOUR_PX;
   const hours = Array.from({ length: end - start }, (_, i) => start + i);
   const slots = Array.from({ length: (end - start) * 2 }, (_, i) => start * 60 + i * SLOT_MIN);
@@ -314,7 +320,7 @@ function CourtDayGrid({
           {courts.map((c) => (
             <div key={c.id} className="truncate border-l border-black/5 px-2 py-2 text-center text-sm font-semibold">
               {c.name}
-              {c.status !== "active" && <span className="ml-1 text-[10px] font-normal text-muted-foreground">(ปิด)</span>}
+              {c.status !== "active" && <span className="ml-1 text-[10px] font-normal text-muted-foreground">{bk.closed}</span>}
             </div>
           ))}
         </div>
@@ -352,7 +358,7 @@ function CourtDayGrid({
                     }}
                     className="absolute inset-x-0 border-t border-black/5 hover:bg-brand/5"
                     style={{ top: (slotMin - start * 60) / 60 * HOUR_PX, height: SLOT_PX }}
-                    aria-label={`สร้างการจอง ${court.name} ${fmtMin(slotMin)}`}
+                    aria-label={interp(bk.createAria, { court: court.name, time: fmtMin(slotMin) })}
                   />
                 ))}
                 {/* booking blocks */}
@@ -422,7 +428,7 @@ function packDay(list: OwnerBooking[]): { b: OwnerBooking; lane: number; lanes: 
   return out;
 }
 
-function WeekGrid({ days, byDate, start, end, onEdit }: { days: Date[]; byDate: Map<string, OwnerBooking[]>; start: number; end: number; onEdit: (b: OwnerBooking) => void }) {
+function WeekGrid({ days, byDate, start, end, tag, onEdit }: { days: Date[]; byDate: Map<string, OwnerBooking[]>; start: number; end: number; tag: string; onEdit: (b: OwnerBooking) => void }) {
   const totalH = (end - start) * HOUR_PX;
   const hours = Array.from({ length: end - start }, (_, i) => start + i);
 
@@ -443,7 +449,7 @@ function WeekGrid({ days, byDate, start, end, onEdit }: { days: Date[]; byDate: 
           <div />
           {days.map((d) => (
             <div key={iso(d)} className="px-2 py-2 text-center">
-              <div className="text-xs text-muted-foreground">{DOW[d.getDay()]}</div>
+              <div className="text-xs text-muted-foreground">{d.toLocaleDateString(tag, { weekday: "short" })}</div>
               <div className="text-sm font-semibold">{d.getDate()}</div>
             </div>
           ))}
@@ -500,12 +506,16 @@ function WeekGrid({ days, byDate, start, end, onEdit }: { days: Date[]; byDate: 
 function MonthGrid({
   anchor,
   byDate,
+  tag,
   onPickDay,
 }: {
   anchor: Date;
   byDate: Map<string, OwnerBooking[]>;
+  tag: string;
   onPickDay: (d: Date) => void;
 }) {
+  const bk = useMessages("owner").bookings;
+  const weekdays = Array.from({ length: 7 }, (_, i) => new Date(2024, 0, 7 + i).toLocaleDateString(tag, { weekday: "short" }));
   const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
   const gridStart = startOfWeek(first);
   const cells = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
@@ -513,7 +523,7 @@ function MonthGrid({
   return (
     <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
       <div className="grid grid-cols-7 border-b border-black/5 bg-app text-center text-xs font-medium text-muted-foreground">
-        {DOW.map((d) => (
+        {weekdays.map((d) => (
           <div key={d} className="py-2">{d}</div>
         ))}
       </div>
@@ -528,7 +538,7 @@ function MonthGrid({
               type="button"
               key={iso(d)}
               onClick={() => onPickDay(d)}
-              title="ดูตารางของวันนี้"
+              title={bk.viewDaySchedule}
               className={`min-h-[92px] border-b border-l border-black/5 p-1.5 text-left transition hover:bg-app focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand ${dim ? "bg-app/40" : ""}`}
             >
               <div className={`text-xs font-semibold ${dim ? "text-muted-foreground/50" : ""}`}>{d.getDate()}</div>
@@ -539,7 +549,7 @@ function MonthGrid({
                   </div>
                 ))}
                 {list.length > 3 && (
-                  <div className="text-[10px] font-medium text-brand">+{list.length - 3} เพิ่มเติม</div>
+                  <div className="text-[10px] font-medium text-brand">{interp(bk.moreN, { n: list.length - 3 })}</div>
                 )}
               </div>
             </button>

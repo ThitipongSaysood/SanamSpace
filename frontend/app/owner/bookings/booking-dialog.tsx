@@ -7,6 +7,8 @@ import { ownerApi, type BookingInput } from "@/lib/api/owner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useMessages } from "@/lib/i18n/context";
+import { fmt as interp } from "@/lib/i18n/format";
 
 const BOOKINGS_KEY = ["owner", "bookings"];
 
@@ -29,6 +31,7 @@ export type Dialog =
 
 export function BookingDialog({ dialog, courts, onClose }: { dialog: NonNullable<Dialog>; courts: OwnerCourt[]; onClose: () => void }) {
   const qc = useQueryClient();
+  const t = useMessages("owner").bookings;
   const editing = dialog.mode === "edit" ? dialog.booking : null;
   const customersQ = useQuery({ queryKey: ["owner", "customers"], queryFn: ownerApi.getCustomers });
 
@@ -81,42 +84,42 @@ export function BookingDialog({ dialog, courts, onClose }: { dialog: NonNullable
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true">
       <div className="w-full max-w-md space-y-4 rounded-2xl bg-white p-5 shadow-xl">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold">{editing ? "แก้ไขการจอง" : "สร้างการจอง"}</h2>
-          <button type="button" onClick={onClose} aria-label="ปิด" className="grid size-7 place-items-center rounded-lg text-muted-foreground hover:bg-app">
+          <h2 className="font-semibold">{editing ? t.editTitle : t.create}</h2>
+          <button type="button" onClick={onClose} aria-label={t.close} className="grid size-7 place-items-center rounded-lg text-muted-foreground hover:bg-app">
             <X className="size-4" />
           </button>
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="bk-customer">ลูกค้า</Label>
+          <Label htmlFor="bk-customer">{t.customer}</Label>
           <select id="bk-customer" value={customerId} onChange={(e) => setCustomerId(e.target.value)} className={selectClass}>
-            <option value="">— เลือกลูกค้า / กรอก walk-in ด้านล่าง —</option>
+            <option value="">{t.pickCustomer}</option>
             {(customersQ.data ?? []).map((c) => (
               <option key={c.id} value={c.id}>{c.displayName}</option>
             ))}
           </select>
           {!customerId && (
             <>
-              <Input value={walkin} onChange={(e) => setWalkin(e.target.value)} placeholder="ชื่อลูกค้า walk-in" />
+              <Input value={walkin} onChange={(e) => setWalkin(e.target.value)} placeholder={t.walkinName} />
               <Input
                 value={walkinPhone}
                 onChange={(e) => setWalkinPhone(e.target.value)}
-                placeholder="เบอร์โทร (แนะนำ)"
+                placeholder={t.walkinPhone}
                 inputMode="tel"
               />
               {/* Without a number the same regular becomes a new customer on
                   every visit, and their points end up split across the rows. */}
               <p className="text-xs text-muted-foreground">
-                ใส่เบอร์ไว้ ระบบจะจำได้ว่าเป็นลูกค้าคนเดิม แต้มกับเครดิตจะไม่กระจายหลายใบ
+                {t.phoneHint}
               </p>
             </>
           )}
-          {editing && <p className="text-xs text-muted-foreground">ลูกค้าเดิม: {editing.customerName ?? "—"} (เลือกใหม่เพื่อเปลี่ยน)</p>}
+          {editing && <p className="text-xs text-muted-foreground">{interp(t.currentCustomer, { name: editing.customerName ?? "—" })}</p>}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5 col-span-2">
-            <Label htmlFor="bk-court">คอร์ท</Label>
+            <Label htmlFor="bk-court">{t.court}</Label>
             <select id="bk-court" value={courtId} onChange={(e) => setCourtId(e.target.value)} className={selectClass}>
               {courts.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
@@ -124,25 +127,25 @@ export function BookingDialog({ dialog, courts, onClose }: { dialog: NonNullable
             </select>
           </div>
           <div className="space-y-1.5 col-span-2">
-            <Label htmlFor="bk-date">วันที่</Label>
+            <Label htmlFor="bk-date">{t.date}</Label>
             <Input id="bk-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="bk-start">เริ่ม</Label>
+            <Label htmlFor="bk-start">{t.startLabel}</Label>
             <Input id="bk-start" type="time" value={start} onChange={(e) => setStart(e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="bk-end">สิ้นสุด</Label>
+            <Label htmlFor="bk-end">{t.endLabel}</Label>
             <Input id="bk-end" type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
           </div>
           {editing && (
             <div className="space-y-1.5 col-span-2">
-              <Label htmlFor="bk-status">สถานะ</Label>
+              <Label htmlFor="bk-status">{t.statusLabel}</Label>
               <select id="bk-status" value={status} onChange={(e) => setStatus(e.target.value)} className={selectClass}>
-                <option value="pending_payment">รอชำระเงิน</option>
-                <option value="confirmed">ยืนยันแล้ว</option>
-                <option value="completed">เช็คอินแล้ว</option>
-                <option value="cancelled">ยกเลิก</option>
+                <option value="pending_payment">{t.st.pending}</option>
+                <option value="confirmed">{t.st.confirmed}</option>
+                <option value="completed">{t.st.completed}</option>
+                <option value="cancelled">{t.st.cancelled}</option>
               </select>
             </div>
           )}
@@ -161,23 +164,23 @@ export function BookingDialog({ dialog, courts, onClose }: { dialog: NonNullable
           />
         )}
 
-        {save.isError && <p className="text-sm text-brand-danger">{(save.error as Error)?.message || "บันทึกไม่สำเร็จ"}</p>}
+        {save.isError && <p className="text-sm text-brand-danger">{(save.error as Error)?.message || t.saveFailed}</p>}
 
         <div className="flex items-center gap-2 pt-1">
           <Button type="button" onClick={() => save.mutate()} disabled={!valid || save.isPending}>
-            {save.isPending ? "กำลังบันทึก..." : "บันทึก"}
+            {save.isPending ? t.saving : t.save}
           </Button>
-          <Button type="button" variant="outline" onClick={onClose}>ปิด</Button>
+          <Button type="button" variant="outline" onClick={onClose}>{t.close}</Button>
           {editing && editing.status !== "cancelled" && (
             <button
               type="button"
               onClick={() => {
-                if (window.confirm("ยกเลิกการจองนี้?")) cancelM.mutate();
+                if (window.confirm(t.cancelConfirm)) cancelM.mutate();
               }}
               disabled={cancelM.isPending}
               className="ml-auto inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium text-brand-danger hover:bg-rose-50"
             >
-              <Trash2 className="size-4" /> ยกเลิกการจอง
+              <Trash2 className="size-4" /> {t.cancelBooking}
             </button>
           )}
         </div>
@@ -207,6 +210,7 @@ function RentalPicker({
   picks: Record<string, number>;
   onChange: (next: Record<string, number>) => void;
 }) {
+  const t = useMessages("owner").bookings;
   const ready = Boolean(date && start && end && start < end);
 
   const { data } = useQuery({
@@ -230,7 +234,7 @@ function RentalPicker({
   return (
     <div className="space-y-2 rounded-xl border border-black/10 p-3">
       <div className="flex items-baseline justify-between">
-        <Label>เช่าอุปกรณ์ (ไม่บังคับ)</Label>
+        <Label>{t.rentTitle}</Label>
         {total > 0 && <span className="text-sm font-semibold text-brand">+฿{total.toLocaleString("th-TH")}</span>}
       </div>
 
@@ -244,12 +248,12 @@ function RentalPicker({
               <span className="min-w-0 flex-1 truncate">
                 {item.name}
                 <span className="ml-1 text-xs text-muted-foreground">
-                  ฿{item.priceForBooking} · ว่าง {free}
+                  ฿{item.priceForBooking} · {interp(t.availN, { n: free })}
                 </span>
               </span>
               <button
                 type="button"
-                aria-label={`ลด ${item.name}`}
+                aria-label={interp(t.decAria, { name: item.name })}
                 disabled={qty === 0}
                 onClick={() => onChange({ ...picks, [item.id]: qty - 1 })}
                 className="grid size-7 place-items-center rounded-lg ring-1 ring-black/10 disabled:opacity-30"
@@ -259,7 +263,7 @@ function RentalPicker({
               <span className="w-5 text-center tabular-nums">{qty}</span>
               <button
                 type="button"
-                aria-label={`เพิ่ม ${item.name}`}
+                aria-label={interp(t.incAria, { name: item.name })}
                 disabled={qty >= free}
                 onClick={() => onChange({ ...picks, [item.id]: qty + 1 })}
                 className="grid size-7 place-items-center rounded-lg ring-1 ring-black/10 disabled:opacity-30"
