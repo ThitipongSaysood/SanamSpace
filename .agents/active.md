@@ -1,6 +1,38 @@
 # Active Task
 
-_Last updated: 2026-08-13 (~14:20) · Last agent: Codex_
+_Last updated: 2026-08-13 (~15:55) · Last agent: Claude (Opus 4.8)_
+
+## ✅ Done 2026-08-13 (~15:55) — whole system bilingual (TH/EN): owner + admin portals
+
+**Current Task:** Finish "ทั้งระบบ 2 ภาษา (ไทย/อังกฤษ)". Phase 1 (foundation + landing) & Phase 2 (customer
+app) were already committed (`4533980`); this session did **Phase 3 = entire owner portal** and **Phase 4 =
+entire admin portal**.
+
+**Status:** ✅ Complete. **Committed on `main`, NOT pushed.** 22 commits `26a4dfa`→`11d7f30` · 60 files
+(+7075/−2493) · `tsc` clean · lint **0 errors** (47 pre-existing warnings) · vitest **43/43**. Full detail:
+`sessions/2026-08-13-1555-bilingual-owner-and-admin-portals.md`.
+
+**What's Done:**
+- **All 38 owner `.tsx`** bilingual (dashboard→settings, incl. bookings/POS/CRM/LINE-templates/broadcast/
+  billing). **All 20 admin `.tsx`** bilingual (chrome, organizations + 869-line drawer, subscriptions/plans/
+  features/sports, payments/transactions/refunds/billing, users/roles/support/announcements/logs/settings).
+- Catalogs `frontend/lib/i18n/messages/{th,en}.ts` now ~2760 lines each. New `admin` top-level namespace;
+  `owner` namespace gained ~25 page sub-blocks. `en.ts: typeof th` → a missing key fails `tsc`.
+- Conventions: TH = source of truth; `useMessages(ns)` + `fmt()`/`interp` + `intlLocale()`; **data-keys stay
+  untranslated** (promo tags, day keys, RFM/segment criteria, LINE/broadcast message seeds, perm modules) —
+  only display labels localized; status/type maps split color-const + catalog labels; **tab keys stabilized
+  to English** where they doubled as state; module helper fns take the catalog/`locale` as params.
+
+**Blockers:** None. (Language switcher toggles cookie+localStorage locale — no URL change, so `/v/{slug}`
+LIFF path is untouched.)
+
+**Next Steps:**
+1. **Push** `26a4dfa`→`11d7f30` when the user asks (standing rule: don't push unless asked).
+2. Frontend-only, no migrations — but still run `migrate + test` on MySQL before any release.
+3. Optional: swap the Thai example-placeholders in `admin/settings` for EN-neutral ones (currently left as
+   illustrative Thai company/bank examples).
+4. Trial-offer blockers from 2026-08-12 are still open below (dead `#line` CTA — landing was reworded but the
+   signup path exists now via `52e8664`; admin-created owner login; `startTrial` vs `addDays`).
 
 ## ✅ Done 2026-08-13 (~14:20) — customer membership matte sport card
 Local only, not committed. Customer `/v/{slug}/membership` card now uses the Matte Stealth visual direction

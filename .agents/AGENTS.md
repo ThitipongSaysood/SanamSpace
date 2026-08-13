@@ -10,7 +10,7 @@
 - **Git remote**: https://github.com/ThitipongSaysood/SanamSpace.git
 - **Branch**: main
 - **Bootstrapped**: 2026-06-12
-- **Last agent**: Claude (Opus 5) — 2026-08-08
+- **Last agent**: Claude (Opus 4.8) — 2026-08-13
 
 ## Rules for AI assistants
 
@@ -173,3 +173,24 @@ in `lib/api/http.ts` for exactly this reason.
 `$request->validate()` returns only the keys it has rules for and **drops every un-ruled nested key**. For a
 free-form JSON column (a LINE template's `blocks`, etc.) validate the shape but write `$request->input('…')`,
 not the validated copy, or all but the ruled sub-keys vanish.
+
+### Every user-facing string is bilingual (TH/EN)
+The whole frontend (landing, customer app, owner portal, admin portal) is translated through one custom,
+lightweight i18n layer — no URL locale prefix, because `/v/{slug}` is the LINE LIFF path and must not change.
+Locale lives in a cookie + localStorage, toggled by the switcher in each portal's chrome.
+- **`frontend/lib/i18n/messages/th.ts` is the source of truth**; `en.ts` is typed `typeof th`, so a
+  missing or renamed key **fails `tsc`** — the two catalogs can never drift. Never hard-code a new
+  user-facing string: add `th`+`en` keys and read them with `useMessages(ns)` (typed namespace object).
+  Interpolate with `fmt(template, { key })` from `@/lib/i18n/format` (usually imported as `interp`); format
+  dates/numbers with `intlLocale(locale)` from the same module (Thai Buddhist vs. English Gregorian).
+- **Leave data-keys untranslated.** Anything the backend stores/compares or sends to a customer stays the
+  raw value and only its *display label* comes from the catalog: promotion tags, week-day keys, RFM/segment
+  criteria, LINE-flex block-content seeds, broadcast template message-text, admin permission modules. Same
+  for status/type/method maps — split the colour class into a module const and take the label from the
+  catalog with a `?? rawValue` fallback.
+- **A Thai string that also drives React state must be an English key.** Where tab/segment identifiers were
+  compared with `===` or held in `useState`, the key is stable English (`"info"`, `"subscription"`, …) and
+  only the display comes from `t.tabs[key]`. Module helper fns that need strings take the catalog / `locale`
+  as a parameter — they can't call a hook.
+- **Run vitest from `frontend/`.** A bare `npx vitest` at the repo root ignores `vitest.config.ts`, defaults
+  to the `node` environment, and fails with "document is not defined" — a cwd artifact, not a regression.
