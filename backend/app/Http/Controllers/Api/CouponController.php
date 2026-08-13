@@ -33,6 +33,12 @@ class CouponController extends Controller
         ]);
 
         $court = Court::query()->with('branch')->findOrFail($data['courtId']);
+
+        // Tenant isolation: only a venue's own customers may preview its coupons.
+        // The court is fetched by id alone, so without this a venue A customer
+        // could submit venue B's court id and probe venue B's coupon codes.
+        abort_if($court->organization_id !== $request->user()->organization_id, 404);
+
         $amount = (float) $data['amount'];
 
         // Throws a readable validation error when the code cannot be used —

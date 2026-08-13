@@ -65,6 +65,11 @@ class ReviewController extends Controller
             ->orderBy('created_at')
             ->firstOrFail();
 
+        // Tenant isolation: a customer may only review their own venue. The
+        // branch is matched by the client-supplied venueId, so without this a
+        // venue A customer could post a review under venue B and skew its rating.
+        abort_if($branch->organization_id !== $customer->organization_id, 404);
+
         // Newest first: index orders by sort_order asc, so use min-1.
         $topSort = (int) Review::query()->where('branch_id', $branch->id)->min('sort_order');
 

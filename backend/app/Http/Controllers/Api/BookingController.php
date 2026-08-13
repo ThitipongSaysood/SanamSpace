@@ -6,7 +6,18 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\BookingResource;
 use App\Models\Booking;
 use App\Models\Court;
+use App\Models\CourtBlock;
+use App\Models\CustomerPackage;
 use App\Models\OrganizationSetting;
+use App\Models\Payment;
+use App\Services\BookingExpiryService;
+use App\Services\CreditService;
+use App\Services\DepositService;
+use App\Services\DiscountService;
+use App\Services\NotificationService;
+use App\Services\PointsService;
+use App\Services\RentalService;
+use App\Support\BookingWindow;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -18,15 +29,15 @@ use Illuminate\Validation\ValidationException;
 class BookingController extends Controller
 {
     public function __construct(
-        private \App\Services\RentalService $rentals,
-        private \App\Services\DepositService $deposits,
-        private \App\Services\DiscountService $discounts,
+        private RentalService $rentals,
+        private DepositService $deposits,
+        private DiscountService $discounts,
     ) {}
 
     /**
      * GET /bookings -> Booking[] (current customer's bookings, newest first).
      */
-    public function index(Request $request, \App\Services\BookingExpiryService $expiry): AnonymousResourceCollection
+    public function index(Request $request, BookingExpiryService $expiry): AnonymousResourceCollection
     {
         // Clear this customer's timed-out holds first, so the list never shows a
         // booking still marked "รอชำระเงิน" after its window has passed — it is
@@ -80,6 +91,12 @@ class BookingController extends Controller
             ]);
         }
 
+        // Tenant isolation: a customer belongs to exactly one venue and may only
+        // book at their own. The court above is matched by the client-supplied
+        // venueId, so without this a venue A customer could POST venue B's
+        // venueId + courtId and hold a slot in venue B under their own account.
+        abort_if($court->organization_id !== $customer->organization_id, 404);
+
         $hours = $this->hoursBetween($data['start'], $data['end']);
         $amount = round($hours * (float) $court->price_per_hour, 2);
 
@@ -113,7 +130,7 @@ class BookingController extends Controller
                 }
 
                 // Reject if the court is blocked (maintenance / closure) for this slot.
-                $blocked = \App\Models\CourtBlock::query()
+                $blocked = CourtBlock::query()
                     ->where('court_id', $court->id)
                     ->whereDate('date', $data['date'])
                     ->get()
@@ -172,7 +189,7 @@ class BookingController extends Controller
                     $settings,
                     // The booking itself is the window — no client input to
                     // trust, and no way for this path to forget to check.
-                    new \App\Support\BookingWindow($booking->date, $booking->start, $booking->end),
+                    new BookingWindow($booking->date, $booking->start, $booking->end),
                 );
 
                 $payable = round((float) $booking->amount - $discount['amount'], 2);
@@ -220,7 +237,7 @@ class BookingController extends Controller
      * so making the customer file a request and wait for approval would be
      * ceremony around a decision that has already been made.
      */
-    public function cancel(Request $request, string $id, \App\Services\CreditService $credit): BookingResource
+    public function cancel(Request $request, string $id, CreditService $credit): BookingResource
     {
         $booking = $this->findOwned($request, $id);
 
@@ -238,7 +255,7 @@ class BookingController extends Controller
 
         // Points go back with the money. Without this the farm is: pay, collect
         // the points, cancel, take the money back as credit, keep the points.
-        app(\App\Services\PointsService::class)->revokeForBooking($booking);
+        app(PointsService::class)->revokeForBooking($booking);
 
         if ($refundable > 0) {
             $credit->add(
@@ -285,7 +302,7 @@ class BookingController extends Controller
             ]);
         }
 
-        $package = \App\Models\CustomerPackage::query()
+        $package = CustomerPackage::query()
             ->where('id', $data['customerPackageId'])
             ->where('customer_id', $request->user()->id)
             ->where('organization_id', $booking->organization_id)
@@ -327,7 +344,7 @@ class BookingController extends Controller
      * no slip to send and nothing to review. That is the whole difference
      * between paying from a wallet and paying by transfer.
      */
-    public function payWithCredit(Request $request, \App\Services\CreditService $credit, \App\Services\DepositService $deposits, \App\Services\NotificationService $notifications): BookingResource
+    public function payWithCredit(Request $request, CreditService $credit, DepositService $deposits, NotificationService $notifications): BookingResource
     {
         $booking = $this->findOwned($request, $request->route('id'));
 
@@ -359,7 +376,7 @@ class BookingController extends Controller
 
         // Recorded as a payment like any other: this is money received, and the
         // venue's takings should not depend on which pocket it came from.
-        $payment = \App\Models\Payment::create([
+        $payment = Payment::create([
             'organization_id' => $booking->organization_id,
             'booking_id' => $booking->id,
             'customer_id' => $booking->customer_id,

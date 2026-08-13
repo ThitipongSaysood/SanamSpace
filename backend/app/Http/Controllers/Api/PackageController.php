@@ -63,6 +63,12 @@ class PackageController extends Controller
         $package = VenuePackage::query()->findOrFail($id);
         $customer = $request->user();
 
+        // Tenant isolation: a customer may only buy a package from their own
+        // venue. The package is fetched by id alone, so without this a venue A
+        // customer could purchase venue B's package (creating a pending row in
+        // venue B and leaking venue B's PromptPay / bank details in the reply).
+        abort_if($package->organization_id !== $customer->organization_id, 404);
+
         $purchase = CustomerPackage::create([
             'organization_id' => $package->organization_id,
             'customer_id' => $customer->id,
