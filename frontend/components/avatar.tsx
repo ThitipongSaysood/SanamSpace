@@ -1,4 +1,5 @@
 "use client";
+import { useMessages } from "@/lib/i18n/context";
 import { useState } from "react";
 
 /** First meaningful character of the display name, for the fallback avatar. */
@@ -14,12 +15,13 @@ function initialOf(name?: string): string {
  */
 export function Avatar({ src, name }: { src?: string | null; name?: string }) {
   const [failed, setFailed] = useState(false);
+  const ui = useMessages("app").ui;
 
   if (src && !failed) {
     return (
       <img
         src={src}
-        alt={name ?? "โปรไฟล์"}
+        alt={name ?? ui.profileAlt}
         referrerPolicy="no-referrer"
         className="size-full rounded-full object-cover"
         onError={() => setFailed(true)}

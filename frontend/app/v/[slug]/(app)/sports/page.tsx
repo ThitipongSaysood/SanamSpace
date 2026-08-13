@@ -2,6 +2,7 @@
 import { useVenueRouter as useRouter } from "@/lib/tenant/venue-nav";
 import { AppHeader } from "@/components/app-header";
 import { useTenant } from "@/lib/tenant/tenant-context";
+import { useMessages } from "@/lib/i18n/context";
 
 /**
  * Which sport, at this venue.
@@ -14,12 +15,13 @@ import { useTenant } from "@/lib/tenant/tenant-context";
 export default function SportsPage() {
   const router = useRouter();
   const { tenant } = useTenant();
+  const t = useMessages("app").sports;
 
   return (
     <main className="pb-8">
-      <AppHeader title="เลือกประเภทกีฬา" />
+      <AppHeader title={t.title} />
       {tenant.sportMeta.length === 0 ? (
-        <p className="p-8 text-center text-sm text-muted-foreground">สนามนี้ยังไม่ได้ระบุประเภทกีฬา</p>
+        <p className="p-8 text-center text-sm text-muted-foreground">{t.noSports}</p>
       ) : (
         <div className="grid grid-cols-2 gap-4 p-4">
           {tenant.sportMeta.map((sport) => (

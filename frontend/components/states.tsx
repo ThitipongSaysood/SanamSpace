@@ -1,6 +1,7 @@
 "use client";
 import { Inbox, RotateCw, TriangleAlert } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useMessages } from "@/lib/i18n/context";
 
 export function Loading({ rows = 3 }: { rows?: number }) {
   return (
@@ -22,16 +23,17 @@ export function EmptyState({ message }: { message: string }) {
 }
 
 export function ErrorState({ onRetry }: { onRetry?: () => void }) {
+  const t = useMessages("app").error;
   return (
     <div className="flex flex-col items-center gap-3 p-12 text-center">
       <TriangleAlert className="size-8 text-brand-danger opacity-80" />
-      <p className="text-sm text-muted-foreground">เกิดข้อผิดพลาด ลองอีกครั้ง</p>
+      <p className="text-sm text-muted-foreground">{t.generic}</p>
       {onRetry && (
         <button
           onClick={onRetry}
           className="inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-1.5 text-sm font-medium text-brand-foreground"
         >
-          <RotateCw className="size-4" /> ลองใหม่
+          <RotateCw className="size-4" /> {t.retry}
         </button>
       )}
     </div>

@@ -13,25 +13,32 @@ import { canSelect, calcPrice, totalHours } from "@/lib/booking/slots";
 import type { Slot } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Loading, EmptyState } from "@/components/states";
+import { useMessages, useLocale } from "@/lib/i18n/context";
+import { fmt, intlLocale } from "@/lib/i18n/format";
 
-const THAI_MONTHS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
-const WEEKDAY_SHORT = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
-const THAI_WEEKDAYS = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
-
-function genDates(count: number) {
+function genDates(count: number, tag: string) {
   const base = new Date();
   base.setHours(0, 0, 0, 0);
   return Array.from({ length: count }, (_, i) => {
     const d = new Date(base);
     d.setDate(base.getDate() + i);
     const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    return { iso, weekday: WEEKDAY_SHORT[d.getDay()], day: d.getDate(), month: THAI_MONTHS[d.getMonth()] };
+    return {
+      iso,
+      weekday: d.toLocaleDateString(tag, { weekday: "short" }),
+      day: d.getDate(),
+      month: d.toLocaleDateString(tag, { month: "short" }),
+    };
   });
 }
 
-function formatThaiDate(iso: string) {
-  const d = new Date(`${iso}T00:00:00`);
-  return `${THAI_WEEKDAYS[d.getDay()]} ${d.getDate()} ${THAI_MONTHS[d.getMonth()]} ${d.getFullYear() + 543}`;
+function formatFullDate(iso: string, tag: string) {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString(tag, {
+    weekday: "long",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 function SectionTitle({ n, children }: { n: number; children: React.ReactNode }) {
@@ -50,7 +57,10 @@ function NewBookingInner() {
   // A promo can hand us a coupon to apply the moment there's a price for it.
   const initialCoupon = sp.get("coupon") ?? undefined;
   const { data: courts } = useCourts(venueId);
-  const dates = useMemo(() => genDates(14), []);
+  const t = useMessages("app").bookingNew;
+  const { locale } = useLocale();
+  const tag = intlLocale(locale);
+  const dates = useMemo(() => genDates(14, tag), [tag]);
   const [courtId, setCourtId] = useState<string | undefined>();
   const [branchId, setBranchId] = useState<string | undefined>();
   const [date, setDate] = useState(dates[0].iso);
@@ -170,7 +180,7 @@ function NewBookingInner() {
   }
 
   if (!courts) return <Loading />;
-  if (courts.length === 0) return <EmptyState message="สนามนี้ยังไม่มีคอร์ทให้จอง" />;
+  if (courts.length === 0) return <EmptyState message={t.empty} />;
 
   return (
     <main
@@ -179,12 +189,12 @@ function NewBookingInner() {
       // falling back to the old fixed padding before the measurement lands.
       style={{ paddingBottom: "calc(var(--booking-bar-h, 7rem) + 1.5rem)" }}
     >
-      <AppHeader title="จองสนาม" />
+      <AppHeader title={t.title} />
       <div className="space-y-6 p-4">
         {/* 0. branch — only when there is more than one to choose between */}
         {picksBranch && (
           <section>
-            <SectionTitle n={1}>เลือกสาขา</SectionTitle>
+            <SectionTitle n={1}>{t.stepBranch}</SectionTitle>
             <div className="space-y-2.5">
               {branches.map((b) => {
                 const active = activeBranch === b.id;
@@ -205,8 +215,8 @@ function NewBookingInner() {
                     }`}
                   >
                     <span className="min-w-0">
-                      <span className="block truncate font-semibold">{b.name || "สาขา"}</span>
-                      <span className="mt-0.5 block text-sm text-muted-foreground">{count} คอร์ท</span>
+                      <span className="block truncate font-semibold">{b.name || t.branchFallback}</span>
+                      <span className="mt-0.5 block text-sm text-muted-foreground">{fmt(t.courtsN, { n: count })}</span>
                     </span>
                     {active && <Check className="size-5 shrink-0 text-brand" />}
                   </button>
@@ -218,10 +228,10 @@ function NewBookingInner() {
 
         {/* 1. court */}
         <section>
-          <SectionTitle n={picksBranch ? 2 : 1}>เลือกคอร์ท</SectionTitle>
+          <SectionTitle n={picksBranch ? 2 : 1}>{t.stepCourt}</SectionTitle>
           {picksBranch && !activeBranch ? (
             <p className="rounded-2xl bg-white p-4 text-sm text-muted-foreground ring-1 ring-black/5">
-              เลือกสาขาก่อน แล้วจะแสดงคอร์ทของสาขานั้น
+              {t.pickBranchFirst}
             </p>
           ) : (
           <div className="space-y-2.5">
@@ -245,11 +255,11 @@ function NewBookingInner() {
                     <div className="font-semibold">{c.name}</div>
                     <div className="mt-0.5 text-sm font-medium text-brand">
                       ฿{c.pricePerHour}
-                      <span className="text-xs font-normal text-muted-foreground">/ชั่วโมง</span>
+                      <span className="text-xs font-normal text-muted-foreground">{t.perHour}</span>
                     </div>
                     {c.spec && (
                       <div className="mt-0.5 truncate text-xs text-muted-foreground">
-                        {c.spec.floor} · สูง {c.spec.height} · {c.spec.standard}
+                        {c.spec.floor} · {t.heightPrefix} {c.spec.height} · {c.spec.standard}
                       </div>
                     )}
                   </div>
@@ -267,7 +277,7 @@ function NewBookingInner() {
 
         {/* 2. date — horizontal strip */}
         <section ref={dateRef} className="scroll-mt-20">
-          <SectionTitle n={picksBranch ? 3 : 2}>เลือกวันที่</SectionTitle>
+          <SectionTitle n={picksBranch ? 3 : 2}>{t.stepDate}</SectionTitle>
           <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {dates.map((d) => {
               const active = date === d.iso;
@@ -295,10 +305,10 @@ function NewBookingInner() {
 
         {/* 3. time */}
         <section ref={timeRef} className="scroll-mt-20">
-          <SectionTitle n={picksBranch ? 4 : 3}>เลือกเวลา</SectionTitle>
+          <SectionTitle n={picksBranch ? 4 : 3}>{t.stepTime}</SectionTitle>
           {!court ? (
             <div className="rounded-2xl bg-white p-6 text-center text-sm text-muted-foreground shadow-sm ring-1 ring-black/5">
-              เลือกคอร์ทก่อนเพื่อดูเวลาว่าง
+              {t.pickCourtFirst}
             </div>
           ) : schedule ? (
             <>
@@ -321,7 +331,7 @@ function NewBookingInner() {
         {/* 4. equipment — only once there is a slot to check availability against */}
         {ready && (rentalItems?.length ?? 0) > 0 && (
           <section>
-            <SectionTitle n={picksBranch ? 5 : 4}>เช่าอุปกรณ์ (ไม่บังคับ)</SectionTitle>
+            <SectionTitle n={picksBranch ? 5 : 4}>{t.stepEquip}</SectionTitle>
             <div className="space-y-2.5">
               {rentalItems!.map((item) => {
                 const qty = rentals[item.id] ?? 0;
@@ -349,11 +359,11 @@ function NewBookingInner() {
                       <div className="text-sm font-medium text-brand">
                         ฿{each}
                         <span className="text-xs font-normal text-muted-foreground">
-                          {item.priceUnit === "per_hour" ? ` / ${hours} ชม.` : " / ครั้ง"}
+                          {item.priceUnit === "per_hour" ? ` ${fmt(t.perHourUnit, { h: hours })}` : ` ${t.perTime}`}
                         </span>
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {free === 0 ? "ช่วงเวลานี้ถูกเช่าหมดแล้ว" : `ว่าง ${free} ชิ้น`}
+                        {free === 0 ? t.soldOut : fmt(t.availN, { n: free })}
                         {item.note ? ` · ${item.note}` : ""}
                       </div>
                     </div>
@@ -361,7 +371,7 @@ function NewBookingInner() {
                     <div className="flex shrink-0 items-center gap-1">
                       <button
                         type="button"
-                        aria-label={`ลด ${item.name}`}
+                        aria-label={fmt(t.decAria, { name: item.name })}
                         disabled={qty === 0}
                         onClick={() => setRentals((r) => ({ ...r, [item.id]: Math.max(0, qty - 1) }))}
                         className="grid size-9 place-items-center rounded-lg bg-app text-muted-foreground disabled:opacity-40"
@@ -371,7 +381,7 @@ function NewBookingInner() {
                       <span className="w-6 text-center font-semibold tabular-nums">{qty}</span>
                       <button
                         type="button"
-                        aria-label={`เพิ่ม ${item.name}`}
+                        aria-label={fmt(t.incAria, { name: item.name })}
                         disabled={qty >= free}
                         onClick={() => setRentals((r) => ({ ...r, [item.id]: qty + 1 }))}
                         className="grid size-9 place-items-center rounded-lg bg-app text-muted-foreground disabled:opacity-40"
@@ -390,7 +400,7 @@ function NewBookingInner() {
         {ready && (
           <section>
             <SectionTitle n={rentalItems && rentalItems.length > 0 ? 5 : 4}>
-              คูปองส่วนลด (ถ้ามี)
+              {t.stepCoupon}
             </SectionTitle>
             <CouponField
               courtId={court!.id}
@@ -415,10 +425,10 @@ function NewBookingInner() {
           <div className="mb-2 space-y-1 text-sm">
             {/* Itemised: the customer is about to transfer this, and a bare
                 number invites "why is it 550 and not 500?" at the counter. */}
-            <div className="truncate text-xs text-muted-foreground">{formatThaiDate(date)}</div>
+            <div className="truncate text-xs text-muted-foreground">{formatFullDate(date, tag)}</div>
             <div className="flex items-center justify-between gap-2">
               <span className="min-w-0 truncate text-muted-foreground">
-                {court!.name} · {sorted[0].start}–{sorted[sorted.length - 1].end} ({hours} ชม.)
+                {court!.name} · {sorted[0].start}–{sorted[sorted.length - 1].end} ({hours} {t.hoursUnit})
               </span>
               <span className="shrink-0 tabular-nums">฿{price}</span>
             </div>
@@ -436,13 +446,13 @@ function NewBookingInner() {
 
             {coupon && (
               <div className="flex items-center justify-between gap-2 text-emerald-700">
-                <span className="min-w-0 truncate">คูปอง {coupon.code}</span>
+                <span className="min-w-0 truncate">{fmt(t.couponLine, { code: coupon.code })}</span>
                 <span className="shrink-0 tabular-nums">−฿{coupon.discount}</span>
               </div>
             )}
 
             <div className="flex items-center justify-between gap-2 border-t border-black/5 pt-1">
-              <span className="font-medium">ยอดที่ต้องโอน</span>
+              <span className="font-medium">{t.amountToTransfer}</span>
               <span className="text-lg font-bold text-brand tabular-nums">฿{grandTotal}</span>
             </div>
           </div>
@@ -452,7 +462,7 @@ function NewBookingInner() {
           onClick={confirm}
           className="h-12 w-full rounded-xl bg-brand text-base font-semibold hover:bg-brand/90"
         >
-          {create.isPending ? "กำลังจอง..." : ready ? "ดำเนินการชำระเงิน" : "เลือกคอร์ทและเวลา"}
+          {create.isPending ? t.booking : ready ? t.proceed : t.pickCourtTime}
         </Button>
       </div>
     </main>
@@ -493,6 +503,7 @@ function CouponField({
   onApply: (c: CouponPreview | null) => void;
   initialCode?: string;
 }) {
+  const t = useMessages("app").bookingNew;
   const [code, setCode] = useState((initialCode ?? "").toUpperCase());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -506,7 +517,7 @@ function CouponField({
       onApply(await api.previewCoupon(courtId, trimmed, amount, { date, start, end }));
     } catch (e) {
       onApply(null);
-      setError((e as Error).message || "ใช้คูปองนี้ไม่ได้");
+      setError((e as Error).message || t.couponError);
     } finally {
       setBusy(false);
     }
@@ -529,11 +540,11 @@ function CouponField({
         <Ticket className="size-5 shrink-0 text-emerald-600" />
         <div className="min-w-0 flex-1">
           <div className="font-semibold text-emerald-800">{applied.code}</div>
-          <div className="text-sm text-emerald-700">ลด ฿{applied.discount}</div>
+          <div className="text-sm text-emerald-700">{fmt(t.couponDiscount, { n: applied.discount })}</div>
         </div>
         <button
           type="button"
-          aria-label="เอาคูปองออก"
+          aria-label={t.removeCoupon}
           onClick={() => {
             onApply(null);
             setCode("");
@@ -553,8 +564,8 @@ function CouponField({
           value={code}
           onChange={(e) => setCode(e.target.value.toUpperCase())}
           onKeyDown={(e) => e.key === "Enter" && check()}
-          placeholder="กรอกรหัสคูปอง"
-          aria-label="รหัสคูปอง"
+          placeholder={t.couponPlaceholder}
+          aria-label={t.couponAria}
           className="h-11 min-w-0 flex-1 rounded-xl border border-black/10 px-3 text-sm uppercase outline-none focus:border-brand"
         />
         <Button
@@ -563,7 +574,7 @@ function CouponField({
           disabled={busy || !code.trim()}
           className="h-11 shrink-0 rounded-xl px-5"
         >
-          {busy ? "..." : "ใช้"}
+          {busy ? "..." : t.apply}
         </Button>
       </div>
       {error && <p className="text-sm text-brand-danger">{error}</p>}

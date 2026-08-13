@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMembership } from "@/lib/api/queries";
+import { useMessages, useLocale } from "@/lib/i18n/context";
+import { fmt, intlLocale } from "@/lib/i18n/format";
 import { api } from "@/lib/api/client";
 import { Loading, ErrorState } from "@/components/states";
 import { SlideToConfirm } from "@/components/slide-to-confirm";
@@ -14,9 +16,10 @@ import type { CustomerReward } from "@/lib/types";
 export default function MembershipPage() {
   const { tenant } = useTenant();
   const { data: membership, isLoading, isError, refetch } = useMembership();
+  const mm = useMessages("app").membership;
   return (
     <main className="pb-6">
-      <AppHeader title="สมาชิก / คะแนน" />
+      <AppHeader title={mm.title} />
       {!tenant.pointsEnabled ? (
         // The venue runs no points programme — say so plainly rather than show a
         // balance that can never change.
@@ -26,8 +29,8 @@ export default function MembershipPage() {
               <Sparkles className="size-7" />
             </span>
             <div>
-              <h2 className="text-base font-bold">ระบบคะแนนสะสมปิดอยู่</h2>
-              <p className="mt-1 text-sm text-muted-foreground">สนามนี้ยังไม่เปิดใช้ระบบสะสมคะแนนสมาชิก</p>
+              <h2 className="text-base font-bold">{mm.pointsOffTitle}</h2>
+              <p className="mt-1 text-sm text-muted-foreground">{mm.pointsOffSub}</p>
             </div>
           </div>
         </div>
@@ -43,17 +46,17 @@ export default function MembershipPage() {
                 <BadgeCheck className="size-7" />
               </div>
               <div>
-                <div className="font-bold text-amber-950">Member {membership.tier}</div>
+                <div className="font-bold text-amber-950">{mm.memberPrefix} {membership.tier}</div>
                 <div className="text-xs text-amber-900/80">{membership.memberId}</div>
               </div>
             </div>
             <div className="mt-4 rounded-xl bg-white/85 p-3.5">
-              <div className="text-xs text-muted-foreground">คะแนนของคุณ</div>
+              <div className="text-xs text-muted-foreground">{mm.yourPoints}</div>
               <div className="mt-0.5 text-2xl font-bold text-foreground">
-                {membership.points.toLocaleString()} คะแนน
+                {membership.points.toLocaleString()} {mm.pointsUnit}
               </div>
               <div className="mt-0.5 text-xs text-muted-foreground">
-                ใช้ได้ถึง {membership.expiresAt}
+                {fmt(mm.validUntil, { date: membership.expiresAt ?? "" })}
               </div>
 
               {/* A tier badge with no way to understand it is decoration. This
@@ -62,8 +65,7 @@ export default function MembershipPage() {
                 <div className="mt-3 border-t border-black/5 pt-2.5">
                   <div className="flex items-baseline justify-between text-xs">
                     <span className="text-muted-foreground">
-                      อีก <strong className="text-foreground">{membership.pointsToNextTier}</strong> คะแนน
-                      ถึงระดับ {membership.nextTier}
+                      {fmt(mm.toNextTier, { n: membership.pointsToNextTier, tier: membership.nextTier })}
                     </span>
                   </div>
                   <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-black/10">
@@ -115,7 +117,7 @@ export default function MembershipPage() {
           <PointsHistory />
 
           <p className="rounded-2xl bg-white p-4 text-sm text-muted-foreground shadow-sm ring-1 ring-black/5">
-            สะสมคะแนนอัตโนมัติทุกครั้งที่จองและชำระเงินเรียบร้อย · ยกเลิกการจองคะแนนจะถูกหักคืน
+            {mm.autoEarnNote}
           </p>
         </div>
       )}
@@ -135,6 +137,7 @@ function Rewards() {
   const [error, setError] = useState<string | null>(null);
 
   const [confirming, setConfirming] = useState<CustomerReward | null>(null);
+  const mm = useMessages("app").membership;
 
   const redeem = useMutation({
     mutationFn: (rewardId: string) => api.redeemReward(rewardId),
@@ -160,8 +163,8 @@ function Rewards() {
   return (
     <section className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
       <header className="border-b border-black/5 px-4 py-3">
-        <h2 className="font-semibold">แลกของรางวัล</h2>
-        <p className="text-xs text-muted-foreground">กดแลกได้เลย แล้วเอารหัสไปรับของที่เคาน์เตอร์</p>
+        <h2 className="font-semibold">{mm.rewardsTitle}</h2>
+        <p className="text-xs text-muted-foreground">{mm.rewardsSub}</p>
       </header>
 
       <ul className="divide-y divide-black/5">
@@ -172,9 +175,9 @@ function Rewards() {
               <div className="min-w-0">
                 <div className={`truncate text-sm ${can ? "" : "text-muted-foreground"}`}>{r.name}</div>
                 <div className="text-xs text-muted-foreground">
-                  {r.pointsCost.toLocaleString()} คะแนน
-                  {r.outOfStock && <span className="text-brand-danger"> · ของหมด</span>}
-                  {!r.affordable && !r.outOfStock && <span> · คะแนนยังไม่พอ</span>}
+                  {fmt(mm.pointsCost, { n: r.pointsCost.toLocaleString() })}
+                  {r.outOfStock && <span className="text-brand-danger"> {mm.outOfStock}</span>}
+                  {!r.affordable && !r.outOfStock && <span> {mm.notEnough}</span>}
                 </div>
               </div>
               <button
@@ -183,7 +186,7 @@ function Rewards() {
                 onClick={() => { setError(null); setConfirming(r); }}
                 className="shrink-0 rounded-full bg-brand px-4 py-1.5 text-sm font-semibold text-white disabled:bg-slate-100 disabled:text-muted-foreground"
               >
-                {redeem.isPending && redeem.variables === r.id ? "..." : "แลก"}
+                {redeem.isPending && redeem.variables === r.id ? "..." : mm.redeem}
               </button>
             </li>
           );
@@ -222,34 +225,33 @@ function ConfirmRedeem({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const mm = useMessages("app").membership;
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={onCancel}>
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="ยืนยันการแลกของรางวัล"
+        aria-label={mm.confirmAria}
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-md space-y-4 rounded-t-3xl bg-white p-5 pb-8 shadow-xl"
       >
         <div className="mx-auto h-1 w-10 rounded-full bg-black/15" />
 
         <div className="text-center">
-          <h3 className="text-lg font-bold">ยืนยันการแลก</h3>
+          <h3 className="text-lg font-bold">{mm.confirmTitle}</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            {reward.name} · ใช้ {reward.pointsCost.toLocaleString()} คะแนน
+            {fmt(mm.rewardCost, { name: reward.name, n: reward.pointsCost.toLocaleString() })}
           </p>
           {/* Said before the slide, not after: the points are gone either way,
               and a product still has to be collected in person. */}
           <p className="mt-2 text-xs text-muted-foreground">
-            {reward.type === "product"
-              ? "คะแนนจะถูกตัดทันที และต้องมารับของที่เคาน์เตอร์ตามเวลาที่กำหนด"
-              : "คะแนนจะถูกตัดทันที และได้รับทันที"}
+            {reward.type === "product" ? mm.productNote : mm.instantNote}
           </p>
         </div>
 
         <SlideToConfirm
-          label="สไลด์เพื่อยืนยันการแลก"
-          confirmedLabel="กำลังแลก…"
+          label={mm.slideLabel}
+          confirmedLabel={mm.slidePending}
           pending={pending}
           onConfirm={onConfirm}
         />
@@ -259,7 +261,7 @@ function ConfirmRedeem({
           onClick={onCancel}
           className="w-full rounded-full py-2 text-sm font-medium text-muted-foreground"
         >
-          ยกเลิก
+          {mm.cancel}
         </button>
       </div>
     </div>
@@ -269,6 +271,7 @@ function ConfirmRedeem({
 /** The collection code as something the counter's camera can read. */
 function CodeQr({ code }: { code: string }) {
   const [src, setSrc] = useState<string | null>(null);
+  const mm = useMessages("app").membership;
 
   useEffect(() => {
     let alive = true;
@@ -287,7 +290,7 @@ function CodeQr({ code }: { code: string }) {
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src}
-      alt={`QR รหัสรับของ ${code}`}
+      alt={fmt(mm.qrAlt, { code })}
       width={176}
       height={176}
       className="mx-auto size-44 rounded-xl bg-white p-2"
@@ -303,6 +306,8 @@ function CodeQr({ code }: { code: string }) {
  */
 function PendingRedemptions() {
   const { data } = useQuery({ queryKey: ["my-redemptions"], queryFn: api.getMyRedemptions });
+  const mm = useMessages("app").membership;
+  const { locale } = useLocale();
   const pending = (data ?? []).filter((r) => r.status === "pending");
 
   if (pending.length === 0) return null;
@@ -310,8 +315,8 @@ function PendingRedemptions() {
   return (
     <section className="overflow-hidden rounded-2xl bg-amber-50 shadow-sm ring-1 ring-amber-200">
       <header className="border-b border-amber-200/70 px-4 py-3">
-        <h2 className="font-semibold text-amber-900">รอรับของที่เคาน์เตอร์</h2>
-        <p className="text-xs text-amber-800">แสดงรหัสนี้กับพนักงาน</p>
+        <h2 className="font-semibold text-amber-900">{mm.pendingTitle}</h2>
+        <p className="text-xs text-amber-800">{mm.pendingSub}</p>
       </header>
 
       <ul className="divide-y divide-amber-200/70">
@@ -321,7 +326,7 @@ function PendingRedemptions() {
               <div className="text-sm font-medium text-amber-900">{r.name}</div>
               {r.expiresAt && (
                 <div className="text-xs text-amber-800">
-                  รับภายใน {new Date(r.expiresAt).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}
+                  {fmt(mm.collectBy, { date: new Date(r.expiresAt).toLocaleString(intlLocale(locale), { dateStyle: "short", timeStyle: "short" }) })}
                 </div>
               )}
             </div>
@@ -341,14 +346,6 @@ function PendingRedemptions() {
   );
 }
 
-const SOURCE_LABEL: Record<string, string> = {
-  booking: "จองสำเร็จ",
-  cancellation: "ยกเลิกการจอง",
-  adjustment: "ปรับโดยสนาม",
-  redemption: "แลกของรางวัล",
-  expiry: "หมดอายุ",
-};
-
 /**
  * Where the points came from, and where they went.
  *
@@ -358,6 +355,8 @@ const SOURCE_LABEL: Record<string, string> = {
  */
 function PointsHistory() {
   const { data } = useQuery({ queryKey: ["points-history"], queryFn: api.getPointsHistory });
+  const mm = useMessages("app").membership;
+  const { locale } = useLocale();
   const rows = data ?? [];
 
   if (rows.length === 0) return null;
@@ -365,17 +364,17 @@ function PointsHistory() {
   return (
     <section className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
       <header className="border-b border-black/5 px-4 py-3">
-        <h2 className="font-semibold">ประวัติคะแนน</h2>
+        <h2 className="font-semibold">{mm.historyTitle}</h2>
       </header>
 
       <ul className="divide-y divide-black/5">
         {rows.slice(0, 20).map((t) => (
           <li key={t.id} className="flex items-center justify-between gap-3 px-4 py-3">
             <div className="min-w-0">
-              <div className="truncate text-sm">{t.label ?? SOURCE_LABEL[t.source] ?? t.source}</div>
+              <div className="truncate text-sm">{t.label ?? (mm.source as Record<string, string>)[t.source] ?? t.source}</div>
               <div className="text-xs text-muted-foreground">
-                {new Date(t.createdAt).toLocaleDateString("th-TH", { dateStyle: "medium" })}
-                {` · ${SOURCE_LABEL[t.source] ?? t.source}`}
+                {new Date(t.createdAt).toLocaleDateString(intlLocale(locale), { dateStyle: "medium" })}
+                {` · ${(mm.source as Record<string, string>)[t.source] ?? t.source}`}
               </div>
             </div>
             <span

@@ -7,6 +7,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth/auth-context";
 import { AppHeader } from "@/components/app-header";
+import { LanguageSwitcher } from "@/components/language-switcher";
+import { useMessages } from "@/lib/i18n/context";
+import { fmt } from "@/lib/i18n/format";
 
 function Toggle({
   on,
@@ -54,6 +57,7 @@ function Row({
 export default function SettingsPage() {
   const { logout } = useAuth();
   const qc = useQueryClient();
+  const t = useMessages("app").settings;
 
   // The venue's marketing opt-out. This used to be `useState(true)` — a switch
   // that turned nothing off, which is worse than not offering one.
@@ -73,10 +77,10 @@ export default function SettingsPage() {
 
   return (
     <main className="pb-6">
-      <AppHeader title="การตั้งค่า" />
+      <AppHeader title={t.title} />
       <div className="space-y-4 p-4">
         <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
-          <Row icon={Bell} label="แจ้งเตือนโปรโมชั่น">
+          <Row icon={Bell} label={t.promoNotif}>
             <Toggle
               on={promoOn}
               disabled={isLoading || save.isPending}
@@ -85,27 +89,27 @@ export default function SettingsPage() {
           </Row>
           <p className="px-4 pb-3 text-xs text-muted-foreground">
             {promoOn
-              ? "สนามจะส่งข่าวโปรโมชั่นถึงคุณได้ ปิดเมื่อไหร่ก็ได้"
-              : "ปิดรับข่าวโปรโมชั่นแล้ว — การแจ้งเตือนเรื่องการจองของคุณยังส่งตามปกติ"}
+              ? t.promoOnNote
+              : t.promoOffNote}
           </p>
           {save.isError && (
-            <p className="px-4 pb-3 text-xs text-brand-danger">บันทึกไม่สำเร็จ ลองอีกครั้ง</p>
+            <p className="px-4 pb-3 text-xs text-brand-danger">{t.saveError}</p>
           )}
           <div className="border-t border-black/5" />
-          <Row icon={Globe} label="ภาษา">
-            <span className="text-sm text-muted-foreground">ไทย</span>
+          <Row icon={Globe} label={t.language}>
+            <LanguageSwitcher />
           </Row>
         </div>
 
         <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
           <Link href="/contact" className="block transition active:bg-black/[0.03]">
-            <Row icon={Headphones} label="ติดต่อเรา">
+            <Row icon={Headphones} label={t.contact}>
               <ChevronRight className="size-4 text-muted-foreground" />
             </Row>
           </Link>
           <div className="border-t border-black/5" />
-          <Row icon={Info} label="เกี่ยวกับแอป">
-            <span className="text-sm text-muted-foreground">เวอร์ชัน 1.0.0</span>
+          <Row icon={Info} label={t.about}>
+            <span className="text-sm text-muted-foreground">{t.versionLabel} 1.0.0</span>
           </Row>
         </div>
 
@@ -116,7 +120,7 @@ export default function SettingsPage() {
           onClick={logout}
           className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-3.5 text-sm font-semibold text-brand-danger shadow-sm ring-1 ring-black/5 transition active:bg-black/[0.03]"
         >
-          <LogOut className="size-4.5" /> ออกจากระบบ
+          <LogOut className="size-4.5" /> {t.logout}
         </button>
       </div>
     </main>
@@ -131,6 +135,7 @@ export default function SettingsPage() {
  */
 function MyDataSection() {
   const { user, logout } = useAuth();
+  const t = useMessages("app").settings;
   const [confirming, setConfirming] = useState(false);
   const [typedName, setTypedName] = useState("");
 
@@ -142,7 +147,7 @@ function MyDataSection() {
       const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
       const a = document.createElement("a");
       a.href = url;
-      a.download = `ข้อมูลของฉัน-${new Date().toISOString().slice(0, 10)}.json`;
+      a.download = `${t.exportFilename}-${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
       URL.revokeObjectURL(url);
     },
@@ -162,15 +167,15 @@ function MyDataSection() {
         disabled={download.isPending}
         className="block w-full text-left transition active:bg-black/[0.03] disabled:opacity-50"
       >
-        <Row icon={Download} label={download.isPending ? "กำลังเตรียมไฟล์…" : "ดาวน์โหลดข้อมูลของฉัน"}>
+        <Row icon={Download} label={download.isPending ? t.preparingFile : t.downloadMyData}>
           <ChevronRight className="size-4 text-muted-foreground" />
         </Row>
       </button>
       <p className="px-4 pb-3 text-xs text-muted-foreground">
-        ไฟล์ JSON รวมโปรไฟล์ ประวัติการจอง การชำระเงิน วอลเล็ต และแต้มสมาชิกของคุณ
+        {t.downloadNote}
       </p>
       {download.isError && (
-        <p className="px-4 pb-3 text-xs text-brand-danger">ดาวน์โหลดไม่สำเร็จ ลองอีกครั้ง</p>
+        <p className="px-4 pb-3 text-xs text-brand-danger">{t.downloadError}</p>
       )}
 
       <div className="border-t border-black/5" />
@@ -181,26 +186,26 @@ function MyDataSection() {
           onClick={() => setConfirming(true)}
           className="block w-full text-left transition active:bg-black/[0.03]"
         >
-          <Row icon={Trash2} label="ลบข้อมูลส่วนบุคคลของฉัน">
+          <Row icon={Trash2} label={t.deleteMyData}>
             <ChevronRight className="size-4 text-muted-foreground" />
           </Row>
         </button>
       ) : (
         <div className="space-y-3 p-4">
-          <p className="text-sm font-medium">ยืนยันการลบข้อมูล</p>
+          <p className="text-sm font-medium">{t.confirmDeleteTitle}</p>
           {/* Said plainly, because "delete my account" and "delete everything
               about me" are not the same thing here, and finding that out later
               would feel like a broken promise. */}
           <p className="text-xs text-muted-foreground">
-            ชื่อ เบอร์โทร อีเมล รูปโปรไฟล์ และการเชื่อมต่อ LINE จะถูกลบถาวร
+            {t.deleteBody1}
             <br />
-            ประวัติการจองและการชำระเงินจะถูก<strong>เก็บไว้ตามกฎหมายบัญชี</strong> แต่จะไม่ผูกกับตัวคุณอีกต่อไป
+            {t.deleteBody2Pre}<strong>{t.deleteBody2Strong}</strong>{t.deleteBody2Post}
             <br />
-            ลบแล้วกู้คืนไม่ได้ และคุณจะออกจากระบบทุกเครื่องทันที
+            {t.deleteBody3}
           </p>
           <div className="space-y-1.5">
             <label htmlFor="confirm-name" className="text-xs text-muted-foreground">
-              พิมพ์ชื่อของคุณ “{user?.displayName}” เพื่อยืนยัน
+              {fmt(t.typeNameToConfirm, { name: user?.displayName ?? "" })}
             </label>
             <input
               id="confirm-name"
@@ -222,7 +227,7 @@ function MyDataSection() {
               }}
               className="h-11 rounded-xl text-sm font-semibold ring-1 ring-black/10"
             >
-              ยกเลิก
+              {t.cancel}
             </button>
             <button
               type="button"
@@ -230,7 +235,7 @@ function MyDataSection() {
               onClick={() => erase.mutate()}
               className="h-11 rounded-xl bg-brand-danger text-sm font-semibold text-white disabled:opacity-40"
             >
-              {erase.isPending ? "กำลังลบ…" : "ลบถาวร"}
+              {erase.isPending ? t.deleting : t.deletePermanent}
             </button>
           </div>
         </div>

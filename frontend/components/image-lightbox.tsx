@@ -1,4 +1,5 @@
 "use client";
+import { useMessages } from "@/lib/i18n/context";
 import { useEffect } from "react";
 import { X } from "lucide-react";
 
@@ -29,6 +30,8 @@ export function ImageLightbox({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  const t = useMessages("app").ui;
+
   return (
     <div
       role="dialog"
@@ -36,11 +39,11 @@ export function ImageLightbox({
       aria-label={alt}
       className="fixed inset-0 z-[60] grid place-items-center bg-black/80 p-4 animate-in fade-in duration-200"
     >
-      <button type="button" aria-label="ปิด" className="absolute inset-0" onClick={onClose} />
+      <button type="button" aria-label={t.close} className="absolute inset-0" onClick={onClose} />
       <button
         type="button"
         onClick={onClose}
-        aria-label="ปิด"
+        aria-label={t.close}
         className="absolute right-4 top-4 grid size-10 place-items-center rounded-full bg-white/15 text-white backdrop-blur transition hover:bg-white/25"
       >
         <X className="size-5" />

@@ -4,23 +4,18 @@ import { useVenue } from "@/lib/api/queries";
 import { AppHeader } from "@/components/app-header";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { SportMedia } from "@/components/media";
+import { useMessages } from "@/lib/i18n/context";
 import type { Sport } from "@/lib/types";
 
-const TILES: { label: string; sport?: Sport }[] = [
-  { label: "คอร์ท C2" },
-  { label: "คอร์ท C3" },
-  { label: "คาเฟ่", sport: "tennis" },
-  { label: "ล็อกเกอร์", sport: "futsal" },
-  { label: "ด้านหน้าสนาม", sport: "football" },
-  { label: "ที่จอดรถ", sport: "tennis" },
-];
+const TILE_SPORTS: (Sport | undefined)[] = [undefined, undefined, "tennis", "futsal", "football", "tennis"];
 
 export default function VenueGalleryPage({ params }: { params: Promise<{ venueId: string }> }) {
   const { venueId } = use(params);
   const { data: venue, isLoading, isError, refetch } = useVenue(venueId);
+  const v = useMessages("app").venue;
   if (isLoading) return <Loading />;
   if (isError) return <ErrorState onRetry={() => refetch()} />;
-  if (!venue) return <EmptyState message="ไม่พบสนามนี้" />;
+  if (!venue) return <EmptyState message={v.notFound} />;
 
   const mainSport = venue.sports[0];
   // Owner-managed gallery: cover + uploaded photos. Falls back to sport
@@ -30,7 +25,7 @@ export default function VenueGalleryPage({ params }: { params: Promise<{ venueId
 
   return (
     <main className="pb-8">
-      <AppHeader title="รูปภาพสนาม" />
+      <AppHeader title={v.gallery.title} />
       <div className="px-4 pt-1">
         <div className="relative overflow-hidden rounded-2xl shadow-sm ring-1 ring-black/5">
           {cover ? (
@@ -51,9 +46,9 @@ export default function VenueGalleryPage({ params }: { params: Promise<{ venueId
           </div>
         ) : (
           <div className="mt-3 grid grid-cols-2 gap-3">
-            {TILES.map(({ label, sport }) => (
+            {v.gallery.tiles.map((label, i) => (
               <div key={label} className="relative overflow-hidden rounded-2xl shadow-sm ring-1 ring-black/5">
-                <SportMedia sport={sport ?? mainSport} className="h-32 w-full" />
+                <SportMedia sport={TILE_SPORTS[i] ?? mainSport} className="h-32 w-full" />
                 <span className="absolute bottom-2 left-2.5 rounded-full bg-black/40 px-2.5 py-0.5 text-[11px] font-medium text-white">
                   {label}
                 </span>

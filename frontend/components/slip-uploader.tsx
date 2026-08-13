@@ -2,8 +2,10 @@
 import { useEffect, useState } from "react";
 import { Upload, CheckCircle2 } from "lucide-react";
 import { validateSlip } from "@/lib/booking/slip";
+import { useMessages } from "@/lib/i18n/context";
 
 export function SlipUploader({ onValid }: { onValid: (file: File) => void }) {
+  const t = useMessages("app").slip;
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -26,7 +28,7 @@ export function SlipUploader({ onValid }: { onValid: (file: File) => void }) {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={preview}
-                alt="สลิปการโอนเงิน"
+                alt={t.slipAlt}
                 className="max-h-60 w-full rounded-xl bg-white object-contain ring-1 ring-black/5"
               />
               <span className="absolute right-2 top-2 grid size-7 place-items-center rounded-full bg-brand text-white shadow-sm">
@@ -36,21 +38,21 @@ export function SlipUploader({ onValid }: { onValid: (file: File) => void }) {
             {fileName && (
               <span className="w-full max-w-full truncate px-2 text-xs text-muted-foreground">{fileName}</span>
             )}
-            <span className="text-xs font-medium text-brand">แตะเพื่อเปลี่ยนสลิป</span>
+            <span className="text-xs font-medium text-brand">{t.tapToChange}</span>
           </>
         ) : (
           <>
             <span className="grid size-12 place-items-center rounded-full bg-brand/10">
               <Upload className="size-6 text-brand" />
             </span>
-            <span className="text-sm font-medium">แตะเพื่อแนบสลิป</span>
-            <span className="text-xs text-muted-foreground">รองรับไฟล์ JPG หรือ PNG</span>
+            <span className="text-sm font-medium">{t.tapToAttach}</span>
+            <span className="text-xs text-muted-foreground">{t.fileTypes}</span>
           </>
         )}
         <input
           type="file"
           className="sr-only"
-          aria-label="แนบสลิปการโอนเงิน"
+          aria-label={t.ariaAttach}
           accept="image/jpeg,image/png"
           onChange={(e) => {
             const f = e.target.files?.[0] ?? null;

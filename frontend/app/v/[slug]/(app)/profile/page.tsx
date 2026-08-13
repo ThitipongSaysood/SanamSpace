@@ -7,34 +7,36 @@ import type { ComponentType } from "react";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useMembership } from "@/lib/api/queries";
 import { useTenant } from "@/lib/tenant/tenant-context";
+import { useMessages } from "@/lib/i18n/context";
 import { Avatar } from "@/components/avatar";
 
 type Item = {
   icon: ComponentType<{ className?: string }>;
-  label: string;
+  key: "info" | "bookings" | "packages" | "credit" | "points" | "contact" | "settings";
   href?: string;
 };
 
 const MENU: Item[] = [
-  { icon: UserRound, label: "ข้อมูลส่วนตัว", href: "/profile/info" },
-  { icon: CalendarCheck, label: "การจองของฉัน", href: "/bookings" },
-  { icon: Package, label: "แพ็กเกจของฉัน", href: "/packages" },
-  { icon: Wallet, label: "เครดิต", href: "/credit" },
-  { icon: Star, label: "คะแนนของฉัน", href: "/membership" },
-  { icon: Headphones, label: "ติดต่อเรา", href: "/contact" },
-  { icon: Settings, label: "การตั้งค่า", href: "/settings" },
+  { icon: UserRound, key: "info", href: "/profile/info" },
+  { icon: CalendarCheck, key: "bookings", href: "/bookings" },
+  { icon: Package, key: "packages", href: "/packages" },
+  { icon: Wallet, key: "credit", href: "/credit" },
+  { icon: Star, key: "points", href: "/membership" },
+  { icon: Headphones, key: "contact", href: "/contact" },
+  { icon: Settings, key: "settings", href: "/settings" },
 ];
 
 export default function ProfilePage() {
   const { user, logout } = useAuth();
   const { tenant } = useTenant();
   const { data: membership } = useMembership();
+  const t = useMessages("app").profile;
   if (!user) return null;
   // Drop the points row for a venue that runs no points programme.
   const menu = MENU.filter((m) => m.href !== "/membership" || tenant.pointsEnabled);
   return (
     <main className="p-4">
-      <h1 className="mb-3 text-lg font-bold">โปรไฟล์</h1>
+      <h1 className="mb-3 text-lg font-bold">{t.title}</h1>
 
       <div className="mb-4 flex items-center gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
         <div className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-full bg-brand/10 text-xl font-bold text-brand">
@@ -49,7 +51,8 @@ export default function ProfilePage() {
       </div>
 
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
-        {menu.map(({ icon: Icon, label, href }) => {
+        {menu.map(({ icon: Icon, key, href }) => {
+          const label = t.menu[key];
           const row = (
             <>
               <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand/10 text-brand">
@@ -62,11 +65,11 @@ export default function ProfilePage() {
           const cls =
             "flex w-full items-center gap-3 border-b border-black/5 px-4 py-3 transition active:bg-black/[0.03]";
           return href ? (
-            <Link key={label} href={href} className={cls}>
+            <Link key={key} href={href} className={cls}>
               {row}
             </Link>
           ) : (
-            <button key={label} type="button" className={cls}>
+            <button key={key} type="button" className={cls}>
               {row}
             </button>
           );
@@ -79,7 +82,7 @@ export default function ProfilePage() {
           <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand-danger/10">
             <LogOut className="size-4.5" />
           </span>
-          <span className="flex-1 text-left text-sm font-medium">ออกจากระบบ</span>
+          <span className="flex-1 text-left text-sm font-medium">{t.logout}</span>
         </button>
       </div>
     </main>

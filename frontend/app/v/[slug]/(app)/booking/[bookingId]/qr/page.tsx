@@ -6,6 +6,7 @@ import { QRTicket } from "@/components/qr-ticket";
 import { AppHeader } from "@/components/app-header";
 import { Loading, EmptyState } from "@/components/states";
 import { toast } from "@/lib/toast";
+import { useMessages } from "@/lib/i18n/context";
 
 /** How often to ask whether the counter has scanned yet. */
 const POLL_MS = 5000;
@@ -33,24 +34,25 @@ export default function QrCheckinPage({ params }: { params: Promise<{ bookingId:
     refetchInterval: (query) => (query.state.data?.checkedInAt ? false : POLL_MS),
   });
   const { tenant } = useTenant();
+  const t = useMessages("app").qr;
 
   // Say it out loud once, on the transition. A customer looking down at their
   // phone should not have to notice that a QR turned grey.
   const wasCheckedIn = useRef<string | null | undefined>(undefined);
   useEffect(() => {
     const now = booking?.checkedInAt ?? null;
-    if (wasCheckedIn.current === null && now) toast.success("เช็คอินเรียบร้อยแล้ว");
+    if (wasCheckedIn.current === null && now) toast.success(t.checkedInToast);
     if (booking) wasCheckedIn.current = now;
   }, [booking]);
 
   if (isLoading) return <Loading />;
-  if (!booking) return <EmptyState message="ไม่พบการจอง" />;
+  if (!booking) return <EmptyState message={t.notFound} />;
 
   if (!tenant.checkinEnabled) {
     return (
       <main className="pb-24">
-        <AppHeader title="เช็คอิน" />
-        <EmptyState message="สนามนี้ไม่ได้ใช้ระบบเช็คอินด้วย QR" />
+        <AppHeader title={t.checkinTitle} />
+        <EmptyState message={t.noCheckin} />
       </main>
     );
   }
@@ -58,24 +60,24 @@ export default function QrCheckinPage({ params }: { params: Promise<{ bookingId:
   if (!booking.checkinToken) {
     return (
       <main className="pb-24">
-        <AppHeader title="QR Check-in" />
-        <EmptyState message="การจองนี้ยังไม่มีรหัสเช็คอิน" />
+        <AppHeader title={t.qrTitle} />
+        <EmptyState message={t.noToken} />
       </main>
     );
   }
 
   return (
     <main className="pb-24">
-      <AppHeader title="QR Check-in" />
+      <AppHeader title={t.qrTitle} />
       <div className="px-4 pt-2 text-center">
         <p className="text-sm text-muted-foreground">
           {booking.checkedInAt ? (
-            "เช็คอินเรียบร้อยแล้ว ขอให้สนุกกับเกม"
+            t.doneMsg
           ) : (
             <>
-              แสดง QR ให้พนักงานสแกน
+              {t.showQr1}
               <br />
-              เมื่อถึงสนาม
+              {t.showQr2}
             </>
           )}
         </p>
@@ -94,7 +96,7 @@ export default function QrCheckinPage({ params }: { params: Promise<{ bookingId:
 
         {booking.status === "pending_payment" && (
           <p className="mx-auto mt-5 max-w-xs rounded-xl bg-brand-accent/15 p-3 text-sm text-muted-foreground">
-            ยังไม่ได้ชำระเงิน — ชำระให้เรียบร้อยก่อน ไม่อย่างนั้นพนักงานจะสแกนไม่ผ่าน
+            {t.unpaidWarn}
           </p>
         )}
       </div>

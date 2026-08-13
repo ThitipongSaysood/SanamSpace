@@ -9,6 +9,8 @@ import type { ComponentType } from "react";
 import { api } from "@/lib/api/client";
 import { useBooking } from "@/lib/api/queries";
 import { useCountdown } from "@/lib/use-countdown";
+import { useMessages } from "@/lib/i18n/context";
+import { fmt } from "@/lib/i18n/format";
 import { SlipUploader } from "@/components/slip-uploader";
 import { PromptPayQR } from "@/components/promptpay-qr";
 import { AppHeader } from "@/components/app-header";
@@ -58,8 +60,10 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
     };
   }, [payment]);
 
+  const t = useMessages("app").payment;
+
   if (isLoading) return <Loading />;
-  if (!booking) return <EmptyState message="ไม่พบการจอง" />;
+  if (!booking) return <EmptyState message={t.notFound} />;
 
   /**
    * What the SERVER says about this payment, not what this page remembers.
@@ -86,16 +90,16 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
 
   const methods: Method[] = [
     { id: "promptpay", label: "PromptPay QR", Icon: QrCode, iconCls: "bg-brand/10 text-brand" },
-    { id: "transfer", label: "โอนเงิน (อัปโหลดสลิป)", Icon: Landmark, iconCls: "bg-blue-50 text-blue-600" },
+    { id: "transfer", label: t.methodTransfer, Icon: Landmark, iconCls: "bg-blue-50 text-blue-600" },
     // Not offered once one has been redeemed: the court is already covered, so
     // a second package would spend hours on nothing.
     ...(eligiblePackage && owedAfterPackage === null
-      ? [{ id: "package" as const, label: `ใช้แพ็กเกจ (เหลือ ${eligiblePackage.remainingHours} ชม.)`, Icon: PackageIcon, iconCls: "bg-amber-50 text-amber-600" }]
+      ? [{ id: "package" as const, label: fmt(t.methodPackage, { h: eligiblePackage.remainingHours }), Icon: PackageIcon, iconCls: "bg-amber-50 text-amber-600" }]
       : []),
     // Offered only when it actually covers the bill. A method that fails on tap
-    // for "ยอดไม่พอ" is worse than one that is not offered.
+    // for "insufficient balance" is worse than one that is not offered.
     ...(creditCovers
-      ? [{ id: "credit" as const, label: `ใช้เครดิต (มี ฿${creditBalance.toLocaleString("th-TH")})`, Icon: WalletIcon, iconCls: "bg-emerald-50 text-emerald-600" }]
+      ? [{ id: "credit" as const, label: fmt(t.methodCredit, { n: creditBalance.toLocaleString("th-TH") }), Icon: WalletIcon, iconCls: "bg-emerald-50 text-emerald-600" }]
       : []),
   ];
 
@@ -158,15 +162,15 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
         <div className="grid size-24 place-items-center rounded-full bg-brand text-white shadow-lg shadow-brand/30">
           <Check className="size-12" strokeWidth={3} />
         </div>
-        <h1 className="mt-6 text-2xl font-bold">ยืนยันการชำระเงินแล้ว!</h1>
-        <p className="mt-4 text-sm text-muted-foreground">หมายเลขการจอง</p>
+        <h1 className="mt-6 text-2xl font-bold">{t.approvedTitle}</h1>
+        <p className="mt-4 text-sm text-muted-foreground">{t.bookingNo}</p>
         <p className="font-mono text-lg font-bold tracking-wider">{booking.code}</p>
         <div className="mt-8 w-full max-w-xs space-y-3">
           <Button className="h-12 w-full rounded-xl bg-brand text-base font-semibold hover:bg-brand/90" onClick={() => router.push(`/booking/${bookingId}`)}>
-            ดูรายละเอียดการจอง
+            {t.viewDetail}
           </Button>
           <Button variant="outline" className="h-12 w-full rounded-xl border-black/10 text-base font-semibold" onClick={() => router.push("/home")}>
-            กลับหน้าหลัก
+            {t.backHome}
           </Button>
         </div>
       </main>
@@ -180,16 +184,16 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
         <div className="grid size-24 place-items-center rounded-full bg-amber-100 text-amber-600">
           <Hourglass className="size-12" />
         </div>
-        <h1 className="mt-6 text-2xl font-bold">ส่งสลิปแล้ว</h1>
-        <p className="mt-3 text-sm text-muted-foreground">รอร้านตรวจสอบการชำระเงิน<br />ระบบจะยืนยันการจองให้เมื่อตรวจสอบเรียบร้อย</p>
-        <p className="mt-4 text-sm text-muted-foreground">หมายเลขการจอง</p>
+        <h1 className="mt-6 text-2xl font-bold">{t.sentTitle}</h1>
+        <p className="mt-3 whitespace-pre-line text-sm text-muted-foreground">{t.sentSub}</p>
+        <p className="mt-4 text-sm text-muted-foreground">{t.bookingNo}</p>
         <p className="font-mono text-lg font-bold tracking-wider">{booking.code}</p>
         <div className="mt-8 w-full max-w-xs space-y-3">
           <Button className="h-12 w-full rounded-xl bg-brand text-base font-semibold hover:bg-brand/90" onClick={() => router.push(`/booking/${bookingId}`)}>
-            ดูรายละเอียดการจอง
+            {t.viewDetail}
           </Button>
           <Button variant="outline" className="h-12 w-full rounded-xl border-black/10 text-base font-semibold" onClick={() => router.push("/home")}>
-            กลับหน้าหลัก
+            {t.backHome}
           </Button>
         </div>
       </main>
@@ -206,16 +210,16 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
         <div className="grid size-24 place-items-center rounded-full bg-slate-100 text-slate-400">
           <Clock className="size-12" />
         </div>
-        <h1 className="mt-6 text-2xl font-bold">หมดเวลาชำระเงิน</h1>
-        <p className="mt-3 text-sm text-muted-foreground">
-          การจองนี้เกินเวลาชำระเงินแล้ว<br />ระบบได้ปล่อยช่วงเวลานี้ให้ผู้อื่นจองได้
+        <h1 className="mt-6 text-2xl font-bold">{t.expiredTitle}</h1>
+        <p className="mt-3 whitespace-pre-line text-sm text-muted-foreground">
+          {t.expiredSub}
         </p>
         <div className="mt-8 w-full max-w-xs space-y-3">
           <Button className="h-12 w-full rounded-xl bg-brand text-base font-semibold hover:bg-brand/90" onClick={() => router.push(`/booking/new?venueId=${booking.venueId}`)}>
-            จองสนามนี้ใหม่
+            {t.bookAgain}
           </Button>
           <Button variant="outline" className="h-12 w-full rounded-xl border-black/10 text-base font-semibold" onClick={() => router.push("/home")}>
-            กลับหน้าหลัก
+            {t.backHome}
           </Button>
         </div>
       </main>
@@ -224,14 +228,14 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
 
   return (
     <main className="pb-24">
-      <AppHeader title="ชำระเงิน" />
+      <AppHeader title={t.title} />
       <div className="space-y-4 p-4">
         {booking.expiresAt && paySecondsLeft > 0 && (
           // Ticking pay-by deadline, so the customer knows the slot is held only
           // briefly — matches the app-wide "รอชำระเงิน" banner.
           <div className="flex items-center justify-between rounded-2xl bg-amber-50 px-4 py-3 ring-1 ring-amber-200">
             <span className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-900">
-              <Clock className="size-4" /> ชำระภายใน
+              <Clock className="size-4" /> {t.payWithin}
             </span>
             <span className={`text-lg font-bold tabular-nums ${paySecondsLeft <= 60 ? "text-red-600" : "text-amber-700"}`}>
               {payLabel}
@@ -240,10 +244,8 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
         )}
         {owedAfterPackage !== null && (
           <div className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-900 ring-1 ring-amber-200">
-            <p className="font-semibold">ใช้แพ็กเกจกับค่าสนามเรียบร้อย</p>
-            <p className="mt-1">
-              เหลือค่าเช่าอุปกรณ์ <strong>฿{owedAfterPackage}</strong> ที่ต้องชำระ — แพ็กเกจใช้ได้เฉพาะค่าสนาม
-            </p>
+            <p className="font-semibold">{t.packageDoneTitle}</p>
+            <p className="mt-1">{fmt(t.packageDoneBody, { n: owedAfterPackage })}</p>
           </div>
         )}
 
@@ -263,12 +265,12 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
                 </div>
               </div>
               <div className="mt-4 flex items-baseline justify-between border-t border-black/5 pt-3">
-                <span className="text-sm text-muted-foreground">ยอดชำระ</span>
+                <span className="text-sm text-muted-foreground">{t.payAmount}</span>
                 <span className="text-3xl font-bold text-brand">฿{booking.amount}</span>
               </div>
             </div>
 
-            <h2 className="px-1 font-semibold">เลือกวิธีชำระเงิน</h2>
+            <h2 className="px-1 font-semibold">{t.chooseMethod}</h2>
             <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
               {methods.map((m, i) => {
                 const active = method === m.id;
@@ -301,7 +303,7 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
               disabled={busy}
               onClick={start}
             >
-              {busy ? "กำลังดำเนินการ..." : method === "package" ? "ใช้แพ็กเกจชำระ" : "ดำเนินการชำระเงิน"}
+              {busy ? t.processing : method === "package" ? t.usePackagePay : t.proceed}
             </Button>
           </>
         )}
@@ -309,13 +311,13 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
         {payment?.status === "awaiting_slip" && (
           <>
             <div className="rounded-2xl bg-white p-4 text-center shadow-sm ring-1 ring-black/5">
-              <p className="text-sm text-muted-foreground">ยอดที่ต้องชำระ</p>
+              <p className="text-sm text-muted-foreground">{t.amountToPay}</p>
               {(booking.rentals?.length ?? 0) > 0 && (
                 // What the number is made of, right where they are about to
                 // transfer it.
                 <div className="mx-auto mt-2 max-w-xs space-y-1 text-left text-sm">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">ค่าสนาม</span>
+                    <span className="text-muted-foreground">{t.court}</span>
                     <span className="tabular-nums">฿{booking.courtAmount ?? booking.amount}</span>
                   </div>
                   {booking.rentals!.map((r) => (
@@ -330,14 +332,14 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
               )}
               <p className="mt-1 text-3xl font-bold text-brand">฿{booking.amount}</p>
               <p className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-amber-600">
-                <Clock className="size-4" /> โอนแล้วแนบสลิปเพื่อยืนยัน
+                <Clock className="size-4" /> {t.transferThenAttach}
               </p>
             </div>
 
             {/* PromptPay: real scannable QR */}
             {payment.method === "promptpay" && (
               <div className="rounded-2xl bg-white p-4 text-center shadow-sm ring-1 ring-black/5">
-                <p className="font-semibold">สแกนจ่ายด้วย PromptPay</p>
+                <p className="font-semibold">{t.scanPromptpay}</p>
                 {instructions?.promptpay ? (
                   <>
                     <div className="mt-3"><PromptPayQR payload={instructions.promptpay.payload} size={208} /></div>
@@ -345,7 +347,7 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
                     <p className="text-2xl font-bold text-brand">฿{instructions.amount.toLocaleString()}</p>
                   </>
                 ) : (
-                  <p className="mt-3 text-sm text-muted-foreground">ร้านนี้ยังไม่ได้ตั้งค่า PromptPay — กรุณาโอนผ่านบัญชีธนาคารด้านล่าง</p>
+                  <p className="mt-3 text-sm text-muted-foreground">{t.promptpayNotSet}</p>
                 )}
               </div>
             )}
@@ -353,18 +355,18 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
             {/* Bank transfer details (always shown when the venue has a bank account) */}
             {instructions?.bank && (
               <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
-                <p className="font-semibold">โอนเงินผ่านบัญชีธนาคาร</p>
+                <p className="font-semibold">{t.bankTransfer}</p>
                 <dl className="mt-3 space-y-2 text-sm">
                   <div className="flex items-center justify-between">
-                    <dt className="text-muted-foreground">ธนาคาร</dt>
+                    <dt className="text-muted-foreground">{t.bankName}</dt>
                     <dd className="font-medium">{instructions.bank.bankName ?? "-"}</dd>
                   </div>
                   <div className="flex items-center justify-between">
-                    <dt className="text-muted-foreground">เลขบัญชี</dt>
+                    <dt className="text-muted-foreground">{t.accountNo}</dt>
                     <dd className="font-semibold tabular-nums">{instructions.bank.accountNumber ?? "-"}</dd>
                   </div>
                   <div className="flex items-center justify-between">
-                    <dt className="text-muted-foreground">ชื่อบัญชี</dt>
+                    <dt className="text-muted-foreground">{t.accountName}</dt>
                     <dd className="font-medium">{instructions.bank.accountName ?? instructions.payTo}</dd>
                   </div>
                 </dl>
@@ -372,14 +374,14 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
             )}
 
             <div className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
-              <p className="text-sm font-medium">โอนแล้วแนบสลิปเพื่อยืนยัน</p>
+              <p className="text-sm font-medium">{t.transferThenAttach}</p>
               <SlipUploader onValid={setSlipFile} />
               <Button
                 className="h-12 w-full rounded-xl bg-brand text-base font-semibold hover:bg-brand/90"
                 disabled={busy || !slipFile}
                 onClick={submitSlip}
               >
-                {busy ? "กำลังส่ง..." : "ส่งสลิป"}
+                {busy ? t.sending : t.sendSlip}
               </Button>
             </div>
           </>

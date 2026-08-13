@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Clock, ChevronRight } from "lucide-react";
 import { useBookings } from "@/lib/api/queries";
+import { useMessages } from "@/lib/i18n/context";
 import { useCountdown } from "@/lib/use-countdown";
 import { VenueLink } from "@/lib/tenant/venue-nav";
 
@@ -17,6 +18,7 @@ export function PendingPaymentBanner() {
   const path = usePathname();
   const qc = useQueryClient();
   const { data: bookings } = useBookings();
+  const st = useMessages("app").status;
 
   // The soonest-expiring hold the customer still owes for — a slip already sent
   // (pending_review) is protected and no longer counts down.
@@ -43,7 +45,7 @@ export function PendingPaymentBanner() {
     >
       <Clock className={`size-4 shrink-0 ${urgent ? "text-red-600" : "text-amber-600"}`} />
       <div className="min-w-0 flex-1">
-        <div className="font-semibold">รอชำระเงิน</div>
+        <div className="font-semibold">{st.pending_payment}</div>
         <div className="truncate text-xs text-amber-700">
           {pending.venueName} · ฿{pending.amount.toLocaleString("th-TH")}
         </div>

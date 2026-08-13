@@ -2,6 +2,7 @@
 import { Bell, CalendarCheck, ChevronRight, Star, Tag, X } from "lucide-react";
 import { useState, type ComponentType } from "react";
 import { useNotifications } from "@/lib/api/queries";
+import { useMessages } from "@/lib/i18n/context";
 import { Loading, EmptyState, ErrorState } from "@/components/states";
 import { ImageLightbox } from "@/components/image-lightbox";
 import type { AppNotification } from "@/lib/types";
@@ -18,11 +19,12 @@ const KIND_META: Record<
 
 export default function NotificationsPage() {
   const { data: notifications, isLoading, isError, refetch } = useNotifications();
+  const t = useMessages("app").notif;
   const [zoom, setZoom] = useState<string | null>(null);
   const [detail, setDetail] = useState<AppNotification | null>(null);
   return (
     <main className="p-4">
-      {zoom && <ImageLightbox src={zoom} alt="รูปโปรโมชั่น" onClose={() => setZoom(null)} />}
+      {zoom && <ImageLightbox src={zoom} alt={t.promoImageAlt} onClose={() => setZoom(null)} />}
       {detail && (
         <NotificationDetail
           notification={detail}
@@ -30,13 +32,13 @@ export default function NotificationsPage() {
           onZoom={(src) => setZoom(src)}
         />
       )}
-      <h1 className="mb-3 text-lg font-bold">การแจ้งเตือน</h1>
+      <h1 className="mb-3 text-lg font-bold">{t.title}</h1>
       {isLoading ? (
         <Loading />
       ) : isError ? (
         <ErrorState onRetry={() => refetch()} />
       ) : !notifications || notifications.length === 0 ? (
-        <EmptyState message="ยังไม่มีการแจ้งเตือน" />
+        <EmptyState message={t.empty} />
       ) : (
         <div className="space-y-3">
           {notifications.map((n, i) => {
@@ -64,7 +66,7 @@ export default function NotificationsPage() {
                     <img src={n.imageUrl} alt="" className="mt-2 h-28 w-full rounded-lg object-cover" />
                   )}
                   <span className="mt-1.5 inline-flex items-center gap-0.5 text-[11px] font-medium text-brand">
-                    ดูรายละเอียด <ChevronRight className="size-3.5" />
+                    {t.viewDetail} <ChevronRight className="size-3.5" />
                   </span>
                 </div>
               </button>
@@ -86,6 +88,7 @@ function NotificationDetail({
   onClose: () => void;
   onZoom: (src: string) => void;
 }) {
+  const t = useMessages("app").notif;
   const meta = KIND_META[notification.kind];
   const Icon = meta.icon;
   return (
@@ -108,7 +111,7 @@ function NotificationDetail({
           <button
             type="button"
             onClick={onClose}
-            aria-label="ปิด"
+            aria-label={t.close}
             className="grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-app"
           >
             <X className="size-4" />
@@ -120,7 +123,7 @@ function NotificationDetail({
             type="button"
             onClick={() => onZoom(notification.imageUrl!)}
             className="block w-full"
-            aria-label="ดูรูปเต็ม"
+            aria-label={t.viewFullImage}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={notification.imageUrl} alt="" className="max-h-80 w-full object-contain" />

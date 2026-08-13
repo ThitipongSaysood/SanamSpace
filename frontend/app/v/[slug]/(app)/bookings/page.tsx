@@ -3,34 +3,37 @@ import { useState } from "react";
 import { VenueLink as Link } from "@/lib/tenant/venue-nav";
 import { CalendarDays, Ticket } from "lucide-react";
 import { useBookings } from "@/lib/api/queries";
+import { useMessages } from "@/lib/i18n/context";
 import { Loading, EmptyState } from "@/components/states";
 import { StatusBadge } from "@/components/status-badge";
 import type { BookingStatus } from "@/lib/types";
 
-const TABS: { label: string; statuses: BookingStatus[] | null }[] = [
-  { label: "ทั้งหมด", statuses: null },
-  { label: "กำลังจะถึง", statuses: ["pending_payment", "confirmed"] },
-  { label: "สำเร็จ", statuses: ["completed"] },
-  { label: "ยกเลิก", statuses: ["cancelled"] },
+const TAB_STATUSES: (BookingStatus[] | null)[] = [
+  null,
+  ["pending_payment", "confirmed"],
+  ["completed"],
+  ["cancelled"],
 ];
 
 export default function BookingsPage() {
   const { data: bookings, isLoading } = useBookings();
+  const t = useMessages("app").bookings;
   const [tab, setTab] = useState(0);
+  const tabLabels = [t.tabs.all, t.tabs.upcoming, t.tabs.completed, t.tabs.cancelled];
   if (isLoading) return <Loading />;
-  if (!bookings || bookings.length === 0) return <EmptyState message="ยังไม่มีการจอง" />;
+  if (!bookings || bookings.length === 0) return <EmptyState message={t.emptyNone} />;
 
-  const statuses = TABS[tab].statuses;
+  const statuses = TAB_STATUSES[tab];
   const filtered = statuses ? bookings.filter((b) => statuses.includes(b.status)) : bookings;
 
   return (
     <main className="p-4">
-      <h1 className="mb-3 text-lg font-bold">การจองของฉัน</h1>
+      <h1 className="mb-3 text-lg font-bold">{t.title}</h1>
 
-      <div role="tablist" aria-label="สถานะการจอง" className="mb-4 flex gap-1 rounded-full bg-black/[0.04] p-1">
-        {TABS.map((t, i) => (
+      <div role="tablist" aria-label={t.tablistAria} className="mb-4 flex gap-1 rounded-full bg-black/[0.04] p-1">
+        {tabLabels.map((label, i) => (
           <button
-            key={t.label}
+            key={label}
             type="button"
             role="tab"
             aria-selected={i === tab}
@@ -39,13 +42,13 @@ export default function BookingsPage() {
               i === tab ? "bg-white text-brand shadow-sm" : "text-muted-foreground"
             }`}
           >
-            {t.label}
+            {label}
           </button>
         ))}
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyState message="ไม่มีการจองในหมวดนี้" />
+        <EmptyState message={t.emptyCategory} />
       ) : (
         <div className="space-y-3">
           {filtered.map((b) => (

@@ -26,42 +26,39 @@ import { useVenue, useReviews } from "@/lib/api/queries";
 import { tenant } from "@/config/tenant";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { VenueMedia } from "@/components/venue-media";
+import { useMessages } from "@/lib/i18n/context";
+import { fmt } from "@/lib/i18n/format";
 import { Button } from "@/components/ui/button";
 
 type IconType = ComponentType<{ className?: string }>;
 
-const facilityMeta: Record<string, { icon: IconType; label: string }> = {
-  parking: { icon: Car, label: "ที่จอดรถ" },
-  shower: { icon: ShowerHead, label: "ห้องอาบน้ำ" },
-  cafe: { icon: Coffee, label: "คาเฟ่" },
-  wifi: { icon: Wifi, label: "Wi-Fi" },
-  aircon: { icon: Wind, label: "ห้องแอร์" },
-  locker: { icon: Lock, label: "ล็อกเกอร์" },
-  equipment: { icon: Dumbbell, label: "ร้านอุปกรณ์" },
+const facilityIcon: Record<string, IconType> = {
+  parking: Car, shower: ShowerHead, cafe: Coffee, wifi: Wifi, aircon: Wind, locker: Lock, equipment: Dumbbell,
 };
 
 export default function VenueDetailPage({ params }: { params: Promise<{ venueId: string }> }) {
   const { venueId } = use(params);
   const { data: venue, isLoading, isError, refetch } = useVenue(venueId);
   const { data: reviews } = useReviews(venueId);
+  const v = useMessages("app").venue;
   if (isLoading) return <Loading />;
   if (isError) return <ErrorState onRetry={() => refetch()} />;
-  if (!venue) return <EmptyState message="ไม่พบสนามนี้" />;
+  if (!venue) return <EmptyState message={v.notFound} />;
 
   // Keyed to the branch being viewed, so every sub-page stays on it. Built
   // from `venue.id` — the organization slug — the links walked back to
   // whichever branch that slug resolved to, silently switching location.
   const base = `/venue/${venue.branchId}`;
   const menu: { href: string; icon: IconType; label: string }[] = [
-    { href: `${base}/facilities`, icon: LayoutGrid, label: "สิ่งอำนวยความสะดวก" },
-    { href: `${base}/map`, icon: Map, label: "แผนผังสนาม" },
-    { href: `${base}/gallery`, icon: Images, label: "รูปภาพสนาม" },
-    { href: `${base}/courts`, icon: ClipboardList, label: "รายละเอียดคอร์ท" },
-    { href: `${base}/hours`, icon: Clock, label: "เวลาเปิด-ปิด" },
+    { href: `${base}/facilities`, icon: LayoutGrid, label: v.menuFacilities },
+    { href: `${base}/map`, icon: Map, label: v.menuMap },
+    { href: `${base}/gallery`, icon: Images, label: v.menuGallery },
+    { href: `${base}/courts`, icon: ClipboardList, label: v.menuCourts },
+    { href: `${base}/hours`, icon: Clock, label: v.menuHours },
     {
       href: `${base}/reviews`,
       icon: MessageSquareText,
-      label: `รีวิวจากลูกค้า (${reviews?.total ?? venue.reviewCount})`,
+      label: fmt(v.menuReviewsN, { n: reviews?.total ?? venue.reviewCount }),
     },
   ];
 
@@ -76,7 +73,7 @@ export default function VenueDetailPage({ params }: { params: Promise<{ venueId:
         />
         <Link
           href="/home"
-          aria-label="ย้อนกลับ"
+          aria-label={v.back}
           className="absolute left-3 top-3 grid size-9 place-items-center rounded-full bg-white/90 shadow-sm"
         >
           <ChevronLeft className="size-5" />
@@ -93,19 +90,19 @@ export default function VenueDetailPage({ params }: { params: Promise<{ venueId:
             <Star className="size-4 fill-amber-400 text-amber-400" />
             {venue.rating.toFixed(1)}
           </span>
-          <span className="text-muted-foreground">({venue.reviewCount} รีวิว)</span>
+          <span className="text-muted-foreground">({venue.reviewCount} {v.reviewsUnit})</span>
         </div>
 
         <div className="mt-4 flex justify-between gap-1 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-black/5">
           {venue.facilities.slice(0, 6).map((f) => {
-            const m = facilityMeta[f] ?? { icon: CheckCircle2, label: f };
-            const Icon = m.icon;
+            const Icon = facilityIcon[f] ?? CheckCircle2;
+            const label = (v.facility as Record<string, string>)[f] ?? f;
             return (
               <div key={f} className="flex min-w-0 flex-1 flex-col items-center gap-1">
                 <span className="grid size-10 place-items-center rounded-full bg-brand/10 text-brand">
                   <Icon className="size-5" />
                 </span>
-                <span className="truncate text-[10px] text-muted-foreground">{m.label}</span>
+                <span className="truncate text-[10px] text-muted-foreground">{label}</span>
               </div>
             );
           })}
@@ -114,13 +111,13 @@ export default function VenueDetailPage({ params }: { params: Promise<{ venueId:
         <div className="mt-4 space-y-2 text-sm text-muted-foreground">
           <Link href={`${base}/hours`} className="flex items-center gap-1.5">
             <Clock className="size-4 shrink-0 text-brand" />
-            เปิดทุกวัน {venue.openTime}–{venue.closeTime} น.
+            {fmt(v.openDaily, { open: venue.openTime, close: venue.closeTime })}
             <ChevronRight className="size-4 opacity-50" />
           </Link>
           {venue.phone && (
             <a href={`tel:${venue.phone}`} className="flex items-center gap-1.5">
               <Phone className="size-4 shrink-0 text-brand" />
-              โทร {venue.phone}
+              {fmt(v.callPhone, { phone: venue.phone })}
             </a>
           )}
           <div className="flex items-center gap-1.5">
@@ -131,7 +128,7 @@ export default function VenueDetailPage({ params }: { params: Promise<{ venueId:
 
         {venue.description && (
           <>
-            <h2 className="mt-5 mb-1.5 font-semibold">เกี่ยวกับสนาม</h2>
+            <h2 className="mt-5 mb-1.5 font-semibold">{v.about}</h2>
             <p className="text-sm leading-relaxed text-muted-foreground">{venue.description}</p>
           </>
         )}
@@ -152,7 +149,7 @@ export default function VenueDetailPage({ params }: { params: Promise<{ venueId:
       <div className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-md border-t border-black/5 bg-white/95 p-3 backdrop-blur">
         <Link href={`/booking/new?venueId=${venue.id}`}>
           <Button className="h-12 w-full rounded-xl bg-brand text-base font-semibold hover:bg-brand/90">
-            จองสนาม
+            {v.book}
           </Button>
         </Link>
       </div>

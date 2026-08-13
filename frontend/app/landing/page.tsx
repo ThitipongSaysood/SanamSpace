@@ -7,6 +7,8 @@ import {
   ScanLine, BellRing, QrCode, LineChart, CheckCircle2, ChevronDown, Menu, X,
   CalendarX2, FileWarning, UserX, FolderX, Receipt,
 } from "lucide-react";
+import { useMessages } from "@/lib/i18n/context";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 /**
  * Where "start using it" actually leads.
@@ -19,23 +21,24 @@ import {
  * `LOGIN` remains for venues that already have an account.
  */
 const LOGIN = "/owner/login";
-const LINE = "#line"; // TODO: ใส่ลิงก์ LINE OA จริง
-const SIGNUP = LINE;
+const LINE = "#line"; // TODO: ใส่ลิงก์ LINE OA จริง (ปุ่ม "คุยกับทีมงาน" เท่านั้น)
+const SIGNUP = "/owner/signup"; // self-serve: สมัคร → สร้างร้าน + ทดลอง 30 วัน
 
 function CTAButtons({ className = "" }: { className?: string }) {
+  const m = useMessages("landing");
   return (
     <div className={`flex flex-wrap gap-3 ${className}`}>
       <Link
         href={SIGNUP}
         className="inline-flex h-12 items-center justify-center rounded-xl bg-brand px-6 text-base font-semibold text-white shadow-sm transition hover:bg-brand/90"
       >
-        ทดลองใช้ฟรี 30 วัน
+        {m.hero.ctaTry}
       </Link>
       <a
         href="#pricing"
         className="inline-flex h-12 items-center justify-center rounded-xl border border-black/10 bg-white px-6 text-base font-semibold text-foreground transition hover:bg-app"
       >
-        ดูแพ็กเกจ
+        {m.hero.ctaPricing}
       </a>
     </div>
   );
@@ -43,6 +46,14 @@ function CTAButtons({ className = "" }: { className?: string }) {
 
 export default function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const m = useMessages("landing");
+  const c = useMessages("common");
+  const NAV: [string, string][] = [
+    [c.nav.features, "#features"],
+    [c.nav.sports, "#sports"],
+    [c.nav.pricing, "#pricing"],
+    [c.nav.faq, "#faq"],
+  ];
 
   return (
     <div className="min-h-dvh bg-white text-foreground">
@@ -54,40 +65,41 @@ export default function LandingPage() {
             SanamSpace
           </Link>
           <nav className="ml-6 hidden items-center gap-6 text-sm font-medium text-muted-foreground md:flex">
-            <a href="#features" className="hover:text-foreground">ฟีเจอร์</a>
-            <a href="#sports" className="hover:text-foreground">กีฬาที่รองรับ</a>
-            <a href="#pricing" className="hover:text-foreground">ราคา</a>
-            <a href="#faq" className="hover:text-foreground">คำถามที่พบบ่อย</a>
+            {NAV.map(([label, href]) => (
+              <a key={href} href={href} className="hover:text-foreground">{label}</a>
+            ))}
           </nav>
           <div className="ml-auto hidden items-center gap-2 md:flex">
+            <LanguageSwitcher className="mr-1" />
             <Link href={LOGIN} className="rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-app">
-              เข้าสู่ระบบ
+              {c.login}
             </Link>
             <Link href={SIGNUP} className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand/90">
-              ทดลองใช้ฟรี
+              {c.tryFree}
             </Link>
           </div>
-          <button
-            type="button"
-            aria-label="เมนู"
-            onClick={() => setMenuOpen((o) => !o)}
-            className="ml-auto grid size-9 place-items-center rounded-lg text-muted-foreground hover:bg-app md:hidden"
-          >
-            {menuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
-          </button>
+          <div className="ml-auto flex items-center gap-2 md:hidden">
+            <LanguageSwitcher />
+            <button
+              type="button"
+              aria-label={c.menu}
+              onClick={() => setMenuOpen((o) => !o)}
+              className="grid size-9 place-items-center rounded-lg text-muted-foreground hover:bg-app"
+            >
+              {menuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+            </button>
+          </div>
         </div>
         {menuOpen && (
           <div className="border-t border-black/5 bg-white px-4 py-3 md:hidden">
             <nav className="flex flex-col gap-1 text-sm font-medium">
-              {[["ฟีเจอร์", "#features"], ["กีฬาที่รองรับ", "#sports"], ["ราคา", "#pricing"], ["คำถามที่พบบ่อย", "#faq"]].map(
-                ([label, href]) => (
-                  <a key={href} href={href} onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-2 hover:bg-app">
-                    {label}
-                  </a>
-                ),
-              )}
+              {NAV.map(([label, href]) => (
+                <a key={href} href={href} onClick={() => setMenuOpen(false)} className="rounded-lg px-3 py-2 hover:bg-app">
+                  {label}
+                </a>
+              ))}
               <Link href={SIGNUP} className="mt-1 rounded-lg bg-brand px-3 py-2.5 text-center font-semibold text-white">
-                ทดลองใช้ฟรี
+                {c.tryFree}
               </Link>
             </nav>
           </div>
@@ -99,18 +111,17 @@ export default function LandingPage() {
         <div className="grid items-center gap-10 md:grid-cols-2">
           <div>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-brand/10 px-3 py-1 text-sm font-medium text-brand">
-              <CheckCircle2 className="size-4" /> White-Label · ทุกกีฬา
+              <CheckCircle2 className="size-4" /> {m.badge}
             </span>
             <h1 className="mt-4 text-3xl font-bold leading-tight md:text-5xl">
-              ระบบจองสนามครบวงจร<br />สำหรับทุกกีฬา <span className="text-brand">ในแบรนด์ของคุณเอง</span>
+              {m.hero.title1}<br />{m.hero.title2}<span className="text-brand">{m.hero.titleHighlight}</span>
             </h1>
             <p className="mt-4 text-base text-muted-foreground md:text-lg">
-              แบดมินตัน ฟุตบอล ฟุตซอล เทนนิส พิคเคิลบอล — เปิดให้ลูกค้าจองผ่าน LINE, ตรวจสลิปอัตโนมัติ,
-              เก็บมัดจำ, จัดการสมาชิกและรายได้ ครบในระบบเดียว
+              {m.hero.subtitle}
             </p>
             <CTAButtons className="mt-6" />
             <p className="mt-4 text-sm text-muted-foreground">
-              ไม่ต้องใช้บัตรเครดิต · ตั้งค่าเสร็จใน 1 วัน · ข้อมูลเป็นของสนามคุณ 100%
+              {m.hero.trust}
             </p>
           </div>
           {/*
@@ -125,7 +136,7 @@ export default function LandingPage() {
             <div className="rounded-3xl bg-gradient-to-br from-brand/15 to-brand/5 p-4 ring-1 ring-black/5 sm:p-6">
               <Image
                 src="/screenshots/owner-operations.png"
-                alt="ศูนย์ปฏิบัติการประจำวันของสนาม — งานที่ต้องจัดการและตารางวันนี้"
+                alt={m.hero.altOperations}
                 width={1440}
                 height={900}
                 priority
@@ -133,7 +144,7 @@ export default function LandingPage() {
               />
               <Image
                 src="/screenshots/app-home.png"
-                alt="หน้าแอปของลูกค้า — แต้มสะสม การจองที่กำลังจะถึง และโปรโมชั่นของสนาม"
+                alt={m.hero.altApp}
                 width={585}
                 height={1266}
                 priority
@@ -147,12 +158,12 @@ export default function LandingPage() {
       {/* 03 Social proof — waitlist style (no fake numbers) */}
       <section className="border-y border-black/5 bg-app">
         <div className="mx-auto max-w-6xl px-4 py-8 text-center">
-          <p className="text-sm font-medium text-muted-foreground">กำลังเปิดรับสนามรุ่นแรก 🎉</p>
+          <p className="text-sm font-medium text-muted-foreground">{m.social.heading}</p>
           <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
-            {[["7+", "กีฬาที่รองรับ"], ["ครบวงจร", "จอง→จ่าย→เช็คอิน"], ["100%", "ข้อมูลเป็นของสนาม"]].map(([n, l]) => (
-              <div key={l} className="rounded-2xl bg-white p-4 ring-1 ring-black/5">
-                <div className="text-2xl font-bold text-brand">{n}</div>
-                <div className="text-xs text-muted-foreground">{l}</div>
+            {m.social.stats.map((s) => (
+              <div key={s.l} className="rounded-2xl bg-white p-4 ring-1 ring-black/5">
+                <div className="text-2xl font-bold text-brand">{s.n}</div>
+                <div className="text-xs text-muted-foreground">{s.l}</div>
               </div>
             ))}
           </div>
@@ -161,21 +172,15 @@ export default function LandingPage() {
 
       {/* 04 Problem */}
       <section className="mx-auto max-w-6xl px-4 py-14">
-        <h2 className="text-center text-2xl font-bold md:text-3xl">ยังบริหารสนามด้วย LINE + สมุดจดอยู่ใช่ไหม?</h2>
+        <h2 className="text-center text-2xl font-bold md:text-3xl">{m.problem.heading}</h2>
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[
-            [CalendarX2, "รับจองซ้ำซ้อน", "ทะเลาะกับลูกค้าหน้างาน เสียลูกค้า เสียชื่อ"],
-            [FileWarning, "ตรวจสลิปทีละใบ", "เสียเวลา เสี่ยงเจอสลิปปลอม/สลิปซ้ำ"],
-            [UserX, "ลูกค้าจองแล้วไม่มา", "no-show เสียรายได้ทุกวัน"],
-            [FolderX, "ข้อมูลลูกค้ากระจัดกระจาย", "ไม่รู้ว่าใครเป็นขาประจำ"],
-            [Receipt, "ปิดยอดสิ้นเดือนยาก", "ไม่รู้รายได้จริง คอร์ทไหนคุ้ม"],
-          ].map(([Icon, title, body]) => {
-            const I = Icon as typeof CalendarX2;
+          {m.problem.cards.map((card, i) => {
+            const I = [CalendarX2, FileWarning, UserX, FolderX, Receipt][i];
             return (
-              <div key={title as string} className="rounded-2xl bg-white p-5 ring-1 ring-black/5">
+              <div key={card.title} className="rounded-2xl bg-white p-5 ring-1 ring-black/5">
                 <I className="size-7 text-brand-danger" />
-                <div className="mt-3 font-semibold">{title as string}</div>
-                <p className="mt-1 text-sm text-muted-foreground">{body as string}</p>
+                <div className="mt-3 font-semibold">{card.title}</div>
+                <p className="mt-1 text-sm text-muted-foreground">{card.body}</p>
               </div>
             );
           })}
@@ -185,22 +190,17 @@ export default function LandingPage() {
       {/* 05 How it works */}
       <section className="bg-app">
         <div className="mx-auto max-w-6xl px-4 py-14">
-          <h2 className="text-center text-2xl font-bold md:text-3xl">ให้ลูกค้าจองเองครบทุกขั้น คุณแค่ดูแลสนาม</h2>
+          <h2 className="text-center text-2xl font-bold md:text-3xl">{m.how.heading}</h2>
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              [LineChart, "1. จองผ่าน LINE", "ลูกค้า Login ผ่าน LINE เลือกกีฬา สนาม วันเวลา"],
-              [ScanLine, "2. โอน + อัปสลิป", "ระบบตรวจให้อัตโนมัติ กันสลิปซ้ำ"],
-              [BellRing, "3. ยืนยัน + เตือน", "ยืนยันการจอง + เตือนก่อนถึงเวลาเล่น"],
-              [QrCode, "4. เช็คอิน QR", "ลูกค้าเช็คอินด้วย QR หน้าสนาม"],
-            ].map(([Icon, title, body]) => {
-              const I = Icon as typeof LineChart;
+            {m.how.steps.map((step, i) => {
+              const I = [LineChart, ScanLine, BellRing, QrCode][i];
               return (
-                <div key={title as string} className="rounded-2xl bg-white p-5 ring-1 ring-black/5">
+                <div key={step.title} className="rounded-2xl bg-white p-5 ring-1 ring-black/5">
                   <div className="grid size-11 place-items-center rounded-xl bg-brand/10 text-brand">
                     <I className="size-6" />
                   </div>
-                  <div className="mt-3 font-semibold">{title as string}</div>
-                  <p className="mt-1 text-sm text-muted-foreground">{body as string}</p>
+                  <div className="mt-3 font-semibold">{step.title}</div>
+                  <p className="mt-1 text-sm text-muted-foreground">{step.body}</p>
                 </div>
               );
             })}
@@ -217,24 +217,15 @@ export default function LandingPage() {
       {/* 07 Core features */}
       <section id="features" className="bg-app">
         <div className="mx-auto max-w-6xl px-4 py-14">
-          <h2 className="text-center text-2xl font-bold md:text-3xl">ทุกอย่างที่สนามต้องใช้ อยู่ในที่เดียว</h2>
+          <h2 className="text-center text-2xl font-bold md:text-3xl">{m.features.heading}</h2>
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              [CalendarCheck, "ปฏิทินจองอัจฉริยะ", "กันจองซ้ำ ดูทุกคอร์ท/สนามในจอเดียว"],
-              [ScanLine, "ตรวจสลิปอัตโนมัติ", "อ่านยอด/ผู้โอน กันสลิปซ้ำ อนุมัติให้เอง (Business ขึ้นไป)"],
-              [Wallet, "ระบบมัดจำ", "ยืนยันคอร์ทด้วยเงินมัดจำ ลด no-show"],
-              [QrCode, "สแกนเมนูเดียว", "เช็คอินและรับของรางวัล สแกนจุดเดียวจบ"],
-              [Users, "สมาชิก · เครดิต · แพ็กเกจชั่วโมง", "มัดใจขาประจำ เพิ่มยอดซ้ำ (Business ขึ้นไป)"],
-              [Megaphone, "CRM + ยิงโปร LINE", "หาลูกค้าที่หายไป แล้วส่งโปรผ่าน LINE ของสนามเอง (Pro)"],
-              [BarChart3, "รายงานรายได้ + คอร์ทว่าง", "รู้ว่าคอร์ทไหน เวลาไหนทำเงิน"],
-              [Palette, "แบรนด์ของสนามเอง", "โลโก้ สี และ LINE OA เป็นของสนาม ลูกค้าไม่เห็นแบรนด์เรา"],
-            ].map(([Icon, title, body]) => {
-              const I = Icon as typeof CalendarCheck;
+            {m.features.items.map((item, i) => {
+              const I = [CalendarCheck, ScanLine, Wallet, QrCode, Users, Megaphone, BarChart3, Palette][i];
               return (
-                <div key={title as string} className="rounded-2xl bg-white p-5 ring-1 ring-black/5">
+                <div key={item.title} className="rounded-2xl bg-white p-5 ring-1 ring-black/5">
                   <I className="size-7 text-brand" />
-                  <div className="mt-3 font-semibold">{title as string}</div>
-                  <p className="mt-1 text-sm text-muted-foreground">{body as string}</p>
+                  <div className="mt-3 font-semibold">{item.title}</div>
+                  <p className="mt-1 text-sm text-muted-foreground">{item.body}</p>
                 </div>
               );
             })}
@@ -250,8 +241,8 @@ export default function LandingPage() {
         <div className="mx-auto max-w-4xl px-4 py-16 text-center">
           <h2 className="text-2xl font-bold md:text-3xl">สนามของคุณ แบรนด์ของคุณ ลูกค้าของคุณ</h2>
           <p className="mx-auto mt-4 max-w-2xl text-white/90">
-            SanamSpace ไม่ใช่ marketplace ที่ดึงลูกค้าไปจากคุณ — ลูกค้าจองในแบรนด์สนามคุณเอง
-            ข้อมูลลูกค้าทั้งหมดเป็นของคุณ พร้อมโลโก้ สี และ LINE OA ของสนามเอง ทุกแพ็กเกจ
+            SanamSpace ไม่ใช่แพลตฟอร์มตัวกลางที่ดึงลูกค้าไปจากสนาม — ลูกค้าจองภายใต้แบรนด์ของสนามเอง
+            ข้อมูลลูกค้าทั้งหมดเป็นกรรมสิทธิ์ของสนาม พร้อมโลโก้ สี และ LINE OA ของสนาม ครบทุกแพ็กเกจ
           </p>
         </div>
       </section>
@@ -261,14 +252,14 @@ export default function LandingPage() {
 
       {/* 12 Final CTA */}
       <section className="mx-auto max-w-4xl px-4 py-16 text-center">
-        <h2 className="text-2xl font-bold md:text-3xl">เริ่มให้สนามคุณรับจองอัตโนมัติวันนี้</h2>
-        <p className="mt-3 text-muted-foreground">ทดลองฟรี 30 วัน · ทีมงานเปิดสนามและตั้งค่าให้</p>
+        <h2 className="text-2xl font-bold md:text-3xl">{m.finalCta.heading}</h2>
+        <p className="mt-3 text-muted-foreground">{m.finalCta.subtitle}</p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <Link href={SIGNUP} className="inline-flex h-12 items-center rounded-xl bg-brand px-6 font-semibold text-white hover:bg-brand/90">
-            ทดลองใช้ฟรี 30 วัน
+            {m.finalCta.ctaTry}
           </Link>
           <a href={LINE} className="inline-flex h-12 items-center rounded-xl border border-black/10 px-6 font-semibold hover:bg-app">
-            คุยกับทีมงานผ่าน LINE
+            {m.finalCta.ctaLine}
           </a>
         </div>
       </section>
@@ -283,32 +274,32 @@ export default function LandingPage() {
                 SanamSpace
               </div>
               <p className="mt-2 max-w-xs text-sm text-muted-foreground">
-                ระบบจองสนามกีฬาครบวงจร ทุกกีฬา ในแบรนด์ของคุณเอง
+                {m.footer.tagline}
               </p>
             </div>
             <div className="grid grid-cols-2 gap-8 text-sm sm:grid-cols-3">
               <div>
-                <div className="font-semibold">เมนู</div>
+                <div className="font-semibold">{m.footer.menuTitle}</div>
                 <ul className="mt-2 space-y-1.5 text-muted-foreground">
-                  <li><a href="#features" className="hover:text-foreground">ฟีเจอร์</a></li>
-                  <li><a href="#pricing" className="hover:text-foreground">ราคา</a></li>
-                  <li><a href="#faq" className="hover:text-foreground">คำถามที่พบบ่อย</a></li>
-                  <li><Link href={LOGIN} className="hover:text-foreground">เข้าสู่ระบบ</Link></li>
+                  <li><a href="#features" className="hover:text-foreground">{c.nav.features}</a></li>
+                  <li><a href="#pricing" className="hover:text-foreground">{c.nav.pricing}</a></li>
+                  <li><a href="#faq" className="hover:text-foreground">{c.nav.faq}</a></li>
+                  <li><Link href={LOGIN} className="hover:text-foreground">{c.login}</Link></li>
                 </ul>
               </div>
               <div>
-                <div className="font-semibold">ติดต่อ</div>
+                <div className="font-semibold">{m.footer.contactTitle}</div>
                 <ul className="mt-2 space-y-1.5 text-muted-foreground">
-                  <li><a href={LINE} className="hover:text-foreground">LINE OA</a></li>
-                  <li><a href="mailto:hello@sanamspace.com" className="hover:text-foreground">อีเมล</a></li>
-                  <li><a href="tel:020000000" className="hover:text-foreground">โทรศัพท์</a></li>
+                  <li><a href={LINE} className="hover:text-foreground">{m.footer.lineOa}</a></li>
+                  <li><a href="mailto:hello@sanamspace.com" className="hover:text-foreground">{m.footer.email}</a></li>
+                  <li><a href="tel:020000000" className="hover:text-foreground">{m.footer.phone}</a></li>
                 </ul>
               </div>
               <div>
-                <div className="font-semibold">กฎหมาย</div>
+                <div className="font-semibold">{m.footer.legalTitle}</div>
                 <ul className="mt-2 space-y-1.5 text-muted-foreground">
-                  <li><a href="#" className="hover:text-foreground">นโยบายความเป็นส่วนตัว (PDPA)</a></li>
-                  <li><a href="#" className="hover:text-foreground">เงื่อนไขการใช้งาน</a></li>
+                  <li><a href="#" className="hover:text-foreground">{m.footer.privacy}</a></li>
+                  <li><a href="#" className="hover:text-foreground">{m.footer.terms}</a></li>
                 </ul>
               </div>
             </div>
@@ -320,20 +311,16 @@ export default function LandingPage() {
       {/* Sticky mobile CTA bar (spec §4) */}
       <div className="sticky bottom-0 z-40 border-t border-black/5 bg-white/95 p-3 backdrop-blur md:hidden">
         <Link href={SIGNUP} className="flex h-12 items-center justify-center rounded-xl bg-brand font-semibold text-white">
-          ทดลองใช้ฟรี 30 วัน
+          {m.sticky}
         </Link>
       </div>
     </div>
   );
 }
 
-const SPORTS: { key: string; label: string; points: string[] }[] = [
-  { key: "badminton", label: "แบดมินตัน", points: ["จองรายชั่วโมง", "แพ็กเกจชั่วโมงเหมา", "waitlist เวลาเต็ม"] },
-  { key: "football", label: "ฟุตบอล / ฟุตซอล", points: ["เก็บมัดจำ", "จองประจำรายสัปดาห์ (ก๊วนประจำ)", "จองทั้งสนาม"] },
-  { key: "tennis", label: "เทนนิส", points: ["ระบบสมาชิก/คลับ", "จองคอร์ส coach"] },
-  { key: "pickleball", label: "พิคเคิลบอล", points: ["open-play", "หาเพื่อนเล่น", "จัดอีเวนต์"] },
-  { key: "basketball", label: "บาส / วอลเลย์", points: ["จองเหมาคอร์ท", "จัดทีม"] },
-];
+// Order only; the label + selling points come from the message catalog
+// (landing.sports.items[key]) so both languages stay in one place.
+const SPORT_KEYS = ["badminton", "football", "tennis", "pickleball", "basketball"] as const;
 
 /**
  * The product, photographed rather than described.
@@ -395,48 +382,38 @@ function PhoneFrame({ children, className = "" }: { children: React.ReactNode; c
  */
 const PHONE_W = "w-32 min-[360px]:w-36 min-[400px]:w-40 sm:w-44 lg:w-[10.5rem] xl:w-48";
 
-const OWNER_SHOTS: { src: string; title: string; body: string }[] = [
-  {
-    src: "/screenshots/owner-operations.png",
-    title: "ศูนย์ปฏิบัติการประจำวัน",
-    body: "งานที่ต้องจัดการวันนี้อยู่หน้าเดียว — ใครยังไม่มา ใครค้างจ่าย อุปกรณ์ยังไม่คืน",
-  },
-  {
-    src: "/screenshots/owner-bookings.png",
-    title: "รายการจองทั้งหมด",
-    body: "ค้นด้วยรหัส ชื่อ หรือคอร์ท · กรองตามช่วงวันและสถานะ",
-  },
-  {
-    src: "/screenshots/owner-scan.png",
-    title: "สแกนจุดเดียวจบ",
-    body: "QR เช็คอินและรหัสรับของรางวัล ระบบแยกให้เอง",
-  },
+// Image sources only, aligned by index with landing.screens.shots for text.
+const OWNER_SHOT_SRCS = [
+  "/screenshots/owner-operations.png",
+  "/screenshots/owner-bookings.png",
+  "/screenshots/owner-scan.png",
 ];
 
 function ScreensSection() {
+  const m = useMessages("landing");
   return (
     <section id="screens" className="mx-auto max-w-6xl px-4 py-14">
-      <h2 className="text-center text-2xl font-bold md:text-3xl">หน้าตาระบบจริง ไม่ใช่ภาพจำลอง</h2>
+      <h2 className="text-center text-2xl font-bold md:text-3xl">{m.screens.heading}</h2>
       <p className="mt-3 text-center text-muted-foreground">
-        ทุกภาพถ่ายจากระบบที่ใช้งานได้จริง พร้อมข้อมูลตัวอย่างของสนามสาธิต
+        {m.screens.subtitle}
       </p>
 
       {/* The hero pairing: what staff see, next to what the customer sees. */}
       <div className="mt-10 grid gap-6 lg:grid-cols-5">
         <figure className="group flex flex-col lg:col-span-3">
-          <BrowserFrame label="ระบบจัดการสนาม · แดชบอร์ด">
+          <BrowserFrame label={m.screens.dashboard.label}>
             <Image
               src="/screenshots/owner-dashboard.png"
-              alt="แดชบอร์ดของสนาม — คอร์ทไหนมีคนเล่น เหลือกี่นาที และตัวเลขของวันนี้"
+              alt={m.screens.dashboard.alt}
               width={1440}
               height={900}
               className="w-full transition duration-500 group-hover:scale-[1.02]"
             />
           </BrowserFrame>
           <figcaption className="mt-4">
-            <div className="font-semibold">แดชบอร์ด</div>
+            <div className="font-semibold">{m.screens.dashboard.title}</div>
             <p className="mt-1 text-sm text-muted-foreground">
-              สถานะคอร์ทสด — ใครกำลังเล่น เหลือกี่นาที คิวถัดไปคือใคร พร้อมตัวเลขของวันนี้
+              {m.screens.dashboard.body}
             </p>
           </figcaption>
         </figure>
@@ -460,7 +437,7 @@ function ScreensSection() {
             <PhoneFrame className={`${PHONE_W} shrink-0 translate-y-1.5`}>
               <Image
                 src="/screenshots/app-home.png"
-                alt="แอปของลูกค้า — แต้มสะสม การจองที่กำลังจะถึง และโปรของสนาม"
+                alt={m.screens.app.altHome}
                 width={585}
                 height={1266}
                 className="w-full"
@@ -474,7 +451,7 @@ function ScreensSection() {
             <PhoneFrame className={`-ml-7 ${PHONE_W} shrink-0 -translate-y-1.5 sm:-ml-8`}>
               <Image
                 src="/screenshots/app-booking.png"
-                alt="หน้าจองของลูกค้า — เลือกคอร์ท วัน เวลา เช่าอุปกรณ์ และใส่คูปอง"
+                alt={m.screens.app.altBooking}
                 width={585}
                 height={1266}
                 className="w-full"
@@ -482,20 +459,20 @@ function ScreensSection() {
             </PhoneFrame>
           </div>
           <figcaption className="mt-4">
-            <div className="font-semibold">แอปของลูกค้า — ในแบรนด์สนามคุณ</div>
+            <div className="font-semibold">{m.screens.app.title}</div>
             <p className="mt-1 text-sm text-muted-foreground">
-              เข้าผ่าน LINE จองเองได้ทั้งขั้นตอน ตั้งแต่เลือกคอร์ทจนจ่ายเงิน
+              {m.screens.app.body}
             </p>
           </figcaption>
         </figure>
       </div>
 
       <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {OWNER_SHOTS.map((s) => (
-          <figure key={s.src} className="group">
-            <BrowserFrame label={`ระบบจัดการสนาม · ${s.title}`}>
+        {m.screens.shots.map((s, i) => (
+          <figure key={OWNER_SHOT_SRCS[i]} className="group">
+            <BrowserFrame label={`${m.screens.ownerLabel} · ${s.title}`}>
               <Image
-                src={s.src}
+                src={OWNER_SHOT_SRCS[i]}
                 alt={`${s.title} — ${s.body}`}
                 width={1440}
                 height={900}
@@ -514,22 +491,23 @@ function ScreensSection() {
 }
 
 function SportsSection() {
-  const [active, setActive] = useState(SPORTS[0].key);
-  const sport = SPORTS.find((s) => s.key === active)!;
+  const m = useMessages("landing");
+  const [active, setActive] = useState<(typeof SPORT_KEYS)[number]>(SPORT_KEYS[0]);
+  const sport = m.sports.items[active];
   return (
     <section id="sports" className="mx-auto max-w-6xl px-4 py-14">
-      <h2 className="text-center text-2xl font-bold md:text-3xl">ระบบเดียว รองรับทุกกีฬา ปรับให้เข้ากับธุรกิจคุณ</h2>
+      <h2 className="text-center text-2xl font-bold md:text-3xl">{m.sports.heading}</h2>
       <div className="mt-6 flex flex-wrap justify-center gap-2">
-        {SPORTS.map((s) => (
+        {SPORT_KEYS.map((key) => (
           <button
-            key={s.key}
+            key={key}
             type="button"
-            onClick={() => setActive(s.key)}
+            onClick={() => setActive(key)}
             className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-              active === s.key ? "bg-brand text-white" : "bg-app text-muted-foreground hover:text-foreground"
+              active === key ? "bg-brand text-white" : "bg-app text-muted-foreground hover:text-foreground"
             }`}
           >
-            {s.label}
+            {m.sports.items[key].label}
           </button>
         ))}
       </div>
@@ -561,44 +539,25 @@ function SportsSection() {
  * marketing page that a customer's first invoice contradicts is worse than no
  * page at all.
  */
-const PLANS: {
-  name: string;
-  monthly: number;
-  highlight?: boolean;
-  limits: string[];
-  feature: string;
-}[] = [
-  {
-    name: "Starter",
-    monthly: 990,
-    limits: ["1 สาขา · 10 คอร์ท", "พนักงาน 5 คน · 1,000 การจอง/เดือน"],
-    feature: "จองสนาม · มัดจำ · เช็คอิน QR · ตรวจสลิปเอง · ลูกค้า · คืนเงิน · รายงาน",
-  },
-  {
-    name: "Business",
-    monthly: 1990,
-    highlight: true,
-    limits: ["3 สาขา · 30 คอร์ท", "พนักงาน 15 คน · 5,000 การจอง/เดือน"],
-    feature: "+ ขายหน้าร้าน · เช่าอุปกรณ์ · เครดิตลูกค้า · แพ็กเกจชั่วโมง · สมาชิก+แต้ม · คูปอง · แบนเนอร์ · ตรวจสลิปอัตโนมัติ",
-  },
-  {
-    name: "Pro",
-    monthly: 3990,
-    limits: ["ไม่จำกัดสาขา/คอร์ท", "ไม่จำกัดพนักงานและการจอง"],
-    feature: "+ CRM (เซกเมนต์ · RFM) · ยิงโปร LINE · รายงานขั้นสูง + ส่งออก",
-  },
+// Prices/highlight only; plan display name is the (untranslated) brand name,
+// and limits/feature come from landing.pricing.plans[code].
+const PLAN_META: { code: "starter" | "business" | "pro"; name: string; monthly: number; highlight?: boolean }[] = [
+  { code: "starter", name: "Starter", monthly: 990 },
+  { code: "business", name: "Business", monthly: 1990, highlight: true },
+  { code: "pro", name: "Pro", monthly: 3990 },
 ];
 
 function PricingSection() {
+  const m = useMessages("landing");
   const [yearly, setYearly] = useState(false);
   const fmt = new Intl.NumberFormat("th-TH");
 
   return (
     <section id="pricing" className="mx-auto max-w-6xl px-4 py-14">
-      <h2 className="text-center text-2xl font-bold md:text-3xl">ราคาเดียว ใช้ได้ทุกกีฬา</h2>
+      <h2 className="text-center text-2xl font-bold md:text-3xl">{m.pricing.heading}</h2>
 
       <div className="mt-6 flex items-center justify-center gap-3 text-sm">
-        <span className={yearly ? "text-muted-foreground" : "font-semibold"}>รายเดือน</span>
+        <span className={yearly ? "text-muted-foreground" : "font-semibold"}>{m.pricing.monthly}</span>
         <button
           type="button"
           role="switch"
@@ -608,7 +567,7 @@ function PricingSection() {
         >
           <span className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-all ${yearly ? "left-[22px]" : "left-0.5"}`} />
         </button>
-        <span className={yearly ? "font-semibold" : "text-muted-foreground"}>รายปี</span>
+        <span className={yearly ? "font-semibold" : "text-muted-foreground"}>{m.pricing.yearly}</span>
       </div>
 
       {/* Three columns, not four. The grid was built for four packages and
@@ -617,21 +576,22 @@ function PricingSection() {
           is centred. `max-w-4xl mx-auto` keeps them a readable width rather
           than stretching each card across a third of a desk monitor. */}
       <div className="mx-auto mt-8 grid max-w-4xl gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {PLANS.map((p) => {
+        {PLAN_META.map((p) => {
           // Paying yearly costs ten months and covers twelve, so the saving is
           // two months. Shown as the actual yearly figure rather than a
           // discounted monthly one: a venue signing a year wants to know what
           // leaves its account, not a rate it has to multiply out itself.
           const yearlyPrice = p.monthly * 10;
           const saving = p.monthly * 2;
+          const plan = m.pricing.plans[p.code];
           return (
             <div
-              key={p.name}
+              key={p.code}
               className={`flex flex-col rounded-2xl bg-white p-5 ring-1 ${p.highlight ? "ring-2 ring-brand" : "ring-black/5"}`}
             >
               {p.highlight && (
                 <span className="mb-2 inline-block w-fit rounded-full bg-brand/10 px-2.5 py-0.5 text-xs font-semibold text-brand">
-                  แนะนำ
+                  {m.pricing.recommend}
                 </span>
               )}
               <div className="font-bold">{p.name}</div>
@@ -639,66 +599,57 @@ function PricingSection() {
                 {yearly ? (
                   <div>
                     <span className="text-3xl font-bold">฿{fmt.format(yearlyPrice)}</span>
-                    <span className="text-sm text-muted-foreground"> / ปี</span>
+                    <span className="text-sm text-muted-foreground"> {m.pricing.perYear}</span>
                     <div className="mt-1 inline-block rounded-full bg-brand/10 px-2 py-0.5 text-xs font-semibold text-brand">
-                      ประหยัด ฿{fmt.format(saving)}
+                      {m.pricing.save} ฿{fmt.format(saving)}
                     </div>
                     <div className="mt-1 text-xs text-muted-foreground">
-                      เทียบกับรายเดือน ฿{fmt.format(p.monthly * 12)}
+                      {m.pricing.vsMonthly} ฿{fmt.format(p.monthly * 12)}
                     </div>
                   </div>
                 ) : (
                   <div>
                     <span className="text-3xl font-bold">฿{fmt.format(p.monthly)}</span>
-                    <span className="text-sm text-muted-foreground"> / เดือน</span>
+                    <span className="text-sm text-muted-foreground"> {m.pricing.perMonth}</span>
                   </div>
                 )}
               </div>
               <div className="mt-3 space-y-1.5 text-sm text-muted-foreground">
-                {p.limits.map((l) => (
+                {plan.limits.map((l) => (
                   <div key={l} className="flex items-start gap-2">
                     <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-brand" /> {l}
                   </div>
                 ))}
-                <div className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 size-4 shrink-0 text-brand" /> {p.feature}</div>
+                <div className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 size-4 shrink-0 text-brand" /> {plan.feature}</div>
               </div>
               <Link
-                href={LINE}
+                href={`${SIGNUP}?plan=${p.code}`}
                 className={`mt-5 inline-flex h-11 items-center justify-center rounded-xl text-sm font-semibold transition ${
                   p.highlight ? "bg-brand text-white hover:bg-brand/90" : "border border-black/10 hover:bg-app"
                 }`}
               >
-                ทดลองใช้ฟรี 30 วัน
+                {m.pricing.ctaTry}
               </Link>
             </div>
           );
         })}
       </div>
       <p className="mt-6 text-center text-sm text-muted-foreground">
-        ทุกแพ็กเกจรองรับทุกกีฬา · ทดลองฟรี 30 วัน ไม่ต้องใช้บัตรเครดิต · ไม่มีสัญญาผูกมัด ยกเลิกได้ทุกเมื่อ
+        {m.pricing.note}
       </p>
     </section>
   );
 }
 
-const FAQS: [string, string][] = [
-  ["ต้องมี LINE Official Account ก่อนไหม?", "ไม่จำเป็น ทีมงานช่วยตั้งค่าให้ได้"],
-  ["ข้อมูลลูกค้าเป็นของใคร?", "เป็นของสนาม 100% เราไม่ดึงลูกค้าไปจากคุณ"],
-  ["รองรับหลายสาขาไหม?", "Business รองรับ 3 สาขา · Pro ไม่จำกัด · Starter 1 สาขา"],
-  ["รองรับกีฬาอะไรบ้าง?", "ทุกกีฬาที่จองเป็นคอร์ท/สนาม เช่น แบด ฟุตบอล ฟุตซอล เทนนิส พิคเคิลบอล"],
-  ["ย้ายข้อมูลจากระบบเดิม/Excel ได้ไหม?", "ได้ ทีมงานช่วย import ให้"],
-  ["มีสัญญาผูกมัดไหม?", "ไม่มี จ่ายรายเดือน ยกเลิกได้ทุกเมื่อ"],
-  ["เก็บมัดจำได้ทุกแพ็กเกจไหม?", "ได้ ตั้งแต่ Starter — เช็คอิน QR ตรวจสลิป คืนเงิน และรายงาน ก็อยู่ในทุกแพ็กเกจ"],
-];
-
 function FaqSection() {
+  const m = useMessages("landing");
   const [open, setOpen] = useState<number | null>(0);
   return (
     <section id="faq" className="bg-app">
       <div className="mx-auto max-w-3xl px-4 py-14">
-        <h2 className="text-center text-2xl font-bold md:text-3xl">คำถามที่พบบ่อย</h2>
+        <h2 className="text-center text-2xl font-bold md:text-3xl">{m.faq.heading}</h2>
         <div className="mt-8 space-y-3">
-          {FAQS.map(([q, a], i) => (
+          {m.faq.items.map(({ q, a }, i) => (
             <div key={q} className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5">
               <button
                 type="button"

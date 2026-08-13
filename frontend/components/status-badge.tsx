@@ -1,10 +1,12 @@
+"use client";
 import type { BookingStatus, PaymentStatus } from "@/lib/types";
+import { useMessages } from "@/lib/i18n/context";
 
-const meta: Record<BookingStatus, { label: string; cls: string }> = {
-  pending_payment: { label: "รอชำระเงิน", cls: "bg-amber-100 text-amber-700" },
-  confirmed: { label: "ยืนยันแล้ว", cls: "bg-brand/10 text-brand" },
-  completed: { label: "เช็คอินแล้ว", cls: "bg-slate-100 text-slate-600" },
-  cancelled: { label: "ยกเลิก", cls: "bg-red-100 text-red-600" },
+const cls: Record<BookingStatus, string> = {
+  pending_payment: "bg-amber-100 text-amber-700",
+  confirmed: "bg-brand/10 text-brand",
+  completed: "bg-slate-100 text-slate-600",
+  cancelled: "bg-red-100 text-red-600",
 };
 
 /**
@@ -22,10 +24,12 @@ export function StatusBadge({
   status: BookingStatus;
   paymentStatus?: PaymentStatus | null;
 }) {
+  const s = useMessages("app").status;
+
   if (status === "pending_payment" && paymentStatus === "pending_review") {
     return (
       <span className="inline-block rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
-        รอตรวจสอบสลิป
+        {s.pendingReview}
       </span>
     );
   }
@@ -33,15 +37,14 @@ export function StatusBadge({
   if (status === "pending_payment" && paymentStatus === "rejected") {
     return (
       <span className="inline-block rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-600">
-        สลิปไม่ผ่าน
+        {s.rejected}
       </span>
     );
   }
 
-  const m = meta[status];
   return (
-    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${m.cls}`}>
-      {m.label}
+    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${cls[status]}`}>
+      {s[status]}
     </span>
   );
 }

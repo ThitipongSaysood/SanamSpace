@@ -5,6 +5,8 @@ import { useVenue } from "@/lib/api/queries";
 import { AppHeader } from "@/components/app-header";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
+import { useMessages } from "@/lib/i18n/context";
+import { fmt } from "@/lib/i18n/format";
 
 const COURTS = ["C1", "C2", "C3", "C4", "C5", "C6"];
 
@@ -12,19 +14,21 @@ export default function VenueMapPage({ params }: { params: Promise<{ venueId: st
   const { venueId } = use(params);
   const [tab, setTab] = useState<"plan" | "map">("plan");
   const { data: venue, isLoading, isError, refetch } = useVenue(venueId);
+  const vv = useMessages("app").venue;
+  const v = vv.map;
   if (isLoading) return <Loading />;
   if (isError) return <ErrorState onRetry={() => refetch()} />;
-  if (!venue) return <EmptyState message="ไม่พบสนามนี้" />;
+  if (!venue) return <EmptyState message={vv.notFound} />;
 
   return (
     <main className="pb-8">
-      <AppHeader title="แผนผังสนาม" />
+      <AppHeader title={v.title} />
       <div className="px-4 pt-1">
         <div className="flex gap-2">
           {(
             [
-              { key: "plan", label: "แผนผัง" },
-              { key: "map", label: "แผนที่" },
+              { key: "plan", label: v.tabPlan },
+              { key: "map", label: v.tabMap },
             ] as const
           ).map(({ key, label }) => (
             <button
@@ -43,7 +47,7 @@ export default function VenueMapPage({ params }: { params: Promise<{ venueId: st
           venue.planImageUrl ? (
             <div className="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={venue.planImageUrl} alt="แผนผังสนาม" className="w-full" />
+              <img src={venue.planImageUrl} alt={v.planAlt} className="w-full" />
             </div>
           ) : (
           <div className="mt-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
@@ -51,7 +55,7 @@ export default function VenueMapPage({ params }: { params: Promise<{ venueId: st
             <div className="mb-3 flex justify-center">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-brand/10 px-4 py-1.5 text-xs font-semibold text-brand">
                 <DoorOpen className="size-3.5" />
-                ทางเข้า / ทางออก
+                {v.entrance}
               </span>
             </div>
 
@@ -74,18 +78,18 @@ export default function VenueMapPage({ params }: { params: Promise<{ venueId: st
               <div className="grid w-16 shrink-0 place-items-center rounded-xl bg-slate-200 text-center">
                 <div>
                   <p className="text-lg font-bold text-slate-600">P</p>
-                  <p className="text-[10px] text-slate-500">ที่จอดรถ</p>
+                  <p className="text-[10px] text-slate-500">{v.parking}</p>
                 </div>
               </div>
               <div className="flex flex-1 flex-wrap items-center justify-center gap-2 rounded-xl bg-amber-50 p-2 ring-1 ring-amber-100">
                 <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-amber-700 shadow-sm">
-                  <Coffee className="size-3.5" /> คาเฟ่
+                  <Coffee className="size-3.5" /> {v.cafe}
                 </span>
                 <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-amber-700 shadow-sm">
-                  ห้องน้ำ
+                  {v.restroom}
                 </span>
                 <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-amber-700 shadow-sm">
-                  <Lock className="size-3.5" /> ล็อกเกอร์
+                  <Lock className="size-3.5" /> {v.locker}
                 </span>
               </div>
             </div>
@@ -93,13 +97,13 @@ export default function VenueMapPage({ params }: { params: Promise<{ venueId: st
             {/* Legend */}
             <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] text-muted-foreground">
               <span className="inline-flex items-center gap-1.5">
-                <span className="size-2.5 rounded-sm bg-brand" /> คอร์ทแบดมินตัน
+                <span className="size-2.5 rounded-sm bg-brand" /> {v.legendCourt}
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <span className="size-2.5 rounded-sm bg-amber-200" /> สิ่งอำนวยความสะดวก
+                <span className="size-2.5 rounded-sm bg-amber-200" /> {v.legendFacility}
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <span className="size-2.5 rounded-sm bg-slate-300" /> ที่จอดรถ
+                <span className="size-2.5 rounded-sm bg-slate-300" /> {v.legendParking}
               </span>
             </div>
           </div>
@@ -125,7 +129,7 @@ export default function VenueMapPage({ params }: { params: Promise<{ venueId: st
                 variant="outline"
                 className="h-11 w-full rounded-xl border-brand font-semibold text-brand hover:bg-brand/10 hover:text-brand"
               >
-                <Navigation className="size-4" /> นำทางด้วย Google Maps
+                <Navigation className="size-4" /> {v.navGoogle}
               </Button>
             </a>
             {venue.phone && (
@@ -133,7 +137,7 @@ export default function VenueMapPage({ params }: { params: Promise<{ venueId: st
                 href={`tel:${venue.phone}`}
                 className="mt-3 flex items-center justify-center gap-2 text-sm font-medium text-muted-foreground"
               >
-                <Phone className="size-4 text-brand" /> โทร {venue.phone}
+                <Phone className="size-4 text-brand" /> {fmt(vv.callPhone, { phone: venue.phone })}
               </a>
             )}
           </div>

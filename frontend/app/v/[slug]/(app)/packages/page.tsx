@@ -5,6 +5,8 @@ import { Hourglass, Package as PackageIcon } from "lucide-react";
 import { api } from "@/lib/api/client";
 import { AppHeader } from "@/components/app-header";
 import { usePackages } from "@/lib/api/queries";
+import { useMessages } from "@/lib/i18n/context";
+import { fmt } from "@/lib/i18n/format";
 import { PromptPayQR } from "@/components/promptpay-qr";
 import { SlipUploader } from "@/components/slip-uploader";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
@@ -14,16 +16,17 @@ import type { PackagePurchaseInstructions, VenuePackage } from "@/lib/types";
 export default function PackagesPage() {
   const { data: packages, isLoading, isError, refetch } = usePackages();
   const myPackages = useQuery({ queryKey: ["my-packages"], queryFn: api.getMyPackages });
+  const t = useMessages("app").packages;
   const [buying, setBuying] = useState<VenuePackage | null>(null);
 
   return (
     <main className="pb-6">
-      <AppHeader title="แพ็กเกจ / คอร์ส" />
+      <AppHeader title={t.title} />
 
       {/* My packages */}
       {(myPackages.data?.length ?? 0) > 0 && (
         <section className="space-y-2 px-4 pt-4">
-          <h2 className="font-semibold">แพ็กเกจของฉัน</h2>
+          <h2 className="font-semibold">{t.mine}</h2>
           {myPackages.data!.map((mp) => {
             const pending = mp.status === "pending" || mp.status === "pending_review";
             return (
@@ -35,16 +38,16 @@ export default function PackagesPage() {
                   <div className="truncate font-semibold">{mp.name}</div>
                   <div className="text-xs text-muted-foreground">
                     {pending ? (
-                      <span className="text-amber-600">รออนุมัติ</span>
+                      <span className="text-amber-600">{t.pendingApproval}</span>
                     ) : (
-                      <>เหลือ {mp.remainingHours} ชม.{mp.expiresAt ? ` · ใช้ได้ถึง ${mp.expiresAt}` : ""}</>
+                      <>{fmt(t.remainingHrs, { h: mp.remainingHours })}{mp.expiresAt ? ` · ${fmt(t.validUntil, { date: mp.expiresAt })}` : ""}</>
                     )}
                   </div>
                 </div>
                 {!pending && (
                   <span className="text-lg font-bold text-brand">
                     {mp.remainingHours}
-                    <span className="text-xs font-normal text-muted-foreground"> ชม.</span>
+                    <span className="text-xs font-normal text-muted-foreground"> {t.hoursUnit}</span>
                   </span>
                 )}
               </div>
@@ -58,27 +61,27 @@ export default function PackagesPage() {
       ) : isError ? (
         <ErrorState onRetry={() => refetch()} />
       ) : !packages || packages.length === 0 ? (
-        <EmptyState message="ยังไม่มีแพ็กเกจ" />
+        <EmptyState message={t.empty} />
       ) : (
         <div className="space-y-3 p-4">
-          <h2 className="font-semibold">แพ็กเกจที่ซื้อได้</h2>
+          <h2 className="font-semibold">{t.buyable}</h2>
           {packages.map((p) => (
             <div key={p.id} className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
               <div className="flex items-start justify-between gap-2">
                 <div className="font-semibold">{p.name}</div>
                 <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-600">
-                  คุ้มกว่า {p.savePercent}%
+                  {fmt(t.savePercent, { p: p.savePercent })}
                 </span>
               </div>
               <div className="mt-1 text-2xl font-bold text-brand">฿{p.price.toLocaleString()}</div>
               <div className="mt-2 flex items-center justify-between gap-2">
-                <div className="text-xs text-muted-foreground">ใช้ได้ {p.validDays} วัน</div>
+                <div className="text-xs text-muted-foreground">{fmt(t.validDays, { d: p.validDays })}</div>
                 <button
                   type="button"
                   onClick={() => setBuying(p)}
                   className="rounded-full bg-brand px-5 py-1.5 text-sm font-semibold text-brand-foreground transition active:scale-[0.98]"
                 >
-                  ซื้อเลย
+                  {t.buyNow}
                 </button>
               </div>
             </div>
@@ -97,6 +100,7 @@ function PurchaseFlow({ pkg, onClose }: { pkg: VenuePackage; onClose: () => void
   const [slipFile, setSlipFile] = useState<File | null>(null);
   const [step, setStep] = useState<"confirm" | "pay" | "done">("confirm");
   const [busy, setBusy] = useState(false);
+  const t = useMessages("app").packages;
 
   async function start() {
     setBusy(true);
@@ -127,16 +131,16 @@ function PurchaseFlow({ pkg, onClose }: { pkg: VenuePackage; onClose: () => void
       >
         {step === "confirm" && (
           <>
-            <h2 className="text-lg font-bold">ซื้อแพ็กเกจ</h2>
+            <h2 className="text-lg font-bold">{t.buyTitle}</h2>
             <div className="mt-3 rounded-xl bg-app/60 p-4">
               <div className="font-semibold">{pkg.name}</div>
-              <div className="text-sm text-muted-foreground">ใช้ได้ {pkg.validDays} วัน</div>
+              <div className="text-sm text-muted-foreground">{fmt(t.validDays, { d: pkg.validDays })}</div>
               <div className="mt-1 text-2xl font-bold text-brand">฿{pkg.price.toLocaleString()}</div>
             </div>
             <div className="mt-4 flex gap-2">
-              <Button variant="outline" className="h-11 flex-1 rounded-xl" onClick={onClose}>ยกเลิก</Button>
+              <Button variant="outline" className="h-11 flex-1 rounded-xl" onClick={onClose}>{t.cancel}</Button>
               <Button className="h-11 flex-1 rounded-xl bg-brand font-semibold hover:bg-brand/90" disabled={busy} onClick={start}>
-                {busy ? "กำลังดำเนินการ..." : "ชำระเงิน"}
+                {busy ? t.processing : t.pay}
               </Button>
             </div>
           </>
@@ -144,28 +148,28 @@ function PurchaseFlow({ pkg, onClose }: { pkg: VenuePackage; onClose: () => void
 
         {step === "pay" && instructions && (
           <>
-            <h2 className="text-lg font-bold">ชำระเงิน ฿{instructions.amount.toLocaleString()}</h2>
+            <h2 className="text-lg font-bold">{fmt(t.payAmount, { n: instructions.amount.toLocaleString() })}</h2>
             {instructions.promptpay ? (
               <div className="mt-3 text-center">
                 <PromptPayQR payload={instructions.promptpay.payload} size={190} />
-                <p className="mt-2 text-xs text-muted-foreground">สแกนจ่ายด้วยแอปธนาคาร</p>
+                <p className="mt-2 text-xs text-muted-foreground">{t.scanBankApp}</p>
               </div>
             ) : (
-              <p className="mt-3 text-sm text-muted-foreground">โอนผ่านบัญชีธนาคารด้านล่าง</p>
+              <p className="mt-3 text-sm text-muted-foreground">{t.transferBankBelow}</p>
             )}
             {instructions.bank && (
               <dl className="mt-3 space-y-1.5 rounded-xl bg-app/60 p-3 text-sm">
-                <div className="flex justify-between"><dt className="text-muted-foreground">ธนาคาร</dt><dd className="font-medium">{instructions.bank.bankName ?? "-"}</dd></div>
-                <div className="flex justify-between"><dt className="text-muted-foreground">เลขบัญชี</dt><dd className="font-semibold tabular-nums">{instructions.bank.accountNumber ?? "-"}</dd></div>
-                <div className="flex justify-between"><dt className="text-muted-foreground">ชื่อบัญชี</dt><dd className="font-medium">{instructions.bank.accountName ?? "-"}</dd></div>
+                <div className="flex justify-between"><dt className="text-muted-foreground">{t.bankName}</dt><dd className="font-medium">{instructions.bank.bankName ?? "-"}</dd></div>
+                <div className="flex justify-between"><dt className="text-muted-foreground">{t.accountNo}</dt><dd className="font-semibold tabular-nums">{instructions.bank.accountNumber ?? "-"}</dd></div>
+                <div className="flex justify-between"><dt className="text-muted-foreground">{t.accountName}</dt><dd className="font-medium">{instructions.bank.accountName ?? "-"}</dd></div>
               </dl>
             )}
             <div className="mt-4 space-y-2">
-              <p className="text-sm font-medium">โอนแล้วแนบสลิป</p>
+              <p className="text-sm font-medium">{t.attachSlip}</p>
               <SlipUploader onValid={setSlipFile} />
             </div>
             <Button className="mt-3 h-11 w-full rounded-xl bg-brand font-semibold hover:bg-brand/90" disabled={busy || !slipFile} onClick={submitSlip}>
-              {busy ? "กำลังส่ง..." : "ส่งสลิป"}
+              {busy ? t.sending : t.sendSlip}
             </Button>
           </>
         )}
@@ -175,9 +179,9 @@ function PurchaseFlow({ pkg, onClose }: { pkg: VenuePackage; onClose: () => void
             <div className="mx-auto grid size-16 place-items-center rounded-full bg-amber-100 text-amber-600">
               <Hourglass className="size-8" />
             </div>
-            <p className="mt-4 font-semibold">ส่งสลิปแล้ว</p>
-            <p className="mt-1 text-sm text-muted-foreground">รอร้านตรวจสอบ แพ็กเกจจะใช้งานได้เมื่ออนุมัติ</p>
-            <Button className="mt-4 h-11 w-full rounded-xl bg-brand font-semibold hover:bg-brand/90" onClick={onClose}>เสร็จสิ้น</Button>
+            <p className="mt-4 font-semibold">{t.sentTitle}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{t.sentSub}</p>
+            <Button className="mt-4 h-11 w-full rounded-xl bg-brand font-semibold hover:bg-brand/90" onClick={onClose}>{t.done}</Button>
           </div>
         )}
       </div>

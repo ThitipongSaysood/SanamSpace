@@ -1,4 +1,5 @@
 "use client";
+import { useMessages } from "@/lib/i18n/context";
 import { useState } from "react";
 import { SportMedia } from "@/components/media";
 
@@ -19,12 +20,13 @@ export function VenueMedia({
   className?: string;
 }) {
   const [failed, setFailed] = useState(false);
+  const ui = useMessages("app").ui;
 
   if (src && !failed) {
     return (
       <img
         src={src}
-        alt={alt ?? "ภาพสนาม"}
+        alt={alt ?? ui.venueImageAlt}
         className={`object-cover ${className}`}
         onError={() => setFailed(true)}
       />

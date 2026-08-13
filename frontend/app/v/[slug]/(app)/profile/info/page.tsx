@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useMembership } from "@/lib/api/queries";
 import { AppHeader } from "@/components/app-header";
+import { useMessages } from "@/lib/i18n/context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +11,7 @@ import { Label } from "@/components/ui/label";
 export default function ProfileInfoPage() {
   const { user, updateUser } = useAuth();
   const { data: membership } = useMembership();
+  const t = useMessages("app").profileInfo;
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ displayName: "", email: "", phone: "" });
   const [error, setError] = useState<string | null>(null);
@@ -24,11 +26,11 @@ export default function ProfileInfoPage() {
   }
   function save() {
     if (!form.displayName.trim()) {
-      setError("กรุณากรอกชื่อ");
+      setError(t.errName);
       return;
     }
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-      setError("รูปแบบอีเมลไม่ถูกต้อง");
+      setError(t.errEmail);
       return;
     }
     updateUser({
@@ -40,16 +42,16 @@ export default function ProfileInfoPage() {
   }
 
   const viewRows = [
-    { label: "ชื่อ-นามสกุล", value: user.displayName },
-    { label: "รหัสสมาชิก", value: membership?.memberId ?? "ED-0001234" },
-    { label: "ระดับสมาชิก", value: membership ? `Member ${membership.tier}` : "—" },
-    { label: "อีเมล", value: user.email || "—" },
-    { label: "เบอร์โทร", value: user.phone || "—" },
+    { label: t.fullName, value: user.displayName },
+    { label: t.memberId, value: membership?.memberId ?? "ED-0001234" },
+    { label: t.memberTier, value: membership ? `${t.memberPrefix} ${membership.tier}` : "—" },
+    { label: t.email, value: user.email || "—" },
+    { label: t.phone, value: user.phone || "—" },
   ];
 
   return (
     <main className="pb-24">
-      <AppHeader title="ข้อมูลส่วนตัว" />
+      <AppHeader title={t.title} />
       <div className="space-y-4 p-4">
         <div className="flex flex-col items-center rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-black/5">
           <div className="grid size-20 place-items-center rounded-full bg-brand/10 text-3xl font-bold text-brand">
@@ -62,16 +64,16 @@ export default function ProfileInfoPage() {
         {editing ? (
           <div className="space-y-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
             <div className="space-y-1.5">
-              <Label htmlFor="name">ชื่อ-นามสกุล</Label>
+              <Label htmlFor="name">{t.fullName}</Label>
               <Input
                 id="name"
                 value={form.displayName}
                 onChange={(e) => setForm({ ...form, displayName: e.target.value })}
-                placeholder="ชื่อ-นามสกุล"
+                placeholder={t.fullName}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="email">อีเมล</Label>
+              <Label htmlFor="email">{t.email}</Label>
               <Input
                 id="email"
                 type="email"
@@ -82,7 +84,7 @@ export default function ProfileInfoPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="phone">เบอร์โทร</Label>
+              <Label htmlFor="phone">{t.phone}</Label>
               <Input
                 id="phone"
                 type="tel"
@@ -94,7 +96,7 @@ export default function ProfileInfoPage() {
             </div>
             {error && <p className="text-sm text-brand-danger">{error}</p>}
             <div className="rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
-              รหัสสมาชิกและระดับสมาชิกแก้ไขไม่ได้
+              {t.cantEdit}
             </div>
           </div>
         ) : (
@@ -122,10 +124,10 @@ export default function ProfileInfoPage() {
               className="h-12 rounded-xl border-black/10 text-base font-semibold"
               onClick={() => setEditing(false)}
             >
-              ยกเลิก
+              {t.cancel}
             </Button>
             <Button className="h-12 rounded-xl bg-brand text-base font-semibold hover:bg-brand/90" onClick={save}>
-              บันทึก
+              {t.save}
             </Button>
           </div>
         ) : (
@@ -134,7 +136,7 @@ export default function ProfileInfoPage() {
             className="h-12 w-full rounded-xl border-black/10 text-base font-semibold"
             onClick={startEdit}
           >
-            แก้ไขข้อมูล
+            {t.edit}
           </Button>
         )}
       </div>

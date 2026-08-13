@@ -1,4 +1,5 @@
 "use client";
+import { useMessages } from "@/lib/i18n/context";
 import { useTenant } from "@/lib/tenant/tenant-context";
 
 /**
@@ -13,7 +14,7 @@ import { useTenant } from "@/lib/tenant/tenant-context";
  * It reads the venue's catalogue now, and an unknown key gets a plain stadium
  * rather than the wrong sport or a white screen.
  */
-const UNKNOWN = { emoji: "🏟️", label: "สนาม" };
+const UNKNOWN_EMOJI = "🏟️";
 
 export function SportMedia({
   sport,
@@ -25,13 +26,14 @@ export function SportMedia({
   showLabel?: boolean;
 }) {
   const { tenant } = useTenant();
+  const ui = useMessages("app").ui;
   const found = tenant.sportMeta.find((s) => s.key === sport);
-  const meta = found ? { emoji: found.emoji, label: found.name } : UNKNOWN;
+  const meta = found ? { emoji: found.emoji, label: found.name } : { emoji: UNKNOWN_EMOJI, label: ui.venueFallback };
 
   return (
     <div
       role="img"
-      aria-label={`ภาพสนาม${meta.label}`}
+      aria-label={`${ui.venueImageAlt}${meta.label}`}
       className={`relative flex items-center justify-center overflow-hidden bg-gradient-to-br from-brand to-brand-secondary ${className}`}
     >
       <div className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-white/10" />

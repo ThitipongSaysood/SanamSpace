@@ -5,6 +5,8 @@ import { Search, ChevronDown } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
 import { useVenues } from "@/lib/api/queries";
 import { useTenant } from "@/lib/tenant/tenant-context";
+import { useMessages } from "@/lib/i18n/context";
+import { fmt } from "@/lib/i18n/format";
 import { VenueCard } from "@/components/venue-card";
 import { Loading, EmptyState, ErrorState } from "@/components/states";
 
@@ -28,6 +30,7 @@ function SearchInner() {
   // used to offer แบดมินตัน/ฟุตบอล/ฟุตซอล/เทนนิส to every venue on the
   // platform, so most of its options searched for something nobody rented.
   const { tenant } = useTenant();
+  const t = useMessages("app").search;
   const sportParam = useSearchParams().get("sport");
   const initialSport = tenant.sportMeta.some((s) => s.key === sportParam) ? (sportParam as string) : "";
 
@@ -49,7 +52,7 @@ function SearchInner() {
 
   return (
     <main className="pb-8">
-      <AppHeader title="ค้นหาสนาม" />
+      <AppHeader title={t.title} />
       <div className="space-y-5 p-4">
         <form
           onSubmit={(e) => {
@@ -64,18 +67,18 @@ function SearchInner() {
               type="text"
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
-              placeholder="ค้นหาสนาม, โซน, สถานที่"
+              placeholder={t.keywordPlaceholder}
               className="h-11 w-full rounded-xl bg-white pl-10 pr-3.5 text-sm ring-1 ring-black/10 placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-brand"
             />
           </div>
 
-          <Field label="ประเภทกีฬา">
+          <Field label={t.sportType}>
             <select
               value={sport}
               onChange={(e) => setSport(e.target.value)}
               className={selectCls}
             >
-              <option value="">ทุกประเภท</option>
+              <option value="">{t.allTypes}</option>
               {tenant.sportMeta.map((s) => (
                 <option key={s.key} value={s.key}>
                   {s.name}
@@ -84,19 +87,19 @@ function SearchInner() {
             </select>
           </Field>
 
-          <Field label="สถานที่">
+          <Field label={t.location}>
             <select
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               className={selectCls}
             >
-              <option value="all">ทั้งหมด</option>
+              <option value="all">{t.all}</option>
               <option value="nonthaburi">นนทบุรี</option>
               <option value="pathumthani">ปทุมธานี</option>
             </select>
           </Field>
 
-          <Field label="วันที่">
+          <Field label={t.date}>
             <select value={date} onChange={(e) => setDate(e.target.value)} className={selectCls}>
               <option>25 มิ.ย. 2569</option>
               <option>26 มิ.ย. 2569</option>
@@ -104,7 +107,7 @@ function SearchInner() {
             </select>
           </Field>
 
-          <Field label="เวลา">
+          <Field label={t.time}>
             <select value={time} onChange={(e) => setTime(e.target.value)} className={selectCls}>
               <option>10:00 - 12:00</option>
               <option>12:00 - 16:00</option>
@@ -117,19 +120,19 @@ function SearchInner() {
             type="submit"
             className="h-12 w-full rounded-xl bg-brand text-base font-semibold text-brand-foreground transition active:scale-[0.99]"
           >
-            ค้นหา
+            {t.searchBtn}
           </button>
         </form>
 
         {searched && (
-          <section aria-label="ผลการค้นหา">
+          <section aria-label={t.resultsAria}>
             {isLoading && <Loading />}
             {isError && <ErrorState onRetry={() => refetch()} />}
             {!isLoading && !isError && (
               <>
-                <h2 className="mb-2 font-semibold">พบ {results.length} สนาม</h2>
+                <h2 className="mb-2 font-semibold">{fmt(t.foundN, { n: results.length })}</h2>
                 {results.length === 0 ? (
-                  <EmptyState message="ไม่พบสนามที่ค้นหา" />
+                  <EmptyState message={t.notFound} />
                 ) : (
                   <div className="space-y-3">
                     {results.map((v) => (

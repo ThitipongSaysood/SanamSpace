@@ -3,6 +3,8 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { X } from "lucide-react";
 import type { TenantBranding } from "@/lib/tenant/tenant-context";
 import type { PublicWelcomeBanner } from "@/lib/types";
+import { useMessages } from "@/lib/i18n/context";
+import { fmt } from "@/lib/i18n/format";
 
 const STORAGE_KEY = "sanamspace.welcomeSeen";
 
@@ -68,6 +70,7 @@ export function WelcomePopup({ tenant }: { tenant: TenantBranding }) {
   const [dismissed, setDismissed] = useState(false);
   const [index, setIndex] = useState(0);
   const strip = useRef<HTMLDivElement>(null);
+  const t = useMessages("app").welcome;
   const open = banners.length > 0 && seen !== version && !dismissed;
 
   // A dialog that leaves the page scrollable behind it feels broken on a phone.
@@ -116,16 +119,16 @@ export function WelcomePopup({ tenant }: { tenant: TenantBranding }) {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={current.title ?? "ประกาศจากสนาม"}
+      aria-label={current.title ?? t.announceAria}
       className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-5"
     >
-      <button type="button" aria-label="ปิด" className="absolute inset-0" onClick={close} />
+      <button type="button" aria-label={t.close} className="absolute inset-0" onClick={close} />
 
       <div className="relative w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-2xl">
         <button
           type="button"
           onClick={close}
-          aria-label="ปิด"
+          aria-label={t.close}
           className="absolute right-3 top-3 z-10 grid size-9 place-items-center rounded-full bg-black/35 text-white backdrop-blur transition active:scale-95"
         >
           <X className="size-5" />
@@ -159,7 +162,7 @@ export function WelcomePopup({ tenant }: { tenant: TenantBranding }) {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={banner.imageUrl}
-                  alt={banner.title ?? "แบนเนอร์ของสนาม"}
+                  alt={banner.title ?? t.bannerAlt}
                   draggable={false}
                   className={`w-full object-contain ${many ? "h-[42vh]" : "max-h-[55vh]"}`}
                 />
@@ -187,7 +190,7 @@ export function WelcomePopup({ tenant }: { tenant: TenantBranding }) {
               onClick={() => (isLast ? close() : goTo(index + 1))}
               className="flex h-12 w-full items-center justify-center rounded-xl bg-brand text-base font-semibold text-brand-foreground transition active:scale-[0.99]"
             >
-              ดูรายละเอียด
+              {t.viewDetail}
             </a>
           ) : (
             <button
@@ -195,7 +198,7 @@ export function WelcomePopup({ tenant }: { tenant: TenantBranding }) {
               onClick={() => (isLast ? close() : goTo(index + 1))}
               className="h-12 w-full rounded-xl bg-brand text-base font-semibold text-brand-foreground transition active:scale-[0.99]"
             >
-              {isLast ? "เริ่มใช้งาน" : "ถัดไป"}
+              {isLast ? t.start : t.next}
             </button>
           )}
 
@@ -207,7 +210,7 @@ export function WelcomePopup({ tenant }: { tenant: TenantBranding }) {
                   key={b.id}
                   type="button"
                   onClick={() => goTo(i)}
-                  aria-label={`ประกาศที่ ${i + 1}`}
+                  aria-label={fmt(t.announceNAria, { n: i + 1 })}
                   aria-current={i === index}
                   className={
                     i === index

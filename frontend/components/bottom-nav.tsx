@@ -2,21 +2,24 @@
 import { usePathname } from "next/navigation";
 import { Home, CalendarCheck, Bell, User } from "lucide-react";
 import { VenueLink } from "@/lib/tenant/venue-nav";
+import { useMessages } from "@/lib/i18n/context";
 
 // Venue-relative — the links resolve under whichever /v/{slug} is active.
+// Labels come from the catalog (nav.*), aligned by index.
 const items = [
-  { href: "/home", label: "หน้าหลัก", icon: Home },
-  { href: "/bookings", label: "การจอง", icon: CalendarCheck },
-  { href: "/notifications", label: "แจ้งเตือน", icon: Bell },
-  { href: "/profile", label: "โปรไฟล์", icon: User },
-];
+  { href: "/home", key: "home", icon: Home },
+  { href: "/bookings", key: "bookings", icon: CalendarCheck },
+  { href: "/notifications", key: "notifications", icon: Bell },
+  { href: "/profile", key: "profile", icon: User },
+] as const;
 
 export function BottomNav() {
   const path = usePathname();
+  const nav = useMessages("app").nav;
   const relative = path?.replace(/^\/v\/[^/]+/, "") || "/";
   return (
     <nav className="fixed inset-x-0 bottom-0 z-20 mx-auto flex max-w-md border-t border-black/5 bg-white/95 backdrop-blur">
-      {items.map(({ href, label, icon: Icon }) => {
+      {items.map(({ href, key, icon: Icon }) => {
         const active = relative === href;
         return (
           <VenueLink
@@ -28,7 +31,7 @@ export function BottomNav() {
             }`}
           >
             <Icon className={`size-5 ${active ? "fill-brand/15" : ""}`} />
-            {label}
+            {nav[key]}
           </VenueLink>
         );
       })}

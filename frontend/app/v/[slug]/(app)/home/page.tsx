@@ -26,6 +26,8 @@ import {
   useVenues,
 } from "@/lib/api/queries";
 import { useTenant } from "@/lib/tenant/tenant-context";
+import { useMessages, useLocale } from "@/lib/i18n/context";
+import { fmt, intlLocale } from "@/lib/i18n/format";
 import { VenueCard } from "@/components/venue-card";
 import { Avatar } from "@/components/avatar";
 import { BrandLogo } from "@/components/brand-logo";
@@ -48,8 +50,8 @@ function nextBooking(bookings: Booking[] | undefined): Booking | null {
   );
 }
 
-function thaiDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("th-TH", { weekday: "short", day: "numeric", month: "short" });
+function fmtDate(iso: string, tag: string): string {
+  return new Date(iso).toLocaleDateString(tag, { weekday: "short", day: "numeric", month: "short" });
 }
 
 /** One of the smaller destinations under the main call to action. */
@@ -90,6 +92,9 @@ export default function HomePage() {
   const { data: promotions } = usePromotions();
   const { data: redemptions } = useMyRedemptions();
   const { tenant } = useTenant();
+  const t = useMessages("app").home;
+  const { locale } = useLocale();
+  const dateTag = intlLocale(locale);
 
   const upcoming = nextBooking(bookings);
   // Only what is still owed. A reward already collected is history and belongs
@@ -125,7 +130,7 @@ export default function HomePage() {
           <div className="flex items-center gap-1.5">
             <Link
               href="/notifications"
-              aria-label={unread > 0 ? `การแจ้งเตือน ${unread} รายการ` : "การแจ้งเตือน"}
+              aria-label={unread > 0 ? fmt(t.notificationsN, { n: unread }) : t.notifications}
               className="relative grid size-9 place-items-center rounded-full text-muted-foreground transition active:scale-95"
             >
               <Bell className="size-5" />
@@ -135,7 +140,7 @@ export default function HomePage() {
             </Link>
             <Link
               href="/profile"
-              aria-label="โปรไฟล์"
+              aria-label={t.profile}
               className="grid size-9 place-items-center overflow-hidden rounded-full bg-brand/10 font-semibold text-brand ring-1 ring-brand/15"
             >
               <Avatar src={user?.avatarUrl} name={user?.displayName} />
@@ -153,8 +158,8 @@ export default function HomePage() {
             className="mt-4 flex items-center gap-3 rounded-2xl bg-gradient-to-r from-brand to-brand-secondary p-4 text-white shadow-sm transition active:scale-[0.99]"
           >
             <div className="min-w-0 flex-1">
-              <p className="text-xs text-white/80">สวัสดี</p>
-              <h1 className="truncate text-xl font-bold">{user?.displayName ?? "ยินดีต้อนรับ"}</h1>
+              <p className="text-xs text-white/80">{t.greeting}</p>
+              <h1 className="truncate text-xl font-bold">{user?.displayName ?? t.welcome}</h1>
               {membership?.tier && (
                 <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-semibold">
                   <Crown className="size-3" /> {membership.tier}
@@ -162,15 +167,15 @@ export default function HomePage() {
               )}
             </div>
             <div className="shrink-0 text-right">
-              <div className="text-[11px] text-white/80">คะแนนสะสม</div>
+              <div className="text-[11px] text-white/80">{t.points}</div>
               <div className="text-2xl font-bold leading-tight">{fmtNum.format(membership?.points ?? 0)}</div>
             </div>
             <ChevronRight className="size-5 shrink-0 text-white/70" />
           </Link>
         ) : (
           <div className="mt-4 rounded-2xl bg-gradient-to-r from-brand to-brand-secondary p-4 text-white shadow-sm">
-            <p className="text-xs text-white/80">สวัสดี</p>
-            <h1 className="truncate text-xl font-bold">{user?.displayName ?? "ยินดีต้อนรับ"}</h1>
+            <p className="text-xs text-white/80">{t.greeting}</p>
+            <h1 className="truncate text-xl font-bold">{user?.displayName ?? t.welcome}</h1>
           </div>
         )}
       </header>
@@ -185,8 +190,8 @@ export default function HomePage() {
             <CalendarPlus className="size-7" />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-lg font-bold">จองสนาม</span>
-            <span className="block text-sm text-muted-foreground">เลือกคอร์ท วัน และเวลาที่ต้องการ</span>
+            <span className="block text-lg font-bold">{t.book}</span>
+            <span className="block text-sm text-muted-foreground">{t.bookSub}</span>
           </span>
           <span className="grid size-8 shrink-0 place-items-center rounded-full bg-app text-muted-foreground">
             <ChevronRight className="size-4" />
@@ -202,7 +207,7 @@ export default function HomePage() {
               <div className="flex items-center gap-2 border-b border-amber-200/70 px-4 py-2.5">
                 <Gift className="size-4 shrink-0 text-amber-700" />
                 <h2 id="to-collect-heading" className="flex-1 text-sm font-semibold text-amber-900">
-                  ของรางวัลที่รอรับ
+                  {t.rewardsToCollect}
                 </h2>
                 <ChevronRight className="size-4 shrink-0 text-amber-700/70" />
               </div>
@@ -213,13 +218,15 @@ export default function HomePage() {
                     <div className="min-w-0">
                       <div className="truncate text-sm font-medium text-amber-900">{r.name}</div>
                       <div className="text-[11px] text-amber-800">
-                        ใช้ {fmtNum.format(r.pointsSpent)} คะแนน
+                        {fmt(t.usedPoints, { n: fmtNum.format(r.pointsSpent) })}
                         {r.expiresAt &&
-                          ` · รับภายใน ${new Date(r.expiresAt).toLocaleString("th-TH", {
-                            day: "numeric",
-                            month: "short",
-                            hour: "2-digit",
-                            minute: "2-digit",
+                          ` · ${fmt(t.collectBy, {
+                            date: new Date(r.expiresAt).toLocaleString(dateTag, {
+                              day: "numeric",
+                              month: "short",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }),
                           })}`}
                       </div>
                     </div>
@@ -234,17 +241,17 @@ export default function HomePage() {
         )}
 
         <div className="grid grid-cols-2 gap-3">
-          <ShortcutCard href="/bookings" icon={History} title="ประวัติการจอง" subtitle="ดูการจองทั้งหมด" />
+          <ShortcutCard href="/bookings" icon={History} title={t.history} subtitle={t.historySub} />
           {tenant.pointsEnabled && (
-            <ShortcutCard href="/membership" icon={Crown} title="แต้มสะสม" subtitle="สิทธิพิเศษสมาชิก" />
+            <ShortcutCard href="/membership" icon={Crown} title={t.pointsShortcut} subtitle={t.pointsShortcutSub} />
           )}
-          <ShortcutCard href="/packages" icon={Package} title="แพ็กเกจ" subtitle="ซื้อชั่วโมงล่วงหน้า" />
+          <ShortcutCard href="/packages" icon={Package} title={t.packages} subtitle={t.packagesSub} />
           {venue && (
             <ShortcutCard
               href={infoHref}
               icon={Store}
-              title="ข้อมูลสนาม"
-              subtitle={branches.length === 1 ? "รูป · รีวิว · แผนที่" : `เลือกสาขา (${branches.length})`}
+              title={t.venueInfo}
+              subtitle={branches.length === 1 ? t.venueInfoSub : fmt(t.pickBranchN, { n: branches.length })}
             />
           )}
         </div>
@@ -253,10 +260,10 @@ export default function HomePage() {
         <section aria-labelledby="upcoming-heading">
           <div className="mb-2 flex items-center justify-between">
             <h2 id="upcoming-heading" className="font-semibold">
-              การจองที่กำลังจะถึง
+              {t.upcoming}
             </h2>
             <Link href="/bookings" className="text-xs font-medium text-brand">
-              ดูทั้งหมด
+              {t.seeAll}
             </Link>
           </div>
 
@@ -279,7 +286,7 @@ export default function HomePage() {
                 </div>
                 <div className="mt-1 flex items-center gap-1.5 text-sm font-medium">
                   <CalendarClock className="size-3.5 text-muted-foreground" />
-                  {thaiDate(upcoming.date)} · {upcoming.start}–{upcoming.end}
+                  {fmtDate(upcoming.date, dateTag)} · {upcoming.start}–{upcoming.end}
                 </div>
               </div>
               <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
@@ -289,13 +296,13 @@ export default function HomePage() {
               <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-brand/10 text-brand">
                 <CalendarPlus className="size-6" />
               </div>
-              <p className="mt-3 font-semibold">ยังไม่มีการจองที่กำลังจะถึง</p>
-              <p className="mt-0.5 text-sm text-muted-foreground">เลือกคอร์ทแล้วมาเล่นกันเถอะ</p>
+              <p className="mt-3 font-semibold">{t.noUpcoming}</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">{t.noUpcomingSub}</p>
               <Link
                 href={bookHref}
                 className="mt-3 inline-flex h-10 items-center rounded-xl bg-brand px-5 text-sm font-semibold text-brand-foreground"
               >
-                จองสนาม
+                {t.book}
               </Link>
             </div>
           )}
@@ -311,10 +318,10 @@ export default function HomePage() {
         {shownPromos.length > 0 && (
           <section aria-labelledby="home-promos">
             <div className="mb-2 flex items-center justify-between">
-              <h2 id="home-promos" className="text-lg font-bold">โปรโมชั่น</h2>
+              <h2 id="home-promos" className="text-lg font-bold">{t.promotions}</h2>
               {allPromos.length > shownPromos.length && (
                 <Link href="/promotions" className="text-sm font-semibold text-brand">
-                  ดูทั้งหมด
+                  {t.seeAll}
                 </Link>
               )}
             </div>
@@ -335,7 +342,7 @@ export default function HomePage() {
                     {p.subtitle && <div className="truncate text-xs text-white/85">{p.subtitle}</div>}
                     {p.couponCode && (
                       <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-semibold">
-                        จองเลย · ใช้โค้ด {p.couponCode}
+                        {fmt(t.bookWithCode, { code: p.couponCode })}
                       </div>
                     )}
                   </div>
@@ -354,7 +361,7 @@ export default function HomePage() {
         {isError && <ErrorState onRetry={() => refetch()} />}
         {venues && venues.length > 1 && (
           <section>
-            <h2 className="mb-2 font-semibold">เลือกสาขา</h2>
+            <h2 className="mb-2 font-semibold">{t.pickBranch}</h2>
             <div className="space-y-3">
               {venues.map((v) => (
                 <VenueCard key={v.id} venue={v} />
@@ -374,6 +381,7 @@ export default function HomePage() {
  * and goes nowhere is worse than a plain one.
  */
 function WelcomeCard({ banner }: { banner: PublicWelcomeBanner }) {
+  const t = useMessages("app").home;
   const hasText = Boolean(banner.title || banner.message);
 
   const inner = (
@@ -385,7 +393,7 @@ function WelcomeCard({ banner }: { banner: PublicWelcomeBanner }) {
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={banner.imageUrl}
-          alt={banner.title ?? "แบนเนอร์ของสนาม"}
+          alt={banner.title ?? t.bannerAlt}
           className="block h-auto w-full"
         />
       )}

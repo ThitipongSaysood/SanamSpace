@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { CalendarDays, CheckCircle2, Clock } from "lucide-react";
+import { useMessages, useLocale } from "@/lib/i18n/context";
+import { fmt, intlLocale } from "@/lib/i18n/format";
 
 /**
  * The customer's check-in pass.
@@ -30,6 +32,8 @@ export function QRTicket({
   checkedInAt?: string | null;
 }) {
   const [src, setSrc] = useState<string | null>(null);
+  const t = useMessages("app").ticket;
+  const { locale } = useLocale();
 
   useEffect(() => {
     let alive = true;
@@ -48,7 +52,7 @@ export function QRTicket({
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={src}
-            alt={`QR สำหรับเช็คอิน รหัส ${code}`}
+            alt={fmt(t.alt, { code })}
             width={208}
             height={208}
             className={`mx-auto size-52 rounded-xl ${checkedInAt ? "opacity-25" : ""}`}
@@ -61,7 +65,7 @@ export function QRTicket({
         {checkedInAt && (
           <div className="absolute inset-0 grid place-items-center">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-1.5 text-sm font-semibold text-brand-foreground shadow">
-              <CheckCircle2 className="size-4" /> เช็คอินแล้ว
+              <CheckCircle2 className="size-4" /> {t.checkedIn}
             </span>
           </div>
         )}
@@ -82,8 +86,7 @@ export function QRTicket({
       <div className="mt-4 border-t border-black/5 pt-4 text-center">
         {checkedInAt ? (
           <p className="text-sm font-medium text-brand">
-            เช็คอินเมื่อ{" "}
-            {new Date(checkedInAt).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })} น.
+            {fmt(t.checkedInAt, { time: new Date(checkedInAt).toLocaleTimeString(intlLocale(locale), { hour: "2-digit", minute: "2-digit" }) })}
           </p>
         ) : (
           <Countdown startsAt={startsAt} />
@@ -95,6 +98,7 @@ export function QRTicket({
 
 /** Ticks once a second toward the slot, then says the doors are open. */
 function Countdown({ startsAt }: { startsAt: string }) {
+  const t = useMessages("app").ticket;
   const [left, setLeft] = useState(() => remaining(startsAt));
 
   useEffect(() => {
@@ -103,18 +107,18 @@ function Countdown({ startsAt }: { startsAt: string }) {
   }, [startsAt]);
 
   if (left <= 0) {
-    return <p className="text-sm font-semibold text-brand">ถึงเวลาแล้ว — แสดง QR ให้พนักงานสแกน</p>;
+    return <p className="text-sm font-semibold text-brand">{t.timeUp}</p>;
   }
 
   const units = [
-    { v: Math.floor(left / 3600), l: "ชม." },
-    { v: Math.floor((left % 3600) / 60), l: "นาที" },
-    { v: left % 60, l: "วินาที" },
+    { v: Math.floor(left / 3600), l: t.hr },
+    { v: Math.floor((left % 3600) / 60), l: t.min },
+    { v: left % 60, l: t.sec },
   ];
 
   return (
     <>
-      <p className="text-xs text-muted-foreground">เริ่มใช้งานได้ใน</p>
+      <p className="text-xs text-muted-foreground">{t.startsIn}</p>
       <div className="mt-1.5 flex items-end justify-center gap-2">
         {units.map((u, i) => (
           <div key={u.l} className="flex items-end gap-2">

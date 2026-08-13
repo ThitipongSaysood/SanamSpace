@@ -6,6 +6,8 @@ import type { Booking } from "@/lib/types";
 import { api } from "@/lib/api/client";
 import { useTenant } from "@/lib/tenant/tenant-context";
 import { useBooking, useRefunds } from "@/lib/api/queries";
+import { useMessages, useLocale } from "@/lib/i18n/context";
+import { fmt, intlLocale } from "@/lib/i18n/format";
 import { StatusBadge } from "@/components/status-badge";
 import { SportMedia } from "@/components/media";
 import { AppHeader } from "@/components/app-header";
@@ -13,10 +15,10 @@ import { Loading, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import type { RefundStatus } from "@/lib/types";
 
-const REFUND_META: Record<RefundStatus, { label: string; cls: string }> = {
-  requested: { label: "รอตรวจสอบ", cls: "bg-amber-100 text-amber-700" },
-  approved: { label: "อนุมัติแล้ว", cls: "bg-brand/10 text-brand" },
-  rejected: { label: "ถูกปฏิเสธ", cls: "bg-red-100 text-red-600" },
+const REFUND_CLS: Record<RefundStatus, string> = {
+  requested: "bg-amber-100 text-amber-700",
+  approved: "bg-brand/10 text-brand",
+  rejected: "bg-red-100 text-red-600",
 };
 
 const baht = (n: number) => `฿${n.toLocaleString("th-TH")}`;
@@ -31,6 +33,7 @@ const baht = (n: number) => `฿${n.toLocaleString("th-TH")}`;
  * question someone eventually asks at the counter.
  */
 function MoneyBreakdown({ booking }: { booking: Booking }) {
+  const t = useMessages("app").bookingDetail;
   const rentals = booking.rentals ?? [];
   const court = booking.courtAmount ?? booking.amount;
   const discount = booking.discountAmount ?? 0;
@@ -46,7 +49,7 @@ function MoneyBreakdown({ booking }: { booking: Booking }) {
       {itemised && (
         <>
           <div className="flex items-baseline justify-between">
-            <span className="text-muted-foreground">ค่าสนาม</span>
+            <span className="text-muted-foreground">{t.court}</span>
             <span className="tabular-nums">{baht(court)}</span>
           </div>
 
@@ -61,7 +64,7 @@ function MoneyBreakdown({ booking }: { booking: Booking }) {
 
           {discount > 0 && (
             <div className="flex items-baseline justify-between text-emerald-700">
-              <span className="min-w-0 truncate">{booking.discountLabel ?? "ส่วนลด"}</span>
+              <span className="min-w-0 truncate">{booking.discountLabel ?? t.discount}</span>
               <span className="tabular-nums">−{baht(discount)}</span>
             </div>
           )}
@@ -72,12 +75,12 @@ function MoneyBreakdown({ booking }: { booking: Booking }) {
           {credit && (
             <div className="flex items-baseline justify-between text-brand">
               <span className="min-w-0 truncate">
-                ใช้เครดิต{credit.packageName ? ` · ${credit.packageName}` : ""}
+                {t.useCredit}{credit.packageName ? ` · ${credit.packageName}` : ""}
               </span>
-              {/* An unknown figure says nothing rather than "−0 ชม.", which
+              {/* An unknown figure says nothing rather than "−0 hrs", which
                   reads as a bug on a receipt. */}
               <span className="shrink-0 tabular-nums">
-                {credit.hoursUsed > 0 ? `−${credit.hoursUsed} ชม.` : "จ่ายด้วยเครดิต"}
+                {credit.hoursUsed > 0 ? `−${credit.hoursUsed} ${t.hoursUnit}` : t.payWithCredit}
               </span>
             </div>
           )}
@@ -85,7 +88,7 @@ function MoneyBreakdown({ booking }: { booking: Booking }) {
       )}
 
       <div className="flex items-baseline justify-between pt-1">
-        <span className="text-muted-foreground">ยอดรวม</span>
+        <span className="text-muted-foreground">{t.total}</span>
         <span className="text-2xl font-bold text-brand tabular-nums">{baht(booking.amount)}</span>
       </div>
 
@@ -93,21 +96,21 @@ function MoneyBreakdown({ booking }: { booking: Booking }) {
           "จ่ายแล้ว ฿0" is noise, not information. */}
       {paid > 0 && (
         <div className="flex items-baseline justify-between border-t border-black/5 pt-1">
-          <span className="text-muted-foreground">จ่ายแล้ว</span>
+          <span className="text-muted-foreground">{t.paid}</span>
           <span className="tabular-nums">{baht(paid)}</span>
         </div>
       )}
       {paid > 0 && outstanding > 0 && (
         <div className="flex items-baseline justify-between font-medium text-amber-700">
-          <span>ค้างชำระ</span>
+          <span>{t.outstanding}</span>
           <span className="tabular-nums">{baht(outstanding)}</span>
         </div>
       )}
 
       {credit && booking.amount === 0 && (
         <p className="pt-1 text-xs text-muted-foreground">
-          จ่ายด้วยเครดิตทั้งหมด ไม่มียอดต้องโอน
-          {credit.remainingHours != null && ` · เครดิตคงเหลือ ${credit.remainingHours} ชม.`}
+          {t.allCreditNote}
+          {credit.remainingHours != null && ` · ${fmt(t.creditRemaining, { h: credit.remainingHours })}`}
         </p>
       )}
     </div>
@@ -116,6 +119,7 @@ function MoneyBreakdown({ booking }: { booking: Booking }) {
 
 /** The one next action a customer actually has, given where their money is. */
 function PaymentNextStep({ booking }: { booking: Booking }) {
+  const t = useMessages("app").bookingDetail;
   const cta = "flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand text-base font-semibold text-white";
   const outstanding = booking.outstandingAmount ?? booking.amount;
   const paid = booking.paidAmount ?? 0;
@@ -126,13 +130,13 @@ function PaymentNextStep({ booking }: { booking: Booking }) {
     return (
       <div className="space-y-2">
         <div className="rounded-2xl bg-emerald-50 p-4 text-center">
-          <p className="font-semibold text-emerald-800">จ่ายมัดจำแล้ว คอร์ทถูกจองให้เรียบร้อย</p>
+          <p className="font-semibold text-emerald-800">{t.depositPaid}</p>
           <p className="mt-0.5 text-sm text-emerald-700">
-            เหลือ ฿{outstanding.toLocaleString("th-TH")} จ่ายที่สนามได้เลย หรือจ่ายล่วงหน้าตอนนี้
+            {fmt(t.depositPaidSub, { n: outstanding.toLocaleString("th-TH") })}
           </p>
         </div>
         <Link href={`/payment/${booking.id}`} className={cta}>
-          จ่ายส่วนที่เหลือ ฿{outstanding.toLocaleString("th-TH")}
+          {fmt(t.payRest, { n: outstanding.toLocaleString("th-TH") })}
         </Link>
       </div>
     );
@@ -144,9 +148,9 @@ function PaymentNextStep({ booking }: { booking: Booking }) {
     return (
       <div className="rounded-2xl bg-amber-50 p-4 text-center">
         <Clock3 className="mx-auto size-6 text-amber-600" />
-        <p className="mt-2 font-semibold text-amber-800">ส่งสลิปแล้ว รอสนามตรวจสอบ</p>
+        <p className="mt-2 font-semibold text-amber-800">{t.slipSent}</p>
         <p className="mt-0.5 text-sm text-amber-700">
-          ระบบจะยืนยันการจองให้อัตโนมัติเมื่อตรวจสอบเรียบร้อย ไม่ต้องโอนซ้ำ
+          {t.slipSentSub}
         </p>
       </div>
     );
@@ -157,10 +161,10 @@ function PaymentNextStep({ booking }: { booking: Booking }) {
     return (
       <div className="space-y-2">
         <p className="rounded-2xl bg-rose-50 p-3 text-center text-sm text-rose-700">
-          สลิปไม่ผ่านการตรวจสอบ — กรุณาชำระเงินอีกครั้ง
+          {t.slipRejected}
         </p>
         <Link href={`/payment/${booking.id}`} className={cta}>
-          ชำระเงินอีกครั้ง
+          {t.payAgain}
         </Link>
       </div>
     );
@@ -170,7 +174,7 @@ function PaymentNextStep({ booking }: { booking: Booking }) {
   if (booking.paymentStatus === "awaiting_slip") {
     return (
       <Link href={`/payment/${booking.id}`} className={cta}>
-        อัปโหลดสลิปการโอน
+        {t.uploadSlip}
       </Link>
     );
   }
@@ -183,11 +187,11 @@ function PaymentNextStep({ booking }: { booking: Booking }) {
     <div className="space-y-2">
       {booking.depositAmount != null && booking.depositAmount > 0 && (
         <p className="text-center text-sm text-muted-foreground">
-          จ่ายมัดจำ ฿{booking.depositAmount.toLocaleString("th-TH")} เพื่อจองคอร์ท ที่เหลือจ่ายที่สนาม
+          {fmt(t.depositHint, { n: booking.depositAmount.toLocaleString("th-TH") })}
         </p>
       )}
       <Link href={`/payment/${booking.id}`} className={cta}>
-        ไปชำระเงิน ฿{first.toLocaleString("th-TH")}
+        {fmt(t.goPay, { n: first.toLocaleString("th-TH") })}
       </Link>
     </div>
   );
@@ -198,9 +202,11 @@ export default function BookingDetailPage({ params }: { params: Promise<{ bookin
   const { data: booking, isLoading, refetch } = useBooking(bookingId);
   const { tenant } = useTenant();
   const { data: refunds, refetch: refetchRefunds } = useRefunds();
+  const t = useMessages("app").bookingDetail;
+  const { locale } = useLocale();
   const [busy, setBusy] = useState(false);
   if (isLoading) return <Loading />;
-  if (!booking) return <EmptyState message="ไม่พบการจอง" />;
+  if (!booking) return <EmptyState message={t.notFound} />;
 
   const isConfirmed = booking.status === "confirmed";
 
@@ -214,7 +220,7 @@ export default function BookingDetailPage({ params }: { params: Promise<{ bookin
     (!refund || refund.status === "rejected");
 
   async function cancel() {
-    if (!booking || !window.confirm("ต้องการยกเลิกการจองนี้?")) return;
+    if (!booking || !window.confirm(t.cancelConfirm)) return;
     setBusy(true);
     await api.cancelBooking(booking.id);
     await refetch();
@@ -222,7 +228,7 @@ export default function BookingDetailPage({ params }: { params: Promise<{ bookin
   }
   async function requestRefund() {
     if (!booking) return;
-    const reason = window.prompt("เหตุผลในการขอคืนเงิน (ไม่บังคับ)") ?? undefined;
+    const reason = window.prompt(t.refundReasonPrompt) ?? undefined;
     setBusy(true);
     try {
       await api.requestRefund(booking.id, reason || undefined);
@@ -235,7 +241,7 @@ export default function BookingDetailPage({ params }: { params: Promise<{ bookin
     if (typeof navigator !== "undefined" && navigator.share && booking) {
       navigator
         .share({
-          title: "การจองสนาม",
+          title: t.shareTitle,
           text: `${booking.venueName} · ${booking.courtName} · ${booking.date} ${booking.start}-${booking.end} (${booking.code})`,
         })
         .catch(() => {});
@@ -244,7 +250,7 @@ export default function BookingDetailPage({ params }: { params: Promise<{ bookin
 
   return (
     <main className="pb-24">
-      <AppHeader title="รายละเอียดการจอง" />
+      <AppHeader title={t.title} />
       <div className="space-y-4 p-4">
         <StatusBadge status={booking.status} paymentStatus={booking.paymentStatus} />
 
@@ -278,7 +284,7 @@ export default function BookingDetailPage({ params }: { params: Promise<{ bookin
           <>
             <div className="grid grid-cols-2 gap-3">
               <Button variant="outline" className="h-11 rounded-xl border-black/10" onClick={share}>
-                <Share2 className="size-4" /> แชร์
+                <Share2 className="size-4" /> {t.share}
               </Button>
               <Button
                 variant="outline"
@@ -286,7 +292,7 @@ export default function BookingDetailPage({ params }: { params: Promise<{ bookin
                 onClick={cancel}
                 className="h-11 rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:text-red-600"
               >
-                <X className="size-4" /> ยกเลิกการจอง
+                <X className="size-4" /> {t.cancel}
               </Button>
             </div>
             {/* Only when this venue actually scans — a QR nobody will look at
@@ -296,7 +302,7 @@ export default function BookingDetailPage({ params }: { params: Promise<{ bookin
                 href={`/booking/${booking.id}/qr`}
                 className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand text-base font-semibold text-white hover:bg-brand/90"
               >
-                <QrCode className="size-5" /> QR Check-in
+                <QrCode className="size-5" /> {t.qrCheckin}
               </Link>
             )}
           </>
@@ -306,18 +312,20 @@ export default function BookingDetailPage({ params }: { params: Promise<{ bookin
           <div className="space-y-3 text-center">
             <p className="text-sm text-muted-foreground">
               {booking.checkedInAt
-                ? `เช็คอินแล้วเมื่อ ${new Date(booking.checkedInAt).toLocaleTimeString("th-TH", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })} น. ขอบคุณที่ใช้บริการ 🎉`
-                : "เช็คอินเรียบร้อยแล้ว ขอบคุณที่ใช้บริการ 🎉"}
+                ? fmt(t.checkedInAt, {
+                    time: new Date(booking.checkedInAt).toLocaleTimeString(intlLocale(locale), {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }),
+                  })
+                : t.checkedIn}
             </p>
             {tenant.checkinEnabled && (
               <Link
                 href={`/booking/${booking.id}/qr`}
                 className="inline-flex items-center gap-1.5 text-sm font-medium text-brand"
               >
-                <QrCode className="size-4" /> ดูบัตรเช็คอิน
+                <QrCode className="size-4" /> {t.viewCheckin}
               </Link>
             )}
           </div>
@@ -326,15 +334,15 @@ export default function BookingDetailPage({ params }: { params: Promise<{ bookin
         {/* Refund: show existing request status, else offer to request one. */}
         {refund && refund.status !== "rejected" ? (
           <div className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm ring-1 ring-black/5">
-            <span className="text-sm text-muted-foreground">การคืนเงิน</span>
-            <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${REFUND_META[refund.status].cls}`}>
-              {REFUND_META[refund.status].label}
+            <span className="text-sm text-muted-foreground">{t.refundLabel}</span>
+            <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${REFUND_CLS[refund.status]}`}>
+              {t.refund[refund.status]}
             </span>
           </div>
         ) : canRefund ? (
           <div className="space-y-2">
             {refund?.status === "rejected" && (
-              <p className="text-center text-sm text-red-600">คำขอคืนเงินก่อนหน้าถูกปฏิเสธ</p>
+              <p className="text-center text-sm text-red-600">{t.refundRejectedNote}</p>
             )}
             <Button
               variant="outline"
@@ -342,7 +350,7 @@ export default function BookingDetailPage({ params }: { params: Promise<{ bookin
               onClick={requestRefund}
               className="h-11 w-full rounded-xl border-black/10"
             >
-              <RotateCcw className="size-4" /> ขอคืนเงิน
+              <RotateCcw className="size-4" /> {t.requestRefund}
             </Button>
           </div>
         ) : null}

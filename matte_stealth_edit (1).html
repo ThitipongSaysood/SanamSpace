@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matte Stealth - Member Card</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- ใช้ Iconify สำหรับเรียกใช้ไอคอนมาตรฐานระดับสากล -->
+    <script src="https://code.iconify.design/iconify-icon/1.0.8/iconify-icon.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Kanit', 'sans-serif'],
+                        mono: ['Courier Prime', 'monospace', 'ui-monospace'],
+                    },
+                    colors: {
+                        matte: {
+                            base: '#232325',     /* สีพื้นผิวด้านหลัก */
+                            dark: '#18181a',     /* สีหลุม/ร่อง */
+                            light: '#323236',    /* สีไฮไลท์ขอบ */
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* พื้นหลังของแอปพลิเคชัน (ให้เข้มกว่าการ์ดเพื่อขับให้การ์ดเด่น) */
+        body {
+            background: radial-gradient(circle at top center, #1f1f22 0%, #09090b 100%);
+            color: #f8fafc;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+        }
+
+        /* คุณสมบัติหลักของการ์ด Matte Stealth */
+        .card-matte {
+            background-color: #232325;
+            border-radius: 20px;
+            /* สร้างมิติแสงเงาแบบ Neumorphism ผสมผิวด้าน */
+            box-shadow: 
+                -8px -8px 24px rgba(255, 255, 255, 0.03), /* แสงตกกระทบขอบบนซ้าย */
+                12px 12px 32px rgba(0, 0, 0, 0.7),        /* เงาตกทอดขอบล่างขวา */
+                inset 1px 1px 2px rgba(255, 255, 255, 0.05), /* ไฮไลท์ขอบใน */
+                inset -1px -1px 2px rgba(0, 0, 0, 0.3);      /* เงาขอบใน */
+            color: #e4e4e7;
+            position: relative;
+        }
+
+        /* เอฟเฟกต์ตัวหนังสือแบบสลักลึก (Deboss) */
+        .matte-text-deboss {
+            color: #1a1a1c; /* สีตัวอักษรต้องเข้มกว่าพื้นหลังมาก */
+            /* เงาสีขาวด้านล่างขวา, เงาดำด้านบนซ้าย เพื่อสร้างมิติหลุม */
+            text-shadow: 
+                1px 1px 1px rgba(255,255,255,0.1), 
+                -1px -1px 1px rgba(0,0,0,0.8);
+        }
+
+        /* ไอคอนแบบยุบตัว */
+        .icon-deboss-container {
+            background: #1f1f21;
+            box-shadow: 
+                inset 2px 2px 5px rgba(0,0,0,0.6), 
+                inset -1px -1px 2px rgba(255,255,255,0.05),
+                1px 1px 2px rgba(255,255,255,0.03); /* แสงสะท้อนขอบนอก */
+        }
+
+        /* ร่องของหลอด Progress Bar */
+        .progress-groove {
+            background-color: #18181a;
+            box-shadow: 
+                inset 2px 2px 4px rgba(0,0,0,0.8), 
+                inset -1px -1px 2px rgba(255,255,255,0.04);
+        }
+
+        /* แอนิเมชันสำหรับขยับการ์ด */
+        .tilt-card { 
+            transition: transform 0.1s ease-out; 
+            transform-style: preserve-3d; 
+            will-change: transform;
+        }
+
+        /* ลวดลาย Texture อ่อนๆ เพื่อไม่ให้ดูแบนจนเกินไป (Noise/Grain) */
+        .card-texture::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            border-radius: 20px;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.02'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 0;
+        }
+    </style>
+</head>
+<body class="p-4 font-sans">
+
+    <div class="mb-12 text-center z-10">
+        <h1 class="text-3xl font-bold tracking-wide text-zinc-200 drop-shadow-md mb-2">Matte Stealth Edition</h1>
+        <p class="text-zinc-500 text-sm max-w-md mx-auto">
+            เข้ากันได้กับทุกพื้นหลัง เน้นความเรียบหรูและวัสดุผิวด้าน
+        </p>
+        
+        <!-- แถบเลือกชนิดกีฬา (Sport Selector) -->
+        <div id="sport-selector" class="flex flex-wrap justify-center gap-2 mt-6 mb-2">
+            <!-- ปุ่มจะถูกสร้างอัตโนมัติด้วย JavaScript ด้านล่าง -->
+        </div>
+    </div>
+
+    <div class="flex flex-col items-center gap-4 w-full max-w-[400px]">
+        
+        <!-- แท็กป้ายกำกับด้านบนการ์ด -->
+        <div class="flex items-center justify-between w-full px-2 opacity-80">
+            <h2 class="text-xs font-semibold text-zinc-400 uppercase tracking-widest">Workspace View</h2>
+            <span class="text-[10px] text-zinc-600 font-mono flex items-center gap-1">
+                <span class="w-2 h-2 rounded-full bg-emerald-500/50"></span> Interactive
+            </span>
+        </div>
+        
+        <!-- ตัวการ์ดหลัก -->
+        <!-- aspect-[1.586/1] คือสัดส่วนมาตรฐานของบัตรเครดิต -->
+        <div class="tilt-card card-texture relative w-full aspect-[1.586/1] p-7 card-matte flex flex-col justify-between cursor-pointer group">
+            
+            <!-- ส่วนบน: ไอคอนระดับ และ รหัสสมาชิก -->
+            <div class="flex justify-between items-start z-10 w-full mt-1">
+                <div class="flex items-center gap-4">
+                    <!-- กรอบไอคอนแบบยุบ (Deboss) -->
+                    <div class="icon-deboss-container p-2.5 rounded-xl flex items-center justify-center w-12 h-12">
+                        <div id="current-sport-icon" class="text-zinc-400 transition-all duration-300 text-[32px] flex items-center justify-center">
+                            <!-- ไอคอนเริ่มต้น: แบดมินตัน -->
+                            <iconify-icon icon="mdi:badminton"></iconify-icon>
+                        </div>
+                    </div>
+                    <div>
+                        <p id="card-member-title" class="text-sm font-bold tracking-widest text-zinc-300 uppercase drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] transition-all duration-300">
+                            Member Silver <span class="text-[10px] text-zinc-500 ml-1 font-normal tracking-normal">แบดมินตัน</span>
+                        </p>
+                        <!-- รหัสสมาชิกใช้เอฟเฟกต์สลักลึก -->
+                        <p class="font-mono text-sm matte-text-deboss font-bold mt-1 tracking-wider">SM-0000002</p>
+                    </div>
+                </div>
+                <!-- จุดโลโก้แอป (ถ้ามี) แบบ Minimal -->
+                <div class="flex gap-1 mt-1">
+                    <div class="w-1.5 h-1.5 rounded-full bg-zinc-600"></div>
+                    <div class="w-1.5 h-1.5 rounded-full bg-zinc-600"></div>
+                </div>
+            </div>
+            
+            <!-- ส่วนกลาง: คะแนน และ วันหมดอายุ -->
+            <div class="z-10 mt-auto w-full flex justify-between items-end mb-4 px-1">
+                <div>
+                    <p class="text-[10px] font-medium text-zinc-500 uppercase tracking-widest mb-1">คะแนนของคุณ</p>
+                    <div class="flex items-end gap-2">
+                        <!-- ตัวเลขคะแนนขนาดใหญ่ ฟอนต์บางดูหรูหรา -->
+                        <span class="text-5xl font-light text-zinc-100 leading-none tracking-tight drop-shadow-[0_2px_8px_rgba(255,255,255,0.05)]">0</span>
+                        <span class="text-sm font-medium text-zinc-500 mb-1">คะแนน</span>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="text-[10px] text-zinc-500 uppercase tracking-widest mb-1">ใช้ได้ถึง</p>
+                    <!-- วันหมดอายุ ใช้ฟอนต์ Mono เพื่อความเท่ -->
+                    <p class="text-xs font-mono text-zinc-300 font-medium">7 ส.ค. 2570</p>
+                </div>
+            </div>
+            
+            <!-- ส่วนล่าง: หลอดความคืบหน้า (Progress) -->
+            <div class="flex flex-col z-10 w-full gap-2 pt-4 border-t border-white/5 relative">
+                <!-- ขอบเงาดำเหนือเส้นแบ่ง เพื่อให้ดูสมจริง -->
+                <div class="absolute top-0 left-0 w-full h-[1px] bg-black/40"></div>
+                
+                <div class="flex justify-between items-center text-xs text-zinc-400 font-medium px-1">
+                    <p>อีก <span class="text-zinc-200">500</span> คะแนน ถึงระดับ <span class="text-amber-500/80 font-bold tracking-wide">Gold</span></p>
+                </div>
+                
+                <!-- ร่องพื้นหลังของ Progress Bar -->
+                <div class="w-full h-2 rounded-full progress-groove overflow-hidden">
+                    <!-- แถบสีความคืบหน้า (สมมติว่าตอนนี้มี 5%) -->
+                    <div class="h-full bg-gradient-to-r from-zinc-500 to-zinc-300 rounded-full w-[5%] shadow-[0_0_8px_rgba(255,255,255,0.2)]"></div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <script>
+        const card = document.querySelector('.tilt-card');
+        
+        // ฟังก์ชันคำนวณการหมุน 3 มิติ เมื่อเมาส์เคลื่อนที่บนการ์ด
+        card.addEventListener('mousemove', e => {
+            const rect = card.getBoundingClientRect();
+            const x = e.clientX - rect.left; // ตำแหน่ง X ของเมาส์ภายในการ์ด
+            const y = e.clientY - rect.top;  // ตำแหน่ง Y ของเมาส์ภายในการ์ด
+            
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            
+            // คำนวณองศาการหมุน (ปรับตัวเลข 15 เพื่อเพิ่ม/ลดความชัน)
+            const rotateX = ((y - centerY) / centerY) * -15;
+            const rotateY = ((x - centerX) / centerX) * 15;
+            
+            // สร้างเอฟเฟกต์สะท้อนแสง (Glare) ตามทิศทางเมาส์ (ถ้าต้องการเพิ่ม)
+            
+            card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`;
+        });
+        
+        // คืนค่าการ์ดกลับสู่ปกติเมื่อเมาส์ออก
+        card.addEventListener('mouseleave', () => {
+            card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
+            card.style.transition = 'transform 0.5s cubic-bezier(0.23, 1, 0.32, 1)';
+        });
+        
+        // ลบ Transition ตอนเมาส์เข้ามาเพื่อให้ขยับตามทันที
+        card.addEventListener('mouseenter', () => {
+            card.style.transition = 'transform 0.1s ease-out';
+        });
+
+        // ----------------------------------------------------
+        // Logic สำหรับเปลี่ยนไอคอนกีฬา (Sport Selector)
+        // ----------------------------------------------------
+        
+        // ข้อมูลไอคอนกีฬาทั้ง 5 ชนิด (ใช้ Iconify สำหรับไอคอนกีฬาของจริง)
+        const sports = [
+            { 
+                id: 'badminton', 
+                name: 'แบดมินตัน', 
+                icon: '<iconify-icon icon="mdi:badminton"></iconify-icon>' 
+            },
+            { 
+                id: 'football', 
+                name: 'ฟุตบอล', 
+                icon: '<iconify-icon icon="mdi:soccer"></iconify-icon>' 
+            },
+            { 
+                id: 'futsal', 
+                name: 'ฟุตซอล', 
+                icon: '<iconify-icon icon="ph:soccer-ball-light"></iconify-icon>' 
+            },
+            { 
+                id: 'tennis', 
+                name: 'เทนนิส', 
+                icon: '<iconify-icon icon="mdi:tennis"></iconify-icon>' 
+            },
+            { 
+                id: 'pickleball', 
+                name: 'พิคเคิลบอล', 
+                icon: '<iconify-icon icon="mdi:table-tennis"></iconify-icon>' 
+            }
+        ];
+
+        const selectorContainer = document.getElementById('sport-selector');
+        const iconContainer = document.getElementById('current-sport-icon');
+        const cardTitle = document.getElementById('card-member-title');
+
+        // สร้างปุ่มเลือกกีฬา
+        sports.forEach((sport, index) => {
+            const btn = document.createElement('button');
+            
+            // ดีไซน์ปุ่มแบบผิวด้าน (Matte Pill)
+            const baseClass = "px-4 py-1.5 text-[11px] sm:text-xs font-medium rounded-full transition-all duration-300 border ";
+            const activeClass = "border-zinc-700 bg-zinc-800 text-zinc-200 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)]";
+            const inactiveClass = "border-transparent bg-transparent text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/40";
+            
+            btn.className = baseClass + (index === 0 ? activeClass : inactiveClass);
+            btn.textContent = sport.name;
+            
+            btn.onclick = () => {
+                // รีเซ็ตคลาสปุ่มทั้งหมด
+                Array.from(selectorContainer.children).forEach(c => {
+                    c.className = baseClass + inactiveClass;
+                });
+                // ใส่คลาส Active ให้ปุ่มที่ถูกกด
+                btn.className = baseClass + activeClass;
+                
+                // เริ่มแอนิเมชันย่อและซ่อนไอคอนเดิม
+                iconContainer.style.opacity = '0';
+                iconContainer.style.transform = 'scale(0.5) rotate(-15deg)';
+                cardTitle.style.opacity = '0';
+                cardTitle.style.transform = 'translateY(-5px)';
+                
+                setTimeout(() => {
+                    // เปลี่ยนภาพและข้อความ
+                    iconContainer.innerHTML = sport.icon;
+                    cardTitle.innerHTML = `Member Silver <span class="text-[10px] text-zinc-500 ml-1 font-normal tracking-normal">${sport.name}</span>`;
+                    
+                    // แอนิเมชันขยายและโชว์ไอคอนใหม่
+                    iconContainer.style.opacity = '1';
+                    iconContainer.style.transform = 'scale(1) rotate(0deg)';
+                    cardTitle.style.opacity = '1';
+                    cardTitle.style.transform = 'translateY(0)';
+                }, 200); // รอให้ fade out เสร็จ (200ms)
+            };
+            selectorContainer.appendChild(btn);
+        });
+
+    </script>
+</body>
+</html>

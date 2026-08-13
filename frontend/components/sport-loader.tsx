@@ -1,4 +1,5 @@
 "use client";
+import { useMessages } from "@/lib/i18n/context";
 import { useEffect, useState } from "react";
 import type { SportMeta } from "@/lib/types";
 
@@ -53,6 +54,7 @@ export function SportLoader({ sports }: { sports?: SportMeta[] }) {
 
   const [i, setI] = useState(0);
   const [rot, setRot] = useState(0);
+  const t = useMessages("app").loader;
 
   useEffect(() => {
     // A single-sport venue just bounces its own ball; multi-sport venues morph
@@ -79,7 +81,7 @@ export function SportLoader({ sports }: { sports?: SportMeta[] }) {
         backgroundSize: "40px 40px",
       }}
       role="status"
-      aria-label="กำลังโหลด"
+      aria-label={t.loading}
     >
       <div className="relative mb-8 flex h-48 flex-col items-center justify-end">
         <div className="sl-ball flex items-center justify-center">
@@ -104,7 +106,7 @@ export function SportLoader({ sports }: { sports?: SportMeta[] }) {
             appearing must not shift the wordmark above it. */}
         <div className="flex h-8 items-center justify-center">
           <p className="flex items-center gap-2 text-lg font-light tracking-wide text-slate-400">
-            เตรียมสนาม
+            {t.prep}
             {sport && (
               <span className="rounded-full bg-slate-800 px-3 py-1 text-sm font-medium" style={{ color: sport.color }}>
                 {sport.name}

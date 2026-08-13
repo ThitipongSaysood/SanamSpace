@@ -1,9 +1,13 @@
+"use client";
 import { Star, MapPin } from "lucide-react";
+import { useMessages } from "@/lib/i18n/context";
+import { fmt } from "@/lib/i18n/format";
 import type { Venue } from "@/lib/types";
 import { VenueMedia } from "@/components/venue-media";
 import { VenueLink } from "@/lib/tenant/venue-nav";
 
 export function VenueCard({ venue }: { venue: Venue }) {
+  const t = useMessages("app").venueCard;
   return (
     <VenueLink
       // The BRANCH, not the venue. `venue.id` is the organization slug, which
@@ -29,11 +33,11 @@ export function VenueCard({ venue }: { venue: Venue }) {
         </div>
         <div className="mt-1.5 text-sm font-bold text-brand">
           ฿{venue.pricePerHour}
-          <span className="text-xs font-medium text-muted-foreground">/ชั่วโมง</span>
+          <span className="text-xs font-medium text-muted-foreground">{t.perHour}</span>
         </div>
         <div className="mt-auto flex items-center gap-1 pt-1.5 text-xs text-muted-foreground">
           <MapPin className="size-3.5 shrink-0" />
-          {venue.distanceKm} กม.
+          {fmt(t.km, { n: venue.distanceKm })}
         </div>
       </div>
     </VenueLink>
