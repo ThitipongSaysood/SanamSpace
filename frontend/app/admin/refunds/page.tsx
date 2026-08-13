@@ -8,22 +8,15 @@ import { superAdminApi } from "@/lib/api/superadmin";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
+import { useMessages, useLocale } from "@/lib/i18n/context";
+import { intlLocale } from "@/lib/i18n/format";
+import type { Locale } from "@/lib/i18n/config";
 
 const fmt = new Intl.NumberFormat("th-TH");
 const REFUNDS_KEY = ["admin", "refunds"];
 
-const STATUS_LABEL: Record<string, string> = {
-  requested: "รอดำเนินการ",
-  approved: "อนุมัติแล้ว",
-  rejected: "ปฏิเสธแล้ว",
-};
-
-const METHOD_LABEL: Record<string, string> = {
-  wallet: "เครดิตเข้า Wallet",
-  manual: "คืนเงินนอกระบบ",
-};
-
 function StatusPill({ status }: { status: string }) {
+  const t = useMessages("admin").refunds;
   const cls =
     status === "approved"
       ? "bg-emerald-100 text-emerald-700"
@@ -34,18 +27,20 @@ function StatusPill({ status }: { status: string }) {
           : "bg-muted text-muted-foreground";
   return (
     <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>
-      {STATUS_LABEL[status] ?? status}
+      {(t.status as Record<string, string>)[status] ?? status}
     </span>
   );
 }
 
-function fmtDate(iso: string | null | undefined) {
+function fmtDate(iso: string | null | undefined, locale: Locale) {
   if (!iso) return "—";
   const d = new Date(iso);
-  return `${d.toLocaleDateString("th-TH")} ${d.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}`;
+  return `${d.toLocaleDateString(intlLocale(locale))} ${d.toLocaleTimeString(intlLocale(locale), { hour: "2-digit", minute: "2-digit" })}`;
 }
 
 export default function AdminRefundsPage() {
+  const t = useMessages("admin").refunds;
+  const { locale } = useLocale();
   const qc = useQueryClient();
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: REFUNDS_KEY,
@@ -86,15 +81,15 @@ export default function AdminRefundsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold">การคืนเงิน</h1>
+        <h1 className="text-xl font-bold">{t.title}</h1>
         <p className="text-sm text-muted-foreground">
-          คำขอคืนเงินทั้งหมดจากทุกองค์กร — อนุมัติ (เครดิต Wallet) หรือปฏิเสธในฐานะผู้ดูแลแพลตฟอร์ม
+          {t.subtitle}
         </p>
       </div>
 
       {isLoading && <Loading />}
       {isError && <ErrorState onRetry={() => refetch()} />}
-      {data && data.length === 0 && <EmptyState message="ยังไม่มีคำขอคืนเงิน" />}
+      {data && data.length === 0 && <EmptyState message={t.empty} />}
 
       {data && data.length > 0 && (
         <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
@@ -102,25 +97,25 @@ export default function AdminRefundsPage() {
             <table className="stack-table w-full md:min-w-[760px] text-sm">
               <thead className="bg-app text-left text-xs font-medium text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-3">วันที่</th>
-                  <th className="px-4 py-3">องค์กร</th>
-                  <th className="px-4 py-3">ลูกค้า</th>
-                  <th className="px-4 py-3">การจอง</th>
-                  <th className="px-4 py-3">เหตุผล</th>
-                  <th className="px-4 py-3 text-right">ยอด</th>
-                  <th className="px-4 py-3">สถานะ</th>
+                  <th className="px-4 py-3">{t.colDate}</th>
+                  <th className="px-4 py-3">{t.colOrg}</th>
+                  <th className="px-4 py-3">{t.colCustomer}</th>
+                  <th className="px-4 py-3">{t.colBooking}</th>
+                  <th className="px-4 py-3">{t.colReason}</th>
+                  <th className="px-4 py-3 text-right">{t.colAmount}</th>
+                  <th className="px-4 py-3">{t.colStatus}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5">
                 {data.map((r) => (
                   <tr key={r.id} onClick={() => setSel(r)} className="cursor-pointer hover:bg-app/60">
-                    <td data-label="วันที่" className="px-4 py-3 text-muted-foreground">{fmtDate(r.createdAt)}</td>
-                    <td data-label="องค์กร" className="px-4 py-3 font-medium">{r.organizationName ?? "—"}</td>
-                    <td data-label="ลูกค้า" className="px-4 py-3 text-muted-foreground">{r.customerName ?? "—"}</td>
-                    <td data-label="การจอง" className="px-4 py-3 text-muted-foreground">{r.bookingCode ?? "—"}</td>
-                    <td data-label="เหตุผล" className="px-4 py-3 text-muted-foreground">{r.reason ?? "—"}</td>
-                    <td data-label="ยอด" className="px-4 py-3 text-right font-semibold text-brand">฿{fmt.format(r.amount)}</td>
-                    <td data-label="สถานะ" className="px-4 py-3">
+                    <td data-label={t.colDate} className="px-4 py-3 text-muted-foreground">{fmtDate(r.createdAt, locale)}</td>
+                    <td data-label={t.colOrg} className="px-4 py-3 font-medium">{r.organizationName ?? t.dash}</td>
+                    <td data-label={t.colCustomer} className="px-4 py-3 text-muted-foreground">{r.customerName ?? t.dash}</td>
+                    <td data-label={t.colBooking} className="px-4 py-3 text-muted-foreground">{r.bookingCode ?? t.dash}</td>
+                    <td data-label={t.colReason} className="px-4 py-3 text-muted-foreground">{r.reason ?? t.dash}</td>
+                    <td data-label={t.colAmount} className="px-4 py-3 text-right font-semibold text-brand">฿{fmt.format(r.amount)}</td>
+                    <td data-label={t.colStatus} className="px-4 py-3">
                       <StatusPill status={r.status} />
                     </td>
                   </tr>
@@ -133,7 +128,7 @@ export default function AdminRefundsPage() {
 
       {sel && (
         <Modal
-          title="รายละเอียดการคืนเงิน"
+          title={t.detailTitle}
           onClose={() => setSel(null)}
           footer={
             pending ? (
@@ -144,45 +139,45 @@ export default function AdminRefundsPage() {
                   onClick={() => rejectM.mutate()}
                   disabled={busy}
                 >
-                  <XCircle className="size-4" /> {rejectM.isPending ? "กำลังบันทึก..." : "ปฏิเสธ"}
+                  <XCircle className="size-4" /> {rejectM.isPending ? t.saving : t.reject}
                 </Button>
                 <Button type="button" onClick={() => approveM.mutate()} disabled={busy}>
-                  <CheckCircle2 className="size-4" /> {approveM.isPending ? "กำลังบันทึก..." : "อนุมัติ"}
+                  <CheckCircle2 className="size-4" /> {approveM.isPending ? t.saving : t.approve}
                 </Button>
               </>
             ) : (
               <Button type="button" variant="outline" onClick={() => setSel(null)}>
-                ปิด
+                {t.close}
               </Button>
             )
           }
         >
           <div className="space-y-2.5 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">องค์กร</span><span className="font-medium">{sel.organizationName ?? "—"}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">ลูกค้า</span><span className="font-medium">{sel.customerName ?? "—"}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">การจอง</span><span className="font-medium">{sel.bookingCode ?? "—"}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">เหตุผล</span><span className="font-medium">{sel.reason ?? "—"}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">ผู้ขอคืนเงิน</span><span className="font-medium">{sel.requestedBy}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">สถานะ</span><StatusPill status={sel.status} /></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">วันที่ขอ</span><span className="font-medium">{fmtDate(sel.createdAt)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">{t.colOrg}</span><span className="font-medium">{sel.organizationName ?? t.dash}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">{t.colCustomer}</span><span className="font-medium">{sel.customerName ?? t.dash}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">{t.colBooking}</span><span className="font-medium">{sel.bookingCode ?? t.dash}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">{t.colReason}</span><span className="font-medium">{sel.reason ?? t.dash}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">{t.rowRequestedBy}</span><span className="font-medium">{sel.requestedBy}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">{t.colStatus}</span><StatusPill status={sel.status} /></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">{t.rowRequestedAt}</span><span className="font-medium">{fmtDate(sel.createdAt, locale)}</span></div>
             {sel.processedAt && (
-              <div className="flex justify-between"><span className="text-muted-foreground">ดำเนินการเมื่อ</span><span className="font-medium">{fmtDate(sel.processedAt)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">{t.rowProcessedAt}</span><span className="font-medium">{fmtDate(sel.processedAt, locale)}</span></div>
             )}
             {sel.method && !pending && (
-              <div className="flex justify-between"><span className="text-muted-foreground">วิธีคืนเงิน</span><span className="font-medium">{METHOD_LABEL[sel.method] ?? sel.method}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">{t.rowMethod}</span><span className="font-medium">{(t.method as Record<string, string>)[sel.method] ?? sel.method}</span></div>
             )}
             {sel.note && (
-              <div className="flex justify-between gap-4"><span className="text-muted-foreground">หมายเหตุ</span><span className="font-medium text-right">{sel.note}</span></div>
+              <div className="flex justify-between gap-4"><span className="text-muted-foreground">{t.rowNote}</span><span className="font-medium text-right">{sel.note}</span></div>
             )}
             <div className="flex items-center justify-between border-t border-black/5 pt-3 text-base">
-              <span className="text-muted-foreground">ยอดคืนเงิน</span>
+              <span className="text-muted-foreground">{t.rowAmount}</span>
               <span className="font-bold text-brand">฿{fmt.format(sel.amount)}</span>
             </div>
 
             {pending && (
               <div className="space-y-3 border-t border-black/5 pt-3">
                 <div>
-                  <span className="mb-1.5 block text-xs font-medium text-muted-foreground">วิธีคืนเงิน</span>
+                  <span className="mb-1.5 block text-xs font-medium text-muted-foreground">{t.methodTitle}</span>
                   <div className="grid grid-cols-2 gap-2">
                     {(["wallet", "manual"] as const).map((m) => (
                       <button
@@ -196,23 +191,23 @@ export default function AdminRefundsPage() {
                             : "border-black/10 text-foreground hover:bg-app"
                         }`}
                       >
-                        {METHOD_LABEL[m]}
+                        {(t.method as Record<string, string>)[m]}
                       </button>
                     ))}
                   </div>
                   <p className="mt-1.5 text-xs text-muted-foreground">
                     {method === "wallet"
-                      ? "เครดิตยอดเข้า Wallet ของลูกค้าทันที และยกเลิกการจอง"
-                      : "บันทึกว่าคืนเงินนอกระบบแล้ว (ไม่ปรับยอด Wallet) และยกเลิกการจอง"}
+                      ? t.walletNote
+                      : t.manualNote}
                   </p>
                 </div>
                 <label className="block">
-                  <span className="mb-1.5 block text-xs font-medium text-muted-foreground">หมายเหตุ (ไม่บังคับ)</span>
+                  <span className="mb-1.5 block text-xs font-medium text-muted-foreground">{t.noteLabel}</span>
                   <textarea
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                     rows={2}
-                    placeholder="หมายเหตุสำหรับการอนุมัติ / ปฏิเสธ"
+                    placeholder={t.notePlaceholder}
                     className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm outline-none focus:border-brand"
                   />
                 </label>

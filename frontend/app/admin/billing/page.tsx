@@ -11,27 +11,31 @@ import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { BillingDocument, OpenPdfButton } from "@/components/billing-document";
+import { useMessages } from "@/lib/i18n/context";
+import { fmt as interp } from "@/lib/i18n/format";
 
 const fmt = new Intl.NumberFormat("th-TH");
 const INVOICES_KEY = ["admin", "invoices"];
 
 const isPaid = (inv: AdminInvoice) => inv.status === "paid";
 
-const PILL: Record<string, { label: string; cls: string }> = {
-  paid: { label: "ชำระแล้ว", cls: "bg-emerald-100 text-emerald-700" },
-  overdue: { label: "เกินกำหนด", cls: "bg-rose-100 text-rose-700" },
-  rejected: { label: "ไม่ผ่าน", cls: "bg-rose-100 text-rose-700" },
-  // The one that needs a decision — blue so it stands out in a list of ambers.
-  pending_review: { label: "รอตรวจสอบสลิป", cls: "bg-blue-100 text-blue-700" },
-  unpaid: { label: "ยังไม่ชำระ", cls: "bg-amber-100 text-amber-700" },
+const PILL_CLS: Record<string, string> = {
+  paid: "bg-emerald-100 text-emerald-700",
+  overdue: "bg-rose-100 text-rose-700",
+  rejected: "bg-rose-100 text-rose-700",
+  pending_review: "bg-blue-100 text-blue-700",
+  unpaid: "bg-amber-100 text-amber-700",
 };
 
 function StatusPill({ status }: { status: string }) {
-  const m = PILL[status] ?? PILL.unpaid;
-  return <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${m.cls}`}>{m.label}</span>;
+  const t = useMessages("admin").billing;
+  const cls = PILL_CLS[status] ?? PILL_CLS.unpaid;
+  const label = (t.pill as Record<string, string>)[status] ?? t.pill.unpaid;
+  return <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>{label}</span>;
 }
 
 export default function AdminBillingPage() {
+  const t = useMessages("admin").billing;
   const qc = useQueryClient();
   // Billing documents accumulate forever, so they arrive a page at a time.
   const [page, setPage] = useState(1);
@@ -66,7 +70,7 @@ export default function AdminBillingPage() {
 
   const rejectM = useMutation({
     mutationFn: (id: string) => {
-      const reason = window.prompt("เหตุผลที่ไม่ผ่าน (เช่น ยอดไม่ตรง / สลิปไม่ชัด)") ?? undefined;
+      const reason = window.prompt(t.rejectPrompt) ?? undefined;
       return superAdminApi.rejectInvoice(id, reason);
     },
     onSuccess: (updated) => {
@@ -80,8 +84,8 @@ export default function AdminBillingPage() {
     mutationFn: (id: string) => superAdminApi.sendInvoice(id),
     onSuccess: (res) =>
       res.sent
-        ? toast.success(`ส่ง${res.isReceipt ? "ใบเสร็จ" : "ใบแจ้งหนี้"}ไปที่ ${res.email} แล้ว`)
-        : toast.error("ส่งไม่สำเร็จ"),
+        ? toast.success(interp(t.sendSuccess, { doc: res.isReceipt ? t.receiptWord : t.invoiceWord, email: res.email ?? "" }))
+        : toast.error(t.sendFailed),
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -90,13 +94,13 @@ export default function AdminBillingPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold">รายการเรียกเก็บเงิน</h1>
-        <p className="text-sm text-muted-foreground">ใบแจ้งหนี้ / ใบเสร็จของแต่ละองค์กร</p>
+        <h1 className="text-xl font-bold">{t.title}</h1>
+        <p className="text-sm text-muted-foreground">{t.subtitle}</p>
       </div>
 
       {isLoading && <Loading />}
       {isError && <ErrorState onRetry={() => refetch()} />}
-      {data && data.length === 0 && <EmptyState message="ยังไม่มีใบแจ้งหนี้" />}
+      {data && data.length === 0 && <EmptyState message={t.empty} />}
 
       {data && data.length > 0 && (
         <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
@@ -104,25 +108,25 @@ export default function AdminBillingPage() {
             <table className="stack-table w-full md:min-w-[680px] text-sm">
               <thead className="bg-app text-left text-xs font-medium text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-3">เลขที่</th>
-                  <th className="px-4 py-3">องค์กร</th>
-                  <th className="px-4 py-3 text-right">ยอด</th>
-                  <th className="px-4 py-3">สถานะ</th>
-                  <th className="px-4 py-3">วันที่ออก</th>
-                  <th className="px-4 py-3">ครบกำหนด</th>
+                  <th className="px-4 py-3">{t.colNumber}</th>
+                  <th className="px-4 py-3">{t.colOrg}</th>
+                  <th className="px-4 py-3 text-right">{t.colAmount}</th>
+                  <th className="px-4 py-3">{t.colStatus}</th>
+                  <th className="px-4 py-3">{t.colIssued}</th>
+                  <th className="px-4 py-3">{t.colDue}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5">
                 {data.map((inv) => (
                   <tr key={inv.id} onClick={() => setSel(inv)} className="cursor-pointer hover:bg-app/60">
-                    <td data-label="เลขที่" className="px-4 py-3 font-medium">{inv.number}</td>
-                    <td data-label="องค์กร" className="px-4 py-3">{inv.organizationName}</td>
-                    <td data-label="ยอด" className="px-4 py-3 text-right font-semibold text-brand">฿{fmt.format(inv.amount)}</td>
-                    <td data-label="สถานะ" className="px-4 py-3">
+                    <td data-label={t.colNumber} className="px-4 py-3 font-medium">{inv.number}</td>
+                    <td data-label={t.colOrg} className="px-4 py-3">{inv.organizationName}</td>
+                    <td data-label={t.colAmount} className="px-4 py-3 text-right font-semibold text-brand">฿{fmt.format(inv.amount)}</td>
+                    <td data-label={t.colStatus} className="px-4 py-3">
                       <StatusPill status={inv.status} />
                     </td>
-                    <td data-label="วันที่ออก" className="px-4 py-3 text-muted-foreground">{inv.issueDate}</td>
-                    <td data-label="ครบกำหนด" className="px-4 py-3 text-muted-foreground">{inv.dueDate}</td>
+                    <td data-label={t.colIssued} className="px-4 py-3 text-muted-foreground">{inv.issueDate}</td>
+                    <td data-label={t.colDue} className="px-4 py-3 text-muted-foreground">{inv.dueDate}</td>
                   </tr>
                 ))}
               </tbody>
@@ -140,7 +144,7 @@ export default function AdminBillingPage() {
 
       {sel && (
         <Modal
-          title={docQ.data?.title ?? (paid ? "ใบเสร็จรับเงิน" : "ใบแจ้งหนี้")}
+          title={docQ.data?.title ?? (paid ? t.receiptTitle : t.invoiceTitle)}
           onClose={() => setSel(null)}
           // Wider than the default: this dialog also shows the transfer slip
           // and carries four actions.
@@ -151,10 +155,10 @@ export default function AdminBillingPage() {
                 <Button type="button" onClick={() => payM.mutate(sel.id)} disabled={payM.isPending}>
                   <CheckCircle2 className="size-4" />{" "}
                   {payM.isPending
-                    ? "กำลังบันทึก..."
+                    ? t.saving
                     : sel.status === "pending_review"
-                      ? "อนุมัติและต่ออายุ"
-                      : "ทำเครื่องหมายชำระแล้ว"}
+                      ? t.approveRenew
+                      : t.markPaid}
                 </Button>
               )}
               {sel.status === "pending_review" && (
@@ -164,7 +168,7 @@ export default function AdminBillingPage() {
                   onClick={() => rejectM.mutate(sel.id)}
                   disabled={rejectM.isPending}
                 >
-                  <XCircle className="size-4" /> {rejectM.isPending ? "กำลังบันทึก..." : "ไม่ผ่าน"}
+                  <XCircle className="size-4" /> {rejectM.isPending ? t.saving : t.reject}
                 </Button>
               )}
               {docQ.data && (
@@ -179,7 +183,7 @@ export default function AdminBillingPage() {
                 onClick={() => sendM.mutate(sel.id)}
                 disabled={sendM.isPending}
               >
-                <Mail className="size-4" /> {sendM.isPending ? "กำลังส่ง..." : `ส่ง${paid ? "ใบเสร็จ" : "ใบแจ้งหนี้"}`}
+                <Mail className="size-4" /> {sendM.isPending ? t.sending : paid ? t.sendReceipt : t.sendInvoice}
               </Button>
             </>
           }
@@ -194,15 +198,15 @@ export default function AdminBillingPage() {
             {sel.slipUrl && (
               <div className="rounded-xl bg-app/60 p-3">
                 <div className="mb-2 flex items-center justify-between text-sm">
-                  <span className="font-medium">สลิปโอนเงิน</span>
+                  <span className="font-medium">{t.slipTitle}</span>
                   <a href={sel.slipUrl} target="_blank" rel="noreferrer" className="text-xs font-semibold text-brand">
-                    เปิดเต็มจอ
+                    {t.openFull}
                   </a>
                 </div>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={sel.slipUrl}
-                  alt={`สลิปของ ${sel.organizationName}`}
+                  alt={interp(t.slipAlt, { name: sel.organizationName })}
                   className="max-h-72 w-full rounded-lg object-contain ring-1 ring-black/5"
                 />
               </div>
@@ -210,7 +214,7 @@ export default function AdminBillingPage() {
 
             {sel.rejectReason && (
               <div className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800">
-                ไม่ผ่าน: {sel.rejectReason}
+                {interp(t.rejectedReason, { reason: sel.rejectReason })}
               </div>
             )}
           </div>
