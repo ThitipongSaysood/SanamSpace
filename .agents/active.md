@@ -1,6 +1,13 @@
 # Active Task
 
-_Last updated: 2026-08-12 (~21:30) · Last agent: Claude (Opus 5)_
+_Last updated: 2026-08-13 (~14:20) · Last agent: Codex_
+
+## ✅ Done 2026-08-13 (~14:20) — customer membership matte sport card
+Local only, not committed. Customer `/v/{slug}/membership` card now uses the Matte Stealth visual direction
+from `matte_stealth_edit (1).html` and picks its sport badge from the venue's own `tenant.sportMeta` /
+primary `tenant.sport`, with fallbacks instead of a hard-coded sport table. Verification: `cd frontend &&
+npx tsc --noEmit` clean; `npx eslint 'app/v/[slug]/(app)/membership/page.tsx'` clean. Full detail:
+`sessions/2026-08-13-1420-membership-matte-sport-card.md`.
 
 ## ✅ Done 2026-08-12 (~21:30) — demo venue per plan, branches reach the customer app, double-payment on Back
 **Committed + pushed.** backend **678/678** (2,966 assertions) · e2e **44/44** · vitest **43/43** · tsc clean ·
