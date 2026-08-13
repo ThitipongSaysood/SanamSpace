@@ -11,20 +11,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { RowActions, rowAction } from "@/components/ui/row-action";
+import { useMessages } from "@/lib/i18n/context";
+import { fmt as interp } from "@/lib/i18n/format";
+import type { Messages } from "@/lib/i18n/messages";
 
 const KEY = ["owner", "coupons"];
 const fmt = new Intl.NumberFormat("th-TH");
 
 /** What a code is worth, in the venue's own words. */
-function worth(c: OwnerCoupon): string {
+function worth(c: OwnerCoupon, t: Messages["owner"]["promotions"]): string {
   const base = c.type === "fixed" ? `฿${fmt.format(c.value)}` : `${c.value}%`;
-  return c.maxDiscount ? `${base} (สูงสุด ฿${fmt.format(c.maxDiscount)})` : base;
+  return c.maxDiscount ? interp(t.worthMax, { base, max: fmt.format(c.maxDiscount) }) : base;
 }
 
 /** How much of it is left, when the venue capped it. */
-function usage(c: OwnerCoupon): string {
-  if (c.usageLimit === null) return `${fmt.format(c.usedCount)} ครั้ง`;
-  return `${fmt.format(c.usedCount)} / ${fmt.format(c.usageLimit)}`;
+function usage(c: OwnerCoupon, t: Messages["owner"]["promotions"]): string {
+  if (c.usageLimit === null) return interp(t.usageTimes, { n: fmt.format(c.usedCount) });
+  return interp(t.usageOf, { used: fmt.format(c.usedCount), limit: fmt.format(c.usageLimit) });
 }
 
 /**
@@ -37,6 +40,7 @@ function usage(c: OwnerCoupon): string {
  * because "delete" means something different on each.
  */
 export function CouponsPanel() {
+  const t = useMessages("owner").promotions;
   const qc = useQueryClient();
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: KEY, queryFn: ownerApi.getCoupons });
   const [editing, setEditing] = useState<OwnerCoupon | "new" | null>(null);
@@ -55,65 +59,65 @@ export function CouponsPanel() {
     <div className="space-y-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <p className="text-sm text-muted-foreground">
-          ลูกค้ากรอกรหัสตอนจอง — ระบบตรวจเงื่อนไขเวลา วันหมดอายุ ยอดขั้นต่ำ และจำนวนครั้งให้เอง
+          {t.couponIntro}
         </p>
         <Button type="button" onClick={() => setEditing("new")}>
-          <Plus className="size-4" /> เพิ่มคูปอง
+          <Plus className="size-4" /> {t.addCoupon}
         </Button>
       </header>
 
       {coupons.length === 0 ? (
-        <EmptyState message="ยังไม่มีคูปอง" />
+        <EmptyState message={t.noCoupons} />
       ) : (
         <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
           <div className="overflow-x-auto">
             <table className="stack-table w-full md:min-w-[820px] text-sm">
               <thead className="bg-app text-left text-xs font-medium text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-3">รหัส</th>
-                  <th className="px-4 py-3">ส่วนลด</th>
-                  <th className="px-4 py-3">เงื่อนไข</th>
-                  <th className="px-4 py-3">ใช้ไปแล้ว</th>
-                  <th className="px-4 py-3">สถานะ</th>
-                  <th className="w-40 px-4 py-3 text-right">จัดการ</th>
+                  <th className="px-4 py-3">{t.colCode}</th>
+                  <th className="px-4 py-3">{t.colDiscount}</th>
+                  <th className="px-4 py-3">{t.colConditions}</th>
+                  <th className="px-4 py-3">{t.colUsed}</th>
+                  <th className="px-4 py-3">{t.colStatus}</th>
+                  <th className="w-40 px-4 py-3 text-right">{t.colActions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5">
                 {coupons.map((c) => (
                   <tr key={c.id} className="hover:bg-app/60">
-                    <td data-label="รหัส" className="px-4 py-3">
+                    <td data-label={t.colCode} className="px-4 py-3">
                       <div className="font-mono font-semibold">{c.code}</div>
                       {c.description && (
                         <div className="text-xs text-muted-foreground">{c.description}</div>
                       )}
                     </td>
-                    <td data-label="ส่วนลด" className="px-4 py-3 font-medium text-brand">{worth(c)}</td>
-                    <td data-label="เงื่อนไข" className="px-4 py-3 text-xs text-muted-foreground">
-                      {c.minAmount > 0 && <div>ยอดขั้นต่ำ ฿{fmt.format(c.minAmount)}</div>}
-                      <div>คนละ {c.perCustomerLimit === 0 ? "ไม่จำกัด" : `${c.perCustomerLimit} ครั้ง`}</div>
-                      {c.endsAt && <div>ถึง {c.endsAt}</div>}
+                    <td data-label={t.colDiscount} className="px-4 py-3 font-medium text-brand">{worth(c, t)}</td>
+                    <td data-label={t.colConditions} className="px-4 py-3 text-xs text-muted-foreground">
+                      {c.minAmount > 0 && <div>{interp(t.minAmount, { n: fmt.format(c.minAmount) })}</div>}
+                      <div>{interp(t.perCustomer, { limit: c.perCustomerLimit === 0 ? t.unlimited : interp(t.timesN, { n: c.perCustomerLimit }) })}</div>
+                      {c.endsAt && <div>{interp(t.until, { date: c.endsAt })}</div>}
                       {c.conditionLabel && <div className="text-brand">{c.conditionLabel}</div>}
                     </td>
-                    <td data-label="ใช้ไปแล้ว" className="px-4 py-3 tabular-nums">{usage(c)}</td>
-                    <td data-label="สถานะ" className="px-4 py-3">
+                    <td data-label={t.colUsed} className="px-4 py-3 tabular-nums">{usage(c, t)}</td>
+                    <td data-label={t.colStatus} className="px-4 py-3">
                       <span
                         className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
                           c.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"
                         }`}
                       >
-                        {c.isActive ? "เปิดใช้" : "ปิดอยู่"}
+                        {c.isActive ? t.couponActive : t.couponInactive}
                       </span>
                     </td>
                     <td className="px-4 py-3">
                       <RowActions>
                         <button type="button" onClick={() => setEditing(c)} className={rowAction()}>
-                          แก้ไข
+                          {t.edit}
                         </button>
                         <button
                           type="button"
-                          aria-label={`ลบคูปอง ${c.code}`}
+                          aria-label={interp(t.deleteCouponAria, { code: c.code })}
                           onClick={() => {
-                            if (window.confirm(`ลบคูปอง ${c.code}?`)) remove.mutate(c.id);
+                            if (window.confirm(interp(t.deleteCouponConfirm, { code: c.code }))) remove.mutate(c.id);
                           }}
                           className={rowAction("icon", "hover:bg-brand-danger/10 hover:text-brand-danger")}
                         >
@@ -152,6 +156,7 @@ function CouponEditor({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const t = useMessages("owner").promotions;
   const [form, setForm] = useState({
     code: coupon?.code ?? "",
     description: coupon?.description ?? "",
@@ -178,62 +183,62 @@ function CouponEditor({
 
   return (
     <Modal
-      title={coupon ? `แก้ไขคูปอง ${coupon.code}` : "เพิ่มคูปอง"}
+      title={coupon ? interp(t.editCouponTitle, { code: coupon.code }) : t.addCouponTitle}
       onClose={onClose}
       footer={
         <>
           <Button type="button" variant="outline" onClick={onClose}>
-            ปิด
+            {t.close}
           </Button>
           <Button
             type="button"
             onClick={() => save.mutate()}
             disabled={save.isPending || !form.code.trim()}
           >
-            {save.isPending ? "กำลังบันทึก…" : "บันทึก"}
+            {save.isPending ? t.saving : t.save}
           </Button>
         </>
       }
     >
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5 sm:col-span-2">
-          <Label htmlFor="c-code">รหัสคูปอง</Label>
+          <Label htmlFor="c-code">{t.codeLabel}</Label>
           <Input
             id="c-code"
             value={form.code}
             onChange={(e) => set("code", e.target.value.toUpperCase())}
-            placeholder="เช่น NEWYEAR"
+            placeholder={t.codePlaceholder}
             className="uppercase"
           />
           {/* Said out loud so nobody hunts for a bug in their own typing. */}
-          <p className="text-xs text-muted-foreground">ลูกค้าพิมพ์ตัวเล็กหรือใหญ่ก็ใช้ได้</p>
+          <p className="text-xs text-muted-foreground">{t.codeHint}</p>
         </div>
 
         <div className="space-y-1.5 sm:col-span-2">
-          <Label htmlFor="c-desc">คำอธิบาย</Label>
+          <Label htmlFor="c-desc">{t.descLabel}</Label>
           <Input
             id="c-desc"
             value={form.description ?? ""}
             onChange={(e) => set("description", e.target.value)}
-            placeholder="เช่น ลดต้อนรับปีใหม่"
+            placeholder={t.descPlaceholder}
           />
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="c-type">คิดแบบ</Label>
+          <Label htmlFor="c-type">{t.methodLabel}</Label>
           <select
             id="c-type"
             value={form.type}
             onChange={(e) => set("type", e.target.value as "percent" | "fixed")}
             className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
           >
-            <option value="percent">เปอร์เซ็นต์</option>
-            <option value="fixed">จำนวนเงิน</option>
+            <option value="percent">{t.optPercent}</option>
+            <option value="fixed">{t.optFixed}</option>
           </select>
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="c-value">{form.type === "fixed" ? "ลดกี่บาท" : "ลดกี่เปอร์เซ็นต์"}</Label>
+          <Label htmlFor="c-value">{form.type === "fixed" ? t.valueFixed : t.valuePercent}</Label>
           <Input
             id="c-value"
             type="number"
@@ -245,20 +250,20 @@ function CouponEditor({
 
         {form.type === "percent" && (
           <div className="space-y-1.5">
-            <Label htmlFor="c-max">ลดสูงสุด (บาท)</Label>
+            <Label htmlFor="c-max">{t.maxLabel}</Label>
             <Input
               id="c-max"
               type="number"
               min={0}
               value={form.maxDiscount ?? ""}
               onChange={(e) => set("maxDiscount", e.target.value === "" ? null : Number(e.target.value))}
-              placeholder="ไม่จำกัด"
+              placeholder={t.noLimit}
             />
           </div>
         )}
 
         <div className="space-y-1.5">
-          <Label htmlFor="c-min">ยอดขั้นต่ำ (บาท)</Label>
+          <Label htmlFor="c-min">{t.minLabel}</Label>
           <Input
             id="c-min"
             type="number"
@@ -269,7 +274,7 @@ function CouponEditor({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="c-per">ใช้ได้คนละกี่ครั้ง</Label>
+          <Label htmlFor="c-per">{t.perLimitLabel}</Label>
           <Input
             id="c-per"
             type="number"
@@ -280,19 +285,19 @@ function CouponEditor({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="c-total">ใช้ได้ทั้งหมดกี่ครั้ง</Label>
+          <Label htmlFor="c-total">{t.totalLimitLabel}</Label>
           <Input
             id="c-total"
             type="number"
             min={1}
             value={form.usageLimit ?? ""}
             onChange={(e) => set("usageLimit", e.target.value === "" ? null : Number(e.target.value))}
-            placeholder="ไม่จำกัด"
+            placeholder={t.noLimit}
           />
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="c-ends">ใช้ได้ถึงวันที่</Label>
+          <Label htmlFor="c-ends">{t.endsLabel}</Label>
           <Input
             id="c-ends"
             type="date"
@@ -310,23 +315,23 @@ function CouponEditor({
           */}
         <div className="space-y-2 rounded-xl bg-app/60 p-3 sm:col-span-2">
           <div>
-            <Label>ใช้ได้เฉพาะช่วงเวลา</Label>
+            <Label>{t.timeWindowLabel}</Label>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              เว้นว่าง = ใช้ได้ทุกเวลา · การจองต้องอยู่ในช่วงนี้ทั้งรอบ
+              {t.timeWindowHint}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Input
               type="time"
-              aria-label="ตั้งแต่เวลา"
+              aria-label={t.fromTimeAria}
               className="w-32"
               value={form.validFromTime ?? ""}
               onChange={(e) => set("validFromTime", e.target.value || null)}
             />
-            <span className="text-sm text-muted-foreground">ถึง</span>
+            <span className="text-sm text-muted-foreground">{t.toWord}</span>
             <Input
               type="time"
-              aria-label="ถึงเวลา"
+              aria-label={t.toTimeAria}
               className="w-32"
               value={form.validToTime ?? ""}
               onChange={(e) => set("validToTime", e.target.value || null)}
@@ -334,12 +339,12 @@ function CouponEditor({
           </div>
 
           <div>
-            <Label>ใช้ได้เฉพาะวัน</Label>
-            <p className="mt-0.5 text-xs text-muted-foreground">ไม่เลือกเลย = ใช้ได้ทุกวัน</p>
+            <Label>{t.daysLabel}</Label>
+            <p className="mt-0.5 text-xs text-muted-foreground">{t.daysHint}</p>
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {([[1, "จ."], [2, "อ."], [3, "พ."], [4, "พฤ."], [5, "ศ."], [6, "ส."], [7, "อา."]] as const).map(
-              ([day, label]) => {
+            {([1, 2, 3, 4, 5, 6, 7] as const).map(
+              (day) => {
                 const on = form.validDays?.includes(day) ?? false;
                 return (
                   <button
@@ -358,7 +363,7 @@ function CouponEditor({
                       on ? "bg-brand text-brand-foreground ring-brand" : "ring-black/10 hover:bg-app"
                     }`}
                   >
-                    {label}
+                    {t.dayShort[day - 1]}
                   </button>
                 );
               },
@@ -370,9 +375,9 @@ function CouponEditor({
           <Switch
             checked={form.isActive}
             onCheckedChange={(v) => set("isActive", v)}
-            aria-label="เปิดใช้คูปองนี้"
+            aria-label={t.enableCoupon}
           />
-          <span className="text-sm">เปิดใช้คูปองนี้</span>
+          <span className="text-sm">{t.enableCoupon}</span>
         </div>
 
         {save.isError && (

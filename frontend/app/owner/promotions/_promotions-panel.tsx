@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { useMessages } from "@/lib/i18n/context";
+import { fmt as interp } from "@/lib/i18n/format";
 
 const PROMO_KEY = ["owner", "promotions"];
 const TAGS: OwnerPromotion["tag"][] = ["ส่วนลด", "แพ็กเกจ"];
@@ -22,6 +24,7 @@ function tagClass(tag: string) {
 }
 
 export function PromotionsPanel() {
+  const tp = useMessages("owner").promotions;
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: PROMO_KEY,
     queryFn: ownerApi.getOwnerPromotions,
@@ -33,11 +36,11 @@ export function PromotionsPanel() {
     <div className="space-y-5">
       <header className="flex items-start justify-between gap-3">
         <p className="text-sm text-muted-foreground">
-          ป้ายที่ลูกค้าเห็นในแอป · ผูกคูปองไว้ได้ เพื่อให้กดแล้วใส่โค้ดให้อัตโนมัติ
+          {tp.promoIntro}
         </p>
         {!adding && (
           <Button type="button" onClick={() => setAdding(true)}>
-            <Plus className="size-4" /> เพิ่มโปรโมชั่น
+            <Plus className="size-4" /> {tp.addPromo}
           </Button>
         )}
       </header>
@@ -46,7 +49,7 @@ export function PromotionsPanel() {
 
       {isLoading && <Loading />}
       {isError && <ErrorState onRetry={() => refetch()} />}
-      {data && data.length === 0 && !adding && <EmptyState message="ยังไม่มีโปรโมชั่น" />}
+      {data && data.length === 0 && !adding && <EmptyState message={tp.noPromos} />}
 
       {data && data.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -67,6 +70,7 @@ function PromotionForm({
   promo?: OwnerPromotion;
   onClose: () => void;
 }) {
+  const tp = useMessages("owner").promotions;
   const qc = useQueryClient();
   const [form, setForm] = useState<FormState>(
     promo
@@ -101,12 +105,12 @@ function PromotionForm({
     >
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold">
-          {promo ? "แก้ไขโปรโมชั่น" : "เพิ่มโปรโมชั่น"}
+          {promo ? tp.editPromo : tp.addPromo}
         </h2>
         <button
           type="button"
           onClick={onClose}
-          aria-label="ปิด"
+          aria-label={tp.close}
           className="grid size-7 place-items-center rounded-lg text-muted-foreground hover:bg-app"
         >
           <X className="size-4" />
@@ -114,27 +118,27 @@ function PromotionForm({
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="promo-title">หัวข้อ</Label>
+        <Label htmlFor="promo-title">{tp.titleLabel}</Label>
         <Input
           id="promo-title"
           value={form.title}
           onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-          placeholder="เช่น ลด 20% ช่วง Happy Hour"
+          placeholder={tp.titlePlaceholder}
         />
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="promo-subtitle">รายละเอียด</Label>
+        <Label htmlFor="promo-subtitle">{tp.detailLabel}</Label>
         <Input
           id="promo-subtitle"
           value={form.subtitle}
           onChange={(e) => setForm((f) => ({ ...f, subtitle: e.target.value }))}
-          placeholder="เช่น ทุกวันจันทร์–ศุกร์ 14:00–17:00"
+          placeholder={tp.detailPlaceholder}
         />
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="promo-tag">ประเภท</Label>
+        <Label htmlFor="promo-tag">{tp.typeLabel}</Label>
         <select
           id="promo-tag"
           value={form.tag}
@@ -143,9 +147,9 @@ function PromotionForm({
           }
           className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
         >
-          {TAGS.map((t) => (
-            <option key={t} value={t}>
-              {t}
+          {TAGS.map((tag) => (
+            <option key={tag} value={tag}>
+              {(tp.tagLabel as Record<string, string>)[tag]}
             </option>
           ))}
         </select>
@@ -154,7 +158,7 @@ function PromotionForm({
       {/* Link a coupon so tapping this promo drops the customer on the booking
           screen with the code already applied. Optional — leave as ประกาศเฉยๆ. */}
       <div className="space-y-1.5">
-        <Label htmlFor="promo-coupon">คูปองที่ผูก (ไม่บังคับ)</Label>
+        <Label htmlFor="promo-coupon">{tp.couponLinkLabel}</Label>
         {coupons && coupons.length > 0 ? (
           <>
             <select
@@ -163,60 +167,59 @@ function PromotionForm({
               onChange={(e) => setForm((f) => ({ ...f, couponId: e.target.value }))}
               className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             >
-              <option value="">— ไม่ผูก (เป็นประกาศเฉยๆ) —</option>
+              <option value="">{tp.noLink}</option>
               {coupons.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.code} · {c.type === "percent" ? `ลด ${c.value}%` : `ลด ฿${c.value}`}
+                  {c.code} · {c.type === "percent" ? interp(tp.couponOptPercent, { value: c.value }) : interp(tp.couponOptFixed, { value: c.value })}
                   {/* The hours the code is actually limited to. A promo titled
                       "จอง 07:00–16:00 ลด 10%" over a coupon with no window is a
                       promise the system will not keep, and this is the only
                       screen where both halves are visible at once. */}
                   {c.conditionLabel ? ` · ${c.conditionLabel}` : ""}
-                  {!c.isActive ? " (ปิดอยู่)" : ""}
+                  {!c.isActive ? tp.couponOffSuffix : ""}
                 </option>
               ))}
             </select>
             <p className="text-xs text-muted-foreground">
-              ผูกแล้ว ลูกค้ากดโปรจะเด้งไปหน้าจองพร้อมใส่โค้ดให้อัตโนมัติ ·
-              เงื่อนไขเวลาตั้งที่{" "}
+              {tp.linkedHintPre}
               <Link href="/owner/coupons" className="font-semibold text-brand">
-                คูปองส่วนลด
+                {tp.couponsLink}
               </Link>
             </p>
           </>
         ) : (
           <p className="text-xs text-muted-foreground">
-            ยังไม่มีคูปอง — สร้างที่เมนู{" "}
+            {tp.noCouponHintPre}
             <Link href="/owner/coupons" className="font-semibold text-brand">
-              คูปองส่วนลด
-            </Link>{" "}
-            ก่อนแล้วค่อยกลับมาผูก
+              {tp.couponsLink}
+            </Link>
+            {tp.noCouponHintPost}
           </p>
         )}
       </div>
 
       <div className="flex items-center justify-between gap-3 border-t border-black/5 pt-3">
         <div className="text-sm">
-          เปิดใช้งานโปรโมชั่น
-          <span className="mt-0.5 block text-xs text-muted-foreground">ปิดแล้วลูกค้าจะไม่เห็นในแอป</span>
+          {tp.enablePromo}
+          <span className="mt-0.5 block text-xs text-muted-foreground">{tp.enablePromoHint}</span>
         </div>
         <Switch
           checked={form.isActive}
           onCheckedChange={(v) => setForm((f) => ({ ...f, isActive: v }))}
-          aria-label="เปิดใช้งานโปรโมชั่น"
+          aria-label={tp.enablePromo}
         />
       </div>
 
       {mutation.isError && (
-        <p className="text-sm text-brand-danger">บันทึกไม่สำเร็จ ลองอีกครั้ง</p>
+        <p className="text-sm text-brand-danger">{tp.saveFailed}</p>
       )}
 
       <div className="flex items-center gap-2">
         <Button type="submit" disabled={mutation.isPending || !form.title.trim()}>
-          {mutation.isPending ? "กำลังบันทึก..." : "บันทึก"}
+          {mutation.isPending ? tp.saving : tp.save}
         </Button>
         <Button type="button" variant="outline" onClick={onClose}>
-          ยกเลิก
+          {tp.cancel}
         </Button>
       </div>
     </form>
@@ -224,6 +227,7 @@ function PromotionForm({
 }
 
 function PromotionCard({ promo }: { promo: OwnerPromotion }) {
+  const tp = useMessages("owner").promotions;
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
 
@@ -239,7 +243,7 @@ function PromotionCard({ promo }: { promo: OwnerPromotion }) {
   });
 
   function onDelete() {
-    if (window.confirm(`ลบโปรโมชั่น "${promo.title}" ?`)) del.mutate();
+    if (window.confirm(interp(tp.deletePromoConfirm, { title: promo.title }))) del.mutate();
   }
 
   if (editing) {
@@ -254,10 +258,10 @@ function PromotionCard({ promo }: { promo: OwnerPromotion }) {
         </span>
         <div className="flex items-center gap-1.5">
           {!promo.isActive && (
-            <span className="rounded-full bg-black/5 px-2 py-0.5 text-xs font-medium text-muted-foreground">ปิดอยู่</span>
+            <span className="rounded-full bg-black/5 px-2 py-0.5 text-xs font-medium text-muted-foreground">{tp.promoOff}</span>
           )}
           <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${tagClass(promo.tag)}`}>
-            {promo.tag}
+            {(tp.tagLabel as Record<string, string>)[promo.tag]}
           </span>
         </div>
       </div>
@@ -270,7 +274,7 @@ function PromotionCard({ promo }: { promo: OwnerPromotion }) {
       </div>
 
       {del.isError && (
-        <p className="mt-2 text-sm text-brand-danger">ลบไม่สำเร็จ ลองอีกครั้ง</p>
+        <p className="mt-2 text-sm text-brand-danger">{tp.deletePromoFailed}</p>
       )}
 
       <div className="mt-3 flex items-center gap-2 border-t border-black/5 pt-3">
@@ -279,12 +283,12 @@ function PromotionCard({ promo }: { promo: OwnerPromotion }) {
             checked={promo.isActive}
             disabled={toggle.isPending}
             onCheckedChange={(v) => toggle.mutate(v)}
-            aria-label={`เปิด/ปิดโปรโมชั่น ${promo.title}`}
+            aria-label={interp(tp.toggleAria, { title: promo.title })}
           />
-          <span className="text-xs text-muted-foreground">{promo.isActive ? "เปิด" : "ปิด"}</span>
+          <span className="text-xs text-muted-foreground">{promo.isActive ? tp.on : tp.off}</span>
         </label>
         <Button type="button" variant="outline" size="sm" onClick={() => setEditing(true)}>
-          <Pencil className="size-3.5" /> แก้ไข
+          <Pencil className="size-3.5" /> {tp.edit}
         </Button>
         <Button
           type="button"
@@ -293,7 +297,7 @@ function PromotionCard({ promo }: { promo: OwnerPromotion }) {
           disabled={del.isPending}
           onClick={onDelete}
         >
-          <Trash2 className="size-3.5" /> {del.isPending ? "กำลังลบ..." : "ลบ"}
+          <Trash2 className="size-3.5" /> {del.isPending ? tp.deleting : tp.delete}
         </Button>
       </div>
     </div>

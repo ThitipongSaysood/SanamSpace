@@ -5,13 +5,14 @@ import { BadgePercent, Tag } from "lucide-react";
 import { ownerApi } from "@/lib/api/owner";
 import { PromotionsPanel } from "./_promotions-panel";
 import { CouponsPanel } from "./_coupons-panel";
+import { useMessages } from "@/lib/i18n/context";
 
 const TABS = [
-  { key: "promotions", label: "โปรโมชั่น", icon: Tag },
+  { key: "promotions", icon: Tag },
   // Only shown when the plan includes coupons — it used to be its own sidebar
   // entry carrying `feature: "coupon"`, and folding it in here must not quietly
   // hand it to plans that never paid for it.
-  { key: "coupons", label: "คูปองส่วนลด", icon: BadgePercent, feature: "coupon" },
+  { key: "coupons", icon: BadgePercent, feature: "coupon" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -26,6 +27,7 @@ type TabKey = (typeof TABS)[number]["key"];
  * showing whether the two agreed.
  */
 export default function OwnerPromotionsPage() {
+  const tp = useMessages("owner").promotions;
   const [tab, setTab] = useState<TabKey>("promotions");
   const { data: sub } = useQuery({ queryKey: ["owner", "subscription"], queryFn: ownerApi.getSubscription });
 
@@ -37,8 +39,8 @@ export default function OwnerPromotionsPage() {
   return (
     <div className="space-y-5">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight">โปรโมชั่น</h1>
-        <p className="text-sm text-muted-foreground">สิ่งที่ลูกค้าเห็น และส่วนลดที่อยู่เบื้องหลัง</p>
+        <h1 className="text-2xl font-bold tracking-tight">{tp.title}</h1>
+        <p className="text-sm text-muted-foreground">{tp.subtitle}</p>
       </header>
 
       {tabs.length > 1 && (
@@ -54,7 +56,7 @@ export default function OwnerPromotionsPage() {
                   : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
-              <t.icon className="size-4" /> {t.label}
+              <t.icon className="size-4" /> {t.key === "promotions" ? tp.tabPromotions : tp.tabCoupons}
             </button>
           ))}
         </div>
