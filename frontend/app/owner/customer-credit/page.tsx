@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { RowActions, rowAction } from "@/components/ui/row-action";
+import { useMessages, useLocale } from "@/lib/i18n/context";
+import { fmt as interp, intlLocale } from "@/lib/i18n/format";
 
 const KEY = ["owner", "customer-credit"];
 const fmt = new Intl.NumberFormat("th-TH");
@@ -30,6 +32,7 @@ export default function OwnerCustomerCreditPage() {
   const [q, setQ] = useState("");
   const [holding, setHolding] = useState(true);
   const [editing, setEditing] = useState<OwnerCustomerCredit | null>(null);
+  const t = useMessages("owner").customerCredit;
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: [...KEY, q, holding],
@@ -42,23 +45,22 @@ export default function OwnerCustomerCreditPage() {
   return (
     <div className="space-y-5">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight">เครดิตลูกค้า</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
         <p className="text-sm text-muted-foreground">
-          เครดิตเป็น<strong>เงินบาท</strong> ใช้จ่ายค่าจอง ค่าเช่าอุปกรณ์ ได้ทันทีโดยไม่ต้องแนบสลิป ·
-          ยกเลิกการจองแล้วเงินจะคืนกลับมาที่นี่
+          {t.subtitlePre}<strong>{t.subtitleBold}</strong>{t.subtitlePost}
         </p>
       </header>
 
       <section className="grid gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label htmlFor="q">ค้นหา</Label>
+          <Label htmlFor="q">{t.search}</Label>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               id="q"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="ชื่อลูกค้า หรือเบอร์โทร"
+              placeholder={t.searchPlaceholder}
               className="pl-9"
             />
           </div>
@@ -70,14 +72,14 @@ export default function OwnerCustomerCreditPage() {
             onChange={(e) => setHolding(e.target.checked)}
             className="size-4 accent-[var(--brand-primary)]"
           />
-          <span className="text-sm">แสดงเฉพาะคนที่มียอดคงเหลือ</span>
+          <span className="text-sm">{t.onlyHolding}</span>
         </label>
       </section>
 
       {isLoading && <Loading />}
       {isError && <ErrorState onRetry={() => refetch()} />}
       {!isLoading && !isError && rows.length === 0 && (
-        <EmptyState message={holding ? "ยังไม่มีลูกค้าที่มีเครดิตคงเหลือ" : "ไม่พบลูกค้า"} />
+        <EmptyState message={holding ? t.emptyHolding : t.emptyNone} />
       )}
 
       {rows.length > 0 && (
@@ -86,44 +88,44 @@ export default function OwnerCustomerCreditPage() {
             <table className="stack-table w-full md:min-w-[760px] text-sm">
               <thead className="bg-app text-left text-xs font-medium text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-3">ลูกค้า</th>
-                  <th className="px-4 py-3 text-right">เครดิต (บาท)</th>
-                  <th className="px-4 py-3 text-right">ชั่วโมงคงเหลือ</th>
-                  <th className="px-4 py-3">แพ็กเกจที่ถืออยู่</th>
-                  <th className="w-36 px-4 py-3 text-right">จัดการ</th>
+                  <th className="px-4 py-3">{t.colCustomer}</th>
+                  <th className="px-4 py-3 text-right">{t.colCredit}</th>
+                  <th className="px-4 py-3 text-right">{t.colHours}</th>
+                  <th className="px-4 py-3">{t.colPackages}</th>
+                  <th className="w-36 px-4 py-3 text-right">{t.colActions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5">
                 {rows.map((c) => (
                   <tr key={c.id} className="hover:bg-app/60">
-                    <td data-label="ลูกค้า" className="px-4 py-3">
+                    <td data-label={t.colCustomer} className="px-4 py-3">
                       <div className="font-medium">{c.displayName}</div>
                       {c.phone && <div className="text-xs text-muted-foreground">{c.phone}</div>}
                     </td>
-                    <td data-label="เครดิต" className="px-4 py-3 text-right">
+                    <td data-label={t.colCredit} className="px-4 py-3 text-right">
                       <span className={`font-semibold tabular-nums ${c.balance > 0 ? "text-brand" : "text-muted-foreground"}`}>
                         ฿{fmt.format(c.balance)}
                       </span>
                     </td>
-                    <td data-label="ชั่วโมงคงเหลือ" className="px-4 py-3 text-right">
+                    <td data-label={t.colHours} className="px-4 py-3 text-right">
                       <span className={`tabular-nums ${c.creditHours > 0 ? "font-semibold" : "text-muted-foreground"}`}>
-                        {c.creditHours > 0 ? `${fmt.format(c.creditHours)} ชม.` : "—"}
+                        {c.creditHours > 0 ? interp(t.hoursUnit, { n: fmt.format(c.creditHours) }) : t.dash}
                       </span>
                     </td>
-                    <td data-label="แพ็กเกจ" className="px-4 py-3 text-xs text-muted-foreground">
+                    <td data-label={t.colPackages} className="px-4 py-3 text-xs text-muted-foreground">
                       {c.packages.length === 0
-                        ? "—"
+                        ? t.dash
                         : c.packages.map((p) => (
                             <div key={p.id}>
-                              {p.name} · เหลือ {p.remainingHours}/{p.totalHours} ชม.
-                              {p.expiresAt && ` · ถึง ${p.expiresAt}`}
+                              {interp(t.pkgLine, { name: p.name, remaining: p.remainingHours, total: p.totalHours })}
+                              {p.expiresAt && interp(t.pkgExpiry, { date: p.expiresAt })}
                             </div>
                           ))}
                     </td>
                     <td className="px-4 py-3">
                       <RowActions>
                         <button type="button" onClick={() => setEditing(c)} className={rowAction()}>
-                          เพิ่ม/ปรับ
+                          {t.adjustBtn}
                         </button>
                       </RowActions>
                     </td>
@@ -147,6 +149,7 @@ export default function OwnerCustomerCreditPage() {
  * getting the unit wrong is how a venue hands out ฿500 meaning 500 minutes.
  */
 function CreditEditor({ customer, onClose }: { customer: OwnerCustomerCredit; onClose: () => void }) {
+  const t = useMessages("owner").customerCredit;
   const qc = useQueryClient();
   const [hours, setHours] = useState("");
   const [hoursName, setHoursName] = useState("");
@@ -188,37 +191,37 @@ function CreditEditor({ customer, onClose }: { customer: OwnerCustomerCredit; on
 
   return (
     <Modal
-      title={`เครดิตของ ${customer.displayName}`}
+      title={interp(t.editTitle, { name: customer.displayName })}
       onClose={onClose}
       footer={
         <Button type="button" variant="outline" onClick={onClose}>
-          ปิด
+          {t.close}
         </Button>
       }
     >
       <div className="space-y-5">
         <div className="grid grid-cols-2 gap-3 rounded-xl bg-app p-3 text-center">
           <div>
-            <div className="text-xs text-muted-foreground">เครดิตคงเหลือ</div>
+            <div className="text-xs text-muted-foreground">{t.balanceLabel}</div>
             <div className="text-xl font-bold text-brand tabular-nums">฿{fmt.format(customer.balance)}</div>
           </div>
           <div>
-            <div className="text-xs text-muted-foreground">ชั่วโมงจากแพ็กเกจ</div>
-            <div className="text-xl font-bold tabular-nums">{fmt.format(customer.creditHours)} ชม.</div>
+            <div className="text-xs text-muted-foreground">{t.pkgHoursLabel}</div>
+            <div className="text-xl font-bold tabular-nums">{interp(t.hoursUnit, { n: fmt.format(customer.creditHours) })}</div>
           </div>
         </div>
 
         <section className="space-y-2 rounded-xl border border-black/10 p-3">
           <h3 className="flex items-center gap-1.5 text-sm font-semibold">
-            <Clock className="size-4 text-brand" /> ชั่วโมงจากแพ็กเกจ
+            <Clock className="size-4 text-brand" /> {t.hoursSectionTitle}
           </h3>
           <p className="text-xs text-muted-foreground">
-            ใช้กับค่าสนามเท่านั้น · ลูกค้าซื้อเองได้จากแอป — ตรงนี้ไว้ให้/หักด้วยมือ เช่น ชดเชยคอร์ทเสีย
+            {t.hoursSectionHint}
           </p>
 
           <div className="grid gap-2 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="cr-hours">จำนวนชั่วโมง</Label>
+              <Label htmlFor="cr-hours">{t.hoursLabel}</Label>
               <Input
                 id="cr-hours"
                 type="number"
@@ -226,20 +229,20 @@ function CreditEditor({ customer, onClose }: { customer: OwnerCustomerCredit; on
                 step={0.5}
                 value={hours}
                 onChange={(e) => setHours(e.target.value)}
-                placeholder="เช่น 5"
+                placeholder={t.hoursPlaceholder}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="cr-expires">หมดอายุ (ไม่บังคับ)</Label>
+              <Label htmlFor="cr-expires">{t.expiresLabel}</Label>
               <Input id="cr-expires" type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="cr-name">เหตุผล / ชื่อแพ็กเกจ</Label>
+              <Label htmlFor="cr-name">{t.reasonNameLabel}</Label>
               <Input
                 id="cr-name"
                 value={hoursName}
                 onChange={(e) => setHoursName(e.target.value)}
-                placeholder="เช่น ชดเชยคอร์ทเสีย"
+                placeholder={t.reasonNamePlaceholder}
               />
             </div>
           </div>
@@ -251,7 +254,7 @@ function CreditEditor({ customer, onClose }: { customer: OwnerCustomerCredit; on
               onClick={() => deduct.mutate()}
               className="h-10 rounded-lg text-sm font-semibold text-brand-danger ring-1 ring-brand-danger/20 disabled:opacity-40"
             >
-              หักออก
+              {t.deductHours}
             </button>
             <button
               type="button"
@@ -259,38 +262,38 @@ function CreditEditor({ customer, onClose }: { customer: OwnerCustomerCredit; on
               onClick={() => grant.mutate()}
               className="h-10 rounded-lg bg-brand text-sm font-semibold text-brand-foreground disabled:opacity-40"
             >
-              เพิ่มเครดิต
+              {t.grantHours}
             </button>
           </div>
         </section>
 
         <section className="space-y-2 rounded-xl border border-black/10 p-3">
           <h3 className="flex items-center gap-1.5 text-sm font-semibold">
-            <WalletIcon className="size-4 text-brand" /> เครดิต (เงินบาท)
+            <WalletIcon className="size-4 text-brand" /> {t.moneySectionTitle}
           </h3>
           <p className="text-xs text-muted-foreground">
-            ลูกค้าใช้จ่ายค่าจองและค่าเช่าอุปกรณ์ได้ทันที ไม่ต้องแนบสลิป · ทุกครั้งที่ปรับจะถูกบันทึกชื่อผู้ทำ
+            {t.moneySectionHint}
           </p>
 
           <div className="grid gap-2 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="cr-money">จำนวนเงิน (บาท)</Label>
+              <Label htmlFor="cr-money">{t.moneyLabel}</Label>
               <Input
                 id="cr-money"
                 type="number"
                 min={1}
                 value={money}
                 onChange={(e) => setMoney(e.target.value)}
-                placeholder="เช่น 500"
+                placeholder={t.moneyPlaceholder}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="cr-label">เหตุผล</Label>
+              <Label htmlFor="cr-label">{t.reasonLabel}</Label>
               <Input
                 id="cr-label"
                 value={moneyLabel}
                 onChange={(e) => setMoneyLabel(e.target.value)}
-                placeholder="เช่น คืนเงินค่าคอร์ท"
+                placeholder={t.reasonPlaceholder}
               />
             </div>
           </div>
@@ -302,7 +305,7 @@ function CreditEditor({ customer, onClose }: { customer: OwnerCustomerCredit; on
               onClick={() => wallet.mutate(-1)}
               className="h-10 rounded-lg text-sm font-semibold text-brand-danger ring-1 ring-brand-danger/20 disabled:opacity-40"
             >
-              หักเงินออก
+              {t.deductMoney}
             </button>
             <button
               type="button"
@@ -310,7 +313,7 @@ function CreditEditor({ customer, onClose }: { customer: OwnerCustomerCredit; on
               onClick={() => wallet.mutate(1)}
               className="h-10 rounded-lg bg-brand text-sm font-semibold text-brand-foreground disabled:opacity-40"
             >
-              เติมเงิน
+              {t.addMoney}
             </button>
           </div>
         </section>
@@ -325,14 +328,6 @@ function CreditEditor({ customer, onClose }: { customer: OwnerCustomerCredit; on
   );
 }
 
-const POINT_SOURCE_LABEL: Record<string, string> = {
-  booking: "จองสำเร็จ",
-  cancellation: "ยกเลิกการจอง",
-  adjustment: "ปรับโดยพนักงาน",
-  redemption: "แลกของรางวัล",
-  expiry: "หมดอายุ",
-};
-
 /**
  * The points ledger.
  *
@@ -341,6 +336,8 @@ const POINT_SOURCE_LABEL: Record<string, string> = {
  * the controller's own comment admitted it.
  */
 function PointsHistory({ customerId }: { customerId: string }) {
+  const tc = useMessages("owner").customerCredit;
+  const { locale } = useLocale();
   const { data, isLoading } = useQuery({
     queryKey: ["owner", "customer-credit", customerId, "points"],
     queryFn: () => ownerApi.getPointsHistory(customerId),
@@ -350,11 +347,11 @@ function PointsHistory({ customerId }: { customerId: string }) {
 
   return (
     <section className="space-y-2 rounded-xl border border-black/10 p-3">
-      <h3 className="text-sm font-semibold">ประวัติคะแนน</h3>
+      <h3 className="text-sm font-semibold">{tc.pointsHistoryTitle}</h3>
 
-      {isLoading && <p className="text-xs text-muted-foreground">กำลังโหลด…</p>}
+      {isLoading && <p className="text-xs text-muted-foreground">{tc.loading}</p>}
       {!isLoading && rows.length === 0 && (
-        <p className="text-xs text-muted-foreground">ยังไม่มีคะแนน</p>
+        <p className="text-xs text-muted-foreground">{tc.noPoints}</p>
       )}
 
       {rows.length > 0 && (
@@ -362,13 +359,13 @@ function PointsHistory({ customerId }: { customerId: string }) {
           {rows.map((t) => (
             <li key={t.id} className="flex items-start justify-between gap-3 py-2 text-sm">
               <div className="min-w-0">
-                <div className="truncate">{t.label ?? POINT_SOURCE_LABEL[t.source] ?? t.source}</div>
+                <div className="truncate">{t.label ?? (tc.pointSource as Record<string, string>)[t.source] ?? t.source}</div>
                 <div className="text-xs text-muted-foreground">
-                  {new Date(t.createdAt).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}
-                  {` · ${POINT_SOURCE_LABEL[t.source] ?? t.source}`}
+                  {new Date(t.createdAt).toLocaleString(intlLocale(locale), { dateStyle: "short", timeStyle: "short" })}
+                  {interp(tc.sourceSuffix, { label: (tc.pointSource as Record<string, string>)[t.source] ?? t.source })}
                   {/* No name = the system awarded it from a booking, which is
                       not an action anyone has to answer for. */}
-                  {t.byName ? ` · โดย ${t.byName}` : ""}
+                  {t.byName ? interp(tc.byName, { name: t.byName }) : ""}
                 </div>
               </div>
               <span
@@ -384,13 +381,6 @@ function PointsHistory({ customerId }: { customerId: string }) {
   );
 }
 
-const SOURCE_LABEL: Record<string, string> = {
-  topup: "เติมเงิน",
-  booking: "จ่ายค่าจอง",
-  refund: "คืนจากการยกเลิก",
-  adjustment: "ปรับโดยพนักงาน",
-};
-
 /**
  * Every movement, with the person behind it.
  *
@@ -399,6 +389,8 @@ const SOURCE_LABEL: Record<string, string> = {
  * name is one the customer caused themselves.
  */
 function CreditHistory({ customerId }: { customerId: string }) {
+  const tc = useMessages("owner").customerCredit;
+  const { locale } = useLocale();
   const { data, isLoading } = useQuery({
     queryKey: ["owner", "customer-credit", customerId, "history"],
     queryFn: () => ownerApi.getCreditHistory(customerId),
@@ -408,11 +400,11 @@ function CreditHistory({ customerId }: { customerId: string }) {
 
   return (
     <section className="space-y-2 rounded-xl border border-black/10 p-3">
-      <h3 className="text-sm font-semibold">ประวัติการเคลื่อนไหว</h3>
+      <h3 className="text-sm font-semibold">{tc.historyTitle}</h3>
 
-      {isLoading && <p className="text-xs text-muted-foreground">กำลังโหลด…</p>}
+      {isLoading && <p className="text-xs text-muted-foreground">{tc.loading}</p>}
       {!isLoading && rows.length === 0 && (
-        <p className="text-xs text-muted-foreground">ยังไม่มีการเคลื่อนไหว</p>
+        <p className="text-xs text-muted-foreground">{tc.noHistory}</p>
       )}
 
       {rows.length > 0 && (
@@ -422,11 +414,11 @@ function CreditHistory({ customerId }: { customerId: string }) {
               <div className="min-w-0">
                 <div className="truncate">{t.label}</div>
                 <div className="text-xs text-muted-foreground">
-                  {new Date(t.createdAt).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}
-                  {t.source && ` · ${SOURCE_LABEL[t.source] ?? t.source}`}
+                  {new Date(t.createdAt).toLocaleString(intlLocale(locale), { dateStyle: "short", timeStyle: "short" })}
+                  {t.source && interp(tc.sourceSuffix, { label: (tc.source as Record<string, string>)[t.source] ?? t.source })}
                   {/* No name means the customer did it — a top-up they paid for
                       is not an action anyone has to answer for. */}
-                  {t.byName ? ` · โดย ${t.byName}` : ""}
+                  {t.byName ? interp(tc.byName, { name: t.byName }) : ""}
                 </div>
               </div>
               <span

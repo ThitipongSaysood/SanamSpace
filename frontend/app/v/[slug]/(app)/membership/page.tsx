@@ -84,6 +84,9 @@ function MembershipStealthCard({ membership, tenant }: { membership: Membership;
   const mm = useMessages("app").membership;
   const sport = primarySport(tenant);
   const progress = tierProgress(membership);
+  const nextTierText = membership.nextTier
+    ? fmt(mm.toNextTier, { n: membership.pointsToNextTier ?? 0, tier: "__TIER__" }).split("__TIER__")
+    : null;
 
   return (
     <section
@@ -115,7 +118,7 @@ function MembershipStealthCard({ membership, tenant }: { membership: Membership;
               <SportIcon
                 sportKey={sport?.key}
                 className="size-8 drop-shadow-[0_2px_5px_rgba(0,0,0,0.5)]"
-                style={{ color: sport?.color ?? "rgb(212 212 216)" }}
+                style={{ color: "rgb(161 161 170)" }}
                 aria-label={sport?.name}
               />
             </div>
@@ -166,7 +169,9 @@ function MembershipStealthCard({ membership, tenant }: { membership: Membership;
           <div className="relative mt-5 border-t border-white/5 pt-4">
             <div aria-hidden className="absolute left-0 top-0 h-px w-full bg-black/45" />
             <div className="mb-2 text-xs font-medium text-zinc-400">
-              {fmt(mm.toNextTier, { n: membership.pointsToNextTier, tier: membership.nextTier })}
+              {nextTierText?.[0]}
+              <span className="font-bold tracking-wide text-amber-500/85">{membership.nextTier}</span>
+              {nextTierText?.[1]}
             </div>
             <div
               className="h-2 overflow-hidden rounded-full bg-[#18181a]"
@@ -213,69 +218,55 @@ const SPORT_ICONS: Record<string, SportIconComponent> = {
 
 function BadmintonIcon(props: SVGProps<SVGSVGElement>) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M4.8 4.6 9.6 14" />
-      <path d="M10.8 14.8 19.3 6.3" />
-      <path d="m7.2 8.9 3.9-3.9" />
-      <path d="m8.8 12 5.5-5.5" />
-      <path d="m5.3 4.2 7.1 1.9 1.9 7.1-3.5 1.6-4-4Z" />
-      <path d="m15.7 9.9 4 4" />
-      <path d="m18.1 12.3 1.4 4.9-4.9-1.4" />
+    <svg viewBox="0 0 24 24" {...props}>
+      <path
+        fill="currentColor"
+        d="M12.3 2c-.97.03-1.72.84-1.69 1.8c.01.24.06.47.16.7l.29.64c.04.13-.03.27-.17.31c-.09.05-.19 0-.26-.08l-.42-.55c-.33-.42-.83-.68-1.36-.69c-.97-.02-1.77.75-1.79 1.71c-.01.42.13.82.39 1.16l.42.5h.01c.08.13.05.29-.06.37c-.09.07-.21.07-.29 0L7 7.45c-.34-.26-.75-.4-1.16-.39c-.96.02-1.73.82-1.71 1.79c.01.53.27 1.03.69 1.36l.57.44c.11.1.11.26-.01.35a.23.23 0 0 1-.26.05h-.01l-.61-.28c-.23-.09-.46-.15-.7-.16c-.96-.03-1.77.73-1.8 1.7c0 .72.4 1.38 1.06 1.66l11.39 5.07l4.59-4.59l-5.07-11.39C13.69 2.39 13 1.97 12.3 2m.83 4.1c.42-.01.8.23.96.61l3.05 6.84l-3.95-3.94l-.93-2.11c-.3-.63.16-1.38.87-1.4M9.85 8.85c.27 0 .52.1.71.3l4.81 4.81c.4.38.41 1.01.03 1.41c-.4.4-1.02.41-1.44 0l-4.81-4.81a.987.987 0 0 1-.02-1.41c.19-.2.45-.3.72-.3m-2.72 3.32c.13 0 .27.04.37.09l2.13.94l3.94 3.94l-6.86-3.05c-1.02-.44-.68-1.95.42-1.92m13.15 3.87l-4.24 4.24l.85.85c.76.75 1.86 1.04 2.89.77a3.02 3.02 0 0 0 2.12-2.12c.27-1.03-.02-2.13-.77-2.89z"
+      />
     </svg>
   );
 }
 
 function FootballIcon(props: SVGProps<SVGSVGElement>) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="m12 7.2 4 2.9-1.5 4.6h-5L8 10.1Z" />
-      <path d="M12 7.2V3.7" />
-      <path d="m16 10.1 3.4-1.1" />
-      <path d="m14.5 14.7 2.1 2.9" />
-      <path d="m9.5 14.7-2.1 2.9" />
-      <path d="M8 10.1 4.6 9" />
+    <svg viewBox="0 0 24 24" {...props}>
+      <path
+        fill="currentColor"
+        d="m16.93 17.12l-.8-1.36l1.46-4.37l1.41-.47l1 .75v.14c0 .07.03.13.03.19c0 1.97-.66 3.71-1.97 5.21zM9.75 15l-1.37-4.03L12 8.43l3.62 2.54L14.25 15zM12 20.03c-.88 0-1.71-.14-2.5-.42l-.69-1.51l.66-1.1h5.11l.61 1.1l-.69 1.51c-.79.28-1.62.42-2.5.42m-6.06-2.82c-.53-.62-.99-1.45-1.38-2.46c-.39-1.02-.59-1.94-.59-2.75c0-.06.03-.12.03-.19v-.14l1-.75l1.41.47l1.46 4.37l-.8 1.36zM11 5.29v1.4L7 9.46l-1.34-.42l-.42-1.36C5.68 7 6.33 6.32 7.19 5.66s1.68-1.09 2.46-1.31zm3.35-.94c.78.22 1.6.65 2.46 1.31S18.32 7 18.76 7.68l-.42 1.36l-1.34.43l-4-2.77V5.29zm-9.42.58C3 6.89 2 9.25 2 12s1 5.11 2.93 7.07S9.25 22 12 22s5.11-1 7.07-2.93S22 14.75 22 12s-1-5.11-2.93-7.07S14.75 2 12 2S6.89 3 4.93 4.93"
+      />
     </svg>
   );
 }
 
 function FutsalIcon(props: SVGProps<SVGSVGElement>) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <circle cx="12" cy="12" r="8.25" />
-      <path d="M12 7.5a4.5 4.5 0 0 1 4.5 4.5" />
-      <path d="M12 16.5A4.5 4.5 0 0 1 7.5 12" />
-      <path d="M8.1 7.2c2.6.6 5.7.6 7.8 0" />
-      <path d="M8.1 16.8c2.6-.6 5.7-.6 7.8 0" />
-      <path d="M5.3 11.4c1.3 1.1 2.7 1.7 4.4 1.9" />
-      <path d="M14.3 10.7c1.7.2 3.1.8 4.4 1.9" />
+    <svg viewBox="0 0 256 256" {...props}>
+      <path
+        fill="currentColor"
+        d="M128 26a102 102 0 1 0 102 102A102.12 102.12 0 0 0 128 26m77.67 147.42h-35.78L159.41 159l13.29-38.72l17-5.51l27.94 21.43a89.4 89.4 0 0 1-11.97 37.22m-119.56 0H50.33a89.4 89.4 0 0 1-11.95-37.22l27.94-21.43l17 5.51L96.59 159ZM51 81.42l7.24 24.41l-20 15.34A89.5 89.5 0 0 1 51 81.42M107.56 154l-12.41-36.14L128 95.28l32.85 22.58L148.44 154Zm90.19-48.17L205 81.42a89.5 89.5 0 0 1 12.75 39.75Zm-1.66-36.62L186 103.35l-17 5.53l-35-24V67.16l30.9-21.24a90.3 90.3 0 0 1 31.19 23.29M150.92 41L128 56.72L105.08 41a90.2 90.2 0 0 1 45.84 0m-59.81 4.91L122 67.16v17.68l-35 24l-17-5.53l-10.09-34.1a90.4 90.4 0 0 1 31.2-23.3M58.75 185.42h26.18l9.19 26a90.4 90.4 0 0 1-35.37-26m49.68 30.43l-12.55-35.46L106.34 166h43.32l10.46 14.39l-12.55 35.46a90.1 90.1 0 0 1-39.14 0m53.45-4.48l9.19-26h26.18a90.4 90.4 0 0 1-35.37 26"
+      />
     </svg>
   );
 }
 
 function TennisIcon(props: SVGProps<SVGSVGElement>) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <ellipse cx="9.5" cy="8.1" rx="4.4" ry="5.7" transform="rotate(-36 9.5 8.1)" />
-      <path d="M12.2 12.8 20 20.6" />
-      <path d="m17.7 18.3 2.2-2.2" />
-      <path d="M6.6 4.1c1.8 2.2 4.1 4.5 6.5 6.5" />
-      <path d="M4.7 6.4c2 2.4 4.2 4.6 6.5 6.5" />
-      <circle cx="17.8" cy="6.2" r="2" />
+    <svg viewBox="0 0 24 24" {...props}>
+      <path
+        fill="currentColor"
+        d="M18 15a4 4 0 0 1 4 4a4 4 0 0 1-4 4a4 4 0 0 1-4-4a4 4 0 0 1 4-4m0 2a2 2 0 0 0-2 2a2 2 0 0 0 2 2a2 2 0 0 0 2-2a2 2 0 0 0-2-2M6.05 14.54s1.41-1.42 1.42-4.24c-.36-2.19.5-4.76 2.47-6.72C12.87.65 17.14.17 19.5 2.5c2.33 2.36 1.85 6.63-1.08 9.56c-1.96 1.97-4.53 2.83-6.72 2.47c-2.82.01-4.24 1.42-4.24 1.42l-4.24 4.24l-1.41-1.41zM18.07 3.93C16.5 2.37 13.5 2.84 11.35 5c-2.14 2.14-2.62 5.15-1.06 6.71c1.57 1.56 4.57 1.08 6.71-1.06c2.16-2.15 2.63-5.15 1.07-6.72"
+      />
     </svg>
   );
 }
 
 function PickleballIcon(props: SVGProps<SVGSVGElement>) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M7.3 4.4c2.7-2 6.3-1.4 8.1 1.2 1.8 2.7.9 6.2-1.8 8.2s-6.3 1.4-8.1-1.2-.9-6.2 1.8-8.2Z" />
-      <path d="m13.5 13.6 6 6" />
-      <path d="m17.3 17.4-1.9 1.9" />
-      <circle cx="8.5" cy="7.2" r=".45" fill="currentColor" stroke="none" />
-      <circle cx="11.4" cy="7" r=".45" fill="currentColor" stroke="none" />
-      <circle cx="9.6" cy="10" r=".45" fill="currentColor" stroke="none" />
-      <circle cx="12.6" cy="10" r=".45" fill="currentColor" stroke="none" />
+    <svg viewBox="0 0 24 24" {...props}>
+      <path
+        fill="currentColor"
+        d="M18.5 14c1.4 0 2.5 1.1 2.5 2.5S19.9 19 18.5 19S16 17.9 16 16.5s1.1-2.5 2.5-2.5M7 15s1 1 1 2v3.5c0 .8.7 1.5 1.5 1.5s1.5-.7 1.5-1.5V17c0-1 1-2 1-2zm1-1h3s5 0 5-5s-4-7-6.5-7S3 4 3 9s5 5 5 5"
+      />
     </svg>
   );
 }

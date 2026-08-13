@@ -14,6 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { RowActions, rowAction } from "@/components/ui/row-action";
+import { useMessages, useLocale } from "@/lib/i18n/context";
+import { fmt as interp, intlLocale } from "@/lib/i18n/format";
 
 const SETTINGS_KEY = ["owner", "settings"];
 const REWARDS_KEY = ["owner", "rewards"];
@@ -31,6 +33,7 @@ const DEFAULT_TIERS: Record<string, number> = { Silver: 0, Gold: 500, Platinum: 
  * drift and a customer reaches a tier that earns them nothing.
  */
 export default function OwnerPointsPage() {
+  const t = useMessages("owner").points;
   const qc = useQueryClient();
   const settingsQ = useQuery({ queryKey: SETTINGS_KEY, queryFn: ownerApi.getSettings });
 
@@ -40,9 +43,9 @@ export default function OwnerPointsPage() {
   return (
     <div className="space-y-5">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight">คะแนนสะสม</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
         <p className="text-sm text-muted-foreground">
-          ลูกค้าได้คะแนนเมื่อจองและ<strong>ชำระเงินครบ</strong> · ยกเลิกแล้วระบบหักคืนอัตโนมัติ
+          {t.subtitlePre}<strong>{t.subtitleBold}</strong>{t.subtitlePost}
         </p>
       </header>
 
@@ -76,6 +79,7 @@ function seed(settings: OwnerSettings) {
 
 /** The earn rate, the ladder, and what each tier is worth — together. */
 function EarningSettings({ settings, onSaved }: { settings: OwnerSettings; onSaved: () => void }) {
+  const t = useMessages("owner").points;
   const [form, setForm] = useState(() => seed(settings));
 
   // Re-seed when a new server copy lands. Done during render rather than in an
@@ -99,22 +103,22 @@ function EarningSettings({ settings, onSaved }: { settings: OwnerSettings; onSav
     <section className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
       <div className="flex items-start justify-between gap-3">
         <div className="text-sm">
-          เปิดใช้ระบบคะแนนสะสม
+          {t.enableTitle}
           <span className="mt-0.5 block text-xs text-muted-foreground">
-            ปิดอยู่ = ลูกค้าจองแล้วไม่ได้คะแนน คะแนนเดิมยังอยู่
+            {t.enableHint}
           </span>
         </div>
         <Switch
           checked={form.pointsEnabled}
           onCheckedChange={(v) => setForm((f) => ({ ...f, pointsEnabled: v }))}
-          aria-label="เปิดใช้ระบบคะแนนสะสม"
+          aria-label={t.enableTitle}
         />
       </div>
 
       {form.pointsEnabled && (
         <>
           <div className="max-w-xs space-y-1.5">
-            <Label htmlFor="rate">จองครบ 1 ครั้ง ได้กี่คะแนน</Label>
+            <Label htmlFor="rate">{t.rateLabel}</Label>
             <Input
               id="rate"
               type="number"
@@ -123,23 +127,23 @@ function EarningSettings({ settings, onSaved }: { settings: OwnerSettings; onSav
               onChange={(e) => setForm((f) => ({ ...f, pointsPerBooking: Number(e.target.value) }))}
             />
             <p className="text-xs text-muted-foreground">
-              คิดต่อการจอง ไม่ใช่ต่อชั่วโมง — จอง 1 ชม. กับ 3 ชม. ได้เท่ากัน
+              {t.rateHint}
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label>ระดับสมาชิก</Label>
+            <Label>{t.tiersLabel}</Label>
             <p className="text-xs text-muted-foreground">
-              เลื่อนขั้นจาก<strong>คะแนนสะสมตลอดชีพ</strong> — ใช้คะแนนแลกของแล้วไม่ถูกลดขั้น
+              {t.tiersHintPre}<strong>{t.tiersHintBold}</strong>{t.tiersHintPost}
             </p>
 
             <div className="overflow-x-auto">
               <table className="w-full min-w-[420px] text-sm">
                 <thead className="text-left text-xs text-muted-foreground">
                   <tr>
-                    <th className="py-2">ระดับ</th>
-                    <th className="py-2">ต้องมีคะแนนสะสม</th>
-                    <th className="py-2">ส่วนลดค่าสนาม</th>
+                    <th className="py-2">{t.colTier}</th>
+                    <th className="py-2">{t.colThreshold}</th>
+                    <th className="py-2">{t.colDiscount}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -150,7 +154,7 @@ function EarningSettings({ settings, onSaved }: { settings: OwnerSettings; onSav
                         <Input
                           type="number"
                           min={0}
-                          aria-label={`คะแนนสำหรับระดับ ${tier}`}
+                          aria-label={interp(t.thresholdAria, { tier })}
                           value={form.tierThresholds?.[tier] ?? 0}
                           onChange={(e) =>
                             setForm((f) => ({
@@ -166,7 +170,7 @@ function EarningSettings({ settings, onSaved }: { settings: OwnerSettings; onSav
                             type="number"
                             min={0}
                             max={100}
-                            aria-label={`ส่วนลดของระดับ ${tier}`}
+                            aria-label={interp(t.discountAria, { tier })}
                             value={form.memberDiscounts?.[tier] ?? 0}
                             onChange={(e) =>
                               setForm((f) => ({
@@ -188,29 +192,29 @@ function EarningSettings({ settings, onSaved }: { settings: OwnerSettings; onSav
                 separate screens they drift, and a tier customers can reach
                 earns them nothing. */}
             <p className="text-xs text-muted-foreground">
-              ส่วนลดจะใช้อัตโนมัติตอนลูกค้าจอง · ถ้าลูกค้ามีคูปองด้วย ระบบเลือกอันที่ลดมากกว่าให้ (ไม่ซ้อนกัน)
+              {t.discountNote}
             </p>
           </div>
           <div className="space-y-2 rounded-xl border border-black/10 p-3">
             <div className="flex items-start justify-between gap-3">
               <div className="text-sm">
-                ให้ลูกค้ากดแลกเองในแอปได้
+                {t.selfRedeemTitle}
                 {/* Off until asked for: a code nobody at the counter is
                     expecting is worse than no button at all. */}
                 <span className="mt-0.5 block text-xs text-muted-foreground">
-                  เครดิตกับชั่วโมงเข้าให้ทันที · ของในร้านจะได้รหัสมารับที่เคาน์เตอร์ ถ้าไม่มารับตามเวลา คะแนนคืนอัตโนมัติ
+                  {t.selfRedeemHint}
                 </span>
               </div>
               <Switch
                 checked={form.selfRedeemEnabled}
                 onCheckedChange={(v) => setForm((f) => ({ ...f, selfRedeemEnabled: v }))}
-                aria-label="ให้ลูกค้ากดแลกเองในแอปได้"
+                aria-label={t.selfRedeemTitle}
               />
             </div>
 
             {form.selfRedeemEnabled && (
               <div className="space-y-1.5 sm:max-w-[16rem]">
-                <Label htmlFor="collect-hours">ต้องมารับภายในกี่ชั่วโมง</Label>
+                <Label htmlFor="collect-hours">{t.collectHoursLabel}</Label>
                 <Input
                   id="collect-hours"
                   type="number"
@@ -225,24 +229,24 @@ function EarningSettings({ settings, onSaved }: { settings: OwnerSettings; onSav
           <div className="space-y-2 rounded-xl border border-black/10 p-3">
             <div className="flex items-start justify-between gap-3">
               <div className="text-sm">
-                ให้คะแนนหมดอายุ
+                {t.expiryTitle}
                 {/* Off by default and said plainly: this removes value the
                     customer earned, so it must never be a quiet default. */}
                 <span className="mt-0.5 block text-xs text-muted-foreground">
-                  คะแนนที่หมดอายุจะถูกล้างเป็น 0 · ระดับสมาชิกไม่ลดลง · ระบบแจ้งลูกค้าล่วงหน้าให้อัตโนมัติ
+                  {t.expiryHint}
                 </span>
               </div>
               <Switch
                 checked={form.pointsExpiryEnabled}
                 onCheckedChange={(v) => setForm((f) => ({ ...f, pointsExpiryEnabled: v }))}
-                aria-label="ให้คะแนนหมดอายุ"
+                aria-label={t.expiryTitle}
               />
             </div>
 
             {form.pointsExpiryEnabled && (
               <div className="grid gap-2 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor="valid-months">คะแนนใช้ได้กี่เดือน</Label>
+                  <Label htmlFor="valid-months">{t.validMonthsLabel}</Label>
                   <Input
                     id="valid-months"
                     type="number"
@@ -252,7 +256,7 @@ function EarningSettings({ settings, onSaved }: { settings: OwnerSettings; onSav
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="warn-days">แจ้งเตือนล่วงหน้ากี่วัน</Label>
+                  <Label htmlFor="warn-days">{t.warnDaysLabel}</Label>
                   <Input
                     id="warn-days"
                     type="number"
@@ -270,7 +274,7 @@ function EarningSettings({ settings, onSaved }: { settings: OwnerSettings; onSav
       {save.isError && <p className="text-sm text-brand-danger">{(save.error as Error).message}</p>}
 
       <Button type="button" onClick={() => save.mutate()} disabled={save.isPending}>
-        {save.isPending ? "กำลังบันทึก…" : "บันทึกการตั้งค่า"}
+        {save.isPending ? t.saving : t.saveSettings}
       </Button>
     </section>
   );
@@ -278,26 +282,15 @@ function EarningSettings({ settings, onSaved }: { settings: OwnerSettings; onSav
 
 const REDEMPTIONS_KEY = ["owner", "rewards", "redemptions"];
 
-const STATUS_LABEL: Record<string, string> = {
-  pending: "รอมารับ",
-  collected: "รับแล้ว",
-  expired: "เลยเวลา (คืนคะแนนแล้ว)",
-};
-
 const STATUS_CLASS: Record<string, string> = {
   pending: "text-brand-warning font-medium",
   collected: "text-muted-foreground",
   expired: "text-brand-danger",
 };
 
-const TYPE_LABEL: Record<string, string> = {
-  product: "สินค้าในร้าน",
-  credit: "เครดิต (บาท)",
-  hours: "ชั่วโมงเล่นฟรี",
-};
-
 /** What points buy, and what each one gives. */
 function Rewards() {
+  const t = useMessages("owner").points;
   const qc = useQueryClient();
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: REWARDS_KEY, queryFn: ownerApi.getRewards });
   const [editing, setEditing] = useState<OwnerReward | "new" | null>(null);
@@ -313,72 +306,72 @@ function Rewards() {
     <section className="space-y-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold">ของรางวัล</h2>
+          <h2 className="text-sm font-semibold">{t.rewardsTitle}</h2>
           <p className="text-xs text-muted-foreground">
-            เช่น 50 คะแนน แลกน้ำ 1 ขวด · ลูกค้าแลกที่เคาน์เตอร์ พนักงานกดให้
+            {t.rewardsHint}
           </p>
         </div>
         <Button type="button" onClick={() => setEditing("new")}>
-          <Plus className="size-4" /> เพิ่มของรางวัล
+          <Plus className="size-4" /> {t.addReward}
         </Button>
       </div>
 
       {isLoading && <Loading rows={2} />}
       {isError && <ErrorState onRetry={() => refetch()} />}
-      {!isLoading && rewards.length === 0 && <EmptyState message="ยังไม่มีของรางวัล" />}
+      {!isLoading && rewards.length === 0 && <EmptyState message={t.noRewards} />}
 
       {rewards.length > 0 && (
         <div className="overflow-x-auto">
           <table className="stack-table w-full md:min-w-[680px] text-sm">
             <thead className="bg-app text-left text-xs font-medium text-muted-foreground">
               <tr>
-                <th className="px-3 py-2">ของรางวัล</th>
-                <th className="px-3 py-2 text-right">ใช้กี่คะแนน</th>
-                <th className="px-3 py-2">ได้อะไร</th>
-                <th className="px-3 py-2">สถานะ</th>
-                <th className="w-32 px-3 py-2 text-right">จัดการ</th>
+                <th className="px-3 py-2">{t.colReward}</th>
+                <th className="px-3 py-2 text-right">{t.colCost}</th>
+                <th className="px-3 py-2">{t.colGives}</th>
+                <th className="px-3 py-2">{t.colStatus}</th>
+                <th className="w-32 px-3 py-2 text-right">{t.colActions}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-black/5">
               {rewards.map((r) => (
                 <tr key={r.id} className="hover:bg-app/60">
-                  <td data-label="ของรางวัล" className="px-3 py-2 font-medium">{r.name}</td>
-                  <td data-label="ใช้กี่คะแนน" className="px-3 py-2 text-right font-semibold text-brand tabular-nums">
+                  <td data-label={t.colReward} className="px-3 py-2 font-medium">{r.name}</td>
+                  <td data-label={t.colCost} className="px-3 py-2 text-right font-semibold text-brand tabular-nums">
                     {fmt.format(r.pointsCost)}
                   </td>
-                  <td data-label="ได้อะไร" className="px-3 py-2 text-muted-foreground">
+                  <td data-label={t.colGives} className="px-3 py-2 text-muted-foreground">
                     {r.type === "product" && (
                       <>
-                        {r.productName ?? "— สินค้าถูกลบ —"}
+                        {r.productName ?? t.productDeleted}
                         {/* A reward nobody can collect is visible as such rather
                             than failing when staff tap redeem. */}
                         {r.productStock !== null && r.productStock < 1 && (
-                          <span className="ml-1 text-brand-danger">(หมดสต็อก)</span>
+                          <span className="ml-1 text-brand-danger">{t.outOfStock}</span>
                         )}
                       </>
                     )}
-                    {r.type === "credit" && `เครดิต ฿${fmt.format(r.creditAmount ?? 0)}`}
-                    {r.type === "hours" && `เล่นฟรี ${r.hours} ชม.`}
+                    {r.type === "credit" && interp(t.creditGives, { amount: fmt.format(r.creditAmount ?? 0) })}
+                    {r.type === "hours" && interp(t.hoursGives, { n: r.hours ?? 0 })}
                   </td>
-                  <td data-label="สถานะ" className="px-3 py-2">
+                  <td data-label={t.colStatus} className="px-3 py-2">
                     <span
                       className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
                         r.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"
                       }`}
                     >
-                      {r.isActive ? "เปิดแลก" : "ปิดอยู่"}
+                      {r.isActive ? t.rewardOn : t.rewardOff}
                     </span>
                   </td>
                   <td className="px-3 py-2">
                     <RowActions>
                       <button type="button" onClick={() => setEditing(r)} className={rowAction()}>
-                        แก้ไข
+                        {t.edit}
                       </button>
                       <button
                         type="button"
-                        aria-label={`ลบ ${r.name}`}
+                        aria-label={interp(t.deleteAria, { name: r.name })}
                         onClick={() => {
-                          if (window.confirm(`ลบของรางวัล "${r.name}"?`)) remove.mutate(r.id);
+                          if (window.confirm(interp(t.deleteConfirm, { name: r.name }))) remove.mutate(r.id);
                         }}
                         className={rowAction("icon", "hover:bg-brand-danger/10 hover:text-brand-danger")}
                       >
@@ -416,6 +409,7 @@ function RewardEditor({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const t = useMessages("owner").points;
   const products = useQuery({ queryKey: ["owner", "products"], queryFn: () => ownerApi.getProducts() });
 
   const [form, setForm] = useState({
@@ -448,32 +442,32 @@ function RewardEditor({
 
   return (
     <Modal
-      title={reward ? `แก้ไข ${reward.name}` : "เพิ่มของรางวัล"}
+      title={reward ? interp(t.editTitle, { name: reward.name }) : t.addReward}
       onClose={onClose}
       footer={
         <>
           <Button type="button" variant="outline" onClick={onClose}>
-            ปิด
+            {t.close}
           </Button>
           <Button type="button" onClick={() => save.mutate()} disabled={save.isPending || !ready}>
-            {save.isPending ? "กำลังบันทึก…" : "บันทึก"}
+            {save.isPending ? t.saving : t.save}
           </Button>
         </>
       }
     >
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5 sm:col-span-2">
-          <Label htmlFor="rw-name">ชื่อของรางวัล</Label>
+          <Label htmlFor="rw-name">{t.nameLabel}</Label>
           <Input
             id="rw-name"
             value={form.name}
             onChange={(e) => set("name", e.target.value)}
-            placeholder="เช่น น้ำเปล่า 1 ขวด"
+            placeholder={t.namePlaceholder}
           />
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="rw-cost">ใช้กี่คะแนน</Label>
+          <Label htmlFor="rw-cost">{t.costLabel}</Label>
           <Input
             id="rw-cost"
             type="number"
@@ -484,14 +478,14 @@ function RewardEditor({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="rw-type">ลูกค้าได้อะไร</Label>
+          <Label htmlFor="rw-type">{t.givesLabel}</Label>
           <select
             id="rw-type"
             value={form.type}
             onChange={(e) => set("type", e.target.value as OwnerReward["type"])}
             className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
           >
-            {Object.entries(TYPE_LABEL).map(([value, label]) => (
+            {Object.entries(t.type).map(([value, label]) => (
               <option key={value} value={value}>{label}</option>
             ))}
           </select>
@@ -499,27 +493,27 @@ function RewardEditor({
 
         {form.type === "product" && (
           <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="rw-product">สินค้า</Label>
+            <Label htmlFor="rw-product">{t.productLabel}</Label>
             <select
               id="rw-product"
               value={form.productId ?? ""}
               onChange={(e) => set("productId", e.target.value)}
               className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
             >
-              <option value="">— เลือกสินค้า —</option>
+              <option value="">{t.pickProduct}</option>
               {(products.data ?? []).map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} (เหลือ {p.stockQty})
+                  {interp(t.productOption, { name: p.name, stock: p.stockQty })}
                 </option>
               ))}
             </select>
-            <p className="text-xs text-muted-foreground">แลกแล้วระบบตัดสต็อกให้อัตโนมัติ</p>
+            <p className="text-xs text-muted-foreground">{t.productAutoNote}</p>
           </div>
         )}
 
         {form.type === "credit" && (
           <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="rw-credit">ได้เครดิตกี่บาท</Label>
+            <Label htmlFor="rw-credit">{t.creditLabel}</Label>
             <Input
               id="rw-credit"
               type="number"
@@ -532,7 +526,7 @@ function RewardEditor({
 
         {form.type === "hours" && (
           <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="rw-hours">ได้กี่ชั่วโมง</Label>
+            <Label htmlFor="rw-hours">{t.hoursLabel}</Label>
             <Input
               id="rw-hours"
               type="number"
@@ -548,9 +542,9 @@ function RewardEditor({
           <Switch
             checked={form.isActive}
             onCheckedChange={(v) => set("isActive", v)}
-            aria-label="เปิดให้แลก"
+            aria-label={t.enableRedeem}
           />
-          <span className="text-sm">เปิดให้แลก</span>
+          <span className="text-sm">{t.enableRedeem}</span>
         </div>
 
         {save.isError && (
@@ -570,6 +564,7 @@ function RewardEditor({
  * arrive on staff who had no list to check them against.
  */
 function PendingCollections() {
+  const t = useMessages("owner").points;
   const qc = useQueryClient();
   const [code, setCode] = useState("");
   const [done, setDone] = useState<string | null>(null);
@@ -583,7 +578,7 @@ function PendingCollections() {
     mutationFn: (value: string) => ownerApi.collectRedemption(value),
     onSuccess: (r) => {
       setCode("");
-      setDone(`ส่ง ${r.name} ให้ ${r.customerName ?? "ลูกค้า"} แล้ว`);
+      setDone(interp(t.doneMsg, { reward: r.name, name: r.customerName ?? t.custFallback }));
       qc.invalidateQueries({ queryKey: REDEMPTIONS_KEY });
     },
   });
@@ -593,13 +588,13 @@ function PendingCollections() {
   return (
     <section className="space-y-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
       <div>
-        <h2 className="text-sm font-semibold">รอลูกค้ามารับ</h2>
-        <p className="text-xs text-muted-foreground">ลูกค้ากดแลกในแอปแล้ว · กรอกรหัสจากมือถือลูกค้าเพื่อตัดออกจากรายการ</p>
+        <h2 className="text-sm font-semibold">{t.pendingTitle}</h2>
+        <p className="text-xs text-muted-foreground">{t.pendingHint}</p>
       </div>
 
       <div className="flex flex-wrap items-end gap-2">
         <div className="space-y-1.5">
-          <Label htmlFor="collect-code">รหัสรับของ</Label>
+          <Label htmlFor="collect-code">{t.codeLabel}</Label>
           <Input
             id="collect-code"
             value={code}
@@ -613,7 +608,7 @@ function PendingCollections() {
           onClick={() => collect.mutate(code.trim())}
           disabled={code.trim().length === 0 || collect.isPending}
         >
-          {collect.isPending ? "กำลังตัด…" : "ตัดรายการ"}
+          {collect.isPending ? t.cutting : t.cut}
         </Button>
         {/* The camera lives in one place for the whole system — a second
             scanner here would be a second thing to keep working. */}
@@ -621,7 +616,7 @@ function PendingCollections() {
           href="/owner/checkin"
           className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-brand hover:bg-brand/5"
         >
-          <QrCode className="size-4" /> สแกน QR ที่หน้าสแกน
+          <QrCode className="size-4" /> {t.scanLink}
         </Link>
       </div>
 
@@ -629,7 +624,7 @@ function PendingCollections() {
       {done && <p className="text-sm text-brand">{done}</p>}
 
       {isLoading && <Loading rows={1} />}
-      {!isLoading && pending.length === 0 && <EmptyState message="ไม่มีรายการค้างรับ" />}
+      {!isLoading && pending.length === 0 && <EmptyState message={t.noPending} />}
 
       {pending.length > 0 && (
         <ul className="divide-y divide-black/5 rounded-xl border border-black/10">
@@ -637,7 +632,7 @@ function PendingCollections() {
             <li key={r.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
               <div className="min-w-0">
                 <div className="truncate font-medium">{r.name}</div>
-                <div className="text-xs text-muted-foreground"><CustomerName id={r.customerId} name={r.customerName} fallback="—" /></div>
+                <div className="text-xs text-muted-foreground"><CustomerName id={r.customerId} name={r.customerName} fallback={t.dash} /></div>
               </div>
               <span className="shrink-0 rounded-lg bg-app px-2.5 py-1 font-mono font-semibold tracking-widest">
                 {r.code}
@@ -658,6 +653,8 @@ function PendingCollections() {
  * them. Points are value, and value leaving needs a page.
  */
 function Redemptions() {
+  const t = useMessages("owner").points;
+  const { locale } = useLocale();
   const { data, isLoading } = useQuery({ queryKey: REDEMPTIONS_KEY, queryFn: ownerApi.getRedemptions });
 
   const rows = data ?? [];
@@ -665,43 +662,43 @@ function Redemptions() {
   return (
     <section className="space-y-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
       <div>
-        <h2 className="text-sm font-semibold">ประวัติการแลก</h2>
-        <p className="text-xs text-muted-foreground">ใครแลกอะไรไป ใช้กี่คะแนน และพนักงานคนไหนเป็นคนกด</p>
+        <h2 className="text-sm font-semibold">{t.historyTitle}</h2>
+        <p className="text-xs text-muted-foreground">{t.historyHint}</p>
       </div>
 
       {isLoading && <Loading rows={2} />}
-      {!isLoading && rows.length === 0 && <EmptyState message="ยังไม่มีการแลกของรางวัล" />}
+      {!isLoading && rows.length === 0 && <EmptyState message={t.noRedemptions} />}
 
       {rows.length > 0 && (
         <div className="overflow-x-auto">
           <table className="stack-table w-full md:min-w-[620px] text-sm">
             <thead className="bg-app text-left text-xs font-medium text-muted-foreground">
               <tr>
-                <th className="px-3 py-2">เมื่อไหร่</th>
-                <th className="px-3 py-2">ลูกค้า</th>
-                <th className="px-3 py-2">ของรางวัล</th>
-                <th className="px-3 py-2 text-right">คะแนน</th>
-                <th className="px-3 py-2">สถานะ</th>
-                <th className="px-3 py-2">พนักงาน</th>
+                <th className="px-3 py-2">{t.colWhen}</th>
+                <th className="px-3 py-2">{t.colCustomer}</th>
+                <th className="px-3 py-2">{t.colReward}</th>
+                <th className="px-3 py-2 text-right">{t.colPoints}</th>
+                <th className="px-3 py-2">{t.colStatus}</th>
+                <th className="px-3 py-2">{t.colStaff}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-black/5">
               {rows.map((r) => (
                 <tr key={r.id} className="hover:bg-app/60">
-                  <td data-label="เมื่อไหร่" className="px-3 py-2 text-muted-foreground">
-                    {new Date(r.createdAt).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}
+                  <td data-label={t.colWhen} className="px-3 py-2 text-muted-foreground">
+                    {new Date(r.createdAt).toLocaleString(intlLocale(locale), { dateStyle: "short", timeStyle: "short" })}
                   </td>
-                  <td data-label="ลูกค้า" className="px-3 py-2 font-medium"><CustomerName id={r.customerId} name={r.customerName} fallback="—" /></td>
-                  <td data-label="ของรางวัล" className="px-3 py-2">{r.name}</td>
-                  <td data-label="คะแนน" className="px-3 py-2 text-right font-semibold text-brand tabular-nums">
+                  <td data-label={t.colCustomer} className="px-3 py-2 font-medium"><CustomerName id={r.customerId} name={r.customerName} fallback={t.dash} /></td>
+                  <td data-label={t.colReward} className="px-3 py-2">{r.name}</td>
+                  <td data-label={t.colPoints} className="px-3 py-2 text-right font-semibold text-brand tabular-nums">
                     −{fmt.format(r.pointsSpent)}
                   </td>
-                  <td data-label="สถานะ" className="px-3 py-2">
+                  <td data-label={t.colStatus} className="px-3 py-2">
                     <span className={STATUS_CLASS[r.status] ?? "text-muted-foreground"}>
-                      {STATUS_LABEL[r.status] ?? r.status}
+                      {(t.status as Record<string, string>)[r.status] ?? r.status}
                     </span>
                   </td>
-                  <td data-label="พนักงาน" className="px-3 py-2 text-muted-foreground">{r.byName ?? "—"}</td>
+                  <td data-label={t.colStaff} className="px-3 py-2 text-muted-foreground">{r.byName ?? t.dash}</td>
                 </tr>
               ))}
             </tbody>
