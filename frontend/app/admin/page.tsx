@@ -14,6 +14,7 @@ import {
 import type { PlatformDashboard } from "@/lib/types";
 import { superAdminApi } from "@/lib/api/superadmin";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
+import { useMessages } from "@/lib/i18n/context";
 
 const fmt = new Intl.NumberFormat("th-TH");
 const DONUT = ["#16a34a", "#0ea5e9", "#a855f7", "#f59e0b", "#ec4899", "#14b8a6"];
@@ -43,6 +44,7 @@ function KpiCard({
 }
 
 export default function AdminDashboardPage() {
+  const t = useMessages("admin").dashboard;
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["admin", "dashboard"],
     queryFn: superAdminApi.getDashboard,
@@ -50,7 +52,7 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-bold tracking-tight">ภาพรวม</h1>
+      <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
 
       {isLoading && <Loading rows={2} />}
       {isError && <ErrorState onRetry={() => refetch()} />}
@@ -59,17 +61,17 @@ export default function AdminDashboardPage() {
         <>
           {/* KPI */}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <KpiCard icon={Building2} label="องค์กรทั้งหมด" value={fmt.format(data.totalOrganizations)} tone="bg-brand/10 text-brand" />
-            <KpiCard icon={Users} label="องค์กรที่ใช้งาน" value={fmt.format(data.activeOrganizations)} tone="bg-emerald-100 text-emerald-700" />
-            <KpiCard icon={TrendingUp} label="MRR" value={`฿${fmt.format(data.mrr)}`} tone="bg-violet-100 text-violet-700" />
-            <KpiCard icon={CreditCard} label="ผู้ใช้ทั้งหมด" value={fmt.format(data.totalCustomers)} tone="bg-sky-100 text-sky-700" />
+            <KpiCard icon={Building2} label={t.kpiOrgs} value={fmt.format(data.totalOrganizations)} tone="bg-brand/10 text-brand" />
+            <KpiCard icon={Users} label={t.kpiActiveOrgs} value={fmt.format(data.activeOrganizations)} tone="bg-emerald-100 text-emerald-700" />
+            <KpiCard icon={TrendingUp} label={t.kpiMrr} value={`฿${fmt.format(data.mrr)}`} tone="bg-violet-100 text-violet-700" />
+            <KpiCard icon={CreditCard} label={t.kpiCustomers} value={fmt.format(data.totalCustomers)} tone="bg-sky-100 text-sky-700" />
           </div>
 
           {/* Charts */}
           <div className="grid gap-3 lg:grid-cols-3">
             {/* Revenue overview */}
             <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5 lg:col-span-2">
-              <h2 className="text-sm font-semibold">รายได้ย้อนหลัง (รายเดือน)</h2>
+              <h2 className="text-sm font-semibold">{t.revenueTitle}</h2>
               <div className="mt-3 h-56">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={data.revenueSeries} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
@@ -83,9 +85,9 @@ export default function AdminDashboardPage() {
 
             {/* Revenue by plan */}
             <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
-              <h2 className="text-sm font-semibold">รายได้ตามแพ็กเกจ (MRR)</h2>
+              <h2 className="text-sm font-semibold">{t.revenueByPlan}</h2>
               {data.revenueByPlan.length === 0 ? (
-                <EmptyState message="ยังไม่มีข้อมูล" />
+                <EmptyState message={t.noData} />
               ) : (
                 <>
                   <div className="mt-3 h-40">
@@ -118,24 +120,24 @@ export default function AdminDashboardPage() {
 
           {/* Top organizations */}
           <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
-            <h2 className="border-b border-black/5 px-4 py-3 text-sm font-semibold">องค์กรรายได้สูงสุด</h2>
+            <h2 className="border-b border-black/5 px-4 py-3 text-sm font-semibold">{t.topOrgs}</h2>
             {data.topOrganizations.length === 0 ? (
               <div className="p-4">
-                <EmptyState message="ยังไม่มีรายได้จากการจอง" />
+                <EmptyState message={t.noRevenue} />
               </div>
             ) : (
               <table className="stack-table w-full text-sm">
                 <thead className="bg-app text-left text-xs font-medium text-muted-foreground">
                   <tr>
-                    <th className="px-4 py-2.5">องค์กร</th>
-                    <th className="px-4 py-2.5 text-right">รายได้</th>
+                    <th className="px-4 py-2.5">{t.colOrg}</th>
+                    <th className="px-4 py-2.5 text-right">{t.colRevenue}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/5">
                   {data.topOrganizations.map((o) => (
                     <tr key={o.name} className="hover:bg-app/60">
-                      <td data-label="องค์กร" className="px-4 py-2.5 font-medium">{o.name}</td>
-                      <td data-label="รายได้" className="px-4 py-2.5 text-right font-semibold text-brand">฿{fmt.format(o.revenue)}</td>
+                      <td data-label={t.colOrg} className="px-4 py-2.5 font-medium">{o.name}</td>
+                      <td data-label={t.colRevenue} className="px-4 py-2.5 text-right font-semibold text-brand">฿{fmt.format(o.revenue)}</td>
                     </tr>
                   ))}
                 </tbody>

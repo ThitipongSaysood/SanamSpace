@@ -1,7 +1,10 @@
+"use client";
+import { useMessages } from "@/lib/i18n/context";
 import { Construction } from "lucide-react";
 
 /** Placeholder for Platform Admin screens that are designed but not built yet. */
 export function ComingSoon({ title, note }: { title: string; note?: string }) {
+  const t = useMessages("admin");
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-bold">{title}</h1>
@@ -10,7 +13,7 @@ export function ComingSoon({ title, note }: { title: string; note?: string }) {
           <Construction className="size-6" />
         </span>
         <p className="mt-3 text-sm font-semibold">{title}</p>
-        <p className="mt-1 max-w-md text-sm text-muted-foreground">{note ?? "หน้านี้กำลังพัฒนา"}</p>
+        <p className="mt-1 max-w-md text-sm text-muted-foreground">{note ?? t.comingSoon}</p>
       </div>
     </div>
   );

@@ -27,29 +27,28 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import type { User } from "@/lib/types";
 import { getAdminToken, superAdminApi } from "@/lib/api/superadmin";
+import { useMessages } from "@/lib/i18n/context";
+import { fmt as interp } from "@/lib/i18n/format";
 
-type NavItem = { label: string; href: string; icon: LucideIcon };
+type NavItem = { href: string; icon: LucideIcon };
 
 const NAV: NavItem[] = [
-  { label: "ภาพรวม", href: "/admin", icon: LayoutDashboard },
-  { label: "จัดการสนาม", href: "/admin/organizations", icon: Building2 },
-  { label: "การสมัครใช้งาน", href: "/admin/subscriptions", icon: CreditCard },
-  { label: "แพ็กเกจ", href: "/admin/plans", icon: Package },
-  { label: "ฟีเจอร์", href: "/admin/features", icon: ToggleRight },
-  // Next to ฟีเจอร์ rather than inside a venue's drawer: like features, the
-  // sport catalogue is one list the whole platform shares. Per-venue is which
-  // of them that venue rents, and that stays with the venue's own portal.
-  { label: "ประเภทกีฬา", href: "/admin/sports", icon: Trophy },
-  { label: "การชำระเงิน", href: "/admin/payments", icon: Banknote },
-  { label: "การคืนเงิน", href: "/admin/refunds", icon: RotateCcw },
-  { label: "รายการเรียกเก็บเงิน", href: "/admin/billing", icon: ReceiptText },
-  { label: "ธุรกรรม", href: "/admin/transactions", icon: ArrowLeftRight },
-  { label: "ผู้ใช้งานระบบ", href: "/admin/users", icon: Users },
-  { label: "บทบาทและสิทธิ์", href: "/admin/roles", icon: ShieldCheck },
-  { label: "ศูนย์ช่วยเหลือ", href: "/admin/support", icon: LifeBuoy },
-  { label: "การแจ้งเตือน", href: "/admin/announcements", icon: Megaphone },
-  { label: "System Logs", href: "/admin/logs", icon: ScrollText },
-  { label: "ตั้งค่าระบบ", href: "/admin/settings", icon: Settings },
+  { href: "/admin", icon: LayoutDashboard },
+  { href: "/admin/organizations", icon: Building2 },
+  { href: "/admin/subscriptions", icon: CreditCard },
+  { href: "/admin/plans", icon: Package },
+  { href: "/admin/features", icon: ToggleRight },
+  { href: "/admin/sports", icon: Trophy },
+  { href: "/admin/payments", icon: Banknote },
+  { href: "/admin/refunds", icon: RotateCcw },
+  { href: "/admin/billing", icon: ReceiptText },
+  { href: "/admin/transactions", icon: ArrowLeftRight },
+  { href: "/admin/users", icon: Users },
+  { href: "/admin/roles", icon: ShieldCheck },
+  { href: "/admin/support", icon: LifeBuoy },
+  { href: "/admin/announcements", icon: Megaphone },
+  { href: "/admin/logs", icon: ScrollText },
+  { href: "/admin/settings", icon: Settings },
 ];
 
 /**
@@ -59,6 +58,7 @@ const NAV: NavItem[] = [
  * opens the billing screen, so the count belongs where the operator will see it.
  */
 function PendingSlipsBadge({ active }: { active: boolean }) {
+  const t = useMessages("admin");
   const { data } = useQuery({
     queryKey: ["admin", "invoices", "pending"],
     queryFn: () => superAdminApi.getInvoices("pending_review"),
@@ -68,7 +68,7 @@ function PendingSlipsBadge({ active }: { active: boolean }) {
   if (count === 0) return null;
   return (
     <span
-      aria-label={`สลิปรอตรวจสอบ ${count} รายการ`}
+      aria-label={interp(t.pendingSlipsAria, { n: count })}
       className={`min-w-5 rounded-full px-1.5 text-center text-xs font-bold ${
         active ? "bg-white/25 text-white" : "bg-blue-100 text-blue-700"
       }`}
@@ -91,6 +91,7 @@ function SidebarContent({
   onLogout: () => void;
   onNavigate?: () => void;
 }) {
+  const t = useMessages("admin");
   return (
     <div className="flex h-full flex-col">
       {/* Brand */}
@@ -100,12 +101,12 @@ function SidebarContent({
         </div>
         <div className="text-sm font-bold leading-tight">
           SanamSpace
-          <span className="block text-xs font-medium text-muted-foreground">Platform Admin</span>
+          <span className="block text-xs font-medium text-muted-foreground">{t.brandSub}</span>
         </div>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 pt-1" aria-label="เมนูหลัก">
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 pt-1" aria-label={t.mainMenu}>
         {NAV.map((item) => {
           const active = isActive(pathname, item.href);
           return (
@@ -119,7 +120,7 @@ function SidebarContent({
               }`}
             >
               <item.icon className="size-5 shrink-0" />
-              <span className="flex-1">{item.label}</span>
+              <span className="flex-1">{(t.nav as Record<string, string>)[item.href]}</span>
               {item.href === "/admin/billing" && <PendingSlipsBadge active={active} />}
             </Link>
           );
@@ -133,7 +134,7 @@ function SidebarContent({
           className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-brand-danger transition hover:bg-app"
         >
           <LogOut className="size-5 shrink-0" />
-          ออกจากระบบ
+          {t.logout}
         </button>
       </div>
     </div>
@@ -141,6 +142,7 @@ function SidebarContent({
 }
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const t = useMessages("admin");
   const router = useRouter();
   const pathname = usePathname();
   const isLoginRoute = pathname === "/admin/login";
@@ -192,14 +194,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true">
           <button
             type="button"
-            aria-label="ปิดเมนู"
+            aria-label={t.closeMenu}
             className="absolute inset-0 bg-black/40"
             onClick={() => setMobileOpen(false)}
           />
           <div className="absolute inset-y-0 left-0 flex w-72 max-w-[80%] flex-col bg-white shadow-xl">
             <button
               type="button"
-              aria-label="ปิดเมนู"
+              aria-label={t.closeMenu}
               onClick={() => setMobileOpen(false)}
               className="absolute right-3 top-3 grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-app"
             >
@@ -216,7 +218,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-black/5 bg-white px-4 py-3">
           <button
             type="button"
-            aria-label="เปิดเมนู"
+            aria-label={t.openMenu}
             onClick={() => setMobileOpen(true)}
             className="grid size-9 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-app md:hidden"
           >
@@ -224,7 +226,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </button>
 
           <div className="flex items-center gap-2 md:hidden">
-            <span className="text-sm font-bold">SanamSpace · Platform</span>
+            <span className="text-sm font-bold">{t.platformLabel}</span>
           </div>
 
           <div className="ml-auto flex items-center gap-2">
@@ -238,7 +240,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <button
                 type="button"
                 onClick={handleLogout}
-                aria-label="ออกจากระบบ"
+                aria-label={t.logout}
                 className="grid size-7 place-items-center rounded-lg text-muted-foreground transition hover:bg-app hover:text-brand-danger"
               >
                 <LogOut className="size-4" />

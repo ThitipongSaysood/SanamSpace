@@ -5,8 +5,10 @@ import { ShieldCheck } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { superAdminApi, SuperAdminApiError } from "@/lib/api/superadmin";
+import { useMessages } from "@/lib/i18n/context";
 
 export default function AdminLoginPage() {
+  const t = useMessages("admin").login;
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,10 +25,10 @@ export default function AdminLoginPage() {
     } catch (err) {
       setError(
         err instanceof SuperAdminApiError && err.status === 429
-          ? "พยายามเข้าสู่ระบบหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่"
+          ? t.err429
           : err instanceof SuperAdminApiError && (err.status === 401 || err.status === 422)
-            ? "อีเมลหรือรหัสผ่านไม่ถูกต้อง"
-            : "เข้าสู่ระบบไม่สำเร็จ ลองใหม่อีกครั้ง"
+            ? t.errCreds
+            : t.errGeneric
       );
       setBusy(false);
     }
@@ -40,14 +42,14 @@ export default function AdminLoginPage() {
             <ShieldCheck className="size-8" />
           </div>
           <div>
-            <div className="text-xl font-bold tracking-tight">SanamSpace · Platform Admin</div>
-            <p className="text-sm text-muted-foreground">ระบบจัดการแพลตฟอร์ม</p>
+            <div className="text-xl font-bold tracking-tight">{t.title}</div>
+            <p className="text-sm text-muted-foreground">{t.subtitle}</p>
           </div>
         </div>
 
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-1.5">
-            <Label htmlFor="admin-email">อีเมล</Label>
+            <Label htmlFor="admin-email">{t.emailLabel}</Label>
             <Input
               id="admin-email"
               type="email"
@@ -60,7 +62,7 @@ export default function AdminLoginPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="admin-password">รหัสผ่าน</Label>
+            <Label htmlFor="admin-password">{t.passwordLabel}</Label>
             <Input
               id="admin-password"
               type="password"
@@ -80,12 +82,12 @@ export default function AdminLoginPage() {
             disabled={busy}
             className="h-11 w-full rounded-xl bg-brand text-base font-semibold text-brand-foreground transition hover:bg-brand/90 disabled:opacity-60"
           >
-            {busy ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
+            {busy ? t.submitting : t.submit}
           </button>
         </form>
 
         <p className="mt-5 text-center text-xs text-muted-foreground">
-          เดโม่: super@sanamspace.test / password
+          {t.demo}
         </p>
       </div>
     </main>
