@@ -25,22 +25,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LineFlexPreview, PLACEHOLDERS } from "@/components/line-flex-preview";
+import { useMessages } from "@/lib/i18n/context";
+import { fmt as interp } from "@/lib/i18n/format";
 
-const EVENTS: { key: LineTemplateEvent; label: string; hint: string }[] = [
-  { key: "booking_confirmed", label: "จองสำเร็จ", hint: "ส่งเมื่อการจองได้รับการยืนยัน (จ่ายครบ)" },
-  { key: "payment_received", label: "รับชำระเงิน", hint: "ส่งเมื่อได้รับเงิน — ปิดไว้โดยค่าเริ่มต้น" },
-  { key: "booking_cancelled", label: "ยกเลิกการจอง", hint: "ส่งเมื่อการจองถูกยกเลิก/หมดเวลา" },
-];
+const EVENT_KEYS: LineTemplateEvent[] = ["booking_confirmed", "payment_received", "booking_cancelled"];
 
-const BLOCK_META: Record<LineBlockType, { label: string; icon: typeof Type }> = {
-  image: { label: "รูปภาพ", icon: ImageIcon },
-  logo: { label: "โลโก้", icon: ImageIcon },
-  title: { label: "หัวข้อ", icon: Type },
-  text: { label: "ข้อความ", icon: Type },
-  divider: { label: "เส้นคั่น", icon: Minus },
-  infoRow: { label: "แถวข้อมูล", icon: Rows3 },
-  button: { label: "ปุ่ม", icon: MousePointerClick },
-  buttonRow: { label: "แถวปุ่ม", icon: MousePointerClick },
+const BLOCK_ICON: Record<LineBlockType, typeof Type> = {
+  image: ImageIcon,
+  logo: ImageIcon,
+  title: Type,
+  text: Type,
+  divider: Minus,
+  infoRow: Rows3,
+  button: MousePointerClick,
+  buttonRow: MousePointerClick,
 };
 
 const ADD_ORDER: LineBlockType[] = ["title", "text", "infoRow", "divider", "image", "logo", "button", "buttonRow"];
@@ -66,7 +64,7 @@ function blankBlock(type: LineBlockType): LineBlock {
   }
 }
 
-function summarise(b: LineBlock): string {
+function summarise(b: LineBlock, imgNotSet: string): string {
   switch (b.type) {
     case "title":
     case "text":
@@ -79,13 +77,14 @@ function summarise(b: LineBlock): string {
       return (b.buttons ?? []).map((x) => x.label).join(" · ");
     case "image":
     case "logo":
-      return b.url || "ยังไม่ได้ตั้งรูป";
+      return b.url || imgNotSet;
     default:
       return "";
   }
 }
 
 export default function LineTemplatesPage() {
+  const tp = useMessages("owner").lineTemplates;
   const qc = useQueryClient();
   const templatesQ = useQuery({ queryKey: ["owner", "line-templates"], queryFn: ownerApi.getLineTemplates });
 
@@ -118,7 +117,7 @@ export default function LineTemplatesPage() {
   }, [draft, current]);
 
   const save = useMutation({
-    mutationFn: () => toastSave(ownerApi.saveLineTemplate(event, draft), { success: "บันทึกเทมเพลตแล้ว" }),
+    mutationFn: () => toastSave(ownerApi.saveLineTemplate(event, draft), { success: tp.savedToast }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["owner", "line-templates"] }),
   });
 
@@ -173,32 +172,32 @@ export default function LineTemplatesPage() {
   return (
     <div className="space-y-5">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight">ข้อความตอบกลับ LINE</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{tp.title}</h1>
         <p className="text-sm text-muted-foreground">
-          ออกแบบการ์ดที่ลูกค้าได้รับทาง LINE เมื่อจอง/ชำระเงิน/ยกเลิก — ลากจัดเรียงบล็อกแล้วดูตัวอย่างสด
+          {tp.subtitle}
         </p>
       </header>
 
       {/* Event switcher */}
       <div className="flex flex-wrap gap-1 border-b border-black/5">
-        {EVENTS.map((e) => {
-          const t = templatesQ.data?.find((x) => x.event === e.key);
+        {EVENT_KEYS.map((key) => {
+          const t = templatesQ.data?.find((x) => x.event === key);
           return (
             <button
-              key={e.key}
+              key={key}
               type="button"
-              onClick={() => setEvent(e.key)}
+              onClick={() => setEvent(key)}
               className={`-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition ${
-                event === e.key ? "border-brand text-brand" : "border-transparent text-muted-foreground hover:text-foreground"
+                event === key ? "border-brand text-brand" : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
-              {e.label}
-              {t && !t.enabled && <span className="rounded bg-black/5 px-1.5 py-0.5 text-[10px] text-muted-foreground">ปิด</span>}
+              {tp.eventLabel[key]}
+              {t && !t.enabled && <span className="rounded bg-black/5 px-1.5 py-0.5 text-[10px] text-muted-foreground">{tp.eventOff}</span>}
             </button>
           );
         })}
       </div>
-      <p className="-mt-2 text-xs text-muted-foreground">{EVENTS.find((e) => e.key === event)?.hint}</p>
+      <p className="-mt-2 text-xs text-muted-foreground">{tp.eventHint[event]}</p>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         {/* ---- Left: editor ---- */}
@@ -209,19 +208,19 @@ export default function LineTemplatesPage() {
               <Switch
                 checked={draft.enabled}
                 onCheckedChange={(v) => setDraft((d) => ({ ...d, enabled: v }))}
-                aria-label="ส่งการ์ดนี้ให้ลูกค้า"
+                aria-label={tp.enableCard}
               />
-              <span className="text-sm font-medium">ส่งการ์ดนี้ให้ลูกค้า</span>
+              <span className="text-sm font-medium">{tp.enableCard}</span>
             </div>
             <div className="flex items-center gap-3">
               {save.isSuccess && !dirty && (
                 <span className="inline-flex items-center gap-1 text-sm font-medium text-brand">
-                  <Check className="size-4" /> บันทึกแล้ว
+                  <Check className="size-4" /> {tp.saved}
                 </span>
               )}
-              {save.isError && <span className="text-sm text-brand-danger">บันทึกไม่สำเร็จ</span>}
+              {save.isError && <span className="text-sm text-brand-danger">{tp.saveFailed}</span>}
               <Button type="button" disabled={!dirty || save.isPending} onClick={() => save.mutate()}>
-                {save.isPending ? "กำลังบันทึก..." : "บันทึก"}
+                {save.isPending ? tp.saving : tp.save}
               </Button>
             </div>
           </div>
@@ -258,17 +257,17 @@ export default function LineTemplatesPage() {
             ))}
             {draft.blocks.length === 0 && (
               <p className="rounded-xl border border-dashed border-black/10 py-6 text-center text-sm text-muted-foreground">
-                ยังไม่มีบล็อก — เพิ่มบล็อกด้านล่างเพื่อเริ่มออกแบบ
+                {tp.noBlocks}
               </p>
             )}
           </div>
 
           {/* Add block */}
           <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
-            <div className="mb-2 text-sm font-semibold">เพิ่มบล็อก</div>
+            <div className="mb-2 text-sm font-semibold">{tp.addBlock}</div>
             <div className="flex flex-wrap gap-2">
               {ADD_ORDER.map((type) => {
-                const Icon = BLOCK_META[type].icon;
+                const Icon = BLOCK_ICON[type];
                 return (
                   <button
                     key={type}
@@ -276,7 +275,7 @@ export default function LineTemplatesPage() {
                     onClick={() => add(type)}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-app px-3 py-1.5 text-sm font-medium ring-1 ring-black/10 transition hover:bg-brand/5 hover:ring-brand/30"
                   >
-                    <Icon className="size-3.5" /> {BLOCK_META[type].label}
+                    <Icon className="size-3.5" /> {tp.blockLabel[type]}
                   </button>
                 );
               })}
@@ -285,8 +284,8 @@ export default function LineTemplatesPage() {
 
           {/* Placeholder palette */}
           <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
-            <div className="mb-1 text-sm font-semibold">ตัวแปร (คลิกเพื่อคัดลอก แล้ววางในช่องข้อความ)</div>
-            <p className="mb-2.5 text-xs text-muted-foreground">ระบบจะแทนค่าจริงตอนส่ง เช่น {"{{customerName}}"} → ชื่อลูกค้า</p>
+            <div className="mb-1 text-sm font-semibold">{tp.varsTitle}</div>
+            <p className="mb-2.5 text-xs text-muted-foreground">{tp.varsHintPre}{"{{customerName}}"}{tp.varsHintPost}</p>
             <div className="flex flex-wrap gap-1.5">
               {PLACEHOLDERS.map((p) => (
                 <button
@@ -307,7 +306,7 @@ export default function LineTemplatesPage() {
         {/* ---- Right: preview + test ---- */}
         <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
           <div className="rounded-2xl bg-app p-4 shadow-sm ring-1 ring-black/5">
-            <div className="mb-3 text-center text-xs font-medium text-muted-foreground">ตัวอย่างบนมือถือ</div>
+            <div className="mb-3 text-center text-xs font-medium text-muted-foreground">{tp.mobilePreview}</div>
             <LineFlexPreview blocks={draft.blocks} />
           </div>
           <TestSend event={event} blocks={draft.blocks} dirty={dirty} />
@@ -350,7 +349,8 @@ function BlockRow({
   onDrop: () => void;
   onDragEnd: () => void;
 }) {
-  const Icon = BLOCK_META[block.type].icon;
+  const tp = useMessages("owner").lineTemplates;
+  const Icon = BLOCK_ICON[block.type];
   const cardRef = useRef<HTMLDivElement>(null);
 
   // Start the drag with the WHOLE card as the ghost image (not just the small
@@ -397,8 +397,8 @@ function BlockRow({
             // The icon must not swallow the drag (an inline <svg> starts its own
             // image drag), and a bigger square is far easier to grab.
             className="grid size-8 shrink-0 cursor-grab place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-app hover:text-brand active:cursor-grabbing [&_svg]:pointer-events-none"
-            title="ลากเพื่อจัดเรียง"
-            aria-label="ลากเพื่อจัดเรียง"
+            title={tp.dragToSort}
+            aria-label={tp.dragToSort}
           >
             <GripVertical className="size-4" />
           </span>
@@ -411,14 +411,14 @@ function BlockRow({
           className="flex min-w-0 flex-1 cursor-grab items-center gap-2 text-left active:cursor-grabbing [&_svg]:pointer-events-none"
         >
           <Icon className="size-4 shrink-0 text-brand" />
-          <span className="shrink-0 text-sm font-medium">{BLOCK_META[block.type].label}</span>
-          <span className="truncate text-xs text-muted-foreground">{summarise(block)}</span>
+          <span className="shrink-0 text-sm font-medium">{tp.blockLabel[block.type]}</span>
+          <span className="truncate text-xs text-muted-foreground">{summarise(block, tp.imgNotSet)}</span>
         </button>
         <div className="flex shrink-0 items-center gap-0.5 text-muted-foreground">
-          <IconBtn label="เลื่อนขึ้น" onClick={onMoveUp}><ChevronUp className="size-4" /></IconBtn>
-          <IconBtn label="เลื่อนลง" onClick={onMoveDown}><ChevronDown className="size-4" /></IconBtn>
-          <IconBtn label="ทำซ้ำ" onClick={onDuplicate}><Copy className="size-3.5" /></IconBtn>
-          <IconBtn label="ลบ" onClick={onRemove}><Trash2 className="size-3.5 text-brand-danger" /></IconBtn>
+          <IconBtn label={tp.moveUp} onClick={onMoveUp}><ChevronUp className="size-4" /></IconBtn>
+          <IconBtn label={tp.moveDown} onClick={onMoveDown}><ChevronDown className="size-4" /></IconBtn>
+          <IconBtn label={tp.duplicate} onClick={onDuplicate}><Copy className="size-3.5" /></IconBtn>
+          <IconBtn label={tp.remove} onClick={onRemove}><Trash2 className="size-3.5 text-brand-danger" /></IconBtn>
         </div>
       </div>
         {expanded && block.type !== "divider" && (
@@ -433,6 +433,7 @@ function BlockRow({
 
 /** The pulsing "drop here" slot that opens where a dragged block will land. */
 function DropIndicator({ show, pos }: { show: boolean; pos: "top" | "bottom" }) {
+  const tp = useMessages("owner").lineTemplates;
   if (!show) return null;
   return (
     <div
@@ -441,7 +442,7 @@ function DropIndicator({ show, pos }: { show: boolean; pos: "top" | "bottom" }) 
         pos === "top" ? "top-0" : "bottom-0"
       }`}
     >
-      <span className="animate-pulse text-xs font-semibold text-brand">วางตรงนี้</span>
+      <span className="animate-pulse text-xs font-semibold text-brand">{tp.dropHere}</span>
     </div>
   );
 }
@@ -459,12 +460,13 @@ function IconBtn({ label, onClick, children }: { label: string; onClick: () => v
 const SIZES = ["xs", "sm", "md", "lg", "xl", "xxl"];
 
 function BlockEditor({ block, onChange }: { block: LineBlock; onChange: (patch: Partial<LineBlock>) => void }) {
+  const tp = useMessages("owner").lineTemplates;
   switch (block.type) {
     case "title":
     case "text":
       return (
         <div className="space-y-3">
-          <Field label="ข้อความ">
+          <Field label={tp.fText}>
             <textarea
               value={block.text ?? ""}
               onChange={(e) => onChange({ text: e.target.value })}
@@ -473,12 +475,12 @@ function BlockEditor({ block, onChange }: { block: LineBlock; onChange: (patch: 
             />
           </Field>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <SelectField label="ขนาด" value={block.size ?? (block.type === "title" ? "lg" : "sm")} options={SIZES} onChange={(v) => onChange({ size: v })} />
-            <SelectField label="จัดวาง" value={block.align ?? "start"} options={["start", "center", "end"]} labels={{ start: "ซ้าย", center: "กลาง", end: "ขวา" }} onChange={(v) => onChange({ align: v as LineBlock["align"] })} />
+            <SelectField label={tp.fSize} value={block.size ?? (block.type === "title" ? "lg" : "sm")} options={SIZES} onChange={(v) => onChange({ size: v })} />
+            <SelectField label={tp.fAlign} value={block.align ?? "start"} options={["start", "center", "end"]} labels={{ start: tp.alignLeft, center: tp.alignCenter, end: tp.alignRight }} onChange={(v) => onChange({ align: v as LineBlock["align"] })} />
             {block.type === "text" && (
-              <SelectField label="หนา" value={block.weight ?? "regular"} options={["regular", "bold"]} labels={{ regular: "ปกติ", bold: "หนา" }} onChange={(v) => onChange({ weight: v === "bold" ? "bold" : undefined })} />
+              <SelectField label={tp.fWeight} value={block.weight ?? "regular"} options={["regular", "bold"]} labels={{ regular: tp.weightRegular, bold: tp.weightBold }} onChange={(v) => onChange({ weight: v === "bold" ? "bold" : undefined })} />
             )}
-            <ColorField label="สี" value={block.color} onChange={(v) => onChange({ color: v })} />
+            <ColorField label={tp.fColor} value={block.color} onChange={(v) => onChange({ color: v })} />
           </div>
         </div>
       );
@@ -486,14 +488,14 @@ function BlockEditor({ block, onChange }: { block: LineBlock; onChange: (patch: 
       return (
         <div className="space-y-3">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="ป้ายกำกับ (ซ้าย)">
+            <Field label={tp.fLabelLeft}>
               <Input value={block.label ?? ""} onChange={(e) => onChange({ label: e.target.value })} />
             </Field>
-            <Field label="ค่า (ขวา)">
+            <Field label={tp.fValueRight}>
               <Input value={block.value ?? ""} onChange={(e) => onChange({ value: e.target.value })} />
             </Field>
           </div>
-          <ColorField label="สีของค่า" value={block.color} onChange={(v) => onChange({ color: v })} />
+          <ColorField label={tp.fValueColor} value={block.color} onChange={(v) => onChange({ color: v })} />
         </div>
       );
     case "image":
@@ -509,6 +511,7 @@ function BlockEditor({ block, onChange }: { block: LineBlock; onChange: (patch: 
 }
 
 function ButtonRowEditor({ block, onChange }: { block: LineBlock; onChange: (patch: Partial<LineBlock>) => void }) {
+  const tp = useMessages("owner").lineTemplates;
   const buttons = block.buttons ?? [];
   const setBtn = (i: number, patch: Partial<LineButton>) =>
     onChange({ buttons: buttons.map((b, idx) => (idx === i ? { ...b, ...patch } : b)) });
@@ -517,10 +520,10 @@ function ButtonRowEditor({ block, onChange }: { block: LineBlock; onChange: (pat
       {buttons.map((b, i) => (
         <div key={i} className="rounded-xl bg-app p-3 ring-1 ring-black/5">
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">ปุ่มที่ {i + 1}</span>
+            <span className="text-xs font-medium text-muted-foreground">{interp(tp.btnN, { n: i + 1 })}</span>
             {buttons.length > 1 && (
               <button type="button" onClick={() => onChange({ buttons: buttons.filter((_, idx) => idx !== i) })} className="text-xs text-brand-danger">
-                ลบปุ่ม
+                {tp.removeBtn}
               </button>
             )}
           </div>
@@ -533,7 +536,7 @@ function ButtonRowEditor({ block, onChange }: { block: LineBlock; onChange: (pat
           onClick={() => onChange({ buttons: [...buttons, { label: "ปุ่มใหม่", url: "{{bookingUrl}}", style: "secondary" }] })}
           className="inline-flex items-center gap-1 rounded-lg bg-app px-3 py-1.5 text-sm ring-1 ring-black/10 hover:bg-brand/5"
         >
-          <Plus className="size-3.5" /> เพิ่มปุ่ม
+          <Plus className="size-3.5" /> {tp.addBtn}
         </button>
       )}
     </div>
@@ -541,26 +544,28 @@ function ButtonRowEditor({ block, onChange }: { block: LineBlock; onChange: (pat
 }
 
 function ButtonFields({ button, onChange }: { button: LineButton; onChange: (patch: Partial<LineButton>) => void }) {
+  const tp = useMessages("owner").lineTemplates;
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field label="ข้อความบนปุ่ม">
+        <Field label={tp.fBtnText}>
           <Input value={button.label ?? ""} onChange={(e) => onChange({ label: e.target.value })} />
         </Field>
-        <Field label="ลิงก์ (URL)">
-          <Input value={button.url ?? ""} placeholder="{{bookingUrl}} หรือ https://..." onChange={(e) => onChange({ url: e.target.value })} />
+        <Field label={tp.fUrl}>
+          <Input value={button.url ?? ""} placeholder={tp.urlPlaceholder} onChange={(e) => onChange({ url: e.target.value })} />
         </Field>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <SelectField label="สไตล์" value={button.style ?? "primary"} options={["primary", "secondary", "link"]} labels={{ primary: "ทึบ", secondary: "ขอบ", link: "ลิงก์" }} onChange={(v) => onChange({ style: v as LineButton["style"] })} />
-        <ColorField label="สีปุ่ม" value={button.color} onChange={(v) => onChange({ color: v })} />
+        <SelectField label={tp.fStyle} value={button.style ?? "primary"} options={["primary", "secondary", "link"]} labels={{ primary: tp.styleSolid, secondary: tp.styleOutline, link: tp.styleLink }} onChange={(v) => onChange({ style: v as LineButton["style"] })} />
+        <ColorField label={tp.fBtnColor} value={button.color} onChange={(v) => onChange({ color: v })} />
       </div>
-      <p className="text-xs text-muted-foreground">ถ้าลิงก์ว่างหรือไม่ใช่ http(s) ปุ่มจะไม่ถูกส่ง (แต่การ์ดยังส่งได้)</p>
+      <p className="text-xs text-muted-foreground">{tp.btnHint}</p>
     </div>
   );
 }
 
 function ImageField({ block, onChange }: { block: LineBlock; onChange: (patch: Partial<LineBlock>) => void }) {
+  const tp = useMessages("owner").lineTemplates;
   const [uploading, setUploading] = useState(false);
   async function onFile(file: File) {
     setUploading(true);
@@ -575,12 +580,12 @@ function ImageField({ block, onChange }: { block: LineBlock; onChange: (patch: P
   }
   return (
     <div className="space-y-2">
-      <Field label="URL รูปภาพ">
+      <Field label={tp.fImgUrl}>
         <Input value={block.url ?? ""} placeholder="https://..." onChange={(e) => onChange({ url: e.target.value })} />
       </Field>
       <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-app px-3 py-1.5 text-sm ring-1 ring-black/10 hover:bg-brand/5">
         <ImageIcon className="size-3.5" />
-        {uploading ? "กำลังอัปโหลด..." : "อัปโหลดรูป"}
+        {uploading ? tp.uploading : tp.uploadImage}
         <input
           type="file"
           accept="image/*"
@@ -591,7 +596,7 @@ function ImageField({ block, onChange }: { block: LineBlock; onChange: (patch: P
           }}
         />
       </label>
-      <p className="text-xs text-muted-foreground">LINE ต้องการรูปแบบ HTTPS — รูปที่อัปโหลดผ่านระบบใช้ได้เลย</p>
+      <p className="text-xs text-muted-foreground">{tp.imgHint}</p>
     </div>
   );
 }
@@ -599,6 +604,7 @@ function ImageField({ block, onChange }: { block: LineBlock; onChange: (patch: P
 /* ---------------- Test send ---------------- */
 
 function TestSend({ event, blocks, dirty }: { event: LineTemplateEvent; blocks: LineBlock[]; dirty: boolean }) {
+  const tp = useMessages("owner").lineTemplates;
   const customersQ = useQuery({ queryKey: ["owner", "customers"], queryFn: ownerApi.getCustomers });
   const [q, setQ] = useState("");
   const [picked, setPicked] = useState<OwnerCustomer | null>(null);
@@ -612,12 +618,7 @@ function TestSend({ event, blocks, dirty }: { event: LineTemplateEvent; blocks: 
       .slice(0, 6);
   }, [customersQ.data, q]);
 
-  const OUTCOME_MSG: Record<string, string> = {
-    sent: "ส่งแล้ว — เปิด LINE ของลูกค้าเพื่อดูการ์ด",
-    noToken: "สนามยังไม่ได้ตั้งค่า LINE token (ไปที่ ตั้งค่า › การเชื่อมต่อ)",
-    noProfile: "ลูกค้ารายนี้ยังไม่ได้ผูกบัญชี LINE",
-    failed: "ส่งไม่สำเร็จ ลองใหม่อีกครั้ง",
-  };
+  const OUTCOME_MSG = tp.outcome as Record<string, string>;
 
   const send = useMutation({
     mutationFn: () => ownerApi.testLineTemplate(event, { customerId: picked!.id, blocks }),
@@ -635,21 +636,21 @@ function TestSend({ event, blocks, dirty }: { event: LineTemplateEvent; blocks: 
     <div className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
       <div>
         <div className="flex items-center gap-1.5 text-sm font-semibold">
-          <Send className="size-4 text-brand" /> ทดสอบส่งจริง
+          <Send className="size-4 text-brand" /> {tp.testTitle}
         </div>
-        <p className="mt-0.5 text-xs text-muted-foreground">ส่งการ์ดนี้ (ใช้ข้อมูลตัวอย่าง) เข้า LINE ของลูกค้าที่เลือก</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{tp.testHint}</p>
       </div>
 
       {picked ? (
         <div className="flex items-center justify-between gap-2 rounded-xl bg-app px-3 py-2">
           <span className="truncate text-sm font-medium">{picked.displayName}</span>
           <button type="button" onClick={() => setPicked(null)} className="text-xs text-muted-foreground hover:text-foreground">
-            เปลี่ยน
+            {tp.change}
           </button>
         </div>
       ) : (
         <div className="relative">
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาลูกค้า (ชื่อ/เบอร์)" />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={tp.searchCustomer} />
           {matches.length > 0 && (
             <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-black/10">
               {matches.map((c) => (
@@ -672,10 +673,10 @@ function TestSend({ event, blocks, dirty }: { event: LineTemplateEvent; blocks: 
       )}
 
       <Button type="button" variant="outline" disabled={!picked || send.isPending} onClick={() => send.mutate()} className="w-full">
-        {send.isPending ? "กำลังส่ง..." : "ส่งทดสอบ"}
+        {send.isPending ? tp.sending : tp.sendTest}
       </Button>
 
-      {dirty && <p className="text-xs text-amber-600">กำลังทดสอบเวอร์ชันที่ยังไม่บันทึก</p>}
+      {dirty && <p className="text-xs text-amber-600">{tp.testingUnsaved}</p>}
       {outcome && (
         <p className={`text-xs ${outcome === "sent" ? "text-brand" : "text-brand-danger"}`}>{OUTCOME_MSG[outcome] ?? outcome}</p>
       )}

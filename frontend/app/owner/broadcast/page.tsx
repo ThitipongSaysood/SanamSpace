@@ -35,6 +35,10 @@ import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useMessages, useLocale } from "@/lib/i18n/context";
+import { fmt as interp, intlLocale } from "@/lib/i18n/format";
+import type { Messages } from "@/lib/i18n/messages";
+import type { Locale } from "@/lib/i18n/config";
 
 const fmt = new Intl.NumberFormat("th-TH");
 const BROADCASTS_KEY = ["owner", "broadcasts"];
@@ -49,42 +53,38 @@ type AudienceOption = {
 };
 
 const AUDIENCES: AudienceOption[] = [
-  { value: "lost", label: "ลูกค้าที่หายไป", hint: "เคยจองแต่หายไปเกินระยะที่กำหนด — ดึงกลับมาด้วยโปร", needsDays: true },
-  { value: "regulars", label: "ลูกค้าประจำ", hint: "จองบ่อย — ให้รางวัลหรือสิทธิพิเศษ" },
-  { value: "one_time", label: "มาครั้งเดียว", hint: "จองแค่ครั้งเดียว — ชวนให้กลับมาอีก" },
-  { value: "new", label: "ลูกค้าใหม่", hint: "เพิ่งสมัครไม่นาน — ต้อนรับด้วยโปรแรก", needsDays: true },
-  { value: "all", label: "ลูกค้าทั้งหมด", hint: "ส่งถึงลูกค้าทุกคนในร้าน" },
-  { value: "segment", label: "กลุ่มที่บันทึกไว้", hint: "กลุ่มลูกค้าที่คุณสร้างไว้ใน CRM", needsSegment: true },
+  { value: "lost", label: "", hint: "", needsDays: true },
+  { value: "regulars", label: "", hint: "" },
+  { value: "one_time", label: "", hint: "" },
+  { value: "new", label: "", hint: "", needsDays: true },
+  { value: "all", label: "", hint: "" },
+  { value: "segment", label: "", hint: "", needsSegment: true },
 ];
 
 type Template = { id: string; label: string; title: string; message: string };
 const TEMPLATES: Template[] = [
-  { id: "winback", label: "ดึงลูกค้าที่หายไปกลับมา", title: "คิดถึงคุณ! 🏸", message: "ไม่ได้เจอกันนานเลย กลับมาเล่นกันไหม 💚 รับส่วนลด 20% เมื่อจองภายในสัปดาห์นี้ แล้วเจอกันที่สนามนะ!" },
-  { id: "regular", label: "ขอบคุณลูกค้าประจำ", title: "ขอบคุณที่อยู่กับเราเสมอ 💚", message: "สิทธิพิเศษสำหรับลูกค้าคนสำคัญ รับส่วนลด 15% ทุกการจองตลอดเดือนนี้ 🎉" },
-  { id: "onetime", label: "ชวนลูกค้ามาครั้งเดียวกลับมา", title: "ครั้งแรกเป็นไงบ้าง? 😊", message: "หวังว่าจะสนุกกันนะ! จองครั้งต่อไปรับส่วนลดพิเศษ 10% รอคุณกลับมาอยู่นะ" },
-  { id: "welcome", label: "ต้อนรับลูกค้าใหม่", title: "ยินดีต้อนรับ! 🎉", message: "ขอบคุณที่สมัครสมาชิก รับส่วนลด 10% สำหรับการจองครั้งแรกของคุณเลย" },
-  { id: "promo", label: "โปรโมชั่นทั่วไป", title: "โปรโมชั่นพิเศษ 🔥", message: "จองวันนี้รับส่วนลดทันที! ดูรายละเอียดและจองได้เลยในแอป" },
+  { id: "winback", label: "", title: "คิดถึงคุณ! 🏸", message: "ไม่ได้เจอกันนานเลย กลับมาเล่นกันไหม 💚 รับส่วนลด 20% เมื่อจองภายในสัปดาห์นี้ แล้วเจอกันที่สนามนะ!" },
+  { id: "regular", label: "", title: "ขอบคุณที่อยู่กับเราเสมอ 💚", message: "สิทธิพิเศษสำหรับลูกค้าคนสำคัญ รับส่วนลด 15% ทุกการจองตลอดเดือนนี้ 🎉" },
+  { id: "onetime", label: "", title: "ครั้งแรกเป็นไงบ้าง? 😊", message: "หวังว่าจะสนุกกันนะ! จองครั้งต่อไปรับส่วนลดพิเศษ 10% รอคุณกลับมาอยู่นะ" },
+  { id: "welcome", label: "", title: "ยินดีต้อนรับ! 🎉", message: "ขอบคุณที่สมัครสมาชิก รับส่วนลด 10% สำหรับการจองครั้งแรกของคุณเลย" },
+  { id: "promo", label: "", title: "โปรโมชั่นพิเศษ 🔥", message: "จองวันนี้รับส่วนลดทันที! ดูรายละเอียดและจองได้เลยในแอป" },
 ];
 
 type ChannelMeta = { value: OwnerBroadcastChannel; label: string; sub: string; icon: typeof Send };
 const CHANNELS: ChannelMeta[] = [
-  { value: "line", label: "ส่งผ่าน LINE", sub: "ส่งข้อความเข้าแชท LINE ของลูกค้า", icon: MessageCircle },
-  { value: "app", label: "แสดงในแอป", sub: "แสดงเป็นการแจ้งเตือนในแอปลูกค้า", icon: Smartphone },
+  { value: "line", label: "", sub: "", icon: MessageCircle },
+  { value: "app", label: "", sub: "", icon: Smartphone },
 ];
 
-const STEPS = ["ช่องทาง", "ข้อความ", "ส่ง"];
+const STEP_COUNT = 3;
 
-const AUDIENCE_LABEL: Record<OwnerBroadcastAudience, string> = {
-  all: "ทั้งหมด", lost: "หายไป", new: "ใหม่", one_time: "มาครั้งเดียว", regulars: "ประจำ", segment: "กลุ่ม",
-};
-
-function channelLabel(c: OwnerBroadcastChannel): string {
-  return c === "line" ? "LINE" : c === "app" ? "ในแอป" : c;
+function channelLabel(c: OwnerBroadcastChannel, t: Messages["owner"]["broadcast"]): string {
+  return c === "line" ? "LINE" : c === "app" ? t.chApp : c;
 }
 
-function fmtDateTime(iso: string | null): string {
+function fmtDateTime(iso: string | null, locale: Locale): string {
   if (!iso) return "";
-  return new Date(iso).toLocaleString("th-TH", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  return new Date(iso).toLocaleString(intlLocale(locale), { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
 // Load, cap the largest side to maxDim, and re-encode as JPEG so uploads are
@@ -122,6 +122,7 @@ async function downscaleImage(file: File, maxDim = 1600, quality = 0.85): Promis
 }
 
 export default function BroadcastPage() {
+  const tp = useMessages("owner").broadcast;
   const qc = useQueryClient();
   const segments = useQuery({ queryKey: SEGMENTS_KEY, queryFn: ownerApi.getSegments });
   const list = useQuery({ queryKey: BROADCASTS_KEY, queryFn: ownerApi.getBroadcasts });
@@ -164,10 +165,10 @@ export default function BroadcastPage() {
     } catch (err) {
       const msg =
         err instanceof OwnerApiError
-          ? `อัปโหลดไม่สำเร็จ (${err.status}) ${err.message}`
+          ? interp(tp.uploadFailedStatus, { status: err.status, msg: err.message })
           : err instanceof Error
             ? err.message
-            : "อัปโหลดรูปไม่สำเร็จ ลองอีกครั้ง";
+            : tp.uploadFailedGeneric;
       toast.error(msg);
     } finally {
       setUploading(false);
@@ -268,8 +269,8 @@ export default function BroadcastPage() {
 
   function onSend() {
     setResult(null);
-    const via = isLine ? "ผ่าน LINE" : "ในแอป";
-    if (window.confirm(`ส่งโปรนี้${via} หา “${opt.label}” (${fmt.format(deliverableCount)} คน) ?`)) send.mutate();
+    const via = isLine ? tp.viaLine : tp.viaApp;
+    if (window.confirm(interp(tp.confirmSendVia, { via, aud: tp.audienceLabel[audience], n: fmt.format(deliverableCount) }))) send.mutate();
   }
 
   function goTo(target: number) {
@@ -302,14 +303,14 @@ export default function BroadcastPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <header>
-        <h1 className="text-lg font-semibold">ยิงโปรหาลูกค้า</h1>
-        <p className="text-sm text-muted-foreground">เลือกช่องทาง เขียนข้อความ เลือกกลุ่ม แล้วดูตัวอย่างบนมือถือก่อนส่ง</p>
+        <h1 className="text-lg font-semibold">{tp.title}</h1>
+        <p className="text-sm text-muted-foreground">{tp.subtitle}</p>
       </header>
 
       {editingId && !result && (
         <div className="flex items-center justify-between gap-2 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-700 ring-1 ring-amber-200">
-          <span>กำลังแก้ไขฉบับร่าง</span>
-          <button type="button" onClick={reset} className="font-medium underline">ยกเลิก</button>
+          <span>{tp.editingDraft}</span>
+          <button type="button" onClick={reset} className="font-medium underline">{tp.cancel}</button>
         </div>
       )}
 
@@ -321,7 +322,7 @@ export default function BroadcastPage() {
 
       <SummaryBar
         channel={channel}
-        audienceLabel={opt.label}
+        audienceLabel={tp.audienceLabel[audience]}
         reach={preview.data ? deliverableCount : null}
         reachKind={isLine ? "line" : "app"}
       />
@@ -329,7 +330,7 @@ export default function BroadcastPage() {
       {/* Step 1 — channel */}
       {step === 0 && (
         <Card key="step0" className={STEP_ANIM}>
-          <SectionHead title="เลือกช่องทาง" hint="จะส่งโปรถึงลูกค้าทางไหน" />
+          <SectionHead title={tp.chooseChannel} hint={tp.chooseChannelHint} />
           <div className="grid gap-3 sm:grid-cols-2">
             {CHANNELS.map((c) => (
               <ChannelChoice key={c.value} meta={c} active={channel === c.value} onClick={() => setChannel(c.value)} />
@@ -344,34 +345,34 @@ export default function BroadcastPage() {
         <TwoCol key="step1" phone={phone} className={STEP_ANIM}>
           <Card>
             <div className="space-y-1.5">
-              <Label htmlFor="bc-template">เทมเพลตข้อความ</Label>
+              <Label htmlFor="bc-template">{tp.templateLabelField}</Label>
               <Select id="bc-template" value={templateId} onChange={(e) => applyTemplate(e.target.value)}>
-                <option value="">— เขียนเอง —</option>
-                {TEMPLATES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+                <option value="">{tp.writeOwn}</option>
+                {TEMPLATES.map((t) => <option key={t.id} value={t.id}>{tp.templateLabel[t.id as keyof typeof tp.templateLabel]}</option>)}
               </Select>
-              <p className="text-xs text-muted-foreground">เลือกเทมเพลตเพื่อเติมข้อความ แล้วปรับแก้ได้</p>
+              <p className="text-xs text-muted-foreground">{tp.templateHint}</p>
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="bc-title">หัวข้อ</Label>
+              <Label htmlFor="bc-title">{tp.titleLabel}</Label>
               <Input id="bc-title" value={title} onChange={(e) => setTitle(e.target.value)}
-                placeholder="เช่น คิดถึงคุณ! กลับมาเล่นกันไหม" />
+                placeholder={tp.titlePlaceholder} />
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="bc-message">ข้อความ</Label>
+              <Label htmlFor="bc-message">{tp.messageLabel}</Label>
               <textarea id="bc-message" value={message} onChange={(e) => setMessage(e.target.value)}
-                placeholder="เนื้อหาโปรที่จะส่งถึงลูกค้า" rows={4}
+                placeholder={tp.messagePlaceholder} rows={4}
                 className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" />
             </div>
 
             <div className="space-y-1.5">
-              <Label>รูปแบนเนอร์ (ไม่บังคับ)</Label>
+              <Label>{tp.bannerLabel}</Label>
               {bannerUrl ? (
                 <div className="relative w-fit">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={bannerUrl} alt="แบนเนอร์" className="max-h-40 rounded-lg ring-1 ring-black/10" />
-                  <button type="button" onClick={() => setBannerUrl(null)} aria-label="ลบรูป"
+                  <img src={bannerUrl} alt={tp.bannerAlt} className="max-h-40 rounded-lg ring-1 ring-black/10" />
+                  <button type="button" onClick={() => setBannerUrl(null)} aria-label={tp.removeImage}
                     className="absolute -right-2 -top-2 grid size-6 place-items-center rounded-full bg-neutral-900 text-white shadow">
                     <X className="size-3.5" />
                   </button>
@@ -379,12 +380,12 @@ export default function BroadcastPage() {
               ) : (
                 <label className="flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-dashed border-input px-3 py-2 text-sm text-muted-foreground hover:bg-app">
                   <ImagePlus className="size-4" />
-                  {uploading ? "กำลังอัปโหลด..." : "เพิ่มรูปแบนเนอร์"}
+                  {uploading ? tp.uploading : tp.addBanner}
                   <input type="file" accept="image/*" className="hidden"
                     disabled={uploading} onChange={onPickBanner} />
                 </label>
               )}
-              <p className="text-xs text-muted-foreground">แสดงเป็นรูปเหนือข้อความ (JPG/PNG/WebP)</p>
+              <p className="text-xs text-muted-foreground">{tp.bannerHint}</p>
             </div>
 
             <StepNav onBack={() => setStep(0)} onNext={() => setStep(2)} nextDisabled={!composeValid} />
@@ -396,7 +397,7 @@ export default function BroadcastPage() {
       {step === 2 && (
         <TwoCol key="step2" phone={phone} className={STEP_ANIM}>
           <Card>
-            <SectionHead title="กลุ่มเป้าหมาย" hint={opt.hint} />
+            <SectionHead title={tp.audienceTitle} hint={tp.audienceHint[audience]} />
 
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {AUDIENCES.map((a) => (
@@ -404,14 +405,14 @@ export default function BroadcastPage() {
                   className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
                     audience === a.value ? "border-brand bg-brand/5 font-medium text-brand" : "border-input hover:bg-app"
                   }`}>
-                  {a.label}
+                  {tp.audienceLabel[a.value]}
                 </button>
               ))}
             </div>
 
             {opt.needsDays && (
               <div className="space-y-1.5">
-                <Label htmlFor="bc-days">{audience === "lost" ? "หายไปนานเกิน (วัน)" : "สมัครภายใน (วัน)"}</Label>
+                <Label htmlFor="bc-days">{audience === "lost" ? tp.lostDaysLabel : tp.newDaysLabel}</Label>
                 <Input id="bc-days" type="number" min={1} max={3650} value={days}
                   onChange={(e) => setDays(Math.max(1, Number(e.target.value) || 1))} className="w-32" />
               </div>
@@ -419,9 +420,9 @@ export default function BroadcastPage() {
 
             {opt.needsSegment && (
               <div className="space-y-1.5">
-                <Label htmlFor="bc-segment">เลือกกลุ่ม</Label>
+                <Label htmlFor="bc-segment">{tp.pickSegment}</Label>
                 <Select id="bc-segment" value={segmentId} onChange={(e) => setSegmentId(e.target.value)}>
-                  <option value="">— เลือกกลุ่ม —</option>
+                  <option value="">{tp.pickSegmentOpt}</option>
                   {(segments.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </Select>
               </div>
@@ -432,39 +433,39 @@ export default function BroadcastPage() {
             {(preview.data?.suppressedCount ?? 0) > 0 && (
               <p className="inline-flex items-center gap-1.5 rounded-lg bg-app px-3 py-2 text-xs text-muted-foreground">
                 <ShieldCheck className="size-4 shrink-0" />
-                ไม่รวมลูกค้า {fmt.format(preview.data!.suppressedCount)} คนที่ขอไม่รับข่าวโปรโมชั่น
+                {interp(tp.suppressed, { n: fmt.format(preview.data!.suppressedCount) })}
               </p>
             )}
 
             {isLine && preview.data && preview.data.reachableCount === 0 && (
               <p className="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">
-                <WifiOff className="size-4 shrink-0" /> ไม่มีลูกค้าในกลุ่มนี้ที่เชื่อม LINE ไว้ — ลองส่งแบบ “แสดงในแอป” แทน
+                <WifiOff className="size-4 shrink-0" /> {tp.noLineReach}
               </p>
             )}
 
             {(send.isError || saveDraft.isError || saveEdit.isError) && (
-              <p className="text-sm text-brand-danger">บันทึก/ส่งไม่สำเร็จ ลองอีกครั้ง</p>
+              <p className="text-sm text-brand-danger">{tp.sendFailed}</p>
             )}
 
             <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
               <Button type="button" variant="outline" onClick={() => setStep(1)}>
-                <ChevronLeft className="size-4" /> ย้อนกลับ
+                <ChevronLeft className="size-4" /> {tp.back}
               </Button>
               <div className="flex flex-wrap gap-2">
                 {editingId ? (
                   <Button type="button" onClick={() => saveEdit.mutate()}
                     disabled={!composeValid || (opt.needsSegment && !segmentId) || saveEdit.isPending}>
-                    <Check className="size-4" /> {saveEdit.isPending ? "กำลังบันทึก..." : "บันทึกการแก้ไข"}
+                    <Check className="size-4" /> {saveEdit.isPending ? tp.saving : tp.saveEdit}
                   </Button>
                 ) : (
                   <>
                     <Button type="button" variant="outline" onClick={() => saveDraft.mutate()}
                       disabled={!composeValid || (opt.needsSegment && !segmentId) || saveDraft.isPending}>
-                      {saveDraft.isPending ? "กำลังบันทึก..." : "บันทึกร่าง"}
+                      {saveDraft.isPending ? tp.saving : tp.saveDraft}
                     </Button>
                     <Button type="button" onClick={onSend} disabled={!canSend || send.isPending}>
                       <Send className="size-4" />{" "}
-                      {send.isPending ? "กำลังส่ง..." : isLine ? "ยิงผ่าน LINE เลย" : "แสดงในแอปเลย"}
+                      {send.isPending ? tp.sending : isLine ? tp.sendLine : tp.sendApp}
                     </Button>
                   </>
                 )}
@@ -478,10 +479,10 @@ export default function BroadcastPage() {
 
       {/* History */}
       <section className="space-y-3 border-t border-black/5 pt-6">
-        <h2 className="text-sm font-semibold">ประวัติการยิงโปร</h2>
+        <h2 className="text-sm font-semibold">{tp.historyTitle}</h2>
         {list.isLoading && <Loading />}
         {list.isError && <ErrorState onRetry={() => list.refetch()} />}
-        {list.data && list.data.length === 0 && <EmptyState message="ยังไม่มีการยิงโปร" />}
+        {list.data && list.data.length === 0 && <EmptyState message={tp.noHistory} />}
         {list.data && list.data.length > 0 && (
           <div className="space-y-2">
             {list.data.map((b) => (
@@ -497,10 +498,10 @@ export default function BroadcastPage() {
           onClose={() => setDetail(null)}
           onEdit={() => editDraft(detail)}
           onDelete={() => {
-            if (window.confirm(`ลบ “${detail.title}” ?`)) del.mutate(detail.id);
+            if (window.confirm(interp(tp.confirmDelete, { title: detail.title }))) del.mutate(detail.id);
           }}
           onSend={() => {
-            if (window.confirm(`ส่ง “${detail.title}” เลยไหม?`)) sendExisting.mutate(detail.id);
+            if (window.confirm(interp(tp.confirmSend, { title: detail.title }))) sendExisting.mutate(detail.id);
           }}
           deleting={del.isPending}
           sending={sendExisting.isPending}
@@ -541,33 +542,37 @@ function Select({ id, value, onChange, children }: {
 // Two-column step body: focused form card left, phone preview right on the page
 // ground (no card). Columns share height; the phone centers in its column.
 function TwoCol({ children, phone, className = "" }: { children: React.ReactNode; phone: React.ReactNode; className?: string }) {
+  const tp = useMessages("owner").broadcast;
   return (
     <div className={`grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-stretch ${className}`}>
       {children}
       <div className="flex flex-col items-center justify-center gap-3">
-        <span className="text-xs font-medium text-muted-foreground">ตัวอย่างบนมือถือ</span>
+        <span className="text-xs font-medium text-muted-foreground">{tp.mobilePreview}</span>
         {phone}
       </div>
     </div>
   );
 }
 
-function StepNav({ onBack, onNext, nextDisabled, nextLabel = "ถัดไป", nextIcon }: {
+function StepNav({ onBack, onNext, nextDisabled, nextLabel, nextIcon }: {
   onBack?: () => void; onNext?: () => void; nextDisabled?: boolean; nextLabel?: string; nextIcon?: React.ReactNode;
 }) {
+  const tp = useMessages("owner").broadcast;
+  const label = nextLabel ?? tp.next;
   return (
     <div className="flex items-center justify-between pt-1">
       {onBack ? (
-        <Button type="button" variant="outline" onClick={onBack}><ChevronLeft className="size-4" /> ย้อนกลับ</Button>
+        <Button type="button" variant="outline" onClick={onBack}><ChevronLeft className="size-4" /> {tp.back}</Button>
       ) : <span />}
       <Button type="button" onClick={onNext} disabled={nextDisabled}>
-        {nextIcon ?? null} {nextLabel} {nextIcon ? null : <ChevronRight className="size-4" />}
+        {nextIcon ?? null} {label} {nextIcon ? null : <ChevronRight className="size-4" />}
       </Button>
     </div>
   );
 }
 
 function ChannelChoice({ meta, active, onClick }: { meta: ChannelMeta; active: boolean; onClick: () => void }) {
+  const tp = useMessages("owner").broadcast;
   const Icon = meta.icon;
   return (
     <button type="button" onClick={onClick}
@@ -580,8 +585,8 @@ function ChannelChoice({ meta, active, onClick }: { meta: ChannelMeta; active: b
         <Icon className="size-5" />
       </span>
       <span className="min-w-0">
-        <span className={`block text-sm font-medium ${active ? "text-brand" : ""}`}>{meta.label}</span>
-        <span className="block text-xs text-muted-foreground">{meta.sub}</span>
+        <span className={`block text-sm font-medium ${active ? "text-brand" : ""}`}>{(tp.channelLabelFull as Record<string, string>)[meta.value]}</span>
+        <span className="block text-xs text-muted-foreground">{(tp.channelSub as Record<string, string>)[meta.value]}</span>
       </span>
       {active && <Check className="ml-auto size-4 shrink-0 text-brand" />}
     </button>
@@ -598,6 +603,7 @@ function SuccessPanel({
   isLine: boolean;
   onNew: () => void;
 }) {
+  const tp = useMessages("owner").broadcast;
   const d = result.delivery;
   const noToken = d.noToken;
   return (
@@ -611,26 +617,24 @@ function SuccessPanel({
       </div>
 
       <div className="space-y-1">
-        <h2 className="text-lg font-semibold">{noToken ? "บันทึกแล้ว (ยังไม่ได้ส่ง)" : "ส่งสำเร็จ! 🎉"}</h2>
+        <h2 className="text-lg font-semibold">{noToken ? tp.savedNotSent : tp.sentSuccess}</h2>
         <p className="mx-auto max-w-sm text-sm text-muted-foreground">
           {noToken ? (
-            "ร้านยังไม่ได้ตั้งค่า LINE Messaging token — ตั้งค่าที่หน้า “ตั้งค่า” แล้วส่งใหม่อีกครั้ง"
+            tp.noTokenMsg
           ) : (
             <>
-              ส่ง <strong className="tabular-nums text-foreground">{fmt.format(d.sent)}</strong>{" "}
-              {isLine ? "ข้อความผ่าน LINE" : "การแจ้งเตือนในแอป"} ถึงลูกค้าเรียบร้อยแล้ว
-              {d.skipped > 0 && (
-                <> · ข้าม <span className="tabular-nums">{fmt.format(d.skipped)}</span> คน (ไม่มี LINE)</>
-              )}
+              {tp.sentPre}<strong className="tabular-nums text-foreground">{fmt.format(d.sent)}</strong>{" "}
+              {isLine ? tp.sentViaLine : tp.sentViaApp}{tp.sentPost}
+              {d.skipped > 0 && interp(tp.skippedNote, { n: fmt.format(d.skipped) })}
             </>
           )}
         </p>
       </div>
 
       <Button type="button" onClick={onNew}>
-        <Send className="size-4" /> ยิงโปรใหม่
+        <Send className="size-4" /> {tp.newBlast}
       </Button>
-      <p className="text-xs text-muted-foreground">รายการที่ส่งอยู่ใน “ประวัติการยิงโปร” ด้านล่าง</p>
+      <p className="text-xs text-muted-foreground">{tp.inHistory}</p>
     </Card>
   );
 }
@@ -638,9 +642,10 @@ function SuccessPanel({
 /* ---------------------------------- Stepper ---------------------------------- */
 
 function Stepper({ step, onSelect }: { step: number; onSelect: (i: number) => void }) {
+  const tp = useMessages("owner").broadcast;
   return (
     <div className="flex items-center">
-      {STEPS.map((label, i) => {
+      {tp.steps.map((label, i) => {
         const done = i < step;
         const active = i === step;
         return (
@@ -653,7 +658,7 @@ function Stepper({ step, onSelect }: { step: number; onSelect: (i: number) => vo
               </span>
               <span className={`text-sm ${active ? "font-semibold" : done ? "text-brand" : "text-muted-foreground"}`}>{label}</span>
             </button>
-            {i < STEPS.length - 1 && <span className={`mx-3 h-px flex-1 ${done ? "bg-brand/40" : "bg-black/10"}`} />}
+            {i < STEP_COUNT - 1 && <span className={`mx-3 h-px flex-1 ${done ? "bg-brand/40" : "bg-black/10"}`} />}
           </div>
         );
       })}
@@ -666,16 +671,17 @@ function Stepper({ step, onSelect }: { step: number; onSelect: (i: number) => vo
 function SummaryBar({ channel, audienceLabel, reach, reachKind }: {
   channel: OwnerBroadcastChannel; audienceLabel: string; reach: number | null; reachKind: "line" | "app";
 }) {
+  const tp = useMessages("owner").broadcast;
   const ChIcon = channel === "line" ? MessageCircle : Smartphone;
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs">
-      <Chip><ChIcon className="size-3.5 text-brand" /> {channelLabel(channel)}</Chip>
+      <Chip><ChIcon className="size-3.5 text-brand" /> {channelLabel(channel, tp)}</Chip>
       <span className="text-muted-foreground">·</span>
       <Chip><Users className="size-3.5 text-muted-foreground" /> {audienceLabel}</Chip>
       <span className="text-muted-foreground">·</span>
       <Chip>
         {reachKind === "line" ? <Wifi className="size-3.5 text-brand" /> : <Bell className="size-3.5 text-brand" />}
-        {reach == null ? "—" : <><strong className="tabular-nums">{fmt.format(reach)}</strong> คน</>}
+        {reach == null ? tp.dash : <><strong className="tabular-nums">{fmt.format(reach)}</strong> {tp.peopleUnit.replace("{n} ", "")}</>}
       </Chip>
     </div>
   );
@@ -718,6 +724,7 @@ function StatusBar({ tone }: { tone: "light" | "dark" }) {
 }
 
 function LineChatPreview({ title, message, imageUrl }: { title: string; message: string; imageUrl?: string | null }) {
+  const tp = useMessages("owner").broadcast;
   return (
     <div className="flex min-h-[430px] flex-col">
       <div className="bg-[#06C755] text-white">
@@ -725,22 +732,22 @@ function LineChatPreview({ title, message, imageUrl }: { title: string; message:
         <div className="flex items-center gap-2 px-3 pb-2">
           <ChevronLeft className="size-4 opacity-90" />
           <div className="min-w-0 leading-tight">
-            <div className="truncate text-sm font-semibold">ร้านของคุณ</div>
-            <div className="text-[10px] opacity-80">ออนไลน์อยู่</div>
+            <div className="truncate text-sm font-semibold">{tp.previewShop}</div>
+            <div className="text-[10px] opacity-80">{tp.previewOnline}</div>
           </div>
           <Search className="ml-auto size-4 opacity-90" />
         </div>
       </div>
       <div className="flex-1 space-y-3 bg-[#8CA9C6] p-3">
         <div className="flex justify-center">
-          <span className="rounded-full bg-black/15 px-2.5 py-0.5 text-[10px] text-white">วันนี้</span>
+          <span className="rounded-full bg-black/15 px-2.5 py-0.5 text-[10px] text-white">{tp.previewToday}</span>
         </div>
         <div className="flex items-start gap-2">
           <div className="grid size-8 shrink-0 place-items-center rounded-full bg-white/90 text-[#06C755]">
             <MessageCircle className="size-4" />
           </div>
           <div className="min-w-0">
-            <div className="mb-1 text-[10px] text-white/90">ร้านของคุณ</div>
+            <div className="mb-1 text-[10px] text-white/90">{tp.previewShop}</div>
             <div className="flex items-end gap-1">
               <div className="w-[164px] overflow-hidden rounded-2xl rounded-tl-sm bg-white shadow-sm">
                 {imageUrl && (
@@ -749,10 +756,10 @@ function LineChatPreview({ title, message, imageUrl }: { title: string; message:
                 )}
                 <div className="px-3 py-2">
                   <div className={`text-sm font-semibold ${title.trim() ? "" : "text-muted-foreground"}`}>
-                    {title.trim() || "(หัวข้อ)"}
+                    {title.trim() || tp.previewTitlePh}
                   </div>
                   <div className="mt-0.5 whitespace-pre-wrap break-words text-sm text-neutral-700">
-                    {message.trim() || "(ข้อความจะแสดงที่นี่)"}
+                    {message.trim() || tp.previewMsgPh}
                   </div>
                 </div>
               </div>
@@ -766,13 +773,14 @@ function LineChatPreview({ title, message, imageUrl }: { title: string; message:
 }
 
 function AppNotificationPreview({ title, message, imageUrl }: { title: string; message: string; imageUrl?: string | null }) {
+  const tp = useMessages("owner").broadcast;
   return (
     <div className="flex min-h-[430px] flex-col bg-app">
       <div className="bg-white">
         <StatusBar tone="dark" />
         <div className="flex items-center gap-2 border-b border-black/5 px-3 pb-2">
           <Bell className="size-4 text-brand" />
-          <span className="text-sm font-semibold">การแจ้งเตือน</span>
+          <span className="text-sm font-semibold">{tp.previewNotif}</span>
         </div>
       </div>
       <div className="flex-1 p-3">
@@ -787,12 +795,12 @@ function AppNotificationPreview({ title, message, imageUrl }: { title: string; m
             </span>
             <div className="min-w-0">
               <div className={`text-sm font-semibold ${title.trim() ? "" : "text-muted-foreground"}`}>
-                {title.trim() || "(หัวข้อ)"}
+                {title.trim() || tp.previewTitlePh}
               </div>
               <div className="mt-0.5 whitespace-pre-wrap break-words text-sm text-muted-foreground">
-                {message.trim() || "(ข้อความจะแสดงที่นี่)"}
+                {message.trim() || tp.previewMsgPh}
               </div>
-              <div className="mt-1 text-xs text-muted-foreground">เมื่อสักครู่</div>
+              <div className="mt-1 text-xs text-muted-foreground">{tp.previewJustNow}</div>
             </div>
           </div>
         </div>
@@ -804,6 +812,8 @@ function AppNotificationPreview({ title, message, imageUrl }: { title: string; m
 /* ---------------------------------- History ---------------------------------- */
 
 function HistoryRow({ broadcast, onOpen }: { broadcast: OwnerBroadcast; onOpen: () => void }) {
+  const tp = useMessages("owner").broadcast;
+  const { locale } = useLocale();
   const sent = broadcast.status === "sent";
   return (
     <button
@@ -819,17 +829,17 @@ function HistoryRow({ broadcast, onOpen }: { broadcast: OwnerBroadcast; onOpen: 
         <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
           sent ? "bg-brand/10 text-brand" : "bg-amber-100 text-amber-700"
         }`}>
-          {sent ? "ส่งแล้ว" : "ฉบับร่าง"}
+          {sent ? tp.statusSent : tp.statusDraft}
         </span>
         <ChevronRight className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        <span className="rounded-full bg-app px-2.5 py-0.5 font-medium ring-1 ring-black/5">{channelLabel(broadcast.channel)}</span>
+        <span className="rounded-full bg-app px-2.5 py-0.5 font-medium ring-1 ring-black/5">{channelLabel(broadcast.channel, tp)}</span>
         <span className="rounded-full bg-app px-2.5 py-0.5 font-medium ring-1 ring-black/5">
-          {AUDIENCE_LABEL[broadcast.audience] ?? broadcast.audience}{broadcast.segmentName ? ` · ${broadcast.segmentName}` : ""}
+          {(tp.audShort as Record<string, string>)[broadcast.audience] ?? broadcast.audience}{broadcast.segmentName ? ` · ${broadcast.segmentName}` : ""}
         </span>
-        <span className="tabular-nums">{fmt.format(broadcast.recipientCount)} ผู้รับ</span>
-        {sent && broadcast.sentAt && <span>· ส่งเมื่อ {fmtDateTime(broadcast.sentAt)}</span>}
+        <span className="tabular-nums">{interp(tp.recipients, { n: fmt.format(broadcast.recipientCount) })}</span>
+        {sent && broadcast.sentAt && <span>{interp(tp.sentAt, { date: fmtDateTime(broadcast.sentAt, locale) })}</span>}
       </div>
     </button>
   );
@@ -853,6 +863,8 @@ function BroadcastDetail({
   deleting: boolean;
   sending: boolean;
 }) {
+  const tp = useMessages("owner").broadcast;
+  const { locale } = useLocale();
   const draft = broadcast.status === "draft";
   return (
     <div
@@ -868,15 +880,15 @@ function BroadcastDetail({
             <div className="mb-1 flex items-center gap-2">
               <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
                 draft ? "bg-amber-100 text-amber-700" : "bg-brand/10 text-brand"
-              }`}>{draft ? "ฉบับร่าง" : "ส่งแล้ว"}</span>
+              }`}>{draft ? tp.statusDraft : tp.statusSent}</span>
               <span className="text-xs text-muted-foreground">
-                {channelLabel(broadcast.channel)} · {AUDIENCE_LABEL[broadcast.audience] ?? broadcast.audience}
+                {channelLabel(broadcast.channel, tp)} · {(tp.audShort as Record<string, string>)[broadcast.audience] ?? broadcast.audience}
                 {broadcast.segmentName ? ` · ${broadcast.segmentName}` : ""}
               </span>
             </div>
             <h2 className="text-base font-semibold text-balance">{broadcast.title}</h2>
           </div>
-          <button type="button" onClick={onClose} aria-label="ปิด"
+          <button type="button" onClick={onClose} aria-label={tp.close}
             className="grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-app">
             <X className="size-4" />
           </button>
@@ -890,22 +902,22 @@ function BroadcastDetail({
         <p className="whitespace-pre-wrap px-5 py-4 text-sm text-neutral-700">{broadcast.message}</p>
 
         <div className="px-5 pb-2 text-xs text-muted-foreground">
-          <span className="tabular-nums">{fmt.format(broadcast.recipientCount)} ผู้รับ</span>
-          {broadcast.sentAt && <> · ส่งเมื่อ {fmtDateTime(broadcast.sentAt)}</>}
+          <span className="tabular-nums">{interp(tp.recipients, { n: fmt.format(broadcast.recipientCount) })}</span>
+          {broadcast.sentAt && <> {interp(tp.sentAt, { date: fmtDateTime(broadcast.sentAt, locale) })}</>}
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-black/5 p-4">
           <Button type="button" variant="outline" onClick={onDelete} disabled={deleting}
             className="text-brand-danger">
-            <Trash2 className="size-4" /> {deleting ? "กำลังลบ..." : "ลบ"}
+            <Trash2 className="size-4" /> {deleting ? tp.deleting : tp.delete}
           </Button>
           {draft && (
             <>
               <Button type="button" variant="outline" onClick={onEdit}>
-                <Pencil className="size-4" /> แก้ไข
+                <Pencil className="size-4" /> {tp.edit}
               </Button>
               <Button type="button" onClick={onSend} disabled={sending}>
-                <Send className="size-4" /> {sending ? "กำลังส่ง..." : "ส่งเลย"}
+                <Send className="size-4" /> {sending ? tp.sending : tp.sendNow}
               </Button>
             </>
           )}
