@@ -24,12 +24,15 @@ import { Loading, ErrorState } from "@/components/states";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useMessages, useLocale } from "@/lib/i18n/context";
+import { fmt as interp, intlLocale } from "@/lib/i18n/format";
+import type { Locale } from "@/lib/i18n/config";
 
 const fmt = new Intl.NumberFormat("th-TH");
 
-function thaiDate(iso: string | null) {
+function fmtDate(iso: string | null, locale: Locale) {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
+  return new Date(iso).toLocaleDateString(intlLocale(locale), { day: "numeric", month: "short", year: "numeric" });
 }
 
 /**
@@ -38,6 +41,8 @@ function thaiDate(iso: string | null) {
  */
 export default function OwnerCustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const t = useMessages("owner").customerDetail;
+  const { locale } = useLocale();
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["owner", "customer", id],
     queryFn: () => ownerApi.getCustomer(id),
@@ -52,7 +57,7 @@ export default function OwnerCustomerDetailPage({ params }: { params: Promise<{ 
         href="/owner/customers"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft className="size-4" /> กลับไปรายชื่อลูกค้า
+        <ArrowLeft className="size-4" /> {t.back}
       </Link>
 
       <header className="flex flex-wrap items-center gap-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
@@ -79,7 +84,7 @@ export default function OwnerCustomerDetailPage({ params }: { params: Promise<{ 
                 <Mail className="size-3.5" /> {data.email}
               </span>
             )}
-            <span>ลูกค้าตั้งแต่ {thaiDate(data.joinedAt)}</span>
+            <span>{interp(t.customerSince, { date: fmtDate(data.joinedAt, locale) })}</span>
           </div>
         </div>
 
@@ -99,11 +104,11 @@ export default function OwnerCustomerDetailPage({ params }: { params: Promise<{ 
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="ยอดใช้จ่ายรวม" value={`฿${fmt.format(data.totalSpending)}`} accent />
-        <Stat label="การจองทั้งหมด" value={fmt.format(data.bookingsCount)} />
-        <Stat label="เข้าใช้บริการ" value={fmt.format(data.visits)} />
+        <Stat label={t.statSpending} value={`฿${fmt.format(data.totalSpending)}`} accent />
+        <Stat label={t.statBookings} value={fmt.format(data.bookingsCount)} />
+        <Stat label={t.statVisits} value={fmt.format(data.visits)} />
         <Stat
-          label="วอลเล็ต"
+          label={t.statWallet}
           value={`฿${fmt.format(data.walletBalance)}`}
           icon={<Wallet className="size-4 text-muted-foreground" />}
         />
@@ -111,48 +116,48 @@ export default function OwnerCustomerDetailPage({ params }: { params: Promise<{ 
 
       {data.membership && (
         <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
-          <div className="text-sm text-muted-foreground">คะแนนสะสม</div>
+          <div className="text-sm text-muted-foreground">{t.points}</div>
           <div className="text-2xl font-bold">{fmt.format(data.membership.points)}</div>
         </div>
       )}
 
       <section className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
         <header className="flex items-center justify-between border-b border-black/5 px-4 py-3">
-          <h2 className="font-semibold">การจองล่าสุด</h2>
+          <h2 className="font-semibold">{t.recentTitle}</h2>
           <span className="text-xs text-muted-foreground">
             {data.recentBookings.length < data.bookingsCount
-              ? `แสดง ${data.recentBookings.length} จาก ${fmt.format(data.bookingsCount)} รายการ`
-              : `${data.recentBookings.length} รายการ`}
+              ? interp(t.showingCount, { shown: data.recentBookings.length, total: fmt.format(data.bookingsCount) })
+              : interp(t.countN, { n: data.recentBookings.length })}
           </span>
         </header>
 
         {data.recentBookings.length === 0 ? (
-          <p className="p-8 text-center text-sm text-muted-foreground">ยังไม่เคยจอง</p>
+          <p className="p-8 text-center text-sm text-muted-foreground">{t.neverBooked}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="stack-table w-full md:min-w-[560px] text-sm">
               <thead className="bg-app text-left text-xs font-medium text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-3">รหัส</th>
-                  <th className="px-4 py-3">คอร์ท</th>
-                  <th className="px-4 py-3">วันและเวลา</th>
-                  <th className="px-4 py-3">ยอด</th>
-                  <th className="px-4 py-3">สถานะ</th>
+                  <th className="px-4 py-3">{t.colCode}</th>
+                  <th className="px-4 py-3">{t.colCourt}</th>
+                  <th className="px-4 py-3">{t.colWhen}</th>
+                  <th className="px-4 py-3">{t.colAmount}</th>
+                  <th className="px-4 py-3">{t.colStatus}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5">
                 {data.recentBookings.map((b) => (
                   <tr key={b.id} className="hover:bg-app/60">
-                    <td data-label="รหัส" className="px-4 py-3 font-mono text-xs text-muted-foreground">{b.code ?? "—"}</td>
-                    <td data-label="คอร์ท" className="px-4 py-3 font-medium">{b.courtName ?? "—"}</td>
-                    <td data-label="วันและเวลา" className="px-4 py-3">
+                    <td data-label={t.colCode} className="px-4 py-3 font-mono text-xs text-muted-foreground">{b.code ?? t.dash}</td>
+                    <td data-label={t.colCourt} className="px-4 py-3 font-medium">{b.courtName ?? t.dash}</td>
+                    <td data-label={t.colWhen} className="px-4 py-3">
                       <span className="inline-flex items-center gap-1.5">
                         <CalendarClock className="size-3.5 text-muted-foreground" />
-                        {thaiDate(b.date)} · {b.start}–{b.end}
+                        {fmtDate(b.date, locale)} · {b.start}–{b.end}
                       </span>
                     </td>
-                    <td data-label="ยอด" className="px-4 py-3">฿{fmt.format(b.amount)}</td>
-                    <td data-label="สถานะ" className="px-4 py-3">
+                    <td data-label={t.colAmount} className="px-4 py-3">฿{fmt.format(b.amount)}</td>
+                    <td data-label={t.colStatus} className="px-4 py-3">
                       <StatusBadge status={b.status} />
                     </td>
                   </tr>
@@ -175,6 +180,8 @@ export default function OwnerCustomerDetailPage({ params }: { params: Promise<{ 
 
 function NotesCard({ customerId, notes }: { customerId: string; notes: OwnerCustomerNote[] }) {
   const qc = useQueryClient();
+  const t = useMessages("owner").customerDetail;
+  const { locale } = useLocale();
   const [body, setBody] = useState("");
   const invalidate = () => qc.invalidateQueries({ queryKey: ["owner", "customer", customerId] });
 
@@ -190,21 +197,21 @@ function NotesCard({ customerId, notes }: { customerId: string; notes: OwnerCust
   return (
     <section className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
       <h2 className="inline-flex items-center gap-2 font-semibold">
-        <StickyNote className="size-4 text-brand" /> โน้ตลูกค้า
+        <StickyNote className="size-4 text-brand" /> {t.notesTitle}
       </h2>
 
       <form
         className="flex gap-2"
         onSubmit={(e) => { e.preventDefault(); if (body.trim()) add.mutate(); }}
       >
-        <Input value={body} onChange={(e) => setBody(e.target.value)} placeholder="เช่น ชอบเล่นเย็น ๆ ขอคอร์ท 3" />
+        <Input value={body} onChange={(e) => setBody(e.target.value)} placeholder={t.notePlaceholder} />
         <Button type="submit" disabled={!body.trim() || add.isPending}>
-          <Plus className="size-4" /> เพิ่ม
+          <Plus className="size-4" /> {t.add}
         </Button>
       </form>
 
       {notes.length === 0 ? (
-        <p className="text-sm text-muted-foreground">ยังไม่มีโน้ต</p>
+        <p className="text-sm text-muted-foreground">{t.noNotes}</p>
       ) : (
         <ul className="space-y-2">
           {notes.map((n) => (
@@ -212,12 +219,12 @@ function NotesCard({ customerId, notes }: { customerId: string; notes: OwnerCust
               <div className="min-w-0 flex-1">
                 <p className="whitespace-pre-wrap break-words">{n.body}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  {n.author ?? "พนักงาน"} · {thaiDate(n.createdAt)}
+                  {n.author ?? t.staff} · {fmtDate(n.createdAt, locale)}
                 </p>
               </div>
               <button
                 type="button"
-                aria-label="ลบโน้ต"
+                aria-label={t.deleteNote}
                 onClick={() => del.mutate(n.id)}
                 className="shrink-0 rounded-lg p-1 text-muted-foreground opacity-0 transition hover:bg-white hover:text-brand-danger group-hover:opacity-100"
               >
@@ -235,6 +242,8 @@ function NotesCard({ customerId, notes }: { customerId: string; notes: OwnerCust
 
 function TasksCard({ customerId, tasks }: { customerId: string; tasks: OwnerCustomerTask[] }) {
   const qc = useQueryClient();
+  const m = useMessages("owner").customerDetail;
+  const { locale } = useLocale();
   const [title, setTitle] = useState("");
   const [dueAt, setDueAt] = useState("");
   const invalidate = () => qc.invalidateQueries({ queryKey: ["owner", "customer", customerId] });
@@ -255,22 +264,22 @@ function TasksCard({ customerId, tasks }: { customerId: string; tasks: OwnerCust
   return (
     <section className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
       <h2 className="inline-flex items-center gap-2 font-semibold">
-        <CheckSquare className="size-4 text-brand" /> งานติดตาม
+        <CheckSquare className="size-4 text-brand" /> {m.tasksTitle}
       </h2>
 
       <form
         className="flex flex-wrap gap-2"
         onSubmit={(e) => { e.preventDefault(); if (title.trim()) add.mutate(); }}
       >
-        <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="เช่น โทรตามลูกค้าที่หายไป" className="min-w-[10rem] flex-1" />
+        <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={m.taskPlaceholder} className="min-w-[10rem] flex-1" />
         <Input type="date" value={dueAt} onChange={(e) => setDueAt(e.target.value)} className="w-40" />
         <Button type="submit" disabled={!title.trim() || add.isPending}>
-          <Plus className="size-4" /> เพิ่ม
+          <Plus className="size-4" /> {m.add}
         </Button>
       </form>
 
       {tasks.length === 0 ? (
-        <p className="text-sm text-muted-foreground">ยังไม่มีงานติดตาม</p>
+        <p className="text-sm text-muted-foreground">{m.noTasks}</p>
       ) : (
         <ul className="space-y-2">
           {tasks.map((t) => {
@@ -279,7 +288,7 @@ function TasksCard({ customerId, tasks }: { customerId: string; tasks: OwnerCust
               <li key={t.id} className="group flex items-start gap-2 rounded-xl bg-app px-3 py-2 text-sm">
                 <button
                   type="button"
-                  aria-label={done ? "ทำเครื่องหมายยังไม่เสร็จ" : "ทำเครื่องหมายเสร็จ"}
+                  aria-label={done ? m.markUndone : m.markDone}
                   onClick={() => toggle.mutate(t.id)}
                   className={`mt-0.5 shrink-0 ${done ? "text-brand" : "text-muted-foreground hover:text-brand"}`}
                 >
@@ -289,15 +298,15 @@ function TasksCard({ customerId, tasks }: { customerId: string; tasks: OwnerCust
                   <p className={`break-words ${done ? "text-muted-foreground line-through" : ""}`}>{t.title}</p>
                   {(t.dueAt || t.assignee) && (
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      {t.dueAt && <>กำหนด {thaiDate(t.dueAt)}</>}
+                      {t.dueAt && <>{interp(m.due, { date: fmtDate(t.dueAt, locale) })}</>}
                       {t.dueAt && t.assignee && " · "}
-                      {t.assignee && <>ผู้รับผิดชอบ {t.assignee}</>}
+                      {t.assignee && <>{interp(m.assignee, { name: t.assignee })}</>}
                     </p>
                   )}
                 </div>
                 <button
                   type="button"
-                  aria-label="ลบงาน"
+                  aria-label={m.deleteTask}
                   onClick={() => del.mutate(t.id)}
                   className="shrink-0 rounded-lg p-1 text-muted-foreground opacity-0 transition hover:bg-white hover:text-brand-danger group-hover:opacity-100"
                 >
@@ -320,10 +329,11 @@ function ConsentBadge({
   consent: boolean | null;
   unsubscribedAt: string | null;
 }) {
+  const t = useMessages("owner").customerDetail;
   if (unsubscribedAt) {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-3 py-1 text-sm font-semibold text-rose-700">
-        <BellOff className="size-4" /> ขอไม่รับข่าวโปรโมชั่น
+        <BellOff className="size-4" /> {t.consentUnsub}
       </span>
     );
   }
@@ -331,14 +341,14 @@ function ConsentBadge({
   if (consent === true) {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700">
-        <ShieldCheck className="size-4" /> ยินยอมรับข่าวสาร
+        <ShieldCheck className="size-4" /> {t.consentYes}
       </span>
     );
   }
 
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full bg-app px-3 py-1 text-sm text-muted-foreground">
-      <ShieldQuestion className="size-4" /> ยังไม่ได้ถามเรื่องความยินยอม
+      <ShieldQuestion className="size-4" /> {t.consentUnknown}
     </span>
   );
 }

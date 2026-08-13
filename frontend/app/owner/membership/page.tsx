@@ -8,6 +8,9 @@ import { CustomerName } from "@/components/customer-peek";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useMessages, useLocale } from "@/lib/i18n/context";
+import { fmt as interp, intlLocale } from "@/lib/i18n/format";
+import type { Locale } from "@/lib/i18n/config";
 
 const fmt = new Intl.NumberFormat("th-TH");
 
@@ -33,13 +36,14 @@ function TierPill({ tier }: { tier: string }) {
   );
 }
 
-function fmtDate(s: string) {
+function fmtDate(s: string, locale: Locale) {
   if (!s) return "—";
   const d = new Date(s);
-  return Number.isNaN(d.getTime()) ? s : d.toLocaleDateString("th-TH");
+  return Number.isNaN(d.getTime()) ? s : d.toLocaleDateString(intlLocale(locale));
 }
 
 export default function OwnerMembershipPage() {
+  const t = useMessages("owner").membership;
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["owner", "memberships"],
     queryFn: ownerApi.getMemberships,
@@ -49,12 +53,12 @@ export default function OwnerMembershipPage() {
     <div className="space-y-5">
       <header>
         <h1 className="text-2xl font-bold tracking-tight">Membership</h1>
-        <p className="text-sm text-muted-foreground">จัดการสมาชิก</p>
+        <p className="text-sm text-muted-foreground">{t.subtitle}</p>
       </header>
 
       {isLoading && <Loading />}
       {isError && <ErrorState onRetry={() => refetch()} />}
-      {data && data.length === 0 && <EmptyState message="ยังไม่มีสมาชิก" />}
+      {data && data.length === 0 && <EmptyState message={t.empty} />}
 
       {data && data.length > 0 && <MembershipList rows={data} />}
     </div>
@@ -64,6 +68,7 @@ export default function OwnerMembershipPage() {
 // Inline +/- points adjuster shared by the mobile card and desktop table row.
 function PointsAdjuster({ membership }: { membership: OwnerMembershipRow }) {
   const qc = useQueryClient();
+  const t = useMessages("owner").membership;
   const [open, setOpen] = useState(false);
   const [delta, setDelta] = useState("");
 
@@ -86,7 +91,7 @@ function PointsAdjuster({ membership }: { membership: OwnerMembershipRow }) {
   if (!open) {
     return (
       <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
-        ปรับแต้ม
+        {t.adjust}
       </Button>
     );
   }
@@ -99,8 +104,8 @@ function PointsAdjuster({ membership }: { membership: OwnerMembershipRow }) {
           inputMode="numeric"
           value={delta}
           onChange={(e) => setDelta(e.target.value)}
-          placeholder="+/- แต้ม"
-          aria-label={`ปรับแต้มของ ${membership.customerName}`}
+          placeholder={t.deltaPlaceholder}
+          aria-label={interp(t.adjustAria, { name: membership.customerName })}
           className="h-7 w-24"
         />
         <Button
@@ -108,23 +113,25 @@ function PointsAdjuster({ membership }: { membership: OwnerMembershipRow }) {
           size="sm"
           disabled={mutation.isPending || !delta.trim() || Number(delta) === 0}
         >
-          {mutation.isPending ? "..." : "บันทึก"}
+          {mutation.isPending ? "..." : t.save}
         </Button>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          aria-label="ปิด"
+          aria-label={t.close}
           className="grid size-7 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-app"
         >
           <X className="size-4" />
         </button>
       </div>
-      {mutation.isError && <p className="text-xs text-brand-danger">ปรับแต้มไม่สำเร็จ</p>}
+      {mutation.isError && <p className="text-xs text-brand-danger">{t.adjustFailed}</p>}
     </form>
   );
 }
 
 function MembershipList({ rows }: { rows: OwnerMembershipRow[] }) {
+  const t = useMessages("owner").membership;
+  const { locale } = useLocale();
   return (
     <>
       {/* Mobile cards */}
@@ -135,10 +142,10 @@ function MembershipList({ rows }: { rows: OwnerMembershipRow[] }) {
               <span className="font-semibold"><CustomerName id={m.customerId} name={m.customerName} /></span>
               <TierPill tier={m.tier} />
             </div>
-            <div className="mt-1 text-sm text-muted-foreground">รหัสสมาชิก: {m.memberId}</div>
+            <div className="mt-1 text-sm text-muted-foreground">{interp(t.memberIdLabel, { id: m.memberId })}</div>
             <div className="mt-2 flex items-center justify-between">
-              <span className="font-semibold text-brand">{fmt.format(m.points)} คะแนน</span>
-              <span className="text-xs text-muted-foreground">หมดอายุ {fmtDate(m.expiresAt)}</span>
+              <span className="font-semibold text-brand">{interp(t.pointsUnit, { points: fmt.format(m.points) })}</span>
+              <span className="text-xs text-muted-foreground">{interp(t.expiresShort, { date: fmtDate(m.expiresAt, locale) })}</span>
             </div>
             <div className="mt-3 border-t border-black/5 pt-3">
               <PointsAdjuster membership={m} />
@@ -152,12 +159,12 @@ function MembershipList({ rows }: { rows: OwnerMembershipRow[] }) {
         <table className="w-full text-sm">
           <thead className="bg-app text-left text-xs font-medium text-muted-foreground">
             <tr>
-              <th className="px-4 py-3">ลูกค้า</th>
-              <th className="px-4 py-3">ระดับ</th>
-              <th className="px-4 py-3">รหัสสมาชิก</th>
-              <th className="px-4 py-3 text-right">คะแนน</th>
-              <th className="px-4 py-3">หมดอายุ</th>
-              <th className="px-4 py-3 text-right">จัดการ</th>
+              <th className="px-4 py-3">{t.colCustomer}</th>
+              <th className="px-4 py-3">{t.colTier}</th>
+              <th className="px-4 py-3">{t.colMemberId}</th>
+              <th className="px-4 py-3 text-right">{t.colPoints}</th>
+              <th className="px-4 py-3">{t.colExpires}</th>
+              <th className="px-4 py-3 text-right">{t.colActions}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-black/5">
@@ -171,7 +178,7 @@ function MembershipList({ rows }: { rows: OwnerMembershipRow[] }) {
                 <td className="px-4 py-3 text-right font-semibold text-brand tabular-nums">
                   {fmt.format(m.points)}
                 </td>
-                <td className="px-4 py-3 text-muted-foreground">{fmtDate(m.expiresAt)}</td>
+                <td className="px-4 py-3 text-muted-foreground">{fmtDate(m.expiresAt, locale)}</td>
                 <td className="px-4 py-3">
                   <div className="flex justify-end">
                     <PointsAdjuster membership={m} />
