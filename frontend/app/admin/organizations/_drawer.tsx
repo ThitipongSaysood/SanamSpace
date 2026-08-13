@@ -10,13 +10,15 @@ import { Loading, ErrorState } from "@/components/states";
 import { CustomerLink, customerLinkFor, useOrigin } from "@/components/customer-link";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
+import { useMessages, useLocale } from "@/lib/i18n/context";
+import { fmt as interp, intlLocale } from "@/lib/i18n/format";
+import type { Locale } from "@/lib/i18n/config";
 
 const fmt = new Intl.NumberFormat("th-TH");
-const TABS = ["ข้อมูลทั่วไป", "การสมัครใช้งาน", "LINE", "การใช้งาน", "ประวัติ"] as const;
-const INTERVAL: Record<string, string> = { month: "รายเดือน", year: "รายปี", monthly: "รายเดือน", yearly: "รายปี" };
+const TAB_KEYS = ["info", "subscription", "line", "usage", "history"] as const;
 
-function fmtDate(iso: string | null | undefined) {
-  return iso ? new Date(iso).toLocaleDateString("th-TH") : "—";
+function fmtDate(iso: string | null | undefined, locale: Locale) {
+  return iso ? new Date(iso).toLocaleDateString(intlLocale(locale)) : "—";
 }
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
@@ -63,6 +65,7 @@ function Bar({ label, used, limit }: { label: string; used: number; limit: numbe
  * not the exception.
  */
 function SportsSection({ org }: { org: AdminOrganizationDetail }) {
+  const t = useMessages("admin").orgDrawer;
   const qc = useQueryClient();
   const catalogue = useQuery({ queryKey: ["admin", "sports"], queryFn: superAdminApi.getSports });
 
@@ -70,7 +73,7 @@ function SportsSection({ org }: { org: AdminOrganizationDetail }) {
     mutationFn: ({ branchId, sports }: { branchId: string; sports: string[] }) =>
       superAdminApi.updateBranchSports(org.id, branchId, sports),
     onSuccess: () => {
-      toast.success("บันทึกประเภทกีฬาแล้ว");
+      toast.success(t.savedSports);
       qc.invalidateQueries({ queryKey: ["admin", "organizations"] });
       qc.invalidateQueries({ queryKey: ["admin", "organization", org.id] });
     },
@@ -84,13 +87,13 @@ function SportsSection({ org }: { org: AdminOrganizationDetail }) {
 
   return (
     <section className="rounded-xl bg-app/60 p-4">
-      <h3 className="text-sm font-semibold">ประเภทกีฬา</h3>
+      <h3 className="text-sm font-semibold">{t.sportsTitle}</h3>
       <p className="mt-0.5 text-xs text-muted-foreground">
-        ใช้กำหนดไอคอนแจ้งเตือนและหน้าโหลดของแอปลูกค้า · แก้ชื่อ/ไอคอน/สี ได้ที่เมนู ประเภทกีฬา
+        {t.sportsHint}
       </p>
 
       {org.branches.length === 0 ? (
-        <p className="mt-3 text-sm text-muted-foreground">สนามนี้ยังไม่มีสาขา</p>
+        <p className="mt-3 text-sm text-muted-foreground">{t.noBranches}</p>
       ) : (
         <div className="mt-3 space-y-4">
           {org.branches.map((branch) => {
@@ -115,7 +118,7 @@ function SportsSection({ org }: { org: AdminOrganizationDetail }) {
                   className="h-9 w-full rounded-lg border border-black/10 bg-white px-2.5 text-sm outline-none focus-visible:border-brand focus-visible:ring-3 focus-visible:ring-brand/30 disabled:opacity-50"
                 >
                   <option value="">
-                    {addable.length === 0 ? "เลือกครบทุกประเภทแล้ว" : "+ เพิ่มประเภทกีฬา…"}
+                    {addable.length === 0 ? t.allSelected : t.addSport}
                   </option>
                   {addable.map((s) => (
                     <option key={s.key} value={s.key}>
@@ -125,7 +128,7 @@ function SportsSection({ org }: { org: AdminOrganizationDetail }) {
                 </select>
 
                 {branch.sports.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">ยังไม่ได้เลือก — แอปลูกค้าจะขึ้นเป็นแบดมินตัน</p>
+                  <p className="text-xs text-muted-foreground">{t.noSportSelected}</p>
                 ) : (
                   <ul className="divide-y divide-black/5 rounded-lg bg-white ring-1 ring-black/5">
                     {branch.sports.map((key, i) => {
@@ -139,13 +142,13 @@ function SportsSection({ org }: { org: AdminOrganizationDetail }) {
                           <span className="flex-1">{meta?.name ?? key}</span>
                           {i === 0 && (
                             <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-medium text-brand">
-                              หลัก
+                              {t.primaryBadge}
                             </span>
                           )}
                           <button
                             type="button"
                             disabled={busy}
-                            aria-label={`เอา ${meta?.name ?? key} ออก`}
+                            aria-label={interp(t.removeSportAria, { name: meta?.name ?? key })}
                             onClick={() => write(branch.sports.filter((k) => k !== key))}
                             className="rounded p-0.5 text-muted-foreground transition hover:text-red-500 disabled:opacity-50"
                           >
@@ -160,7 +163,7 @@ function SportsSection({ org }: { org: AdminOrganizationDetail }) {
             );
           })}
           <p className="text-xs text-muted-foreground">
-            ตัวแรกในรายการคือกีฬาหลัก ใช้เป็นไอคอนแจ้งเตือนของแอปลูกค้า
+            {t.sportsFooter}
           </p>
         </div>
       )}
@@ -179,6 +182,8 @@ const TRIAL_DAYS = [7, 14, 30] as const;
  * the billing page, come back and approve it.
  */
 function SubscriptionTab({ org, onDone }: { org: AdminOrganizationDetail; onDone: () => void }) {
+  const t = useMessages("admin").orgDrawer;
+  const { locale } = useLocale();
   const sub = org.subscription;
   const plans = useQuery({ queryKey: ["admin", "plans"], queryFn: superAdminApi.getPlans });
 
@@ -205,10 +210,10 @@ function SubscriptionTab({ org, onDone }: { org: AdminOrganizationDetail; onDone
       onDone();
       setNote(
         res.reusedOutstanding
-          ? `ใช้ใบแจ้งหนี้ที่ค้างอยู่ ${res.invoice.number} (${res.invoice.periodMonths ?? "?"} เดือน) — ไม่ได้ออกใบใหม่`
+          ? interp(t.reused, { number: res.invoice.number, months: res.invoice.periodMonths ?? "?" })
           : markPaid
-            ? `ต่ออายุแล้ว · ใบเสร็จ ${res.invoice.receiptNumber ?? res.invoice.number}`
-            : `ออกใบแจ้งหนี้ ${res.invoice.number} แล้ว — จะต่ออายุเมื่อชำระเงิน`,
+            ? interp(t.renewedReceipt, { receipt: res.invoice.receiptNumber ?? res.invoice.number })
+            : interp(t.invoiceIssued, { number: res.invoice.number }),
       );
     },
     onError: fail,
@@ -219,7 +224,7 @@ function SubscriptionTab({ org, onDone }: { org: AdminOrganizationDetail; onDone
     onSuccess: () => {
       onDone();
       setPlanId("");
-      setNote("เปลี่ยนแพ็กเกจแล้ว");
+      setNote(t.planChanged);
     },
     onError: fail,
   });
@@ -228,7 +233,7 @@ function SubscriptionTab({ org, onDone }: { org: AdminOrganizationDetail; onDone
     mutationFn: () => superAdminApi.startOrgTrial(org.id, trialPlanId, trialDays),
     onSuccess: () => {
       onDone();
-      setNote(`เริ่มทดลองใช้ ${trialDays} วันแล้ว`);
+      setNote(interp(t.trialStarted, { days: trialDays }));
     },
     onError: fail,
   });
@@ -239,7 +244,7 @@ function SubscriptionTab({ org, onDone }: { org: AdminOrganizationDetail; onDone
       onDone();
       setShowExpiry(false);
       setReason("");
-      setNote("แก้วันหมดอายุแล้ว — บันทึกไว้ในประวัติการจัดการ");
+      setNote(t.expiryChanged);
     },
     onError: fail,
   });
@@ -253,27 +258,27 @@ function SubscriptionTab({ org, onDone }: { org: AdminOrganizationDetail; onDone
       {/* Where this venue stands, in one line. */}
       <section className="rounded-xl bg-app/60 p-4">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <span className="text-lg font-semibold">{sub?.planName ?? "ยังไม่มีแพ็กเกจ"}</span>
+          <span className="text-lg font-semibold">{sub?.planName ?? t.noPlan}</span>
           {org.trial.onTrial && (
-            <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-700">ทดลองใช้</span>
+            <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-700">{t.trialing}</span>
           )}
           {sub?.status === "cancelled" && (
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">ยกเลิกแล้ว</span>
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">{t.cancelled}</span>
           )}
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
           {sub?.endsAt ? (
             <>
-              หมดอายุ {fmtDate(sub.endsAt)}
+              {interp(t.expiresOn, { date: fmtDate(sub.endsAt, locale) })}
               {days != null && (
                 <span className={days < 0 ? "text-rose-600" : days < 7 ? "text-amber-700" : "text-emerald-600"}>
                   {" "}
-                  · {days < 0 ? `เลยมา ${Math.abs(days)} วัน` : `เหลือ ${days} วัน`}
+                  · {days < 0 ? interp(t.overdueDays, { n: Math.abs(days) }) : interp(t.daysLeft, { n: days })}
                 </span>
               )}
             </>
           ) : (
-            "ไม่มีวันหมดอายุ"
+            t.noExpiry
           )}
         </p>
       </section>
@@ -286,7 +291,7 @@ function SubscriptionTab({ org, onDone }: { org: AdminOrganizationDetail; onDone
 
       {/* --- Renew --- */}
       <section className="space-y-3">
-        <h3 className="text-sm font-semibold">ต่ออายุ</h3>
+        <h3 className="text-sm font-semibold">{t.renewTitle}</h3>
         <div className="flex flex-wrap gap-2">
           {RENEW_MONTHS.map((m) => (
             <button
@@ -298,7 +303,7 @@ function SubscriptionTab({ org, onDone }: { org: AdminOrganizationDetail; onDone
                 months === m ? "bg-brand text-brand-foreground ring-brand" : "ring-black/10 hover:bg-app"
               }`}
             >
-              {m} เดือน
+              {interp(t.monthsUnit, { n: m })}
             </button>
           ))}
         </div>
@@ -318,47 +323,47 @@ function SubscriptionTab({ org, onDone }: { org: AdminOrganizationDetail; onDone
             className="mt-0.5 size-4 rounded border-input"
           />
           <span>
-            รับเงินแล้ว — ต่ออายุทันที
+            {t.markPaidLabel}
             <span className="block text-xs text-muted-foreground">
-              ออกใบแจ้งหนี้และใบเสร็จให้เหมือนเดิม แค่ปิดในขั้นตอนเดียว สำหรับเงินที่โอนมาก่อนแล้ว
+              {t.markPaidHint}
             </span>
           </span>
         </label>
 
         <Button type="button" onClick={() => renewM.mutate()} disabled={renewM.isPending || !sub}>
-          {renewM.isPending ? "กำลังดำเนินการ..." : markPaid ? `ต่ออายุ ${months} เดือน` : `ออกใบแจ้งหนี้ ${months} เดือน`}
+          {renewM.isPending ? t.processing : markPaid ? interp(t.renewMonths, { n: months }) : interp(t.issueInvoiceMonths, { n: months })}
         </Button>
-        {!sub && <p className="text-xs text-muted-foreground">เลือกแพ็กเกจให้สนามนี้ก่อนจึงจะต่ออายุได้</p>}
+        {!sub && <p className="text-xs text-muted-foreground">{t.pickPlanFirst}</p>}
       </section>
 
       {/* --- Change plan --- */}
       <section className="space-y-2 border-t border-black/5 pt-4">
-        <h3 className="text-sm font-semibold">เปลี่ยนแพ็กเกจ</h3>
-        <p className="text-xs text-muted-foreground">มีผลทันทีทั้งขึ้นและลง · วันหมดอายุเดิมไม่เปลี่ยน</p>
+        <h3 className="text-sm font-semibold">{t.changePlanTitle}</h3>
+        <p className="text-xs text-muted-foreground">{t.changePlanHint}</p>
         <div className="flex flex-wrap gap-2">
           <select
             value={planId}
             onChange={(e) => setPlanId(e.target.value)}
             className="h-9 min-w-44 flex-1 rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
           >
-            <option value="">— เลือกแพ็กเกจ —</option>
+            <option value="">{t.pickPlan}</option>
             {(plans.data ?? []).map((p) => (
               <option key={p.id} value={p.id} disabled={p.id === sub?.planId}>
-                {p.name} (฿{fmt.format(p.price)}){p.id === sub?.planId ? " · ใช้อยู่" : ""}
+                {p.name} (฿{fmt.format(p.price)}){p.id === sub?.planId ? t.inUse : ""}
               </option>
             ))}
           </select>
           <Button type="button" variant="outline" onClick={() => planM.mutate()} disabled={!planId || planM.isPending}>
-            {planM.isPending ? "กำลังบันทึก..." : "เปลี่ยน"}
+            {planM.isPending ? t.saving : t.change}
           </Button>
         </div>
       </section>
 
       {/* --- Trial --- */}
       <section className="space-y-2 border-t border-black/5 pt-4">
-        <h3 className="text-sm font-semibold">ทดลองใช้</h3>
+        <h3 className="text-sm font-semibold">{t.trialTitle}</h3>
         <p className="text-xs text-muted-foreground">
-          ใช้ได้เต็มแพ็กเกจจนครบกำหนด แล้วล็อกเองเหมือนแพ็กเกจหมดอายุ · เมื่อชำระเงินครั้งแรกจะถือว่าจบการทดลอง
+          {t.trialHint}
         </p>
         <div className="flex flex-wrap gap-2">
           <select
@@ -366,7 +371,7 @@ function SubscriptionTab({ org, onDone }: { org: AdminOrganizationDetail; onDone
             onChange={(e) => setTrialPlanId(e.target.value)}
             className="h-9 min-w-40 flex-1 rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
           >
-            <option value="">— เลือกแพ็กเกจ —</option>
+            <option value="">{t.pickPlan}</option>
             {(plans.data ?? []).map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
@@ -380,12 +385,12 @@ function SubscriptionTab({ org, onDone }: { org: AdminOrganizationDetail; onDone
           >
             {TRIAL_DAYS.map((d) => (
               <option key={d} value={d}>
-                {d} วัน
+                {interp(t.daysUnit, { n: d })}
               </option>
             ))}
           </select>
           <Button type="button" variant="outline" onClick={() => trialM.mutate()} disabled={!trialPlanId || trialM.isPending}>
-            {trialM.isPending ? "กำลังเริ่ม..." : "เริ่มทดลอง"}
+            {trialM.isPending ? t.starting : t.startTrial}
           </Button>
         </div>
       </section>
@@ -394,9 +399,9 @@ function SubscriptionTab({ org, onDone }: { org: AdminOrganizationDetail; onDone
       <section className="border-t border-black/5 pt-4">
         {showExpiry ? (
           <div className="space-y-2">
-            <h3 className="text-sm font-semibold">แก้วันหมดอายุด้วยมือ</h3>
+            <h3 className="text-sm font-semibold">{t.manualExpiryTitle}</h3>
             <p className="text-xs text-muted-foreground">
-              ไม่มีการออกใบแจ้งหนี้และไม่มีเงินเข้าระบบ จึงต้องระบุเหตุผล — และจะถูกบันทึกไว้ในประวัติการจัดการ
+              {t.manualExpiryHint}
             </p>
             <input
               type="date"
@@ -407,7 +412,7 @@ function SubscriptionTab({ org, onDone }: { org: AdminOrganizationDetail; onDone
             <input
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="เหตุผล เช่น ชดเชยระบบล่ม / ตกลงกันทางโทรศัพท์"
+              placeholder={t.reasonPlaceholder}
               maxLength={200}
               className="h-9 w-full rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
             />
@@ -418,10 +423,10 @@ function SubscriptionTab({ org, onDone }: { org: AdminOrganizationDetail; onDone
                 onClick={() => expiryM.mutate()}
                 disabled={!endsAt || !reason.trim() || expiryM.isPending}
               >
-                {expiryM.isPending ? "กำลังบันทึก..." : "บันทึก"}
+                {expiryM.isPending ? t.saving : t.save}
               </Button>
               <Button type="button" size="sm" variant="outline" onClick={() => setShowExpiry(false)}>
-                ยกเลิก
+                {t.cancel}
               </Button>
             </div>
           </div>
@@ -432,7 +437,7 @@ function SubscriptionTab({ org, onDone }: { org: AdminOrganizationDetail; onDone
             disabled={!sub}
             className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground disabled:opacity-50"
           >
-            แก้วันหมดอายุด้วยมือ
+            {t.manualExpiryTitle}
           </button>
         )}
       </section>
@@ -449,6 +454,8 @@ function SubscriptionTab({ org, onDone }: { org: AdminOrganizationDetail; onDone
  * moving it between packages, extending it for free, logging in as its owner.
  */
 function HistoryTab({ slug }: { slug: string }) {
+  const t = useMessages("admin").orgDrawer;
+  const { locale } = useLocale();
   const logs = useQuery({
     queryKey: ["admin", "audit-logs", slug],
     queryFn: () => superAdminApi.getAuditLogs(slug),
@@ -462,7 +469,7 @@ function HistoryTab({ slug }: { slug: string }) {
   if (rows.length === 0) {
     return (
       <div className="grid place-items-center rounded-xl bg-app/50 py-12 text-center text-sm text-muted-foreground">
-        ยังไม่มีการจัดการสนามนี้จากฝั่งแอดมิน
+        {t.noHistory}
       </div>
     );
   }
@@ -475,7 +482,7 @@ function HistoryTab({ slug }: { slug: string }) {
           {log.detail && <div className="text-sm text-muted-foreground">{log.detail}</div>}
           <div className="mt-0.5 text-xs text-muted-foreground">
             {log.userName}
-            {log.createdAt && ` · ${new Date(log.createdAt).toLocaleString("th-TH")}`}
+            {log.createdAt && ` · ${new Date(log.createdAt).toLocaleString(intlLocale(locale))}`}
             {log.ipAddress && ` · ${log.ipAddress}`}
           </div>
         </li>
@@ -485,8 +492,10 @@ function HistoryTab({ slug }: { slug: string }) {
 }
 
 export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) {
+  const td = useMessages("admin").orgDrawer;
+  const { locale } = useLocale();
   const qc = useQueryClient();
-  const [tab, setTab] = useState<(typeof TABS)[number]>("ข้อมูลทั่วไป");
+  const [tab, setTab] = useState<(typeof TAB_KEYS)[number]>("info");
   const [showPlans, setShowPlans] = useState(false);
   const [planId, setPlanId] = useState("");
   const [confirmImp, setConfirmImp] = useState(false);
@@ -552,7 +561,7 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
     onSuccess: () => {
       invalidate();
       setLine((prev) => ({ ...prev, channelSecret: "", messagingToken: "" }));
-      toast.success("บันทึกการตั้งค่า LINE แล้ว");
+      toast.success(td.savedLine);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -580,12 +589,12 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
     <>
     <aside
       role="dialog"
-      aria-label="รายละเอียดสนาม"
+      aria-label={td.drawerAria}
       className="flex w-full shrink-0 flex-col overflow-y-auto rounded-2xl bg-white shadow-sm ring-1 ring-black/5 xl:sticky xl:top-4 xl:max-h-[calc(100dvh-7rem)] xl:w-[380px]"
     >
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-black/5 bg-white px-5 py-4">
-          <h2 className="font-bold">รายละเอียดสนาม</h2>
-          <button type="button" onClick={onClose} aria-label="ปิด" className="grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-app">
+          <h2 className="font-bold">{td.title}</h2>
+          <button type="button" onClick={onClose} aria-label={td.close} className="grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-app">
             <X className="size-5" />
           </button>
         </div>
@@ -611,43 +620,43 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
                 <div className="flex items-center gap-2">
                   <span className="truncate font-semibold">{data.name}</span>
                   <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${active ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
-                    {active ? "ใช้งานอยู่" : suspended ? "ระงับ" : data.subscriptionStatus ?? "—"}
+                    {active ? td.statusActive : suspended ? td.statusSuspended : data.subscriptionStatus ?? td.dash}
                   </span>
                 </div>
-                <div className="text-sm text-muted-foreground">{sub?.planName ? `${sub.planName} Plan` : "—"}</div>
+                <div className="text-sm text-muted-foreground">{sub?.planName ? interp(td.planSuffix, { plan: sub.planName }) : td.dash}</div>
               </div>
             </div>
 
             <div className="flex gap-1 overflow-x-auto border-b border-black/5 text-sm">
-              {TABS.map((t) => (
+              {TAB_KEYS.map((key) => (
                 <button
-                  key={t}
+                  key={key}
                   type="button"
-                  onClick={() => setTab(t)}
-                  className={`-mb-px shrink-0 border-b-2 px-2.5 py-2 font-medium transition ${tab === t ? "border-brand text-brand" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                  onClick={() => setTab(key)}
+                  className={`-mb-px shrink-0 border-b-2 px-2.5 py-2 font-medium transition ${tab === key ? "border-brand text-brand" : "border-transparent text-muted-foreground hover:text-foreground"}`}
                 >
-                  {t}
+                  {td.tabs[key]}
                 </button>
               ))}
             </div>
 
-            {tab === "ข้อมูลทั่วไป" ? (
+            {tab === "info" ? (
               <>
                 <section className="divide-y divide-black/5">
-                  <Row label="ชื่อสนาม">{data.name}</Row>
-                  <Row label="เจ้าของ">{data.owner?.name ?? "—"}</Row>
-                  <Row label="อีเมล">{data.owner?.email ?? data.settings?.email ?? "—"}</Row>
-                  <Row label="เบอร์โทร">{data.settings?.phone ?? "—"}</Row>
-                  <Row label="ที่อยู่">{data.settings?.address ?? "—"}</Row>
-                  <Row label="วันที่สมัคร">{fmtDate(data.createdAt)}</Row>
-                  <Row label="จำนวนสาขา">{data.counts.branches} สาขา</Row>
-                  <Row label="LINE OA">
+                  <Row label={td.rowName}>{data.name}</Row>
+                  <Row label={td.rowOwner}>{data.owner?.name ?? td.dash}</Row>
+                  <Row label={td.rowEmail}>{data.owner?.email ?? data.settings?.email ?? td.dash}</Row>
+                  <Row label={td.rowPhone}>{data.settings?.phone ?? td.dash}</Row>
+                  <Row label={td.rowAddress}>{data.settings?.address ?? td.dash}</Row>
+                  <Row label={td.rowSignupDate}>{fmtDate(data.createdAt, locale)}</Row>
+                  <Row label={td.rowBranches}>{interp(td.branchesUnit, { n: data.counts.branches })}</Row>
+                  <Row label={td.rowLineOa}>
                     {data.settings?.lineOaUrl ? (
                       <a href={data.settings.lineOaUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-brand">
                         {data.settings.lineOaUrl} <ExternalLink className="size-3.5" />
                       </a>
                     ) : (
-                      "—"
+                      td.dash
                     )}
                   </Row>
                 </section>
@@ -656,25 +665,25 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
 
                 <CustomerLink
                   slug={data.id}
-                  hint="ลิงก์หน้าจองของสนามนี้ — คัดลอกส่งให้สนาม/ลูกค้าได้เลย"
+                  hint={td.customerLinkHint}
                   className="ring-black/10"
                 />
 
                 <section className="rounded-xl bg-app/60 p-4">
-                  <h3 className="mb-1 text-sm font-semibold">แพ็กเกจปัจจุบัน</h3>
+                  <h3 className="mb-1 text-sm font-semibold">{td.currentPlanTitle}</h3>
                   <div className="divide-y divide-black/5">
-                    <Row label="แพ็กเกจ">{sub?.planName ?? "—"}</Row>
-                    <Row label="รอบชำระเงิน">{sub?.interval ? INTERVAL[sub.interval] ?? sub.interval : "—"}</Row>
-                    <Row label="วันเริ่มต้น">{fmtDate(sub?.startedAt)}</Row>
-                    <Row label="วันหมดอายุ">
-                      {fmtDate(sub?.endsAt)}
+                    <Row label={td.rowPlan}>{sub?.planName ?? td.dash}</Row>
+                    <Row label={td.rowBillingCycle}>{sub?.interval ? (td.interval as Record<string, string>)[sub.interval] ?? sub.interval : td.dash}</Row>
+                    <Row label={td.rowStartDate}>{fmtDate(sub?.startedAt, locale)}</Row>
+                    <Row label={td.rowExpiry}>
+                      {fmtDate(sub?.endsAt, locale)}
                       {sub?.daysRemaining != null && (
                         <span className={`ml-1 text-xs ${sub.daysRemaining < 7 ? "text-rose-600" : "text-emerald-600"}`}>
-                          ({sub.daysRemaining < 0 ? "หมดอายุ" : `เหลือ ${sub.daysRemaining} วัน`})
+                          ({sub.daysRemaining < 0 ? td.expiredShort : interp(td.daysLeftShort, { n: sub.daysRemaining })})
                         </span>
                       )}
                     </Row>
-                    <Row label="ค่าบริการ">{sub?.price != null ? `฿${fmt.format(sub.price)} / ${sub.interval ? INTERVAL[sub.interval] ?? sub.interval : "เดือน"}` : "—"}</Row>
+                    <Row label={td.rowPrice}>{sub?.price != null ? `฿${fmt.format(sub.price)} / ${sub.interval ? (td.interval as Record<string, string>)[sub.interval] ?? sub.interval : td.perMonthWord}` : td.dash}</Row>
                   </div>
 
                   {showPlans ? (
@@ -684,7 +693,7 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
                         onChange={(e) => setPlanId(e.target.value)}
                         className="h-9 w-full rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
                       >
-                        <option value="">— เลือกแพ็กเกจ —</option>
+                        <option value="">{td.pickPlan}</option>
                         {(plansQ.data ?? []).map((p) => (
                           <option key={p.id} value={p.id}>
                             {p.name} (฿{fmt.format(p.price)})
@@ -693,22 +702,22 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
                       </select>
                       <div className="flex gap-2">
                         <Button type="button" size="sm" onClick={() => planM.mutate()} disabled={!planId || planM.isPending}>
-                          {planM.isPending ? "กำลังบันทึก..." : "ยืนยันเปลี่ยน"}
+                          {planM.isPending ? td.saving : td.confirmChange}
                         </Button>
                         <Button type="button" size="sm" variant="outline" onClick={() => setShowPlans(false)}>
-                          ยกเลิก
+                          {td.cancel}
                         </Button>
                       </div>
                     </div>
                   ) : (
-                    <button type="button" onClick={() => setTab("การสมัครใช้งาน")} className="mt-3 w-full rounded-lg border border-brand py-2 text-sm font-semibold text-brand hover:bg-brand/10">
-                      จัดการการสมัครใช้งาน
+                    <button type="button" onClick={() => setTab("subscription")} className="mt-3 w-full rounded-lg border border-brand py-2 text-sm font-semibold text-brand hover:bg-brand/10">
+                      {td.manageSubscription}
                     </button>
                   )}
                 </section>
 
                 <section className="space-y-2">
-                  <h3 className="text-sm font-semibold">การดำเนินการ</h3>
+                  <h3 className="text-sm font-semibold">{td.actionsTitle}</h3>
                   <div className="grid grid-cols-2 gap-2">
                     <button type="button" onClick={() => setConfirmImp(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-black/10 hover:bg-app">
                       <UserCog className="size-4" /> Impersonate
@@ -720,44 +729,43 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
                       className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-black/10 hover:bg-app ${suspended ? "text-emerald-600" : "text-amber-700"}`}
                     >
                       {suspended ? <Power className="size-4" /> : <Clock className="size-4" />}
-                      {suspended ? "เปิดใช้งาน" : "ระงับการใช้งาน"}
+                      {suspended ? td.activate : td.suspend}
                     </button>
                     <button type="button" onClick={() => setShowPlans(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-black/10 hover:bg-app">
-                      <RefreshCw className="size-4" /> เปลี่ยนแพ็กเกจ
+                      <RefreshCw className="size-4" /> {td.changePlan}
                     </button>
-                    <button type="button" onClick={() => setTab("ประวัติ")} className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-black/10 hover:bg-app">
-                      <History className="size-4" /> ดูประวัติการจัดการ
+                    <button type="button" onClick={() => setTab("history")} className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-black/10 hover:bg-app">
+                      <History className="size-4" /> {td.viewHistory}
                     </button>
                   </div>
                   <button
                     type="button"
-                    onClick={() => window.confirm(`ลบสนาม "${data.name}" ? (ระงับเป็นทางเลือกที่ปลอดภัยกว่า)`) && delM.mutate()}
+                    onClick={() => window.confirm(interp(td.deleteConfirm, { name: data.name })) && delM.mutate()}
                     disabled={delM.isPending}
                     className="mt-1 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-rose-50 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-100 disabled:opacity-50"
                   >
-                    <Trash2 className="size-4" /> {delM.isPending ? "กำลังลบ..." : "ลบสนาม"}
+                    <Trash2 className="size-4" /> {delM.isPending ? td.deleting : td.deleteOrg}
                   </button>
                 </section>
               </>
-            ) : tab === "LINE" ? (
+            ) : tab === "line" ? (
               <section className="space-y-4">
                 <div>
                   <h3 className="flex items-center gap-1.5 text-sm font-semibold">
-                    <MessageCircle className="size-4 text-brand" /> LINE (ตั้งค่าเฉพาะสนาม)
+                    <MessageCircle className="size-4 text-brand" /> {td.lineTitle}
                   </h3>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    ค่าเหล่านี้ใช้แทนค่า LINE ส่วนกลางของแพลตฟอร์มสำหรับสนามนี้เท่านั้น
+                    {td.lineHint}
                   </p>
                 </div>
 
                 <div className="rounded-lg border border-dashed border-border bg-muted/40 p-3 text-xs">
-                  <p className="font-medium text-foreground">URL หน้า login ของสนามนี้</p>
+                  <p className="font-medium text-foreground">{td.loginUrlLabel}</p>
                   <code className="mt-1 block break-all rounded bg-white px-2 py-1 text-[11px] text-brand">
                     {data.id && origin ? customerLinkFor(data.id, origin) : " "}
                   </code>
                   <p className="mt-1.5 text-muted-foreground">
-                    ตั้งค่านี้เป็น <b>LIFF Endpoint URL</b> ใน LINE Developers console ของสนาม (ต้องตรงกัน)
-                    — เป็นลิงก์เดียวกับที่ส่งให้ลูกค้า
+                    {td.liffEndpointNotePre}<b>{td.liffEndpointBold}</b>{td.liffEndpointNotePost}
                   </p>
                 </div>
 
@@ -766,7 +774,7 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
                   <input
                     value={line.channelId}
                     onChange={(e) => setLine((p) => ({ ...p, channelId: e.target.value }))}
-                    placeholder="เช่น 1234567890"
+                    placeholder={td.channelIdPlaceholder}
                     className="h-9 w-full rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
                   />
                 </label>
@@ -776,7 +784,7 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
                   <input
                     value={line.liffId}
                     onChange={(e) => setLine((p) => ({ ...p, liffId: e.target.value }))}
-                    placeholder="เช่น 1234567890-abcdEFGH"
+                    placeholder={td.liffIdPlaceholder}
                     className="h-9 w-full rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
                   />
                 </label>
@@ -786,7 +794,7 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
                     Channel Secret
                     {data.settings?.lineChannelSecretSet && (
                       <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
-                        ตั้งค่าแล้ว
+                        {td.secretSet}
                       </span>
                     )}
                   </span>
@@ -794,7 +802,7 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
                     type="password"
                     value={line.channelSecret}
                     onChange={(e) => setLine((p) => ({ ...p, channelSecret: e.target.value }))}
-                    placeholder={data.settings?.lineChannelSecretSet ? "••••••• (เว้นว่างเพื่อคงค่าเดิม)" : "กรอกเพื่อตั้งค่า"}
+                    placeholder={data.settings?.lineChannelSecretSet ? td.secretKeepBlank : td.secretEnter}
                     autoComplete="new-password"
                     className="h-9 w-full rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
                   />
@@ -805,7 +813,7 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
                     Messaging API Token
                     {data.settings?.lineMessagingTokenSet && (
                       <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
-                        ตั้งค่าแล้ว
+                        {td.secretSet}
                       </span>
                     )}
                   </span>
@@ -813,24 +821,24 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
                     type="password"
                     value={line.messagingToken}
                     onChange={(e) => setLine((p) => ({ ...p, messagingToken: e.target.value }))}
-                    placeholder={data.settings?.lineMessagingTokenSet ? "••••••• (เว้นว่างเพื่อคงค่าเดิม)" : "กรอกเพื่อตั้งค่า"}
+                    placeholder={data.settings?.lineMessagingTokenSet ? td.secretKeepBlank : td.secretEnter}
                     autoComplete="new-password"
                     className="h-9 w-full rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
                   />
                 </label>
 
                 <Button type="button" className="w-full" onClick={() => lineM.mutate()} disabled={lineM.isPending}>
-                  {lineM.isPending ? "กำลังบันทึก..." : "บันทึกการตั้งค่า LINE"}
+                  {lineM.isPending ? td.saving : td.saveLine}
                 </Button>
               </section>
-            ) : tab === "การใช้งาน" ? (
+            ) : tab === "usage" ? (
               <section className="space-y-4">
-                <h3 className="text-sm font-semibold">การใช้งานเทียบโควต้าแพ็กเกจ</h3>
-                <Bar label="สาขา" used={data.counts.branches} limit={data.plan?.branchLimit ?? null} />
-                <Bar label="คอร์ท" used={data.counts.courts} limit={data.plan?.courtLimit ?? null} />
-                <Bar label="ลูกค้า" used={data.counts.customers} limit={null} />
+                <h3 className="text-sm font-semibold">{td.usageTitle}</h3>
+                <Bar label={td.barBranches} used={data.counts.branches} limit={data.plan?.branchLimit ?? null} />
+                <Bar label={td.barCourts} used={data.counts.courts} limit={data.plan?.courtLimit ?? null} />
+                <Bar label={td.barCustomers} used={data.counts.customers} limit={null} />
               </section>
-            ) : tab === "การสมัครใช้งาน" ? (
+            ) : tab === "subscription" ? (
               <SubscriptionTab org={data} onDone={invalidate} />
             ) : (
               <HistoryTab slug={data.id} />
@@ -840,12 +848,12 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
     </aside>
     {confirmImp && data && (
       <Modal
-        title="ยืนยัน Impersonate"
+        title={td.impersonateTitle}
         onClose={() => setConfirmImp(false)}
         footer={
           <>
             <Button type="button" variant="outline" onClick={() => setConfirmImp(false)}>
-              ยกเลิก
+              {td.cancel}
             </Button>
             <Button
               type="button"
@@ -854,13 +862,13 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
                 impersonate();
               }}
             >
-              เข้าใช้งาน
+              {td.enter}
             </Button>
           </>
         }
       >
         <p className="text-sm">
-          คุณกำลังจะเข้าใช้งานในฐานะ <b>{data.name}</b> — จะเข้าถึงข้อมูลทั้งหมดขององค์กรนี้ในหน้า Owner Portal
+          {td.impersonateBodyPre}<b>{data.name}</b>{td.impersonateBodyPost}
         </p>
       </Modal>
     )}

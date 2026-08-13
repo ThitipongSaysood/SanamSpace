@@ -20,26 +20,30 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { OrgDrawer } from "./_drawer";
+import { useMessages, useLocale } from "@/lib/i18n/context";
+import { fmt as interp, intlLocale } from "@/lib/i18n/format";
+import type { Messages } from "@/lib/i18n/messages";
+import type { Locale } from "@/lib/i18n/config";
 
 const fmt = new Intl.NumberFormat("th-TH");
 
-function statusInfo(o: AdminOrganization): { label: string; dot: string; text: string } {
-  if (o.status === "suspended") return { label: "ระงับการใช้งาน", dot: "bg-rose-500", text: "text-rose-600" };
+function statusInfo(o: AdminOrganization, t: Messages["admin"]["organizations"]): { label: string; dot: string; text: string } {
+  if (o.status === "suspended") return { label: t.status.suspended, dot: "bg-rose-500", text: "text-rose-600" };
   switch (o.subscriptionStatus) {
     case "active":
-      return { label: "ใช้งานอยู่", dot: "bg-emerald-500", text: "text-emerald-600" };
+      return { label: t.status.active, dot: "bg-emerald-500", text: "text-emerald-600" };
     case "trialing":
-      return { label: "ทดลองใช้", dot: "bg-amber-500", text: "text-amber-600" };
+      return { label: t.status.trialing, dot: "bg-amber-500", text: "text-amber-600" };
     case "expired":
     case "cancelled":
-      return { label: "หมดอายุ", dot: "bg-rose-500", text: "text-rose-600" };
+      return { label: t.status.expired, dot: "bg-rose-500", text: "text-rose-600" };
     default:
-      return { label: o.subscriptionStatus ?? "—", dot: "bg-slate-400", text: "text-muted-foreground" };
+      return { label: o.subscriptionStatus ?? t.dash, dot: "bg-slate-400", text: "text-muted-foreground" };
   }
 }
 
-function fmtDate(iso: string | null | undefined) {
-  return iso ? new Date(iso).toLocaleDateString("th-TH") : "—";
+function fmtDate(iso: string | null | undefined, locale: Locale) {
+  return iso ? new Date(iso).toLocaleDateString(intlLocale(locale)) : "—";
 }
 
 function initials(name: string) {
@@ -77,6 +81,8 @@ const selectClass =
   "h-9 rounded-lg border border-input bg-white px-2.5 text-sm text-muted-foreground outline-none focus-visible:border-ring";
 
 export default function AdminOrganizationsPage() {
+  const t = useMessages("admin").organizations;
+  const { locale } = useLocale();
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["admin", "organizations"],
     queryFn: superAdminApi.getOrganizations,
@@ -115,9 +121,9 @@ export default function AdminOrganizationsPage() {
   }, [all, q, status, plan]);
 
   function exportCsv() {
-    const head = ["สนาม", "เจ้าของ", "แพ็กเกจ", "สถานะ", "วันหมดอายุ", "ผู้ใช้", "รายได้รวม"];
+    const head = t.csvHead;
     const lines = rows.map((o) =>
-      [o.name, o.ownerName ?? "", o.planName ?? "", statusInfo(o).label, fmtDate(o.expiresAt), o.userCount, o.revenue].join(","),
+      [o.name, o.ownerName ?? "", o.planName ?? "", statusInfo(o, t).label, fmtDate(o.expiresAt, locale), o.userCount, o.revenue].join(","),
     );
     const blob = new Blob(["﻿" + [head.join(","), ...lines].join("\n")], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -131,18 +137,18 @@ export default function AdminOrganizationsPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">จัดการสนามที่เช่าใช้ระบบ</h1>
-        <p className="text-sm text-muted-foreground">ดูแลและจัดการสนามทั้งหมดที่ใช้บริการระบบ SanamSpace</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
+        <p className="text-sm text-muted-foreground">{t.subtitle}</p>
       </div>
 
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
         <div className="min-w-0 flex-1 space-y-5">
       {/* KPI */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi icon={Building2} label="สนามทั้งหมด" value={fmt.format(kpi.total)} hint="ทุกองค์กรในระบบ" tone="bg-brand/10 text-brand" />
-        <Kpi icon={Users2} label="สนามที่ใช้งานอยู่" value={fmt.format(kpi.active)} hint={kpi.total ? `${Math.round((kpi.active / kpi.total) * 100)}% ของทั้งหมด` : "—"} tone="bg-emerald-100 text-emerald-700" />
-        <Kpi icon={CalendarClock} label="หมดอายุเร็วๆ นี้" value={fmt.format(kpi.expiring)} hint="ภายใน 30 วัน" tone="bg-amber-100 text-amber-700" />
-        <Kpi icon={AlertOctagon} label="สนามที่ถูกระงับ" value={fmt.format(kpi.suspended)} hint="ใช้งานระบบไม่ได้" tone="bg-rose-100 text-rose-700" />
+        <Kpi icon={Building2} label={t.kpiTotal} value={fmt.format(kpi.total)} hint={t.kpiTotalHint} tone="bg-brand/10 text-brand" />
+        <Kpi icon={Users2} label={t.kpiActive} value={fmt.format(kpi.active)} hint={kpi.total ? interp(t.kpiActiveHint, { pct: Math.round((kpi.active / kpi.total) * 100) }) : t.dash} tone="bg-emerald-100 text-emerald-700" />
+        <Kpi icon={CalendarClock} label={t.kpiExpiring} value={fmt.format(kpi.expiring)} hint={t.kpiExpiringHint} tone="bg-amber-100 text-amber-700" />
+        <Kpi icon={AlertOctagon} label={t.kpiSuspended} value={fmt.format(kpi.suspended)} hint={t.kpiSuspendedHint} tone="bg-rose-100 text-rose-700" />
       </div>
 
       {/* Toolbar */}
@@ -153,18 +159,18 @@ export default function AdminOrganizationsPage() {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="ค้นหาสนาม, เจ้าของ, อีเมล..."
+              placeholder={t.searchPlaceholder}
               className="h-9 w-full rounded-lg bg-app pl-9 pr-3 text-sm outline-none ring-1 ring-transparent focus:bg-white focus:ring-black/10"
             />
           </div>
           <select value={status} onChange={(e) => setStatus(e.target.value)} className={selectClass}>
-            <option value="all">สถานะทั้งหมด</option>
-            <option value="active">ใช้งานอยู่</option>
-            <option value="trialing">ทดลองใช้</option>
-            <option value="suspended">ระงับ</option>
+            <option value="all">{t.statusAll}</option>
+            <option value="active">{t.statusActive}</option>
+            <option value="trialing">{t.statusTrialing}</option>
+            <option value="suspended">{t.statusSuspended}</option>
           </select>
           <select value={plan} onChange={(e) => setPlan(e.target.value)} className={selectClass}>
-            <option value="all">แพ็กเกจทั้งหมด</option>
+            <option value="all">{t.planAll}</option>
             {plans.map((p) => (
               <option key={p} value={p}>
                 {p}
@@ -172,17 +178,17 @@ export default function AdminOrganizationsPage() {
             ))}
           </select>
           <Button type="button" variant="outline" onClick={exportCsv}>
-            <Download className="size-4" /> ส่งออกข้อมูล
+            <Download className="size-4" /> {t.export}
           </Button>
           <Button type="button" onClick={() => setAdding(true)}>
-            <Plus className="size-4" /> เพิ่มสนามใหม่
+            <Plus className="size-4" /> {t.addOrg}
           </Button>
         </div>
       </div>
 
       {isLoading && <Loading />}
       {isError && <ErrorState onRetry={() => refetch()} />}
-      {data && rows.length === 0 && <EmptyState message="ไม่พบสนามตามเงื่อนไข" />}
+      {data && rows.length === 0 && <EmptyState message={t.empty} />}
 
       {data && rows.length > 0 && (
         <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
@@ -190,68 +196,68 @@ export default function AdminOrganizationsPage() {
             <table className="stack-table w-full md:min-w-[860px] text-sm">
               <thead className="bg-app text-left text-xs font-medium text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-3">สนาม</th>
-                  <th className="px-4 py-3">เจ้าของ</th>
-                  <th className="px-4 py-3">แพ็กเกจ</th>
-                  <th className="px-4 py-3">สถานะ</th>
-                  <th className="px-4 py-3">วันหมดอายุ</th>
-                  <th className="px-4 py-3 text-right">ผู้ใช้</th>
-                  <th className="px-4 py-3 text-right">รายได้รวม</th>
-                  <th className="px-4 py-3 text-center">จัดการ</th>
+                  <th className="px-4 py-3">{t.colVenue}</th>
+                  <th className="px-4 py-3">{t.colOwner}</th>
+                  <th className="px-4 py-3">{t.colPlan}</th>
+                  <th className="px-4 py-3">{t.colStatus}</th>
+                  <th className="px-4 py-3">{t.colExpiry}</th>
+                  <th className="px-4 py-3 text-right">{t.colUsers}</th>
+                  <th className="px-4 py-3 text-right">{t.colRevenue}</th>
+                  <th className="px-4 py-3 text-center">{t.colActions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5">
                 {rows.map((o) => {
-                  const st = statusInfo(o);
+                  const st = statusInfo(o, t);
                   return (
                     <tr key={o.id} className="cursor-pointer hover:bg-app/60" onClick={() => setOpenId(o.id)}>
-                      <td data-label="สนาม" className="px-4 py-3">
+                      <td data-label={t.colVenue} className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-brand/10 text-xs font-bold text-brand">
                             {initials(o.name)}
                           </span>
                           <div className="min-w-0">
                             <div className="truncate font-medium">{o.name}</div>
-                            <div className="truncate text-xs text-muted-foreground">{o.email ?? "—"}</div>
+                            <div className="truncate text-xs text-muted-foreground">{o.email ?? t.dash}</div>
                           </div>
                         </div>
                       </td>
-                      <td data-label="เจ้าของ" className="px-4 py-3">
-                        <div className="text-sm">{o.ownerName ?? "—"}</div>
+                      <td data-label={t.colOwner} className="px-4 py-3">
+                        <div className="text-sm">{o.ownerName ?? t.dash}</div>
                         <div className="text-xs text-muted-foreground">{o.ownerPhone ?? ""}</div>
                       </td>
-                      <td data-label="แพ็กเกจ" className="px-4 py-3">
+                      <td data-label={t.colPlan} className="px-4 py-3">
                         <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700">
-                          {o.planName ?? "—"}
+                          {o.planName ?? t.dash}
                         </span>
                         {/* A trial is an ordinary active subscription, so without
                             this a venue paying nothing reads as a paying one. */}
                         {o.onTrial && (
                           <span className="ml-1 rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700">
-                            ทดลอง
+                            {t.trial}
                           </span>
                         )}
                       </td>
-                      <td data-label="สถานะ" className="px-4 py-3">
+                      <td data-label={t.colStatus} className="px-4 py-3">
                         <span className={`inline-flex items-center gap-1.5 text-sm font-medium ${st.text}`}>
                           <span className={`size-2 rounded-full ${st.dot}`} /> {st.label}
                         </span>
                       </td>
-                      <td data-label="วันหมดอายุ" className="px-4 py-3">
-                        <div className="text-sm">{fmtDate(o.expiresAt)}</div>
+                      <td data-label={t.colExpiry} className="px-4 py-3">
+                        <div className="text-sm">{fmtDate(o.expiresAt, locale)}</div>
                         {o.daysRemaining != null && (
                           <div className={`text-xs ${o.daysRemaining < 7 ? "text-rose-600" : "text-muted-foreground"}`}>
-                            {o.daysRemaining < 0 ? "หมดอายุแล้ว" : `เหลือ ${o.daysRemaining} วัน`}
+                            {o.daysRemaining < 0 ? t.expired : interp(t.daysLeft, { n: o.daysRemaining })}
                           </div>
                         )}
                       </td>
-                      <td data-label="ผู้ใช้" className="px-4 py-3 text-right">{fmt.format(o.userCount)}</td>
-                      <td data-label="รายได้รวม" className="px-4 py-3 text-right font-semibold text-brand">฿{fmt.format(o.revenue)}</td>
-                      <td data-label="จัดการ" className="px-4 py-3">
+                      <td data-label={t.colUsers} className="px-4 py-3 text-right">{fmt.format(o.userCount)}</td>
+                      <td data-label={t.colRevenue} className="px-4 py-3 text-right font-semibold text-brand">฿{fmt.format(o.revenue)}</td>
+                      <td data-label={t.colActions} className="px-4 py-3">
                         <div className="flex justify-center">
                           <button
                             type="button"
-                            aria-label="ดูรายละเอียด"
+                            aria-label={t.viewDetails}
                             onClick={(e) => {
                               e.stopPropagation();
                               setOpenId(o.id);
@@ -281,6 +287,7 @@ export default function AdminOrganizationsPage() {
 }
 
 function AddOrgModal({ onClose }: { onClose: () => void }) {
+  const t = useMessages("admin").organizations;
   const qc = useQueryClient();
   const plansQ = useQuery({ queryKey: ["admin", "plans"], queryFn: superAdminApi.getPlans });
   const [form, setForm] = useState({ name: "", ownerName: "", email: "", phone: "", planId: "" });
@@ -306,45 +313,45 @@ function AddOrgModal({ onClose }: { onClose: () => void }) {
 
   return (
     <Modal
-      title="เพิ่มสนามใหม่"
+      title={t.addTitle}
       onClose={onClose}
       footer={
         <>
           <Button type="button" variant="outline" onClick={onClose}>
-            ยกเลิก
+            {t.cancel}
           </Button>
           <Button type="button" onClick={() => mutation.mutate()} disabled={!valid || mutation.isPending}>
-            {mutation.isPending ? "กำลังสร้าง..." : "สร้างสนาม"}
+            {mutation.isPending ? t.creating : t.create}
           </Button>
         </>
       }
     >
       <div className="space-y-3">
         <div className="space-y-1.5">
-          <Label htmlFor="ao-name">ชื่อสนาม</Label>
-          <Input id="ao-name" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="เช่น Everyday Badminton" />
+          <Label htmlFor="ao-name">{t.fNameLabel}</Label>
+          <Input id="ao-name" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder={t.fNamePlaceholder} />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="ao-owner">ชื่อเจ้าของ</Label>
-          <Input id="ao-owner" value={form.ownerName} onChange={(e) => set("ownerName", e.target.value)} placeholder="ชื่อ-นามสกุล" />
+          <Label htmlFor="ao-owner">{t.fOwnerLabel}</Label>
+          <Input id="ao-owner" value={form.ownerName} onChange={(e) => set("ownerName", e.target.value)} placeholder={t.fOwnerPlaceholder} />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="ao-email">อีเมล</Label>
+          <Label htmlFor="ao-email">{t.fEmailLabel}</Label>
           <Input id="ao-email" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="owner@example.com" />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="ao-phone">เบอร์โทร</Label>
+          <Label htmlFor="ao-phone">{t.fPhoneLabel}</Label>
           <Input id="ao-phone" value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="081-234-5678" />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="ao-plan">แพ็กเกจ</Label>
+          <Label htmlFor="ao-plan">{t.fPlanLabel}</Label>
           <select
             id="ao-plan"
             value={form.planId}
             onChange={(e) => set("planId", e.target.value)}
             className="h-9 w-full rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
           >
-            <option value="">— ไม่กำหนด —</option>
+            <option value="">{t.planUnset}</option>
             {(plansQ.data ?? []).map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
@@ -352,7 +359,7 @@ function AddOrgModal({ onClose }: { onClose: () => void }) {
             ))}
           </select>
         </div>
-        {mutation.isError && <p className="text-sm text-brand-danger">สร้างไม่สำเร็จ ลองอีกครั้ง</p>}
+        {mutation.isError && <p className="text-sm text-brand-danger">{t.createFailed}</p>}
       </div>
     </Modal>
   );
