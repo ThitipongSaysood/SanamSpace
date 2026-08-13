@@ -9,19 +9,22 @@ import { Loading, ErrorState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useMessages, useLocale } from "@/lib/i18n/context";
+import { intlLocale } from "@/lib/i18n/format";
 
 const TABS = [
-  { key: "general", label: "ทั่วไป", icon: Settings2 },
-  { key: "email", label: "อีเมล / SMTP", icon: Mail },
-  { key: "payment", label: "การชำระเงิน", icon: Wallet },
-  { key: "security", label: "ความปลอดภัย", icon: Shield },
-  { key: "notifications", label: "การแจ้งเตือน", icon: Bell },
-  { key: "backup", label: "สำรองข้อมูล", icon: Database },
+  { key: "general", icon: Settings2 },
+  { key: "email", icon: Mail },
+  { key: "payment", icon: Wallet },
+  { key: "security", icon: Shield },
+  { key: "notifications", icon: Bell },
+  { key: "backup", icon: Database },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
 
 export default function AdminSettingsPage() {
+  const ts = useMessages("admin").adminSettings;
   const [tab, setTab] = useState<TabKey>("general");
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["admin", "settings"],
@@ -31,8 +34,8 @@ export default function AdminSettingsPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-bold">ตั้งค่าระบบ</h1>
-        <p className="text-sm text-muted-foreground">การตั้งค่าแพลตฟอร์ม — ข้อมูลเก็บในฐานข้อมูล มีผลทันทีตอนใช้งานจริง</p>
+        <h1 className="text-xl font-bold">{ts.title}</h1>
+        <p className="text-sm text-muted-foreground">{ts.subtitle}</p>
       </div>
 
       <div className="flex flex-wrap gap-1 border-b border-black/5">
@@ -47,7 +50,7 @@ export default function AdminSettingsPage() {
                 : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
-            <t.icon className="size-4" /> {t.label}
+            <t.icon className="size-4" /> {ts.tabs[t.key]}
           </button>
         ))}
       </div>
@@ -122,17 +125,18 @@ function useSettingsForm(settings: PlatformSettings) {
 }
 
 function SaveBar({ mutation }: { mutation: ReturnType<typeof useSettingsForm>["mutation"] }) {
+  const t = useMessages("admin").adminSettings;
   return (
     <div className="flex items-center gap-3 border-t border-black/5 pt-4">
       <Button type="submit" disabled={mutation.isPending}>
-        {mutation.isPending ? "กำลังบันทึก..." : "บันทึกการเปลี่ยนแปลง"}
+        {mutation.isPending ? t.saving : t.saveChanges}
       </Button>
       {mutation.isSuccess && !mutation.isPending && (
         <span className="inline-flex items-center gap-1 text-sm font-medium text-brand">
-          <Check className="size-4" /> บันทึกแล้ว
+          <Check className="size-4" /> {t.saved}
         </span>
       )}
-      {mutation.isError && <span className="text-sm text-brand-danger">บันทึกไม่สำเร็จ ลองอีกครั้ง</span>}
+      {mutation.isError && <span className="text-sm text-brand-danger">{t.saveFailed}</span>}
     </div>
   );
 }
@@ -181,16 +185,17 @@ function Field({
 }
 
 function GeneralTab({ settings }: { settings: PlatformSettings }) {
+  const t = useMessages("admin").adminSettings;
   const { form, set, mutation } = useSettingsForm(settings);
   return (
     <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }} className="max-w-3xl space-y-4">
-      <Card title="ทั่วไป">
-        <Field k="platformName" label="ชื่อแพลตฟอร์ม" form={form} set={set} />
-        <Field k="supportEmail" label="อีเมลฝ่ายสนับสนุน" type="email" form={form} set={set} />
-        <Field k="timezone" label="โซนเวลา" form={form} set={set} />
-        <Field k="currency" label="สกุลเงิน" form={form} set={set} />
-        <Field k="dateFormat" label="รูปแบบวันที่" form={form} set={set} />
-        <Field k="language" label="ภาษา" form={form} set={set} />
+      <Card title={t.generalTitle}>
+        <Field k="platformName" label={t.fPlatformName} form={form} set={set} />
+        <Field k="supportEmail" label={t.fSupportEmail} type="email" form={form} set={set} />
+        <Field k="timezone" label={t.fTimezone} form={form} set={set} />
+        <Field k="currency" label={t.fCurrency} form={form} set={set} />
+        <Field k="dateFormat" label={t.fDateFormat} form={form} set={set} />
+        <Field k="language" label={t.fLanguage} form={form} set={set} />
       </Card>
       <SaveBar mutation={mutation} />
     </form>
@@ -198,41 +203,42 @@ function GeneralTab({ settings }: { settings: PlatformSettings }) {
 }
 
 function EmailTab({ settings }: { settings: PlatformSettings }) {
+  const t = useMessages("admin").adminSettings;
   const { form, set, mutation } = useSettingsForm(settings);
   const smtp = form.mailMailer === "smtp";
   return (
     <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }} className="max-w-3xl space-y-4">
-      <Card title="อีเมล / SMTP" desc="ใช้ส่งใบแจ้งหนี้ ใบเสร็จ และอีเมลแจ้งเตือน — แทนค่าใน .env">
+      <Card title={t.emailTitle} desc={t.emailDesc}>
         <div className="space-y-1.5">
-          <Label htmlFor="ps-mailMailer">ตัวส่งอีเมล (Mailer)</Label>
+          <Label htmlFor="ps-mailMailer">{t.mailerLabel}</Label>
           <select
             id="ps-mailMailer"
             value={form.mailMailer}
             onChange={(e) => set("mailMailer", e.target.value)}
             className="h-9 w-full rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
           >
-            <option value="log">log (เขียนลง log — สำหรับทดสอบ)</option>
-            <option value="smtp">smtp (ส่งจริง)</option>
-            <option value="sendmail">sendmail</option>
+            <option value="log">{t.mailerLog}</option>
+            <option value="smtp">{t.mailerSmtp}</option>
+            <option value="sendmail">{t.mailerSendmail}</option>
           </select>
         </div>
         {smtp && (
           <>
             <Field k="mailHost" label="SMTP Host" form={form} set={set} placeholder="smtp.gmail.com" />
-            <Field k="mailPort" label="พอร์ต" form={form} set={set} placeholder="587" />
+            <Field k="mailPort" label={t.fPort} form={form} set={set} placeholder="587" />
             <Field k="mailUsername" label="Username" form={form} set={set} placeholder="billing@yourco.com" />
             <div className="space-y-1.5">
-              <Label htmlFor="ps-mailPassword">รหัสผ่าน / App Password</Label>
+              <Label htmlFor="ps-mailPassword">{t.passwordLabel}</Label>
               <Input
                 id="ps-mailPassword"
                 type="password"
                 value={form.mailPassword ?? ""}
-                placeholder={form.mailPasswordSet ? "•••••••• (ตั้งค่าแล้ว — เว้นว่างเพื่อคงเดิม)" : "ยังไม่ได้ตั้งค่า"}
+                placeholder={form.mailPasswordSet ? t.passwordSet : t.passwordUnset}
                 onChange={(e) => set("mailPassword", e.target.value)}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="ps-mailEncryption">การเข้ารหัส</Label>
+              <Label htmlFor="ps-mailEncryption">{t.encryptionLabel}</Label>
               <select
                 id="ps-mailEncryption"
                 value={form.mailEncryption ?? "tls"}
@@ -243,8 +249,8 @@ function EmailTab({ settings }: { settings: PlatformSettings }) {
                 <option value="ssl">SSL (465)</option>
               </select>
             </div>
-            <Field k="mailFromAddress" label="อีเมลผู้ส่ง (From)" type="email" form={form} set={set} placeholder="billing@yourco.com" />
-            <Field k="mailFromName" label="ชื่อผู้ส่ง" form={form} set={set} placeholder="SanamSpace" />
+            <Field k="mailFromAddress" label={t.fFromAddress} type="email" form={form} set={set} placeholder="billing@yourco.com" />
+            <Field k="mailFromName" label={t.fFromName} form={form} set={set} placeholder="SanamSpace" />
           </>
         )}
       </Card>
@@ -254,47 +260,48 @@ function EmailTab({ settings }: { settings: PlatformSettings }) {
 }
 
 function PaymentTab({ settings }: { settings: PlatformSettings }) {
+  const t = useMessages("admin").adminSettings;
   const { form, set, setField, mutation } = useSettingsForm(settings);
   return (
     <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }} className="max-w-3xl space-y-4">
-      <Card title="ข้อมูลผู้ออกเอกสาร" desc="ชื่อ/ที่อยู่/เลขผู้เสียภาษี ที่พิมพ์บนใบแจ้งหนี้และใบเสร็จรับเงิน">
-        <Field k="companyName" label="ชื่อบริษัท (ตามหนังสือรับรอง)" form={form} set={set} placeholder="บริษัท สนามสเปซ จำกัด" />
-        <Field k="taxId" label="เลขประจำตัวผู้เสียภาษี" form={form} set={set} placeholder="0105564000000" />
-        <Field k="companyAddress" label="ที่อยู่" form={form} set={set} placeholder="99/9 ถนน... กรุงเทพฯ 10110" />
+      <Card title={t.docIssuerTitle} desc={t.docIssuerDesc}>
+        <Field k="companyName" label={t.fCompanyName} form={form} set={set} placeholder="บริษัท สนามสเปซ จำกัด" />
+        <Field k="taxId" label={t.fTaxId} form={form} set={set} placeholder="0105564000000" />
+        <Field k="companyAddress" label={t.fCompanyAddress} form={form} set={set} placeholder="99/9 ถนน... กรุงเทพฯ 10110" />
       </Card>
 
-      <Card title="ภาษีมูลค่าเพิ่ม" desc="ราคาแพ็กเกจเป็นราคารวม VAT แล้ว — เปิดแล้วระบบจะถอด VAT ออกมาแสดงแยกบนเอกสาร">
+      <Card title={t.vatTitle} desc={t.vatDesc}>
         <div className="sm:col-span-2">
           <ToggleRow
-            label="ออกใบกำกับภาษี (จด VAT)"
-            desc="ราคาแพ็กเกจเป็นราคารวม VAT อยู่แล้ว — เปิดแล้วเอกสารจะถอด VAT ออกมาแสดงแยก"
+            label={t.vatToggle}
+            desc={t.vatToggleDesc}
             on={!!form.vatEnabled}
             onToggle={() => setField("vatEnabled", !form.vatEnabled)}
           />
         </div>
         {form.vatEnabled && (
-          <Field k="vatRate" label="อัตรา VAT (%)" form={form} set={set} placeholder="7" />
+          <Field k="vatRate" label={t.fVatRate} form={form} set={set} placeholder="7" />
         )}
       </Card>
 
-      <Card title="การชำระเงิน (รับเงินค่าบริการแพลตฟอร์ม)" desc="แสดงบนใบแจ้งหนี้/ช่องทางชำระค่าสมาชิกแพลตฟอร์ม">
-        <Field k="promptpayId" label="พร้อมเพย์ (เบอร์/เลขผู้เสียภาษี)" form={form} set={set} placeholder="0812345678" />
+      <Card title={t.payTitle} desc={t.payDesc}>
+        <Field k="promptpayId" label={t.fPromptpayId} form={form} set={set} placeholder="0812345678" />
         {/* Shown to the venue as "โอนให้ …" on the pay dialog, so it needs to be
             the name they will recognise on their banking app. */}
-        <Field k="promptpayName" label="ชื่อผู้รับเงิน (แสดงตอนสนามสแกนจ่าย)" form={form} set={set} placeholder="บจก. สนามสเปซ" />
-        <Field k="bankName" label="ธนาคาร" form={form} set={set} placeholder="กสิกรไทย" />
-        <Field k="bankAccountName" label="ชื่อบัญชี" form={form} set={set} />
-        <Field k="bankAccountNumber" label="เลขที่บัญชี" form={form} set={set} />
+        <Field k="promptpayName" label={t.fPromptpayName} form={form} set={set} placeholder="บจก. สนามสเปซ" />
+        <Field k="bankName" label={t.fBankName} form={form} set={set} placeholder="กสิกรไทย" />
+        <Field k="bankAccountName" label={t.fBankAccountName} form={form} set={set} />
+        <Field k="bankAccountNumber" label={t.fBankAccountNumber} form={form} set={set} />
       </Card>
 
       <Card
-        title="ตรวจสลิปอัตโนมัติ (Slip2Go)"
-        desc="การเชื่อมต่อระดับแพลตฟอร์ม — บัญชีผู้ให้บริการเดียวที่ทุกสนามใช้ร่วมกัน สนามมีแค่สวิตช์เปิด/ปิดของตัวเอง (ตามแพ็กเกจ)"
+        title={t.slipTitle}
+        desc={t.slipDesc}
       >
         <div className="sm:col-span-2">
           <ToggleRow
-            label="เปิดใช้งานทั้งระบบ (สวิตช์รวม)"
-            desc="ปิดที่นี่ = ทุกสนามหยุดตรวจสลิปอัตโนมัติทันที ไม่ว่าแพ็กเกจหรือสวิตช์ของสนามจะเปิดอยู่"
+            label={t.slipToggle}
+            desc={t.slipToggleDesc}
             on={!!form.slipVerifyEnabled}
             onToggle={() => setField("slipVerifyEnabled", !form.slipVerifyEnabled)}
           />
@@ -302,31 +309,31 @@ function PaymentTab({ settings }: { settings: PlatformSettings }) {
         {form.slipVerifyEnabled && (
           <>
             <div className="space-y-1.5">
-              <Label htmlFor="ps-slipVerifyDriver">ผู้ให้บริการ</Label>
+              <Label htmlFor="ps-slipVerifyDriver">{t.providerLabel}</Label>
               <select
                 id="ps-slipVerifyDriver"
                 value={form.slipVerifyDriver ?? "null"}
                 onChange={(e) => set("slipVerifyDriver", e.target.value)}
                 className="h-9 w-full rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
               >
-                <option value="null">ปิด (ยังไม่เชื่อมต่อ — ตรวจสลิปซ้ำอย่างเดียว)</option>
+                <option value="null">{t.providerNull}</option>
                 <option value="slip2go">Slip2Go</option>
                 <option value="slipok">SlipOK</option>
               </select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="ps-slipVerifyKey">API Secret</Label>
+              <Label htmlFor="ps-slipVerifyKey">{t.apiSecretLabel}</Label>
               <Input
                 id="ps-slipVerifyKey"
                 type="password"
                 value={form.slipVerifyKey ?? ""}
-                placeholder={form.slipVerifyKeySet ? "•••••••• (ตั้งค่าแล้ว — เว้นว่างเพื่อคงเดิม)" : "วาง API Secret จากแดชบอร์ดผู้ให้บริการ"}
+                placeholder={form.slipVerifyKeySet ? t.apiSecretSet : t.apiSecretUnset}
                 onChange={(e) => set("slipVerifyKey", e.target.value)}
               />
             </div>
             <Field
               k="slipVerifyEndpoint"
-              label="Endpoint (ไม่ต้องกรอกถ้าใช้ค่าเริ่มต้นของผู้ให้บริการ)"
+              label={t.fEndpoint}
               form={form}
               set={set}
               placeholder="https://connect.slip2go.com/api/verify-slip/qr-code/info"
@@ -341,16 +348,17 @@ function PaymentTab({ settings }: { settings: PlatformSettings }) {
 }
 
 function SecurityTab({ settings }: { settings: PlatformSettings }) {
+  const t = useMessages("admin").adminSettings;
   const { form, set, setField, mutation } = useSettingsForm(settings);
   return (
     <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }} className="max-w-3xl space-y-4">
-      <Card title="ความปลอดภัย" desc="นโยบายการเข้าสู่ระบบและรหัสผ่าน">
-        <Field k="sessionTimeoutMinutes" label="หมดเวลาเซสชัน (นาที, 0 = ไม่หมดอายุ)" type="number" form={form} set={set} />
-        <Field k="passwordMinLength" label="ความยาวรหัสผ่านขั้นต่ำ" type="number" form={form} set={set} />
+      <Card title={t.securityTitle} desc={t.securityDesc}>
+        <Field k="sessionTimeoutMinutes" label={t.fSessionTimeout} type="number" form={form} set={set} />
+        <Field k="passwordMinLength" label={t.fPasswordMin} type="number" form={form} set={set} />
         <div className="sm:col-span-2">
           <ToggleRow
-            label="บังคับยืนยันตัวตนสองชั้น (2FA)"
-            desc="ผู้ดูแลต้องยืนยันตัวตนสองชั้นเมื่อเข้าสู่ระบบ"
+            label={t.twoFaToggle}
+            desc={t.twoFaDesc}
             on={form.twoFactorRequired}
             onToggle={() => setField("twoFactorRequired", !form.twoFactorRequired)}
           />
@@ -362,19 +370,20 @@ function SecurityTab({ settings }: { settings: PlatformSettings }) {
 }
 
 function NotificationsTab({ settings }: { settings: PlatformSettings }) {
+  const t = useMessages("admin").adminSettings;
   const { form, setField, mutation } = useSettingsForm(settings);
   const rows: { key: keyof PlatformSettings; label: string; desc: string }[] = [
-    { key: "notifyNewOrg", label: "องค์กรใหม่สมัครใช้งาน", desc: "แจ้งเตือนเมื่อมีสนามใหม่สมัคร" },
-    { key: "notifyPayment", label: "ได้รับการชำระเงิน", desc: "แจ้งเตือนเมื่อมีการชำระค่าบริการ" },
-    { key: "notifySubscriptionExpiring", label: "แพ็กเกจใกล้หมดอายุ", desc: "แจ้งเตือนก่อนแพ็กเกจของลูกค้าหมดอายุ" },
-    { key: "notifySupportTicket", label: "มีตั๋วช่วยเหลือใหม่", desc: "แจ้งเตือนเมื่อมีคำขอช่วยเหลือเข้ามา" },
+    { key: "notifyNewOrg", label: t.notifNewOrg, desc: t.notifNewOrgDesc },
+    { key: "notifyPayment", label: t.notifPayment, desc: t.notifPaymentDesc },
+    { key: "notifySubscriptionExpiring", label: t.notifExpiring, desc: t.notifExpiringDesc },
+    { key: "notifySupportTicket", label: t.notifTicket, desc: t.notifTicketDesc },
   ];
   return (
     <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }} className="max-w-3xl space-y-4">
       <section className="space-y-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
         <div>
-          <h2 className="font-semibold">การแจ้งเตือน</h2>
-          <p className="text-sm text-muted-foreground">เลือกเหตุการณ์ที่ต้องการให้ส่งอีเมลแจ้งผู้ดูแล</p>
+          <h2 className="font-semibold">{t.notifTitle}</h2>
+          <p className="text-sm text-muted-foreground">{t.notifDesc}</p>
         </div>
         {rows.map((r) => (
           <ToggleRow
@@ -392,6 +401,8 @@ function NotificationsTab({ settings }: { settings: PlatformSettings }) {
 }
 
 function BackupTab() {
+  const t = useMessages("admin").adminSettings;
+  const { locale } = useLocale();
   const qc = useQueryClient();
   const { data: backups, isLoading } = useQuery({ queryKey: ["admin", "backups"], queryFn: superAdminApi.getBackups });
   const { data: settings } = useQuery({ queryKey: ["admin", "settings"], queryFn: superAdminApi.getSettings });
@@ -407,7 +418,7 @@ function BackupTab() {
     try {
       await superAdminApi.downloadBackup(name);
     } catch {
-      toast.error("ดาวน์โหลดไม่สำเร็จ");
+      toast.error(t.downloadFailed);
     } finally {
       setDownloading(null);
     }
@@ -420,17 +431,17 @@ function BackupTab() {
       <section className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="font-semibold">สำรองข้อมูล</h2>
-            <p className="text-sm text-muted-foreground">ส่งออกข้อมูลทั้งหมดเป็นไฟล์ JSON ดาวน์โหลดเก็บไว้ได้</p>
+            <h2 className="font-semibold">{t.backupTitle}</h2>
+            <p className="text-sm text-muted-foreground">{t.backupDesc}</p>
           </div>
           <Button type="button" onClick={() => runM.mutate()} disabled={runM.isPending}>
-            <Database className="size-4" /> {runM.isPending ? "กำลังสำรอง..." : "สำรองข้อมูลตอนนี้"}
+            <Database className="size-4" /> {runM.isPending ? t.backingUp : t.backupNow}
           </Button>
         </div>
 
         {isLoading && <Loading rows={2} />}
         {backups && backups.length === 0 && (
-          <p className="rounded-xl bg-app px-4 py-6 text-center text-sm text-muted-foreground">ยังไม่มีไฟล์สำรองข้อมูล</p>
+          <p className="rounded-xl bg-app px-4 py-6 text-center text-sm text-muted-foreground">{t.noBackups}</p>
         )}
         {backups && backups.length > 0 && (
           <ul className="divide-y divide-black/5">
@@ -439,7 +450,7 @@ function BackupTab() {
                 <div className="min-w-0">
                   <div className="truncate font-mono text-sm">{b.name}</div>
                   <div className="text-xs text-muted-foreground">
-                    {new Date(b.createdAt).toLocaleString("th-TH")} · {b.sizeLabel}
+                    {new Date(b.createdAt).toLocaleString(intlLocale(locale))} · {b.sizeLabel}
                   </div>
                 </div>
                 <Button
@@ -449,7 +460,7 @@ function BackupTab() {
                   onClick={() => download(b.name)}
                   disabled={downloading === b.name}
                 >
-                  <Download className="size-4" /> {downloading === b.name ? "..." : "ดาวน์โหลด"}
+                  <Download className="size-4" /> {downloading === b.name ? "..." : t.download}
                 </Button>
               </li>
             ))}
@@ -461,24 +472,25 @@ function BackupTab() {
 }
 
 function BackupPolicy({ settings }: { settings: PlatformSettings }) {
+  const t = useMessages("admin").adminSettings;
   const { form, set, mutation } = useSettingsForm(settings);
   return (
     <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }} className="space-y-4">
-      <Card title="นโยบายการสำรองข้อมูล">
+      <Card title={t.policyTitle}>
         <div className="space-y-1.5">
-          <Label htmlFor="ps-backupFrequency">ความถี่</Label>
+          <Label htmlFor="ps-backupFrequency">{t.frequencyLabel}</Label>
           <select
             id="ps-backupFrequency"
             value={form.backupFrequency}
             onChange={(e) => set("backupFrequency", e.target.value)}
             className="h-9 w-full rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
           >
-            <option value="off">ปิด (สำรองเอง)</option>
-            <option value="daily">ทุกวัน</option>
-            <option value="weekly">ทุกสัปดาห์</option>
+            <option value="off">{t.freqOff}</option>
+            <option value="daily">{t.freqDaily}</option>
+            <option value="weekly">{t.freqWeekly}</option>
           </select>
         </div>
-        <Field k="backupRetentionDays" label="เก็บย้อนหลัง (วัน)" type="number" form={form} set={set} />
+        <Field k="backupRetentionDays" label={t.fRetention} type="number" form={form} set={set} />
       </Card>
       <SaveBar mutation={mutation} />
     </form>

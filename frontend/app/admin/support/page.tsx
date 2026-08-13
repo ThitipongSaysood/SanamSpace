@@ -8,25 +8,30 @@ import { superAdminApi } from "@/lib/api/superadmin";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
+import { useMessages, useLocale } from "@/lib/i18n/context";
+import { fmt as interp, intlLocale } from "@/lib/i18n/format";
+import type { Locale } from "@/lib/i18n/config";
 
-const STATUS: Record<string, { label: string; cls: string }> = {
-  open: { label: "เปิด", cls: "bg-amber-100 text-amber-700" },
-  in_progress: { label: "กำลังดำเนินการ", cls: "bg-blue-100 text-blue-700" },
-  pending: { label: "รอลูกค้าตอบ", cls: "bg-blue-100 text-blue-700" },
-  resolved: { label: "แก้ไขแล้ว", cls: "bg-emerald-100 text-emerald-700" },
-  closed: { label: "ปิด", cls: "bg-muted text-muted-foreground" },
+const STATUS_CLS: Record<string, string> = {
+  open: "bg-amber-100 text-amber-700",
+  in_progress: "bg-blue-100 text-blue-700",
+  pending: "bg-blue-100 text-blue-700",
+  resolved: "bg-emerald-100 text-emerald-700",
+  closed: "bg-muted text-muted-foreground",
 };
-const PRIORITY: Record<string, { label: string; cls: string }> = {
-  high: { label: "สูง", cls: "bg-rose-100 text-rose-700" },
-  medium: { label: "กลาง", cls: "bg-amber-100 text-amber-700" },
-  low: { label: "ต่ำ", cls: "bg-muted text-muted-foreground" },
+const PRIORITY_CLS: Record<string, string> = {
+  high: "bg-rose-100 text-rose-700",
+  medium: "bg-amber-100 text-amber-700",
+  low: "bg-muted text-muted-foreground",
 };
 
-function fmtDate(iso: string | null) {
-  return iso ? new Date(iso).toLocaleDateString("th-TH") : "—";
+function fmtDate(iso: string | null, locale: Locale) {
+  return iso ? new Date(iso).toLocaleDateString(intlLocale(locale)) : "—";
 }
 
 export default function AdminSupportPage() {
+  const tx = useMessages("admin").support;
+  const { locale } = useLocale();
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["admin", "support-tickets"],
     queryFn: superAdminApi.getSupportTickets,
@@ -36,13 +41,13 @@ export default function AdminSupportPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold">ศูนย์ช่วยเหลือ</h1>
-        <p className="text-sm text-muted-foreground">ตั๋วช่วยเหลือจากสนามที่เช่าระบบ</p>
+        <h1 className="text-xl font-bold">{tx.title}</h1>
+        <p className="text-sm text-muted-foreground">{tx.subtitle}</p>
       </div>
 
       {isLoading && <Loading />}
       {isError && <ErrorState onRetry={() => refetch()} />}
-      {data && data.length === 0 && <EmptyState message="ยังไม่มีตั๋ว" />}
+      {data && data.length === 0 && <EmptyState message={tx.empty} />}
 
       {data && data.length > 0 && (
         <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
@@ -50,30 +55,32 @@ export default function AdminSupportPage() {
             <table className="stack-table w-full md:min-w-[720px] text-sm">
               <thead className="bg-app text-left text-xs font-medium text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-3">Ticket #</th>
-                  <th className="px-4 py-3">องค์กร</th>
-                  <th className="px-4 py-3">เรื่อง</th>
-                  <th className="px-4 py-3">ความสำคัญ</th>
-                  <th className="px-4 py-3">สถานะ</th>
-                  <th className="px-4 py-3">อัปเดต</th>
+                  <th className="px-4 py-3">{tx.colTicket}</th>
+                  <th className="px-4 py-3">{tx.colOrg}</th>
+                  <th className="px-4 py-3">{tx.colSubject}</th>
+                  <th className="px-4 py-3">{tx.colPriority}</th>
+                  <th className="px-4 py-3">{tx.colStatus}</th>
+                  <th className="px-4 py-3">{tx.colUpdated}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5">
                 {data.map((t) => {
-                  const st = STATUS[t.status] ?? { label: t.status, cls: "bg-muted text-muted-foreground" };
-                  const pr = PRIORITY[t.priority] ?? { label: t.priority, cls: "bg-muted text-muted-foreground" };
+                  const stCls = STATUS_CLS[t.status] ?? "bg-muted text-muted-foreground";
+                  const stLabel = (tx.status as Record<string, string>)[t.status] ?? t.status;
+                  const prCls = PRIORITY_CLS[t.priority] ?? "bg-muted text-muted-foreground";
+                  const prLabel = (tx.priority as Record<string, string>)[t.priority] ?? t.priority;
                   return (
                     <tr key={t.id} onClick={() => setSel(t)} className="cursor-pointer hover:bg-app/60">
-                      <td data-label="Ticket #" className="px-4 py-3 font-medium">{t.ticketNo}</td>
-                      <td data-label="องค์กร" className="px-4 py-3">{t.organizationName}</td>
-                      <td data-label="เรื่อง" className="px-4 py-3 text-muted-foreground">{t.subject}</td>
-                      <td data-label="ความสำคัญ" className="px-4 py-3">
-                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${pr.cls}`}>{pr.label}</span>
+                      <td data-label={tx.colTicket} className="px-4 py-3 font-medium">{t.ticketNo}</td>
+                      <td data-label={tx.colOrg} className="px-4 py-3">{t.organizationName}</td>
+                      <td data-label={tx.colSubject} className="px-4 py-3 text-muted-foreground">{t.subject}</td>
+                      <td data-label={tx.colPriority} className="px-4 py-3">
+                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${prCls}`}>{prLabel}</span>
                       </td>
-                      <td data-label="สถานะ" className="px-4 py-3">
-                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${st.cls}`}>{st.label}</span>
+                      <td data-label={tx.colStatus} className="px-4 py-3">
+                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${stCls}`}>{stLabel}</span>
                       </td>
-                      <td data-label="อัปเดต" className="px-4 py-3 text-muted-foreground">{fmtDate(t.updatedAt)}</td>
+                      <td data-label={tx.colUpdated} className="px-4 py-3 text-muted-foreground">{fmtDate(t.updatedAt, locale)}</td>
                     </tr>
                   );
                 })}
@@ -94,6 +101,8 @@ export default function AdminSupportPage() {
  * the only channel they have — there is no venue-side support inbox.
  */
 function TicketModal({ ticket, onClose }: { ticket: AdminSupportTicket; onClose: () => void }) {
+  const tx = useMessages("admin").support;
+  const { locale } = useLocale();
   const qc = useQueryClient();
   const [body, setBody] = useState("");
 
@@ -125,27 +134,29 @@ function TicketModal({ ticket, onClose }: { ticket: AdminSupportTicket; onClose:
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const st = STATUS[t.status] ?? { label: t.status, cls: "bg-muted text-muted-foreground" };
-  const pr = PRIORITY[t.priority] ?? { label: t.priority, cls: "bg-muted text-muted-foreground" };
+  const stCls = STATUS_CLS[t.status] ?? "bg-muted text-muted-foreground";
+  const stLabel = (tx.status as Record<string, string>)[t.status] ?? t.status;
+  const prCls = PRIORITY_CLS[t.priority] ?? "bg-muted text-muted-foreground";
+  const prLabel = (tx.priority as Record<string, string>)[t.priority] ?? t.priority;
   const settled = t.status === "resolved" || t.status === "closed";
 
   return (
     <Modal
-      title={`Ticket ${t.ticketNo}`}
+      title={interp(tx.ticketTitle, { no: t.ticketNo })}
       onClose={onClose}
       width="max-w-xl"
       footer={
         <>
           <Button type="button" variant="outline" onClick={onClose}>
-            ปิดหน้าต่าง
+            {tx.closeWindow}
           </Button>
           {settled ? (
             <Button type="button" variant="outline" onClick={() => setStatus.mutate("open")} disabled={setStatus.isPending}>
-              เปิดเคสใหม่
+              {tx.reopen}
             </Button>
           ) : (
             <Button type="button" onClick={() => setStatus.mutate("resolved")} disabled={setStatus.isPending}>
-              <CheckCircle2 className="size-4" /> {setStatus.isPending ? "กำลังบันทึก..." : "ปิดเคส (แก้ไขแล้ว)"}
+              <CheckCircle2 className="size-4" /> {setStatus.isPending ? tx.saving : tx.resolveCase}
             </Button>
           )}
         </>
@@ -153,36 +164,36 @@ function TicketModal({ ticket, onClose }: { ticket: AdminSupportTicket; onClose:
     >
       <div className="space-y-4 text-sm">
         <div>
-          <div className="text-muted-foreground">เรื่อง</div>
+          <div className="text-muted-foreground">{tx.rowSubject}</div>
           <div className="font-semibold">{t.subject}</div>
           {t.body && <p className="mt-1 whitespace-pre-line text-muted-foreground">{t.body}</p>}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <div className="text-muted-foreground">องค์กร</div>
+            <div className="text-muted-foreground">{tx.rowOrg}</div>
             <div className="font-medium">{t.organizationName}</div>
           </div>
           <div>
-            <div className="text-muted-foreground">ผู้รับผิดชอบ</div>
-            <div className="font-medium">{t.assignedTo ?? "—"}</div>
+            <div className="text-muted-foreground">{tx.rowAssignee}</div>
+            <div className="font-medium">{t.assignedTo ?? tx.dash}</div>
           </div>
           <div>
-            <div className="text-muted-foreground">ความสำคัญ</div>
-            <span className={`mt-0.5 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${pr.cls}`}>{pr.label}</span>
+            <div className="text-muted-foreground">{tx.rowPriority}</div>
+            <span className={`mt-0.5 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${prCls}`}>{prLabel}</span>
           </div>
           <div>
-            <div className="text-muted-foreground">สถานะ</div>
-            <span className={`mt-0.5 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${st.cls}`}>{st.label}</span>
+            <div className="text-muted-foreground">{tx.rowStatus}</div>
+            <span className={`mt-0.5 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${stCls}`}>{stLabel}</span>
           </div>
         </div>
 
         {/* Thread */}
         <div className="space-y-2 border-t border-black/5 pt-3">
-          <div className="text-sm font-semibold">การสนทนา</div>
-          {isLoading && <p className="text-muted-foreground">กำลังโหลด...</p>}
+          <div className="text-sm font-semibold">{tx.conversation}</div>
+          {isLoading && <p className="text-muted-foreground">{tx.loading}</p>}
           {(t.replies ?? []).length === 0 && !isLoading && (
-            <p className="text-muted-foreground">ยังไม่มีการตอบกลับ</p>
+            <p className="text-muted-foreground">{tx.noReplies}</p>
           )}
           {(t.replies ?? []).map((r) => (
             <div
@@ -191,12 +202,12 @@ function TicketModal({ ticket, onClose }: { ticket: AdminSupportTicket; onClose:
             >
               <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
                 <span className="font-medium text-foreground">{r.authorName}</span>
-                <span>{fmtDate(r.createdAt)}</span>
+                <span>{fmtDate(r.createdAt, locale)}</span>
               </div>
               <p className="mt-1 whitespace-pre-line">{r.body}</p>
               {r.authorSide === "platform" && !r.emailed && (
                 <p className="mt-1 text-xs text-amber-700">
-                  ⚠️ ส่งอีเมลไม่ได้ (ไม่พบอีเมลติดต่อของสนาม) — ลูกค้าอาจยังไม่เห็นข้อความนี้
+                  {tx.emailFailed}
                 </p>
               )}
             </div>
@@ -206,14 +217,14 @@ function TicketModal({ ticket, onClose }: { ticket: AdminSupportTicket; onClose:
         {/* Reply */}
         <div className="space-y-2 border-t border-black/5 pt-3">
           <label htmlFor="reply-body" className="text-sm font-semibold">
-            ตอบกลับ
+            {tx.replyLabel}
           </label>
           <textarea
             id="reply-body"
             rows={4}
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            placeholder="พิมพ์คำตอบถึงสนาม — ระบบจะส่งอีเมลให้อัตโนมัติ"
+            placeholder={tx.replyPlaceholder}
             className="w-full rounded-xl border border-input bg-white p-3 text-sm outline-none focus-visible:border-ring"
           />
           <Button
@@ -221,7 +232,7 @@ function TicketModal({ ticket, onClose }: { ticket: AdminSupportTicket; onClose:
             onClick={() => reply.mutate()}
             disabled={!body.trim() || reply.isPending}
           >
-            <Send className="size-4" /> {reply.isPending ? "กำลังส่ง..." : "ส่งคำตอบ"}
+            <Send className="size-4" /> {reply.isPending ? tx.sending : tx.sendReply}
           </Button>
         </div>
       </div>

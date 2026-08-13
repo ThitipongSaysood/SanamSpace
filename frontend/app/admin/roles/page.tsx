@@ -7,21 +7,13 @@ import { superAdminApi } from "@/lib/api/superadmin";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
+import { useMessages } from "@/lib/i18n/context";
+import { fmt as interp } from "@/lib/i18n/format";
 
 const KEY = ["admin", "roles"];
 
-/** Thai labels for the permission modules, so the editor is not code-only. */
-const MODULE_LABELS: Record<string, string> = {
-  booking: "การจอง",
-  payment: "การเงิน",
-  court: "สนามและคอร์ท",
-  customer: "ลูกค้า",
-  marketing: "การตลาด",
-  report: "รายงาน",
-  settings: "ตั้งค่า",
-};
-
 export default function AdminRolesPage() {
+  const t = useMessages("admin").roles;
   const qc = useQueryClient();
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: KEY, queryFn: superAdminApi.getRoles });
   const { data: permissions } = useQuery({
@@ -34,15 +26,15 @@ export default function AdminRolesPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold">บทบาทและสิทธิ์</h1>
+        <h1 className="text-xl font-bold">{t.title}</h1>
         <p className="text-sm text-muted-foreground">
-          กำหนดว่าพนักงานแต่ละบทบาททำอะไรได้บ้างในระบบของสนาม — มีผลทันทีกับทุกสนาม
+          {t.subtitle}
         </p>
       </div>
 
       {isLoading && <Loading />}
       {isError && <ErrorState onRetry={() => refetch()} />}
-      {data && data.length === 0 && <EmptyState message="ยังไม่มีบทบาท" />}
+      {data && data.length === 0 && <EmptyState message={t.empty} />}
 
       {data && data.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -73,14 +65,14 @@ export default function AdminRolesPage() {
 
               {r.editable ? (
                 <div className="mt-2 flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">{r.permissionCount} สิทธิ์</span>
-                  <span className="text-xs font-medium text-brand">แก้ไขสิทธิ์</span>
+                  <span className="text-xs text-muted-foreground">{interp(t.permCount, { n: r.permissionCount })}</span>
+                  <span className="text-xs font-medium text-brand">{t.editPerms}</span>
                 </div>
               ) : (
                 // The two roles that bypass every check. Saying so beats an
                 // editor that silently refuses to save.
                 <div className="mt-2 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Lock className="size-3.5" /> มีสิทธิ์ทั้งหมดเสมอ
+                  <Lock className="size-3.5" /> {t.alwaysAll}
                 </div>
               )}
             </button>
@@ -111,6 +103,7 @@ function PermissionEditor({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const t = useMessages("admin").roles;
   const [selected, setSelected] = useState<string[]>(role.permissionIds);
 
   const grouped = useMemo(() => {
@@ -137,7 +130,7 @@ function PermissionEditor({
 
   return (
     <Modal
-      title={`สิทธิ์ของ ${role.name}`}
+      title={interp(t.editorTitle, { name: role.name })}
       width="max-w-2xl"
       onClose={onClose}
       footer={
@@ -146,27 +139,26 @@ function PermissionEditor({
             {save.isError ? (
               <span className="text-brand-danger">{(save.error as Error).message}</span>
             ) : (
-              `เลือกแล้ว ${selected.length} จาก ${permissions.length}`
+              interp(t.selectedCount, { n: selected.length, total: permissions.length })
             )}
           </span>
           <Button type="button" variant="outline" onClick={onClose}>
-            ยกเลิก
+            {t.cancel}
           </Button>
           <Button type="button" onClick={() => save.mutate()} disabled={save.isPending}>
-            {save.isPending ? "กำลังบันทึก..." : "บันทึก"}
+            {save.isPending ? t.saving : t.save}
           </Button>
         </>
       }
     >
       <div className="space-y-5">
         <p className="rounded-xl bg-app p-3 text-xs text-muted-foreground">
-          ติ๊กออกแล้วพนักงานบทบาทนี้จะกดใช้งานส่วนนั้นไม่ได้ทันที ·{" "}
-          <strong>เจ้าของสนาม (Owner)</strong> ใช้งานได้ทุกอย่างเสมอ ไม่ขึ้นกับรายการนี้
+          {t.editorNotePre}<strong>{t.editorNoteBold}</strong>{t.editorNotePost}
         </p>
 
         {grouped.map(([module, items]) => (
           <section key={module} className="space-y-2">
-            <h3 className="text-sm font-semibold">{MODULE_LABELS[module] ?? module}</h3>
+            <h3 className="text-sm font-semibold">{(t.moduleLabels as Record<string, string>)[module] ?? module}</h3>
             <div className="grid gap-2 sm:grid-cols-2">
               {items.map((p) => (
                 <label

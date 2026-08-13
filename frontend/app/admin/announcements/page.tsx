@@ -10,15 +10,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
+import { useMessages, useLocale } from "@/lib/i18n/context";
+import { fmt as interp, intlLocale } from "@/lib/i18n/format";
+import type { Locale } from "@/lib/i18n/config";
 
 const KEY = ["admin", "announcements"];
-const AUDIENCE: Record<string, string> = { all: "ทุกองค์กร", trial: "ทดลองใช้", paid: "ลูกค้าจ่ายเงิน" };
 
-function fmtDate(iso: string | null) {
-  return iso ? new Date(iso).toLocaleDateString("th-TH") : null;
+function fmtDate(iso: string | null, locale: Locale) {
+  return iso ? new Date(iso).toLocaleDateString(intlLocale(locale)) : null;
 }
 
 function Toggle({ on, onClick, disabled }: { on: boolean; onClick: () => void; disabled?: boolean }) {
+  const t = useMessages("admin").announcements;
   return (
     <button
       type="button"
@@ -26,7 +29,7 @@ function Toggle({ on, onClick, disabled }: { on: boolean; onClick: () => void; d
       aria-checked={on}
       onClick={onClick}
       disabled={disabled}
-      title={on ? "กดเพื่อปิด (ฉบับร่าง)" : "กดเพื่อเผยแพร่"}
+      title={on ? t.toggleOff : t.toggleOn}
       className={`relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-50 ${on ? "bg-brand" : "bg-muted"}`}
     >
       <span className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-all ${on ? "left-[22px]" : "left-0.5"}`} />
@@ -35,6 +38,8 @@ function Toggle({ on, onClick, disabled }: { on: boolean; onClick: () => void; d
 }
 
 export default function AdminAnnouncementsPage() {
+  const t = useMessages("admin").announcements;
+  const { locale } = useLocale();
   const qc = useQueryClient();
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: KEY, queryFn: superAdminApi.getAnnouncements });
   const [modal, setModal] = useState<AdminAnnouncement | "new" | null>(null);
@@ -55,17 +60,17 @@ export default function AdminAnnouncementsPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold">การแจ้งเตือน / ประกาศ</h1>
-          <p className="text-sm text-muted-foreground">ประกาศและแจ้งเตือนถึงองค์กรในระบบ</p>
+          <h1 className="text-xl font-bold">{t.title}</h1>
+          <p className="text-sm text-muted-foreground">{t.subtitle}</p>
         </div>
         <Button type="button" onClick={() => setModal("new")}>
-          <Plus className="size-4" /> สร้างประกาศ
+          <Plus className="size-4" /> {t.create}
         </Button>
       </div>
 
       {isLoading && <Loading />}
       {isError && <ErrorState onRetry={() => refetch()} />}
-      {data && data.length === 0 && <EmptyState message="ยังไม่มีประกาศ" />}
+      {data && data.length === 0 && <EmptyState message={t.empty} />}
 
       {data && data.length > 0 && (
         <div className="space-y-3">
@@ -85,15 +90,15 @@ export default function AdminAnnouncementsPage() {
                           published ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"
                         }`}
                       >
-                        {published ? "เผยแพร่แล้ว" : "ฉบับร่าง"}
+                        {published ? t.published : t.draft}
                       </span>
                       <span className="rounded-full bg-app px-2 py-0.5 text-[10px] text-muted-foreground">
-                        {AUDIENCE[a.audience] ?? a.audience}
+                        {(t.audience as Record<string, string>)[a.audience] ?? a.audience}
                       </span>
                     </div>
                     {a.body && <p className="mt-1 text-sm text-muted-foreground">{a.body}</p>}
-                    {fmtDate(a.publishedAt) && (
-                      <p className="mt-1 text-xs text-muted-foreground">เผยแพร่ {fmtDate(a.publishedAt)}</p>
+                    {fmtDate(a.publishedAt, locale) && (
+                      <p className="mt-1 text-xs text-muted-foreground">{interp(t.publishedAt, { date: fmtDate(a.publishedAt, locale) ?? "" })}</p>
                     )}
                   </div>
 
@@ -101,7 +106,7 @@ export default function AdminAnnouncementsPage() {
                     <Toggle on={published} onClick={() => toggleM.mutate(a)} disabled={toggleM.isPending} />
                     <button
                       type="button"
-                      aria-label="แก้ไข"
+                      aria-label={t.editAria}
                       onClick={() => setModal(a)}
                       className="grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-app hover:text-brand"
                     >
@@ -109,9 +114,9 @@ export default function AdminAnnouncementsPage() {
                     </button>
                     <button
                       type="button"
-                      aria-label="ลบ"
+                      aria-label={t.deleteAria}
                       onClick={() => {
-                        if (window.confirm(`ลบประกาศ "${a.title}"?`)) delM.mutate(a.id);
+                        if (window.confirm(interp(t.deleteConfirm, { title: a.title }))) delM.mutate(a.id);
                       }}
                       className="grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-rose-50 hover:text-rose-600"
                     >
@@ -131,6 +136,7 @@ export default function AdminAnnouncementsPage() {
 }
 
 function AnnouncementModal({ item, onClose }: { item?: AdminAnnouncement; onClose: () => void }) {
+  const t = useMessages("admin").announcements;
   const qc = useQueryClient();
   const [form, setForm] = useState({
     title: item?.title ?? "",
@@ -154,59 +160,59 @@ function AnnouncementModal({ item, onClose }: { item?: AdminAnnouncement; onClos
 
   return (
     <Modal
-      title={item ? "แก้ไขประกาศ" : "สร้างประกาศใหม่"}
+      title={item ? t.editTitle : t.addTitle}
       onClose={onClose}
       footer={
         <>
           <Button type="button" variant="outline" onClick={onClose}>
-            ยกเลิก
+            {t.cancel}
           </Button>
           <Button type="button" onClick={() => mutation.mutate()} disabled={!form.title.trim() || mutation.isPending}>
-            {mutation.isPending ? "กำลังบันทึก..." : "บันทึก"}
+            {mutation.isPending ? t.saving : t.save}
           </Button>
         </>
       }
     >
       <div className="space-y-3">
         <div className="space-y-1.5">
-          <Label htmlFor="an-title">หัวข้อ</Label>
-          <Input id="an-title" value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="เช่น ปิดปรับปรุงระบบ" />
+          <Label htmlFor="an-title">{t.titleLabel}</Label>
+          <Input id="an-title" value={form.title} onChange={(e) => set("title", e.target.value)} placeholder={t.titlePlaceholder} />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="an-body">เนื้อหา</Label>
+          <Label htmlFor="an-body">{t.bodyLabel}</Label>
           <textarea
             id="an-body"
             value={form.body ?? ""}
             onChange={(e) => set("body", e.target.value)}
             rows={4}
             className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm outline-none focus-visible:border-ring"
-            placeholder="รายละเอียดประกาศ..."
+            placeholder={t.bodyPlaceholder}
           />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label htmlFor="an-audience">กลุ่มเป้าหมาย</Label>
+            <Label htmlFor="an-audience">{t.audienceLabel}</Label>
             <select
               id="an-audience"
               value={form.audience}
               onChange={(e) => set("audience", e.target.value)}
               className="h-9 w-full rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
             >
-              <option value="all">ทุกองค์กร</option>
-              <option value="trial">ทดลองใช้</option>
-              <option value="paid">ลูกค้าจ่ายเงิน</option>
+              <option value="all">{t.audience.all}</option>
+              <option value="trial">{t.audience.trial}</option>
+              <option value="paid">{t.audience.paid}</option>
             </select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="an-status">สถานะ</Label>
+            <Label htmlFor="an-status">{t.statusLabel}</Label>
             <select
               id="an-status"
               value={form.status}
               onChange={(e) => set("status", e.target.value)}
               className="h-9 w-full rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
             >
-              <option value="draft">ฉบับร่าง</option>
-              <option value="published">เผยแพร่</option>
+              <option value="draft">{t.statusDraft}</option>
+              <option value="published">{t.statusPublished}</option>
             </select>
           </div>
         </div>
