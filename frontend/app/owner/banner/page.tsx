@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { ImageLightbox } from "@/components/image-lightbox";
 import { RowActions, rowAction } from "@/components/ui/row-action";
+import { useMessages } from "@/lib/i18n/context";
+import { fmt as interp } from "@/lib/i18n/format";
 
 const KEY = ["owner", "welcome-banners"];
 
@@ -24,6 +26,7 @@ const KEY = ["owner", "welcome-banners"];
  * dialog, and the image opens full size on its own.
  */
 export default function OwnerBannerPage() {
+  const t = useMessages("owner").banner;
   const qc = useQueryClient();
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: KEY, queryFn: ownerApi.getWelcomeBanners });
 
@@ -63,13 +66,13 @@ export default function OwnerBannerPage() {
     <div className="space-y-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">ข้อความต้อนรับ / แบนเนอร์</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
           <p className="text-sm text-muted-foreground">
-            แสดงบนหน้าแรกของลูกค้า ตามลำดับในตาราง — เพิ่มได้หลายอัน ปิดไว้ก่อนก็ได้ ไม่ต้องลบทิ้ง
+            {t.subtitle}
           </p>
         </div>
         <Button type="button" onClick={() => create.mutate()} disabled={create.isPending}>
-          <Plus className="size-4" /> {create.isPending ? "กำลังเพิ่ม..." : "เพิ่มแบนเนอร์"}
+          <Plus className="size-4" /> {create.isPending ? t.adding : t.add}
         </Button>
       </header>
 
@@ -78,12 +81,12 @@ export default function OwnerBannerPage() {
           <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-brand/10 text-brand">
             <Megaphone className="size-6" />
           </div>
-          <p className="mt-3 font-semibold">ยังไม่มีแบนเนอร์</p>
+          <p className="mt-3 font-semibold">{t.empty}</p>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            ใช้ประกาศเรื่องสำคัญ เช่น วันหยุด เวลาทำการพิเศษ หรือโปรโมชั่น
+            {t.emptyHint}
           </p>
           <Button type="button" className="mt-4" onClick={() => create.mutate()} disabled={create.isPending}>
-            <Plus className="size-4" /> เพิ่มแบนเนอร์แรก
+            <Plus className="size-4" /> {t.addFirst}
           </Button>
         </div>
       ) : (
@@ -92,12 +95,12 @@ export default function OwnerBannerPage() {
             <table className="stack-table w-full text-sm">
               <thead className="bg-app text-left text-xs font-medium text-muted-foreground">
                 <tr>
-                  <th className="w-24 px-4 py-3">ลำดับ</th>
-                  <th className="w-24 px-4 py-3">รูป</th>
-                  <th className="px-4 py-3">หัวข้อ / รายละเอียด</th>
-                  <th className="w-24 px-4 py-3">Popup</th>
-                  <th className="w-28 px-4 py-3">สถานะ</th>
-                  <th className="w-40 px-4 py-3 text-right">จัดการ</th>
+                  <th className="w-24 px-4 py-3">{t.colOrder}</th>
+                  <th className="w-24 px-4 py-3">{t.colImage}</th>
+                  <th className="px-4 py-3">{t.colContent}</th>
+                  <th className="w-24 px-4 py-3">{t.colPopup}</th>
+                  <th className="w-28 px-4 py-3">{t.colStatus}</th>
+                  <th className="w-40 px-4 py-3 text-right">{t.colActions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5">
@@ -131,7 +134,7 @@ export default function OwnerBannerPage() {
       {viewing?.imageUrl && (
         <ImageLightbox
           src={viewing.imageUrl}
-          alt={viewing.title ?? "แบนเนอร์ของสนาม"}
+          alt={viewing.title ?? t.bannerAlt}
           onClose={() => setViewing(null)}
         />
       )}
@@ -156,6 +159,7 @@ function BannerRow({
   onView: () => void;
   onChanged: () => void;
 }) {
+  const t = useMessages("owner").banner;
   const toggle = useMutation({
     mutationFn: () => ownerApi.toggleWelcomeBanner(banner.id),
     onSuccess: onChanged,
@@ -170,7 +174,7 @@ function BannerRow({
 
   return (
     <tr className={`hover:bg-app/60 ${banner.isActive ? "" : "opacity-60"}`}>
-      <td data-label="ลำดับ" className="px-4 py-3">
+      <td data-label={t.colOrder} className="px-4 py-3">
         <div className="flex items-center gap-1">
           <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-app text-xs font-semibold text-muted-foreground">
             {position + 1}
@@ -179,7 +183,7 @@ function BannerRow({
             type="button"
             onClick={() => onMove(-1)}
             disabled={position === 0}
-            aria-label="เลื่อนขึ้น"
+            aria-label={t.moveUp}
             className="grid size-6 place-items-center rounded text-muted-foreground hover:bg-app disabled:opacity-25"
           >
             <ArrowUp className="size-3.5" />
@@ -188,7 +192,7 @@ function BannerRow({
             type="button"
             onClick={() => onMove(1)}
             disabled={position === total - 1}
-            aria-label="เลื่อนลง"
+            aria-label={t.moveDown}
             className="grid size-6 place-items-center rounded text-muted-foreground hover:bg-app disabled:opacity-25"
           >
             <ArrowDown className="size-3.5" />
@@ -196,12 +200,12 @@ function BannerRow({
         </div>
       </td>
 
-      <td data-label="รูป" className="px-4 py-3">
+      <td data-label={t.colImage} className="px-4 py-3">
         {banner.imageUrl ? (
           <button
             type="button"
             onClick={onView}
-            aria-label="ดูรูปเต็ม"
+            aria-label={t.viewFull}
             className="group relative block size-14 overflow-hidden rounded-lg ring-1 ring-black/10"
           >
             {/* Thumbnail is the only place a crop is honest — it is a handle to
@@ -219,12 +223,12 @@ function BannerRow({
         )}
       </td>
 
-      <td data-label="หัวข้อ / รายละเอียด" className="px-4 py-3">
+      <td data-label={t.colContent} className="px-4 py-3">
         {empty ? (
-          <span className="text-muted-foreground">(ว่าง — ลูกค้าจะไม่เห็นการ์ดนี้)</span>
+          <span className="text-muted-foreground">{t.rowEmpty}</span>
         ) : (
           <>
-            <div className="font-medium">{banner.title || "(ไม่มีหัวข้อ)"}</div>
+            <div className="font-medium">{banner.title || t.noTitle}</div>
             {banner.message && (
               <div className="line-clamp-1 max-w-md text-xs text-muted-foreground">{banner.message}</div>
             )}
@@ -232,17 +236,17 @@ function BannerRow({
         )}
       </td>
 
-      <td data-label="Popup" className="px-4 py-3">
+      <td data-label={t.colPopup} className="px-4 py-3">
         {banner.popup ? (
           <span className="rounded-full bg-brand-accent/15 px-2 py-0.5 text-xs font-semibold text-brand">
-            เด้ง
+            {t.popupBadge}
           </span>
         ) : (
-          <span className="text-xs text-muted-foreground">—</span>
+          <span className="text-xs text-muted-foreground">{t.dash}</span>
         )}
       </td>
 
-      <td data-label="สถานะ" className="px-4 py-3">
+      <td data-label={t.colStatus} className="px-4 py-3">
         {/* The whole reason this is a list: park a banner, keep it. */}
         <button
           type="button"
@@ -251,22 +255,22 @@ function BannerRow({
           aria-pressed={banner.isActive}
           className={rowAction(banner.isActive ? "on" : "off")}
         >
-          {banner.isActive ? "เปิดอยู่" : "ปิดอยู่"}
+          {banner.isActive ? t.active : t.inactive}
         </button>
       </td>
 
       <td data-actions className="px-4 py-3">
         <RowActions>
           <button type="button" onClick={onEdit} className={rowAction()}>
-            แก้ไข
+            {t.edit}
           </button>
           <button
             type="button"
             onClick={() => {
-              if (window.confirm("ลบแบนเนอร์นี้? ถ้าแค่อยากซ่อนชั่วคราว ให้กด “ปิดอยู่” แทน")) remove.mutate();
+              if (window.confirm(t.deleteConfirm)) remove.mutate();
             }}
             disabled={remove.isPending}
-            aria-label="ลบแบนเนอร์"
+            aria-label={t.deleteAria}
             className={rowAction("icon", "hover:bg-brand-danger/10 hover:text-brand-danger")}
           >
             <Trash2 className="size-4" />
@@ -289,6 +293,7 @@ function BannerEditor({
   onSaved: () => void;
   onView: () => void;
 }) {
+  const t = useMessages("owner").banner;
   const [form, setForm] = useState<OwnerWelcomeBanner>(banner);
 
   function set<K extends keyof OwnerWelcomeBanner>(key: K, value: OwnerWelcomeBanner[K]) {
@@ -332,19 +337,19 @@ function BannerEditor({
 
   return (
     <Modal
-      title="แก้ไขแบนเนอร์"
+      title={t.editTitle}
       width="max-w-3xl"
       onClose={onClose}
       footer={
         <>
           {save.isError && (
-            <span className="mr-auto self-center text-sm text-brand-danger">บันทึกไม่สำเร็จ ลองอีกครั้ง</span>
+            <span className="mr-auto self-center text-sm text-brand-danger">{t.saveFailed}</span>
           )}
           <Button type="button" variant="outline" onClick={onClose}>
-            ยกเลิก
+            {t.cancel}
           </Button>
           <Button type="button" onClick={submit} disabled={save.isPending || uploading}>
-            {save.isPending ? "กำลังบันทึก..." : "บันทึก"}
+            {save.isPending ? t.saving : t.save}
           </Button>
         </>
       }
@@ -352,7 +357,7 @@ function BannerEditor({
       <div className="grid gap-5 md:grid-cols-2">
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>รูปแบนเนอร์</Label>
+            <Label>{t.imageLabel}</Label>
             {form.imageUrl ? (
               <button
                 type="button"
@@ -362,19 +367,19 @@ function BannerEditor({
                 {/* Whole image, its own proportions — capped so a tall poster
                     does not push the form off screen. Tap for the real size. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={form.imageUrl} alt="แบนเนอร์" className="mx-auto block h-auto max-h-64 w-auto max-w-full" />
+                <img src={form.imageUrl} alt={t.editorAlt} className="mx-auto block h-auto max-h-64 w-auto max-w-full" />
                 <span className="absolute right-2 top-2 grid size-8 place-items-center rounded-lg bg-black/45 text-white opacity-0 transition group-hover:opacity-100">
                   <Maximize2 className="size-4" />
                 </span>
               </button>
             ) : (
               <div className="grid aspect-[16/7] w-full place-items-center rounded-xl border border-dashed border-black/15 text-sm text-muted-foreground">
-                ยังไม่มีรูป
+                {t.noImage}
               </div>
             )}
             <div className="flex items-center gap-2">
               <label className="cursor-pointer rounded-lg border border-input px-3 py-1.5 text-sm hover:bg-app">
-                {uploading ? "กำลังอัปโหลด..." : form.imageUrl ? "เปลี่ยนรูป" : "อัปโหลดรูป"}
+                {uploading ? t.uploading : form.imageUrl ? t.changeImage : t.uploadImage}
                 <input type="file" accept="image/*" className="hidden" onChange={onFile} disabled={uploading} />
               </label>
               {form.imageUrl && (
@@ -383,64 +388,64 @@ function BannerEditor({
                   onClick={() => set("imageUrl", null)}
                   className="text-xs text-muted-foreground hover:text-brand-danger"
                 >
-                  ลบรูป
+                  {t.removeImage}
                 </button>
               )}
             </div>
-            {uploadFailed && <p className="text-xs text-brand-danger">อัปโหลดไม่สำเร็จ</p>}
+            {uploadFailed && <p className="text-xs text-brand-danger">{t.uploadFailed}</p>}
             <p className="text-xs text-muted-foreground">
-              แสดงตามสัดส่วนของไฟล์ ไม่ตัดขอบ · แนะนำกว้าง 1200px ขึ้นไป · ไม่เกิน 5MB
+              {t.imageHint}
             </p>
           </div>
         </div>
 
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="b-title">หัวข้อ</Label>
+            <Label htmlFor="b-title">{t.titleLabel}</Label>
             <Input
               id="b-title"
               value={form.title ?? ""}
               onChange={(e) => set("title", e.target.value)}
-              placeholder="เช่น ยินดีต้อนรับสู่สนามของเรา"
+              placeholder={t.titlePlaceholder}
               maxLength={120}
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="b-message">รายละเอียด</Label>
+            <Label htmlFor="b-message">{t.messageLabel}</Label>
             <textarea
               id="b-message"
               rows={4}
               value={form.message ?? ""}
               onChange={(e) => set("message", e.target.value)}
-              placeholder="เช่น เปิดทุกวัน 10:00–22:00 · จองล่วงหน้าได้ 7 วัน"
+              placeholder={t.messagePlaceholder}
               maxLength={500}
               className="w-full rounded-xl border border-input bg-white p-3 text-sm outline-none focus-visible:border-ring"
             />
-            <p className="text-xs text-muted-foreground">{(form.message ?? "").length}/500 ตัวอักษร</p>
+            <p className="text-xs text-muted-foreground">{interp(t.charCount, { n: (form.message ?? "").length })}</p>
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="b-link">ลิงก์เมื่อกดแบนเนอร์ (ไม่บังคับ)</Label>
+            <Label htmlFor="b-link">{t.linkLabel}</Label>
             <Input
               id="b-link"
               value={form.link ?? ""}
               onChange={(e) => set("link", e.target.value)}
-              placeholder="https://... เว้นว่าง = กดไม่ได้"
+              placeholder={t.linkPlaceholder}
             />
           </div>
 
           <div className="flex items-start justify-between gap-3 rounded-xl bg-app p-3">
             <div className="text-sm">
-              เด้งเป็น popup ตอนลูกค้าเข้าแอป
+              {t.popupLabel}
               <span className="mt-0.5 block text-xs text-muted-foreground">
-                ลูกค้าปิดแล้วจะไม่เด้งซ้ำ จนกว่าจะเปลี่ยนรูปหรือข้อความ — เปิดหลายอันได้ ลูกค้าจะกด “ถัดไป” ดูทีละอัน
+                {t.popupHint}
               </span>
             </div>
             <Switch
               checked={form.popup}
               onCheckedChange={(v) => set("popup", v)}
-              aria-label="เด้งเป็น popup ตอนลูกค้าเข้าแอป"
+              aria-label={t.popupLabel}
             />
           </div>
         </div>

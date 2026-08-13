@@ -6,10 +6,13 @@ import { Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ownerApi, OwnerApiError } from "@/lib/api/owner";
+import { useMessages } from "@/lib/i18n/context";
+import { fmt as interp } from "@/lib/i18n/format";
 
 const PLANS: Record<string, string> = { starter: "Starter", business: "Business", pro: "Pro" };
 
 function SignupInner() {
+  const t = useMessages("owner").signup;
   const router = useRouter();
   const sp = useSearchParams();
   const planCode = sp.get("plan") ?? undefined;
@@ -33,10 +36,10 @@ function SignupInner() {
     } catch (err) {
       setError(
         err instanceof OwnerApiError && err.status === 429
-          ? "สมัครบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่"
+          ? t.err429
           : err instanceof OwnerApiError && err.status === 422
-            ? "สมัครไม่สำเร็จ — อีเมลนี้อาจถูกใช้แล้ว หรือรหัสผ่านสั้นเกินไป (อย่างน้อย 8 ตัว)"
-            : "สมัครไม่สำเร็จ ลองใหม่อีกครั้ง",
+            ? t.err422
+            : t.errGeneric,
       );
       setBusy(false);
     }
@@ -50,53 +53,53 @@ function SignupInner() {
             <Sparkles className="size-8" />
           </div>
           <div>
-            <div className="text-xl font-bold tracking-tight">เปิดสนามกับ SanamSpace</div>
+            <div className="text-xl font-bold tracking-tight">{t.title}</div>
             <p className="text-sm text-muted-foreground">
-              ทดลองใช้ฟรี 30 วัน{planLabel ? ` · แพ็กเกจ ${planLabel}` : ""}
+              {t.trial}{planLabel ? interp(t.planSuffix, { plan: planLabel }) : ""}
             </p>
           </div>
         </div>
 
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-1.5">
-            <Label htmlFor="su-venue">ชื่อสนาม</Label>
+            <Label htmlFor="su-venue">{t.venueLabel}</Label>
             <Input id="su-venue" required value={venueName} onChange={(e) => setVenueName(e.target.value)}
-              className="h-11 rounded-xl" placeholder="เช่น Everyday Badminton" />
+              className="h-11 rounded-xl" placeholder={t.venuePlaceholder} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="su-owner">ชื่อเจ้าของ</Label>
+            <Label htmlFor="su-owner">{t.ownerLabel}</Label>
             <Input id="su-owner" required value={ownerName} onChange={(e) => setOwnerName(e.target.value)}
-              className="h-11 rounded-xl" placeholder="ชื่อ-นามสกุล" />
+              className="h-11 rounded-xl" placeholder={t.ownerPlaceholder} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="su-email">อีเมล</Label>
+            <Label htmlFor="su-email">{t.emailLabel}</Label>
             <Input id="su-email" type="email" autoComplete="email" required value={email}
               onChange={(e) => setEmail(e.target.value)} className="h-11 rounded-xl" placeholder="you@venue.com" />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="su-phone">เบอร์โทร (ไม่บังคับ)</Label>
+            <Label htmlFor="su-phone">{t.phoneLabel}</Label>
             <Input id="su-phone" type="tel" autoComplete="tel" value={phone}
               onChange={(e) => setPhone(e.target.value)} className="h-11 rounded-xl" placeholder="08x-xxx-xxxx" />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="su-password">ตั้งรหัสผ่าน</Label>
+            <Label htmlFor="su-password">{t.passwordLabel}</Label>
             <Input id="su-password" type="password" autoComplete="new-password" required minLength={8}
               value={password} onChange={(e) => setPassword(e.target.value)} className="h-11 rounded-xl"
-              placeholder="อย่างน้อย 8 ตัวอักษร" />
+              placeholder={t.passwordPlaceholder} />
           </div>
 
           {error && <p className="text-sm text-brand-danger">{error}</p>}
 
           <button type="submit" disabled={busy}
             className="h-11 w-full rounded-xl bg-brand text-base font-semibold text-brand-foreground transition hover:bg-brand/90 disabled:opacity-60">
-            {busy ? "กำลังสร้างสนาม..." : "เริ่มทดลองใช้ฟรี 30 วัน"}
+            {busy ? t.creating : t.submit}
           </button>
         </form>
 
         <p className="mt-5 text-center text-sm text-muted-foreground">
-          มีบัญชีอยู่แล้ว?{" "}
+          {t.haveAccount}{" "}
           <Link href="/owner/login" className="font-semibold text-brand hover:underline">
-            เข้าสู่ระบบ
+            {t.login}
           </Link>
         </p>
       </div>

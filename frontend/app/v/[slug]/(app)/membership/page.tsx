@@ -1,7 +1,7 @@
 "use client";
 import { CheckCircle2, Sparkles } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type SVGProps } from "react";
 import QRCode from "qrcode";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMembership } from "@/lib/api/queries";
@@ -112,14 +112,12 @@ function MembershipStealthCard({ membership, tenant }: { membership: Membership;
                   "inset 2px 2px 5px rgba(0,0,0,0.62), inset -1px -1px 2px rgba(255,255,255,0.06), 1px 1px 2px rgba(255,255,255,0.035)",
               }}
             >
-              <span
-                className="text-[1.7rem] leading-none drop-shadow-[0_2px_5px_rgba(0,0,0,0.5)]"
+              <SportIcon
+                sportKey={sport?.key}
+                className="size-8 drop-shadow-[0_2px_5px_rgba(0,0,0,0.5)]"
                 style={{ color: sport?.color ?? "rgb(212 212 216)" }}
                 aria-label={sport?.name}
-                role={sport ? "img" : undefined}
-              >
-                {sport?.emoji ?? "◇"}
-              </span>
+              />
             </div>
             <div className="min-w-0">
               <div className="truncate text-sm font-bold uppercase tracking-[0.12em] text-zinc-200 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
@@ -193,6 +191,103 @@ function primarySport(tenant: TenantBranding): SportMeta | null {
   const firstKey = tenant.sports[0];
   const byFirstVenueSport = firstKey ? tenant.sportMeta.find((s) => s.key === firstKey) : undefined;
   return byFirstVenueSport ?? tenant.sportMeta[0] ?? null;
+}
+
+function SportIcon({
+  sportKey,
+  ...props
+}: SVGProps<SVGSVGElement> & { sportKey?: string | null }) {
+  const Icon = SPORT_ICONS[sportKey ?? ""] ?? GenericSportIcon;
+  return <Icon aria-hidden={props["aria-label"] ? undefined : true} role={props["aria-label"] ? "img" : undefined} {...props} />;
+}
+
+type SportIconComponent = (props: SVGProps<SVGSVGElement>) => React.ReactElement;
+
+const SPORT_ICONS: Record<string, SportIconComponent> = {
+  badminton: BadmintonIcon,
+  football: FootballIcon,
+  futsal: FutsalIcon,
+  tennis: TennisIcon,
+  pickleball: PickleballIcon,
+};
+
+function BadmintonIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M4.8 4.6 9.6 14" />
+      <path d="M10.8 14.8 19.3 6.3" />
+      <path d="m7.2 8.9 3.9-3.9" />
+      <path d="m8.8 12 5.5-5.5" />
+      <path d="m5.3 4.2 7.1 1.9 1.9 7.1-3.5 1.6-4-4Z" />
+      <path d="m15.7 9.9 4 4" />
+      <path d="m18.1 12.3 1.4 4.9-4.9-1.4" />
+    </svg>
+  );
+}
+
+function FootballIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="m12 7.2 4 2.9-1.5 4.6h-5L8 10.1Z" />
+      <path d="M12 7.2V3.7" />
+      <path d="m16 10.1 3.4-1.1" />
+      <path d="m14.5 14.7 2.1 2.9" />
+      <path d="m9.5 14.7-2.1 2.9" />
+      <path d="M8 10.1 4.6 9" />
+    </svg>
+  );
+}
+
+function FutsalIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <circle cx="12" cy="12" r="8.25" />
+      <path d="M12 7.5a4.5 4.5 0 0 1 4.5 4.5" />
+      <path d="M12 16.5A4.5 4.5 0 0 1 7.5 12" />
+      <path d="M8.1 7.2c2.6.6 5.7.6 7.8 0" />
+      <path d="M8.1 16.8c2.6-.6 5.7-.6 7.8 0" />
+      <path d="M5.3 11.4c1.3 1.1 2.7 1.7 4.4 1.9" />
+      <path d="M14.3 10.7c1.7.2 3.1.8 4.4 1.9" />
+    </svg>
+  );
+}
+
+function TennisIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <ellipse cx="9.5" cy="8.1" rx="4.4" ry="5.7" transform="rotate(-36 9.5 8.1)" />
+      <path d="M12.2 12.8 20 20.6" />
+      <path d="m17.7 18.3 2.2-2.2" />
+      <path d="M6.6 4.1c1.8 2.2 4.1 4.5 6.5 6.5" />
+      <path d="M4.7 6.4c2 2.4 4.2 4.6 6.5 6.5" />
+      <circle cx="17.8" cy="6.2" r="2" />
+    </svg>
+  );
+}
+
+function PickleballIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M7.3 4.4c2.7-2 6.3-1.4 8.1 1.2 1.8 2.7.9 6.2-1.8 8.2s-6.3 1.4-8.1-1.2-.9-6.2 1.8-8.2Z" />
+      <path d="m13.5 13.6 6 6" />
+      <path d="m17.3 17.4-1.9 1.9" />
+      <circle cx="8.5" cy="7.2" r=".45" fill="currentColor" stroke="none" />
+      <circle cx="11.4" cy="7" r=".45" fill="currentColor" stroke="none" />
+      <circle cx="9.6" cy="10" r=".45" fill="currentColor" stroke="none" />
+      <circle cx="12.6" cy="10" r=".45" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function GenericSportIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M12 3.8 20.2 12 12 20.2 3.8 12Z" />
+      <path d="M8.8 12h6.4" />
+      <path d="M12 8.8v6.4" />
+    </svg>
+  );
 }
 
 function tierProgress(membership: Membership): number {

@@ -11,6 +11,8 @@ npx tsc --noEmit` clean; `npx eslint 'app/v/[slug]/(app)/membership/page.tsx'` c
 - Follow-up same session: fixed local "ไม่พบสนามนี้" by running pending backend migrations
   `2026_08_11_100000_add_time_conditions_to_coupons` and `2026_08_11_200000_create_sports_catalogue`;
   `/api/v1/orgs/everyday-badminton/public` now returns 200 with `sportMeta`.
+- Follow-up same session: membership card sport badge now uses inline SVG icons matching the requested
+  badminton/football/futsal/tennis/pickleball mapping instead of rendering the catalogue emoji.
 
 ## ✅ Done 2026-08-12 (~21:30) — demo venue per plan, branches reach the customer app, double-payment on Back
 **Committed + pushed.** backend **678/678** (2,966 assertions) · e2e **44/44** · vitest **43/43** · tsc clean ·
