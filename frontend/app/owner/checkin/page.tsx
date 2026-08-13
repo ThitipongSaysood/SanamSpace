@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { QrScanner } from "@/components/qr-scanner";
+import { useMessages } from "@/lib/i18n/context";
+import { fmt as interp } from "@/lib/i18n/format";
 
 const RECENT_KEY = ["owner", "checkin", "recent"];
 const RECENT_PER_PAGE = 8;
@@ -28,6 +30,7 @@ function InstallOnPhone() {
   const [qr, setQr] = useState<string | null>(null);
   const [url, setUrl] = useState("");
   const [open, setOpen] = useState(false);
+  const t = useMessages("owner").checkin;
 
   useEffect(() => {
     const target = `${window.location.origin}/scan`;
@@ -43,24 +46,25 @@ function InstallOnPhone() {
         className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left"
       >
         <span className="flex items-center gap-2 font-semibold">
-          <Smartphone className="size-4 text-brand" /> ใช้มือถือพนักงานเป็นเครื่องสแกน
+          <Smartphone className="size-4 text-brand" /> {t.installBadge}
         </span>
-        <span className="text-xs text-muted-foreground">{open ? "ซ่อน" : "ตั้งค่าครั้งเดียว"}</span>
+        <span className="text-xs text-muted-foreground">{open ? t.hide : t.setupOnce}</span>
       </button>
 
       {open && (
         <div className="border-t border-black/5 p-4">
           <p className="text-sm text-muted-foreground">
-            ส่องด้วยกล้องมือถือของพนักงาน แล้วเลือก <b>เพิ่มลงในหน้าจอโฮม</b> — จะได้ไอคอนที่เปิดเข้าหน้าสแกนทันที
+            {t.installPre}
+            <b>{t.installBold}</b>
+            {t.installPost}
           </p>
           {qr && (
             /* eslint-disable-next-line @next/next/no-img-element -- a data: URI generated in the browser */
-            <img src={qr} alt={`QR เปิด ${url}`} className="mx-auto mt-3 size-44 rounded-xl" />
+            <img src={qr} alt={interp(t.qrAlt, { url })} className="mx-auto mt-3 size-44 rounded-xl" />
           )}
           <code className="mt-2 block break-all text-center text-xs text-muted-foreground">{url}</code>
           <p className="mt-3 rounded-lg bg-app p-2 text-xs text-muted-foreground">
-            กล้องจะใช้ได้เมื่อเปิดผ่าน https เท่านั้น (บนเซิร์ฟเวอร์จริงเป็น https อยู่แล้ว) — ระหว่างทดสอบในวง LAN
-            ให้ใช้ช่องพิมพ์รหัสแทน
+            {t.httpsNote}
           </p>
         </div>
       )}
@@ -86,6 +90,7 @@ function thaiTime(iso: string | null) {
  */
 export default function OwnerScanPage() {
   const qc = useQueryClient();
+  const t = useMessages("owner").checkin;
   const [result, setResult] = useState<ScanResult | null>(null);
   const [manual, setManual] = useState("");
 
@@ -157,9 +162,9 @@ export default function OwnerScanPage() {
     <div className="space-y-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">สแกน</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
           <p className="text-sm text-muted-foreground">
-            สแกนได้ทุกอย่างที่นี่ · QR เช็คอิน และ รหัสรับของรางวัล — ระบบแยกให้เอง
+            {t.subtitle}
           </p>
         </div>
 
@@ -175,11 +180,11 @@ export default function OwnerScanPage() {
               }`}
             >
               <Power className="size-4" />
-              {toggle.isPending ? "กำลังบันทึก..." : enabled ? "ระบบเช็คอิน: เปิด" : "ระบบเช็คอิน: ปิด"}
+              {toggle.isPending ? t.saving : enabled ? t.systemOn : t.systemOff}
             </button>
             {toggle.isError && (
               <p className="mt-1 text-xs text-brand-danger">
-                เปลี่ยนไม่ได้ — ต้องมีสิทธิ์ “ตั้งค่า”
+                {t.noPerm}
               </p>
             )}
           </div>
@@ -188,8 +193,9 @@ export default function OwnerScanPage() {
 
       {!enabled && (
         <p className="rounded-2xl bg-brand-accent/15 p-4 text-sm">
-          ระบบเช็คอิน<strong>ปิดอยู่</strong> — ลูกค้าจะไม่เห็นหน้า QR ในแอป
-          แต่พนักงานยังสแกนหรือพิมพ์รหัสที่หน้านี้ได้ตามปกติ
+          {t.offBannerPre}
+          <strong>{t.offBannerBold}</strong>
+          {t.offBannerPost}
         </p>
       )}
 
@@ -199,7 +205,7 @@ export default function OwnerScanPage() {
 
           <section className="space-y-2 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
             <Label htmlFor="manual-code" className="flex items-center gap-1.5">
-              <Keyboard className="size-4" /> พิมพ์รหัส
+              <Keyboard className="size-4" /> {t.typeCode}
             </Label>
             <form
               className="flex gap-2"
@@ -212,15 +218,15 @@ export default function OwnerScanPage() {
                 id="manual-code"
                 value={manual}
                 onChange={(e) => setManual(e.target.value)}
-                placeholder="เช่น BK260614MKNPUC หรือ R7K2M9"
+                placeholder={t.codePlaceholder}
                 autoComplete="off"
                 className="font-mono"
               />
               <Button type="submit" disabled={!manual.trim() || submit.isPending}>
-                {submit.isPending ? "..." : "ตรวจสอบ"}
+                {submit.isPending ? "..." : t.check}
               </Button>
             </form>
-            <p className="text-xs text-muted-foreground">ใช้เมื่อกล้องใช้ไม่ได้ หรือลูกค้าเปิดแอปไม่ได้</p>
+            <p className="text-xs text-muted-foreground">{t.manualHint}</p>
           </section>
 
           <InstallOnPhone />
@@ -232,9 +238,9 @@ export default function OwnerScanPage() {
           {/* Fills the rest of the column so it ends level with the scanner on
               the left; the list scrolls and the pager stays pinned at the foot. */}
           <section className="flex flex-1 flex-col overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
-            <h2 className="shrink-0 border-b border-black/5 px-4 py-3 font-semibold">เช็คอินล่าสุด</h2>
+            <h2 className="shrink-0 border-b border-black/5 px-4 py-3 font-semibold">{t.recentTitle}</h2>
             {!recent || recent.length === 0 ? (
-              <p className="grid flex-1 place-items-center p-6 text-center text-sm text-muted-foreground">ยังไม่มีใครเช็คอินวันนี้</p>
+              <p className="grid flex-1 place-items-center p-6 text-center text-sm text-muted-foreground">{t.recentEmpty}</p>
             ) : (
               <div className="flex flex-1 flex-col">
                 <ul ref={recentListRef} className="flex-1 divide-y divide-black/5 overflow-y-auto">
@@ -244,9 +250,9 @@ export default function OwnerScanPage() {
                         <CheckCircle2 className="size-4" />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-medium"><CustomerName id={b.customerId} name={b.customerName} fallback="—" /></div>
+                        <div className="truncate text-sm font-medium"><CustomerName id={b.customerId} name={b.customerName} fallback={t.dash} /></div>
                         <div className="truncate text-xs text-muted-foreground">
-                          {b.courtName ?? "—"} · {b.start}–{b.end}
+                          {b.courtName ?? t.dash} · {b.start}–{b.end}
                         </div>
                       </div>
                       <span className="shrink-0 text-xs text-muted-foreground">{thaiTime(b.checkedInAt)}</span>
@@ -261,10 +267,10 @@ export default function OwnerScanPage() {
                       disabled={recentSafePage <= 1}
                       className="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-black/10 transition hover:bg-app disabled:opacity-40 disabled:hover:bg-transparent"
                     >
-                      ก่อนหน้า
+                      {t.prev}
                     </button>
                     <span className="text-xs text-muted-foreground">
-                      หน้า {recentSafePage} / {recentPageCount}
+                      {interp(t.pageN, { page: recentSafePage, total: recentPageCount })}
                     </span>
                     <button
                       type="button"
@@ -272,7 +278,7 @@ export default function OwnerScanPage() {
                       disabled={recentSafePage >= recentPageCount}
                       className="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-black/10 transition hover:bg-app disabled:opacity-40 disabled:hover:bg-transparent"
                     >
-                      ถัดไป
+                      {t.next}
                     </button>
                   </div>
                 )}
@@ -292,16 +298,17 @@ export default function OwnerScanPage() {
  * รางวัลแล้ว" are not interchangeable when someone is standing there waiting.
  */
 function ResultCard({ result }: { result: ScanResult | null }) {
+  const t = useMessages("owner").checkin;
   if (!result) {
     return (
       <section className="grid min-h-40 place-items-center rounded-2xl border border-dashed border-black/15 p-6 text-center text-sm text-muted-foreground">
-        ผลการสแกนจะแสดงที่นี่
+        {t.resultPlaceholder}
       </section>
     );
   }
 
   const good = result.ok;
-  const KIND_LABEL: Record<string, string> = { checkin: "เช็คอิน", reward: "ของรางวัล", unknown: "ไม่รู้จัก" };
+  const KIND_LABEL: Record<string, string> = t.kind;
 
   return (
     <section
@@ -321,9 +328,9 @@ function ResultCard({ result }: { result: ScanResult | null }) {
 
           {result.booking && (
             <div className="mt-2 space-y-0.5 text-sm">
-              <div className="font-semibold"><CustomerName id={result.booking.customerId} name={result.booking.customerName} fallback="—" /></div>
+              <div className="font-semibold"><CustomerName id={result.booking.customerId} name={result.booking.customerName} fallback={t.dash} /></div>
               <div className="text-muted-foreground">
-                {result.booking.courtName ?? "—"} · {result.booking.date} · {result.booking.start}–
+                {result.booking.courtName ?? t.dash} · {result.booking.date} · {result.booking.start}–
                 {result.booking.end}
               </div>
               <div className="font-mono text-xs text-muted-foreground">{result.booking.code}</div>
@@ -334,7 +341,7 @@ function ResultCard({ result }: { result: ScanResult | null }) {
             <div className="mt-2 space-y-0.5 text-sm">
               <div className="font-semibold">{result.reward.name}</div>
               <div className="text-muted-foreground">
-                <CustomerName id={result.reward.customerId} name={result.reward.customerName} fallback="—" /> · ใช้ {result.reward.pointsSpent.toLocaleString()} คะแนน
+                <CustomerName id={result.reward.customerId} name={result.reward.customerName} fallback={t.dash} /> · {interp(t.pointsUsed, { points: result.reward.pointsSpent.toLocaleString() })}
               </div>
             </div>
           )}

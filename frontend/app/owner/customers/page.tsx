@@ -9,6 +9,8 @@ import { appendPage } from "@/lib/api/paged";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { LoadMore } from "@/components/load-more";
 import { Button } from "@/components/ui/button";
+import { useMessages } from "@/lib/i18n/context";
+import { fmt as interp } from "@/lib/i18n/format";
 
 const fmt = new Intl.NumberFormat("th-TH");
 
@@ -17,6 +19,7 @@ export default function OwnerCustomersPage() {
   // screen keeps what it has already shown.
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState<OwnerCustomer[]>([]);
+  const t = useMessages("owner").customers;
 
   const { data: pageData, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ["owner", "customers", page],
@@ -33,15 +36,15 @@ export default function OwnerCustomersPage() {
   return (
     <div className="space-y-5">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight">ลูกค้า</h1>
-        <p className="text-sm text-muted-foreground">จัดการข้อมูลลูกค้า</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
+        <p className="text-sm text-muted-foreground">{t.subtitle}</p>
       </header>
 
       <Duplicates />
 
       {isLoading && <Loading />}
       {isError && <ErrorState onRetry={() => refetch()} />}
-      {data && data.length === 0 && <EmptyState message="ยังไม่มีลูกค้า" />}
+      {data && data.length === 0 && <EmptyState message={t.empty} />}
 
       {data && data.length > 0 && (
         <div className="space-y-3">
@@ -63,15 +66,15 @@ export default function OwnerCustomersPage() {
               <div className="mt-3 flex items-center gap-5 sm:mt-0 sm:text-right">
                 <div>
                   <div className="text-base font-bold text-brand">฿{fmt.format(c.totalSpending)}</div>
-                  <div className="text-xs text-muted-foreground">ยอดใช้จ่าย</div>
+                  <div className="text-xs text-muted-foreground">{t.spending}</div>
                 </div>
                 <div>
                   <div className="text-base font-bold">{fmt.format(c.visits)}</div>
-                  <div className="text-xs text-muted-foreground">เข้าใช้</div>
+                  <div className="text-xs text-muted-foreground">{t.visits}</div>
                 </div>
                 <div>
                   <div className="text-base font-bold">{fmt.format(c.bookingsCount)}</div>
-                  <div className="text-xs text-muted-foreground">การจอง</div>
+                  <div className="text-xs text-muted-foreground">{t.bookings}</div>
                 </div>
                 {/* Only for customers who actually hold something — a column of
                     "0 ชม." on every row is noise, and what staff scan for here
@@ -79,13 +82,13 @@ export default function OwnerCustomersPage() {
                 {(c.creditBalance ?? 0) > 0 && (
                   <div>
                     <div className="text-base font-bold text-brand">฿{fmt.format(c.creditBalance!)}</div>
-                    <div className="text-xs text-muted-foreground">เครดิต</div>
+                    <div className="text-xs text-muted-foreground">{t.credit}</div>
                   </div>
                 )}
                 {(c.creditHours ?? 0) > 0 && (
                   <div>
-                    <div className="text-base font-bold">{fmt.format(c.creditHours!)} ชม.</div>
-                    <div className="text-xs text-muted-foreground">ชั่วโมงคงเหลือ</div>
+                    <div className="text-base font-bold">{fmt.format(c.creditHours!)} {t.hoursUnit}</div>
+                    <div className="text-xs text-muted-foreground">{t.creditHours}</div>
                   </div>
                 )}
               </div>
@@ -120,6 +123,7 @@ export default function OwnerCustomersPage() {
  */
 function Duplicates() {
   const qc = useQueryClient();
+  const t = useMessages("owner").customers;
   const [merging, setMerging] = useState<{ group: DuplicateGroup; keepId: string } | null>(null);
 
   const { data } = useQuery({ queryKey: DUPLICATES_KEY, queryFn: ownerApi.getDuplicateCustomers });
@@ -140,9 +144,9 @@ function Duplicates() {
   return (
     <section className="space-y-3 rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200">
       <div>
-        <h2 className="text-sm font-semibold text-amber-900">ลูกค้าซ้ำ {groups.length} เบอร์</h2>
+        <h2 className="text-sm font-semibold text-amber-900">{interp(t.dupTitle, { n: groups.length })}</h2>
         <p className="text-xs text-amber-800">
-          เบอร์เดียวกันแต่มีหลายใบ · แต้มกับเครดิตกระจายกันอยู่ · รวมแล้วทุกอย่างจะย้ายมาอยู่ใบเดียว
+          {t.dupSubtitle}
         </p>
       </div>
 
@@ -164,8 +168,7 @@ function Duplicates() {
                     </div>
                     {/* What would move, shown before the choice is made. */}
                     <div className="text-xs text-muted-foreground">
-                      จอง {fmt.format(c.bookingsCount)} ครั้ง · {fmt.format(c.points)} แต้ม · เครดิต ฿
-                      {fmt.format(c.credit)}
+                      {interp(t.dupMoved, { bookings: fmt.format(c.bookingsCount), points: fmt.format(c.points), credit: fmt.format(c.credit) })}
                     </div>
                   </div>
                   <button
@@ -173,7 +176,7 @@ function Duplicates() {
                     onClick={() => setMerging({ group: g, keepId: c.id })}
                     className="shrink-0 rounded-lg border border-black/10 px-2.5 py-1 text-xs font-medium hover:bg-app"
                   >
-                    เก็บใบนี้ รวมที่เหลือเข้ามา
+                    {t.keepThis}
                   </button>
                 </li>
               ))}
@@ -218,19 +221,20 @@ function ConfirmMerge({
   onCancel: () => void;
   onConfirm: (duplicateId: string) => void;
 }) {
+  const t = useMessages("owner").customers;
   const keep = group.customers.find((c) => c.id === keepId)!;
   const others = group.customers.filter((c) => c.id !== keepId);
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label="ยืนยันการรวมลูกค้า">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label={t.confirmAria}>
       <div className="w-full max-w-md space-y-4 rounded-2xl bg-white p-5 shadow-xl">
-        <h3 className="font-semibold">รวมลูกค้าซ้ำ</h3>
+        <h3 className="font-semibold">{t.mergeTitle}</h3>
 
         <div className="rounded-xl bg-app p-3 text-sm">
-          <div className="text-xs text-muted-foreground">ใบที่เก็บไว้</div>
+          <div className="text-xs text-muted-foreground">{t.keptRecord}</div>
           <div className="font-semibold">{keep.displayName}</div>
           <div className="text-xs text-muted-foreground">
-            {fmt.format(keep.points)} แต้ม · เครดิต ฿{fmt.format(keep.credit)}
+            {interp(t.pointsCredit, { points: fmt.format(keep.points), credit: fmt.format(keep.credit) })}
           </div>
         </div>
 
@@ -240,25 +244,24 @@ function ConfirmMerge({
               <div className="min-w-0">
                 <div className="truncate font-medium">{c.displayName}</div>
                 <div className="text-xs text-muted-foreground">
-                  ย้ายมา: จอง {fmt.format(c.bookingsCount)} ครั้ง · {fmt.format(c.points)} แต้ม · ฿
-                  {fmt.format(c.credit)}
+                  {interp(t.movesIn, { bookings: fmt.format(c.bookingsCount), points: fmt.format(c.points), credit: fmt.format(c.credit) })}
                 </div>
               </div>
               <Button type="button" size="sm" disabled={pending} onClick={() => onConfirm(c.id)}>
-                {pending ? "กำลังรวม…" : "รวมเข้าใบที่เก็บ"}
+                {pending ? t.merging : t.mergeInto}
               </Button>
             </li>
           ))}
         </ul>
 
         <p className="text-xs text-muted-foreground">
-          ใบที่ถูกรวมจะถูกซ่อน แต่ยังเก็บไว้ในระบบ · แต้มและเครดิตจะบวกเข้าด้วยกัน ไม่มีอะไรหาย
+          {t.mergeNote}
         </p>
 
         {error && <p className="text-sm text-brand-danger">{error}</p>}
 
         <Button type="button" variant="outline" className="w-full" onClick={onCancel} disabled={pending}>
-          ปิด
+          {t.close}
         </Button>
       </div>
     </div>

@@ -6,6 +6,8 @@ import type { OwnerPackagePurchase, OwnerPayment } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
 import { CustomerName } from "@/components/customer-peek";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
+import { useMessages } from "@/lib/i18n/context";
+import { fmt as interp } from "@/lib/i18n/format";
 import { ImageLightbox } from "@/components/image-lightbox";
 
 const fmt = new Intl.NumberFormat("th-TH");
@@ -21,6 +23,7 @@ type Viewing = { src: string; alt: string } | null;
  * size — that is what the money is approved against.
  */
 export default function OwnerPaymentsPage() {
+  const t = useMessages("owner").payments;
   const [viewing, setViewing] = useState<Viewing>(null);
 
   const { data, isLoading, isError, refetch } = useQuery({
@@ -31,15 +34,15 @@ export default function OwnerPaymentsPage() {
   return (
     <div className="space-y-5">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight">ตรวจสลิป</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
         <p className="text-sm text-muted-foreground">
-          ตรวจสอบสลิปการโอนเงิน — กดที่รูปเพื่อดูเต็มก่อนอนุมัติ
+          {t.subtitle}
         </p>
       </header>
 
       {isLoading && <Loading />}
       {isError && <ErrorState onRetry={() => refetch()} />}
-      {data && data.length === 0 && <EmptyState message="ไม่มีสลิปรอตรวจ" />}
+      {data && data.length === 0 && <EmptyState message={t.empty} />}
 
       {/* Phone: one card per slip. In a table the amount and the approve button
           sit off the right edge, behind a sideways scroll — on the one screen
@@ -58,12 +61,12 @@ export default function OwnerPaymentsPage() {
             <table className="w-full min-w-[820px] text-sm">
               <thead className="bg-app text-left text-xs font-medium text-muted-foreground">
                 <tr>
-                  <th className="w-24 px-4 py-3">สลิป</th>
-                  <th className="px-4 py-3">ลูกค้า</th>
-                  <th className="px-4 py-3">การจอง</th>
-                  <th className="px-4 py-3">วันและเวลา</th>
-                  <th className="px-4 py-3 text-right">ยอด</th>
-                  <th className="w-44 px-4 py-3 text-right">จัดการ</th>
+                  <th className="w-24 px-4 py-3">{t.colSlip}</th>
+                  <th className="px-4 py-3">{t.colCustomer}</th>
+                  <th className="px-4 py-3">{t.colBooking}</th>
+                  <th className="px-4 py-3">{t.colWhen}</th>
+                  <th className="px-4 py-3 text-right">{t.colAmount}</th>
+                  <th className="w-44 px-4 py-3 text-right">{t.colActions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5">
@@ -85,6 +88,7 @@ export default function OwnerPaymentsPage() {
 
 function PaymentRow({ payment, onView }: { payment: OwnerPayment; onView: (v: Viewing) => void }) {
   const qc = useQueryClient();
+  const t = useMessages("owner").payments;
 
   function invalidate() {
     qc.invalidateQueries({ queryKey: ["owner", "payments"] });
@@ -101,7 +105,7 @@ function PaymentRow({ payment, onView }: { payment: OwnerPayment; onView: (v: Vi
       <td className="px-4 py-3">
         <SlipThumb
           src={payment.slipUrl}
-          alt={`สลิปการชำระเงินของ ${payment.customerName ?? "ลูกค้า"}`}
+          alt={interp(t.slipAlt, { name: payment.customerName ?? t.custFallback })}
           onView={onView}
         />
       </td>
@@ -110,13 +114,13 @@ function PaymentRow({ payment, onView }: { payment: OwnerPayment; onView: (v: Vi
         <CustomerName id={payment.customerId} name={payment.customerName} />
         {payment.slipDuplicate && (
           <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
-            ⚠ สลิปนี้เคยใช้แล้ว
+            {t.dupBadge}
           </div>
         )}
         {payment.slipAmount != null && (
           <div className="mt-1 text-[11px] text-muted-foreground">
-            🔎 อ่านจากสลิป ฿{fmt.format(payment.slipAmount)}
-            {payment.slipSender ? ` · จาก ${payment.slipSender}` : ""}
+            {interp(t.readAmount, { amount: fmt.format(payment.slipAmount) })}
+            {payment.slipSender ? interp(t.fromSender, { sender: payment.slipSender }) : ""}
           </div>
         )}
       </td>
@@ -149,7 +153,7 @@ function PaymentRow({ payment, onView }: { payment: OwnerPayment; onView: (v: Vi
             onClick={() => reject.mutate()}
             className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-brand-danger ring-1 ring-brand-danger/20 transition hover:bg-brand-danger/10 disabled:opacity-50"
           >
-            <X className="size-3.5" /> {reject.isPending ? "..." : "ปฏิเสธ"}
+            <X className="size-3.5" /> {reject.isPending ? "..." : t.reject}
           </button>
           <button
             type="button"
@@ -157,10 +161,10 @@ function PaymentRow({ payment, onView }: { payment: OwnerPayment; onView: (v: Vi
             onClick={() => verify.mutate()}
             className="inline-flex items-center gap-1 rounded-lg bg-brand px-2.5 py-1.5 text-xs font-semibold text-brand-foreground transition hover:bg-brand/90 disabled:opacity-50"
           >
-            <Check className="size-3.5" /> {verify.isPending ? "..." : "อนุมัติ"}
+            <Check className="size-3.5" /> {verify.isPending ? "..." : t.approve}
           </button>
         </div>
-        {failed && <div className="mt-1 text-right text-xs text-brand-danger">ไม่สำเร็จ ลองอีกครั้ง</div>}
+        {failed && <div className="mt-1 text-right text-xs text-brand-danger">{t.failedRetry}</div>}
       </td>
     </tr>
   );
@@ -169,6 +173,7 @@ function PaymentRow({ payment, onView }: { payment: OwnerPayment; onView: (v: Vi
 /** The same row as a card, for a phone at the counter. */
 function PaymentCard({ payment, onView }: { payment: OwnerPayment; onView: (v: Viewing) => void }) {
   const qc = useQueryClient();
+  const t = useMessages("owner").payments;
 
   function invalidate() {
     qc.invalidateQueries({ queryKey: ["owner", "payments"] });
@@ -185,20 +190,20 @@ function PaymentCard({ payment, onView }: { payment: OwnerPayment; onView: (v: V
       <div className="flex items-start gap-3">
         <SlipThumb
           src={payment.slipUrl}
-          alt={`สลิปการชำระเงินของ ${payment.customerName ?? "ลูกค้า"}`}
+          alt={interp(t.slipAlt, { name: payment.customerName ?? t.custFallback })}
           onView={onView}
         />
         <div className="min-w-0 flex-1">
           <div className="font-semibold"><CustomerName id={payment.customerId} name={payment.customerName} /></div>
           {payment.slipDuplicate && (
             <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
-              ⚠ สลิปนี้เคยใช้แล้ว
+              {t.dupBadge}
             </div>
           )}
           {payment.slipAmount != null && (
             <div className="mt-1 text-[11px] text-muted-foreground">
-              🔎 อ่านจากสลิป ฿{fmt.format(payment.slipAmount)}
-              {payment.slipSender ? ` · จาก ${payment.slipSender}` : ""}
+              {interp(t.readAmount, { amount: fmt.format(payment.slipAmount) })}
+              {payment.slipSender ? interp(t.fromSender, { sender: payment.slipSender }) : ""}
             </div>
           )}
           {payment.booking && (
@@ -215,7 +220,7 @@ function PaymentCard({ payment, onView }: { payment: OwnerPayment; onView: (v: V
         </div>
       </div>
 
-      {failed && <p className="mt-2 text-sm text-brand-danger">ไม่สำเร็จ ลองอีกครั้ง</p>}
+      {failed && <p className="mt-2 text-sm text-brand-danger">{t.failedRetry}</p>}
 
       {/* Full-width targets: this is a decision made with a thumb. */}
       <div className="mt-3 grid grid-cols-2 gap-2">
@@ -225,7 +230,7 @@ function PaymentCard({ payment, onView }: { payment: OwnerPayment; onView: (v: V
           onClick={() => reject.mutate()}
           className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl text-sm font-semibold text-brand-danger ring-1 ring-brand-danger/20 transition disabled:opacity-50"
         >
-          <X className="size-4" /> {reject.isPending ? "..." : "ปฏิเสธ"}
+          <X className="size-4" /> {reject.isPending ? "..." : t.reject}
         </button>
         <button
           type="button"
@@ -233,7 +238,7 @@ function PaymentCard({ payment, onView }: { payment: OwnerPayment; onView: (v: V
           onClick={() => verify.mutate()}
           className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-brand text-sm font-semibold text-brand-foreground transition disabled:opacity-50"
         >
-          <Check className="size-4" /> {verify.isPending ? "..." : "อนุมัติ"}
+          <Check className="size-4" /> {verify.isPending ? "..." : t.approve}
         </button>
       </div>
     </div>
@@ -250,9 +255,10 @@ function SlipThumb({
   alt: string;
   onView: (v: Viewing) => void;
 }) {
+  const t = useMessages("owner").payments;
   if (!src) {
     return (
-      <span className="grid size-14 place-items-center rounded-lg bg-app text-muted-foreground" title="ไม่มีรูปสลิป">
+      <span className="grid size-14 place-items-center rounded-lg bg-app text-muted-foreground" title={t.noSlip}>
         <ImageOff className="size-4" />
       </span>
     );
@@ -262,7 +268,7 @@ function SlipThumb({
     <button
       type="button"
       onClick={() => onView({ src, alt })}
-      aria-label="ดูสลิปเต็ม"
+      aria-label={t.viewSlip}
       className="group relative block size-14 overflow-hidden rounded-lg ring-1 ring-black/10"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -277,6 +283,7 @@ function SlipThumb({
 /** Customer package purchases awaiting the same kind of slip review. */
 function PackagePurchases({ onView }: { onView: (v: Viewing) => void }) {
   const qc = useQueryClient();
+  const t = useMessages("owner").payments;
   const { data } = useQuery({
     queryKey: ["owner", "package-purchases"],
     queryFn: ownerApi.getPackagePurchases,
@@ -287,7 +294,7 @@ function PackagePurchases({ onView }: { onView: (v: Viewing) => void }) {
   return (
     <section className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
       <header className="flex items-center gap-2 border-b border-black/5 px-4 py-3">
-        <h2 className="font-semibold">ซื้อแพ็กเกจรออนุมัติ</h2>
+        <h2 className="font-semibold">{t.pkgTitle}</h2>
         <span className="rounded-full bg-brand-accent/15 px-2 py-0.5 text-xs font-medium text-brand">
           {data.length}
         </span>
@@ -297,11 +304,11 @@ function PackagePurchases({ onView }: { onView: (v: Viewing) => void }) {
         <table className="w-full min-w-[680px] text-sm">
           <thead className="bg-app text-left text-xs font-medium text-muted-foreground">
             <tr>
-              <th className="w-24 px-4 py-3">สลิป</th>
-              <th className="px-4 py-3">ลูกค้า</th>
-              <th className="px-4 py-3">แพ็กเกจ</th>
-              <th className="px-4 py-3 text-right">ยอด</th>
-              <th className="w-44 px-4 py-3 text-right">จัดการ</th>
+              <th className="w-24 px-4 py-3">{t.colSlip}</th>
+              <th className="px-4 py-3">{t.colCustomer}</th>
+              <th className="px-4 py-3">{t.colPackage}</th>
+              <th className="px-4 py-3 text-right">{t.colAmount}</th>
+              <th className="w-44 px-4 py-3 text-right">{t.colActions}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-black/5">
@@ -329,6 +336,7 @@ function PurchaseRow({
   onView: (v: Viewing) => void;
   onDone: () => void;
 }) {
+  const t = useMessages("owner").payments;
   const approve = useMutation({
     mutationFn: () => ownerApi.approvePackagePurchase(purchase.id),
     onSuccess: onDone,
@@ -345,14 +353,14 @@ function PurchaseRow({
       <td className="px-4 py-3">
         <SlipThumb
           src={purchase.slipUrl}
-          alt={`สลิปซื้อแพ็กเกจของ ${purchase.customerName ?? "ลูกค้า"}`}
+          alt={interp(t.pkgSlipAlt, { name: purchase.customerName ?? t.custFallback })}
           onView={onView}
         />
       </td>
-      <td className="px-4 py-3 font-medium"><CustomerName id={purchase.customerId} name={purchase.customerName} fallback="ลูกค้า" /></td>
+      <td className="px-4 py-3 font-medium"><CustomerName id={purchase.customerId} name={purchase.customerName} fallback={t.custFallback} /></td>
       <td className="px-4 py-3">
         <div>{purchase.packageName}</div>
-        <div className="text-xs text-muted-foreground">{purchase.hours} ชั่วโมง</div>
+        <div className="text-xs text-muted-foreground">{interp(t.hoursN, { n: purchase.hours })}</div>
       </td>
       <td className="px-4 py-3 text-right font-semibold text-brand">฿{fmt.format(purchase.price)}</td>
       <td className="px-4 py-3">
@@ -363,7 +371,7 @@ function PurchaseRow({
             onClick={() => reject.mutate()}
             className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-brand-danger ring-1 ring-brand-danger/20 transition hover:bg-brand-danger/10 disabled:opacity-50"
           >
-            <X className="size-3.5" /> {reject.isPending ? "..." : "ปฏิเสธ"}
+            <X className="size-3.5" /> {reject.isPending ? "..." : t.reject}
           </button>
           <button
             type="button"
@@ -371,14 +379,14 @@ function PurchaseRow({
             onClick={() => approve.mutate()}
             className="inline-flex items-center gap-1 rounded-lg bg-brand px-2.5 py-1.5 text-xs font-semibold text-brand-foreground transition hover:bg-brand/90 disabled:opacity-50"
           >
-            <Check className="size-3.5" /> {approve.isPending ? "..." : "อนุมัติ"}
+            <Check className="size-3.5" /> {approve.isPending ? "..." : t.approve}
           </button>
         </div>
         {/* The old version reported these through window.alert(), which stopped
             the whole screen for a message about one row. */}
         {failed && (
           <div className="mt-1 text-right text-xs text-brand-danger">
-            {((approve.error ?? reject.error) as Error)?.message ?? "ไม่สำเร็จ"}
+            {((approve.error ?? reject.error) as Error)?.message ?? t.failed}
           </div>
         )}
       </td>
