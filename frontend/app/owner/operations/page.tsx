@@ -19,6 +19,8 @@ import { ownerApi } from "@/lib/api/owner";
 import { CustomerName } from "@/components/customer-peek";
 import { StatusBadge } from "@/components/status-badge";
 import { Loading, ErrorState } from "@/components/states";
+import { useMessages } from "@/lib/i18n/context";
+import { fmt as interp } from "@/lib/i18n/format";
 
 const fmt = new Intl.NumberFormat("th-TH");
 
@@ -63,15 +65,17 @@ export default function OwnerOperationsPage() {
     refetchInterval: 60_000,
   });
 
+  const tt = useMessages("owner").operations;
+
   return (
     <div className="space-y-5">
       <header className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Operations Center</h1>
-          <p className="text-sm text-muted-foreground">ศูนย์ปฏิบัติการประจำวัน</p>
+          <h1 className="text-2xl font-bold tracking-tight">{tt.title}</h1>
+          <p className="text-sm text-muted-foreground">{tt.subtitle}</p>
         </div>
         {data && (
-          <span className="text-xs text-muted-foreground">เวลาสนาม {data.now} น. · อัปเดตทุก 1 นาที</span>
+          <span className="text-xs text-muted-foreground">{interp(tt.venueTime1min, { now: data.now })}</span>
         )}
       </header>
 
@@ -83,18 +87,19 @@ export default function OwnerOperationsPage() {
 }
 
 function OperationsBody({ d }: { d: OwnerOperations }) {
+  const tt = useMessages("owner").operations;
   const t = d.tiles;
 
   const tiles: { label: string; value: string; icon: LucideIcon; tint: string; href?: string }[] = [
     {
-      label: "การจองวันนี้",
+      label: tt.tile.today,
       value: fmt.format(t.todayBookings),
       icon: CalendarCheck,
       tint: "bg-brand/10 text-brand",
       href: "/owner/bookings",
     },
     {
-      label: "รอตรวจสลิป",
+      label: tt.tile.pendingSlips,
       value: fmt.format(t.pendingSlips),
       icon: FileCheck2,
       tint: "bg-amber-100 text-amber-600",
@@ -103,19 +108,19 @@ function OperationsBody({ d }: { d: OwnerOperations }) {
     {
       // Replaces "ลูกค้าใกล้ถึงเวลา": someone due in an hour needs nothing from
       // anyone. Someone who was due and is not here is the one to act on.
-      label: "ยังไม่มาเช็คอิน",
+      label: tt.tile.noShow,
       value: fmt.format(t.noShow),
       icon: UserX,
       tint: "bg-orange-100 text-orange-600",
     },
     {
-      label: "ค้างชำระวันนี้",
+      label: tt.tile.outstanding,
       value: `฿${fmt.format(t.outstanding)}`,
       icon: Coins,
       tint: "bg-rose-100 text-rose-600",
     },
     {
-      label: "ยกเลิกวันนี้",
+      label: tt.tile.cancelled,
       value: fmt.format(t.cancelledToday),
       icon: XCircle,
       tint: "bg-slate-100 text-slate-600",
@@ -160,6 +165,7 @@ function OperationsBody({ d }: { d: OwnerOperations }) {
  * it says 3.
  */
 function Attention({ d }: { d: OwnerOperations }) {
+  const tt = useMessages("owner").operations;
   const { noShow, unpaid, equipmentOut } = d.attention;
   const total = noShow.length + unpaid.length + equipmentOut.length;
 
@@ -167,7 +173,7 @@ function Attention({ d }: { d: OwnerOperations }) {
     return (
       <section className="flex items-center gap-2.5 rounded-2xl bg-white p-4 text-sm shadow-sm ring-1 ring-black/5">
         <CheckCircle2 className="size-5 shrink-0 text-brand" />
-        <span className="text-muted-foreground">ไม่มีอะไรค้าง — ลูกค้าเช็คอินครบ เก็บเงินครบ อุปกรณ์คืนครบ</span>
+        <span className="text-muted-foreground">{tt.allClear}</span>
       </section>
     );
   }
@@ -176,16 +182,16 @@ function Attention({ d }: { d: OwnerOperations }) {
     <section className="space-y-3 rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200">
       <h2 className="flex items-center gap-2 text-sm font-semibold text-amber-900">
         <AlertTriangle className="size-4" />
-        ต้องจัดการ {total} รายการ
+        {interp(tt.toHandleN, { n: total })}
       </h2>
 
       {noShow.length > 0 && (
-        <Group title="ถึงเวลาแล้วแต่ยังไม่มา" icon={UserX}>
+        <Group title={tt.groupNoShow} icon={UserX}>
           {noShow.map((b) => (
             <Row
               key={b.id}
               main={`${b.customerName ?? "—"} · ${b.courtName ?? "—"}`}
-              sub={`นัด ${b.start} น. · สายแล้ว ${b.lateMinutes} นาที`}
+              sub={interp(tt.apptLate, { start: b.start, n: b.lateMinutes })}
               right={
                 b.phone ? (
                   // A phone number that cannot be dialled from the screen it is
@@ -204,12 +210,12 @@ function Attention({ d }: { d: OwnerOperations }) {
       )}
 
       {unpaid.length > 0 && (
-        <Group title="ค้างชำระ" icon={Coins}>
+        <Group title={tt.groupUnpaid} icon={Coins}>
           {unpaid.map((b) => (
             <Row
               key={b.id}
               main={`${b.customerName ?? "—"} · ${b.courtName ?? "—"}`}
-              sub={`${b.start}–${b.end} · จ่ายแล้ว ฿${fmt.format(b.paidAmount)} จาก ฿${fmt.format(b.amount)}`}
+              sub={`${b.start}–${b.end} · ${interp(tt.paidOf, { paid: fmt.format(b.paidAmount), amount: fmt.format(b.amount) })}`}
               right={<span className="text-sm font-bold text-rose-600">฿{fmt.format(b.outstanding)}</span>}
             />
           ))}
@@ -217,18 +223,18 @@ function Attention({ d }: { d: OwnerOperations }) {
       )}
 
       {equipmentOut.length > 0 && (
-        <Group title="อุปกรณ์ยังไม่ได้คืน" icon={Dumbbell}>
+        <Group title={tt.groupEquip} icon={Dumbbell}>
           {equipmentOut.map((b) => (
             <Row
               key={b.id}
               main={`${b.customerName ?? "—"} · ${b.courtName ?? "—"}`}
-              sub={`เล่นจบ ${b.end} น. · ${b.items.map((i) => `${i.name} ${i.qty}`).join(" · ")}`}
+              sub={interp(tt.finishedItems, { end: b.end, items: b.items.map((i) => `${i.name} ${i.qty}`).join(" · ") })}
               right={
                 <Link
                   href={`/owner/bookings/list?q=${encodeURIComponent(b.code)}`}
                   className="rounded-lg bg-white px-2.5 py-1 text-xs font-medium ring-1 ring-black/10"
                 >
-                  รับคืน
+                  {tt.receiveBack}
                 </Link>
               }
             />
@@ -268,6 +274,7 @@ function Timeline({ d }: { d: OwnerOperations }) {
   // sometimes need them, but they are not things that will happen — and on a
   // busy day they outnumber the ones that will, pushing the real timeline off
   // the screen.
+  const tt = useMessages("owner").operations;
   const [showCancelled, setShowCancelled] = useState(false);
 
   const cancelled = d.timeline.filter((r) => r.phase === "cancelled").length;
@@ -279,8 +286,8 @@ function Timeline({ d }: { d: OwnerOperations }) {
     <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold">
-          Timeline วันนี้
-          <span className="ml-2 text-xs font-normal text-muted-foreground">{rows.length} รายการ</span>
+          {tt.timelineTitle}
+          <span className="ml-2 text-xs font-normal text-muted-foreground">{interp(tt.itemsUnit, { n: rows.length })}</span>
         </h2>
         <div className="flex items-center gap-3">
           {cancelled > 0 && (
@@ -289,17 +296,17 @@ function Timeline({ d }: { d: OwnerOperations }) {
               onClick={() => setShowCancelled((v) => !v)}
               className="text-xs font-medium text-muted-foreground hover:text-foreground"
             >
-              {showCancelled ? "ซ่อนที่ยกเลิก" : `แสดงที่ยกเลิก (${cancelled})`}
+              {showCancelled ? tt.hideCancelled : interp(tt.showCancelledN, { n: cancelled })}
             </button>
           )}
           <Link href="/owner/bookings" className="text-xs font-medium text-brand">
-            ดูทั้งหมด
+            {tt.seeAll}
           </Link>
         </div>
       </div>
 
       {rows.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">ไม่มีการจองวันนี้</p>
+        <p className="py-8 text-center text-sm text-muted-foreground">{tt.noBookingsToday}</p>
       ) : (
         <ul className="space-y-1">
           {rows.map((b, i) => (
@@ -316,7 +323,7 @@ function Timeline({ d }: { d: OwnerOperations }) {
                 <span className="min-w-0 flex-1 leading-tight">
                   <span className="block truncate text-sm font-medium">
                     {b.courtName}
-                    {b.checkedIn && <span className="ml-1.5 text-xs font-normal text-brand">เช็คอินแล้ว</span>}
+                    {b.checkedIn && <span className="ml-1.5 text-xs font-normal text-brand">{tt.checkedIn}</span>}
                   </span>
                   <span className="block truncate text-xs text-muted-foreground">
                     <CustomerName id={b.customerId} name={b.customerName} /> · {b.start.slice(0, 5)}–{b.end.slice(0, 5)}
@@ -324,7 +331,7 @@ function Timeline({ d }: { d: OwnerOperations }) {
                 </span>
                 {b.outstanding > 0 ? (
                   <span className="hidden shrink-0 text-sm font-semibold text-rose-600 sm:block">
-                    ค้าง ฿{fmt.format(b.outstanding)}
+                    {interp(tt.owedN, { n: fmt.format(b.outstanding) })}
                   </span>
                 ) : (
                   <span className="hidden shrink-0 text-sm font-semibold text-brand sm:block">
@@ -344,8 +351,9 @@ function Timeline({ d }: { d: OwnerOperations }) {
 }
 
 function NowLine({ at }: { at: string }) {
+  const tt = useMessages("owner").operations;
   return (
-    <div className="flex items-center gap-2 py-1.5" aria-label={`ตอนนี้ ${at} น.`}>
+    <div className="flex items-center gap-2 py-1.5" aria-label={interp(tt.nowAt, { at })}>
       <span className="rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold text-white tabular-nums">
         {at}
       </span>

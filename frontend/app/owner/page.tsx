@@ -38,6 +38,8 @@ import { StatusBadge } from "@/components/status-badge";
 import { CustomerLink } from "@/components/customer-link";
 import { CustomerName } from "@/components/customer-peek";
 import { Loading, ErrorState } from "@/components/states";
+import { useMessages } from "@/lib/i18n/context";
+import { fmt as interp } from "@/lib/i18n/format";
 
 const fmt = new Intl.NumberFormat("th-TH");
 const BRAND = "var(--brand-primary)";
@@ -46,15 +48,8 @@ const BRAND = "var(--brand-primary)";
 const STATUS_COLORS = { completed: "#16A34A", pending: "#F59E0B", cancelled: "#EF4444" };
 const SPORT_COLORS = ["#16A34A", "#0EA5E9", "#F59E0B", "#8B5CF6", "#EC4899", "#14B8A6"];
 
-const CHANNEL_LABELS: Record<string, string> = {
-  app: "แอปพลิเคชัน",
-  walk_in: "หน้าร้าน",
-  "walk-in": "หน้าร้าน",
-  walkin: "หน้าร้าน",
-  phone: "โทรศัพท์",
-  line: "LINE",
-  web: "เว็บไซต์",
-  staff: "พนักงาน",
+const CHANNEL_KEY: Record<string, "app" | "walkIn" | "phone" | "web" | "staff"> = {
+  app: "app", walk_in: "walkIn", "walk-in": "walkIn", walkin: "walkIn", phone: "phone", web: "web", staff: "staff",
 };
 
 // recentBookings.status arrives as a free-form string; map it to a BookingStatus
@@ -90,9 +85,6 @@ function useSportLabel() {
 
   return (key: string) => data?.find((s) => s.key === key)?.name ?? key;
 }
-function channelLabel(c: string) {
-  return CHANNEL_LABELS[c] ?? c;
-}
 
 // ---- Stat cards -----------------------------------------------------------
 
@@ -107,6 +99,7 @@ type StatCardProps = {
 };
 
 function StatCard({ label, value, icon: Icon, tint, series, stroke, delta }: StatCardProps) {
+  const t = useMessages("owner").dashboard;
   const hasDelta = typeof delta === "number";
   const up = (delta ?? 0) >= 0;
   return (
@@ -125,7 +118,7 @@ function StatCard({ label, value, icon: Icon, tint, series, stroke, delta }: Sta
       <div className="mt-3 text-sm text-muted-foreground">{label}</div>
       <div className="mt-0.5 text-2xl font-bold tracking-tight">{value}</div>
       <div className="mt-2 flex items-end justify-between gap-2">
-        <span className="text-[11px] text-muted-foreground">{hasDelta ? "จากเมื่อวาน" : ""}</span>
+        <span className="text-[11px] text-muted-foreground">{hasDelta ? t.vsYesterday : ""}</span>
         <div className="h-8 w-20">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={series} margin={{ top: 4, right: 2, bottom: 0, left: 2 }}>
@@ -175,11 +168,13 @@ export default function OwnerDashboardPage() {
     queryFn: ownerApi.getDashboard,
   });
 
+  const t = useMessages("owner").dashboard;
+
   return (
     <div className="space-y-5">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard 👋</h1>
-        <p className="text-sm text-muted-foreground">ภาพรวมธุรกิจของคุณวันนี้</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t.title} 👋</h1>
+        <p className="text-sm text-muted-foreground">{t.subtitle}</p>
       </header>
 
       <PlatformAnnouncements />
@@ -219,14 +214,16 @@ function PlatformAnnouncements() {
 }
 
 function DashboardBody({ d }: { d: OwnerDashboard }) {
+  const t = useMessages("owner").dashboard;
   const sportLabel = useSportLabel();
+  const channelName = (c: string) => (c === "line" ? "LINE" : t.channel[CHANNEL_KEY[c]] ?? c);
   const series = d.revenueSeries ?? [];
   const totalRevenue = series.reduce((sum, p) => sum + p.revenue, 0);
 
   // Real day-over-day deltas come from the backend; utilization/wallet have none.
   const stats: StatCardProps[] = [
     {
-      label: "รายได้วันนี้",
+      label: t.stat.revenue,
       value: `฿${fmt.format(d.todayRevenue)}`,
       icon: TrendingUp,
       tint: "bg-brand/10 text-brand",
@@ -235,8 +232,8 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
       delta: d.deltas?.todayRevenue,
     },
     {
-      label: "การจองวันนี้",
-      value: `${fmt.format(d.todayBookings)} รายการ`,
+      label: t.stat.bookings,
+      value: interp(t.unitBookings, { n: fmt.format(d.todayBookings) }),
       icon: CalendarCheck,
       tint: "bg-sky-100 text-sky-600",
       series,
@@ -244,8 +241,8 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
       delta: d.deltas?.todayBookings,
     },
     {
-      label: "ลูกค้าใหม่วันนี้",
-      value: `${fmt.format(d.newCustomersToday)} คน`,
+      label: t.stat.newCustomers,
+      value: interp(t.unitPeople, { n: fmt.format(d.newCustomersToday) }),
       icon: Users,
       tint: "bg-violet-100 text-violet-600",
       series,
@@ -253,7 +250,7 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
       delta: d.deltas?.newCustomersToday,
     },
     {
-      label: "อัตราการใช้งานสนาม",
+      label: t.stat.utilization,
       value: `${d.utilizationRate}%`,
       icon: CalendarDays,
       tint: "bg-amber-100 text-amber-600",
@@ -261,7 +258,7 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
       stroke: "#F59E0B",
     },
     {
-      label: "ยอดเงินในวอลเล็ต",
+      label: t.stat.wallet,
       value: `฿${fmt.format(d.walletBalance)}`,
       icon: Wallet,
       tint: "bg-emerald-100 text-emerald-600",
@@ -273,9 +270,9 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
   // Donut: bookings by status.
   const sb = d.statusBreakdown;
   const statusData = [
-    { key: "completed", label: "เสร็จสิ้น", value: sb.completed, color: STATUS_COLORS.completed },
-    { key: "pending", label: "รอชำระเงิน", value: sb.pending, color: STATUS_COLORS.pending },
-    { key: "cancelled", label: "ยกเลิก", value: sb.cancelled, color: STATUS_COLORS.cancelled },
+    { key: "completed", label: t.status.completed, value: sb.completed, color: STATUS_COLORS.completed },
+    { key: "pending", label: t.status.pending, value: sb.pending, color: STATUS_COLORS.pending },
+    { key: "cancelled", label: t.status.cancelled, value: sb.cancelled, color: STATUS_COLORS.cancelled },
   ];
   const statusTotal = sb.total || statusData.reduce((s, x) => s + x.value, 0);
 
@@ -292,26 +289,26 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
   const ai = d.actionItems;
   const actions = [
     {
-      label: "สลิปรอตรวจสอบ",
+      label: t.action.pendingSlips,
       count: ai.pendingSlips,
       icon: ReceiptText,
       tint: "bg-amber-100 text-amber-600",
       href: "/owner/payments" as const,
     },
     {
-      label: "ลูกค้าใกล้ถึงเวลา",
+      label: t.action.nearTime,
       count: ai.nearTime,
       icon: Clock,
       tint: "bg-sky-100 text-sky-600",
     },
     {
-      label: "การจองวันนี้",
+      label: t.action.todayBookings,
       count: ai.todayBookings,
       icon: CalendarCheck,
       tint: "bg-brand/10 text-brand",
     },
     {
-      label: "การจองยกเลิก",
+      label: t.action.cancelledToday,
       count: ai.cancelledToday,
       icon: XCircle,
       tint: "bg-red-100 text-red-600",
@@ -335,9 +332,9 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Revenue area chart */}
         <CardShell
-          title="รายได้รวม"
+          title={t.totalRevenue}
           className="lg:col-span-1"
-          action={<span className="text-xs text-muted-foreground">7 วันล่าสุด</span>}
+          action={<span className="text-xs text-muted-foreground">{t.last7Days}</span>}
         >
           <div className="text-2xl font-bold tracking-tight">฿{fmt.format(totalRevenue)}</div>
           <div className="mt-3 h-40">
@@ -358,7 +355,7 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
                   minTickGap={8}
                 />
                 <Tooltip
-                  formatter={(v) => [`฿${fmt.format(Number(v))}`, "รายได้"]}
+                  formatter={(v) => [`฿${fmt.format(Number(v))}`, t.revenueTip]}
                   contentStyle={{ borderRadius: 12, border: "1px solid rgba(0,0,0,0.08)", fontSize: 12 }}
                 />
                 <Area
@@ -374,7 +371,7 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
         </CardShell>
 
         {/* Status donut */}
-        <CardShell title="การจองตามสถานะ">
+        <CardShell title={t.byStatus}>
           <div className="flex items-center gap-4">
             <div className="relative h-36 w-36 shrink-0">
               <ResponsiveContainer width="100%" height="100%">
@@ -397,7 +394,7 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
               </ResponsiveContainer>
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-xl font-bold">{fmt.format(statusTotal)}</span>
-                <span className="text-[11px] text-muted-foreground">รายการ</span>
+                <span className="text-[11px] text-muted-foreground">{t.itemsUnit}</span>
               </div>
             </div>
             <ul className="flex-1 space-y-2 text-sm">
@@ -418,15 +415,15 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
 
         {/* Today calendar */}
         <CardShell
-          title="ปฏิทินวันนี้"
+          title={t.todayCalendar}
           action={
             <Link href="/owner/bookings" className="text-xs font-medium text-brand">
-              ดูทั้งหมด
+              {t.seeAll}
             </Link>
           }
         >
           {recent.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">ไม่มีรายการวันนี้</p>
+            <p className="py-6 text-center text-sm text-muted-foreground">{t.noToday}</p>
           ) : (
             <ul className="space-y-2.5">
               {recent.slice(0, 5).map((b) => (
@@ -451,7 +448,7 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
       {/* Row: channels + sport donut + action items */}
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Booking channels */}
-        <CardShell title="ช่องทางการจอง">
+        <CardShell title={t.channelsTitle}>
           {channels.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">ไม่มีข้อมูล</p>
           ) : (
@@ -461,7 +458,7 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
                 return (
                   <li key={c.channel}>
                     <div className="mb-1 flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">{channelLabel(c.channel)}</span>
+                      <span className="text-muted-foreground">{channelName(c.channel)}</span>
                       <span className="font-semibold">
                         {fmt.format(c.count)}
                         <span className="ml-1 text-xs font-normal text-muted-foreground">
@@ -483,7 +480,7 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
         </CardShell>
 
         {/* Sport sales donut */}
-        <CardShell title="ยอดขายตามประเภทกีฬา">
+        <CardShell title={t.sportSales}>
           {sports.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">ไม่มีข้อมูล</p>
           ) : (
@@ -511,7 +508,7 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
                 </ResponsiveContainer>
                 <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                   <span className="text-sm font-bold">฿{fmt.format(sportTotal)}</span>
-                  <span className="text-[11px] text-muted-foreground">รวม</span>
+                  <span className="text-[11px] text-muted-foreground">{t.total}</span>
                 </div>
               </div>
               <ul className="flex-1 space-y-2 text-sm">
@@ -531,7 +528,7 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
         </CardShell>
 
         {/* Action items */}
-        <CardShell title="รายการที่ต้องดำเนินการ">
+        <CardShell title={t.actionItems}>
           <ul className="space-y-2">
             {actions.map((a) => {
               const inner = (
@@ -563,15 +560,15 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
 
       {/* Recent bookings */}
       <CardShell
-        title="การจองล่าสุด"
+        title={t.recent}
         action={
           <Link href="/owner/bookings" className="text-xs font-medium text-brand">
-            ดูทั้งหมด
+            {t.seeAll}
           </Link>
         }
       >
         {recent.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">ไม่มีรายการจอง</p>
+          <p className="py-6 text-center text-sm text-muted-foreground">{t.noBookings}</p>
         ) : (
           <>
             {/* Mobile cards */}
@@ -598,11 +595,11 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
               <table className="w-full text-sm">
                 <thead className="text-left text-xs font-medium text-muted-foreground">
                   <tr className="border-b border-black/5">
-                    <th className="px-3 py-2">เวลา</th>
-                    <th className="px-3 py-2">ลูกค้า</th>
-                    <th className="px-3 py-2">สนาม</th>
-                    <th className="px-3 py-2 text-right">ยอดเงิน</th>
-                    <th className="px-3 py-2">สถานะ</th>
+                    <th className="px-3 py-2">{t.col.time}</th>
+                    <th className="px-3 py-2">{t.col.customer}</th>
+                    <th className="px-3 py-2">{t.col.court}</th>
+                    <th className="px-3 py-2 text-right">{t.col.amount}</th>
+                    <th className="px-3 py-2">{t.col.status}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/5">
@@ -652,6 +649,7 @@ function CourtBoardPanel() {
     refetchInterval: 30_000,
     refetchOnWindowFocus: true,
   });
+  const t = useMessages("owner").dashboard;
 
   if (isLoading) return <Loading rows={2} />;
   if (!data || data.branches.length === 0) return null;
@@ -663,13 +661,13 @@ function CourtBoardPanel() {
     <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="font-semibold">
-          สถานะสด
+          {t.live}
           <span className="ml-2 text-sm font-normal text-muted-foreground">
-            กำลังเล่น {playing} / {courts.length} คอร์ท
+            {interp(t.playingN, { n: playing, m: courts.length })}
           </span>
         </h2>
         <span className="text-xs text-muted-foreground">
-          เวลาสนาม {data.now} น. · อัปเดตทุก 30 วินาที
+          {interp(t.venueTime, { now: data.now })}
         </span>
       </div>
 
@@ -693,6 +691,7 @@ function CourtBoardPanel() {
 }
 
 function CourtTile({ court }: { court: CourtBoard["branches"][number]["courts"][number] }) {
+  const t = useMessages("owner").dashboard;
   const playing = court.status === "playing";
   // Booked but nobody scanned in: the one the desk should walk over and check.
   const unchecked = playing && !court.current?.checkedIn;
@@ -707,32 +706,32 @@ function CourtTile({ court }: { court: CourtBoard["branches"][number]["courts"][
         <span className="truncate text-sm font-semibold">{court.name}</span>
         {playing ? (
           <span className="shrink-0 rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white tabular-nums">
-            เหลือ {court.current!.minutesLeft} น.
+            {interp(t.minsLeft, { n: court.current!.minutesLeft })}
           </span>
         ) : (
-          <span className="shrink-0 text-[11px] font-medium text-muted-foreground">ว่าง</span>
+          <span className="shrink-0 text-[11px] font-medium text-muted-foreground">{t.free}</span>
         )}
       </div>
 
       {court.current ? (
         <div className="mt-1 truncate text-xs text-muted-foreground">
           <CustomerName id={court.current.customerId} name={court.current.customerName} fallback="—" /> · {court.current.start}–{court.current.end}
-          {unchecked && <span className="text-brand-warning"> · ยังไม่เช็คอิน</span>}
+          {unchecked && <span className="text-brand-warning">{t.notCheckedIn}</span>}
         </div>
       ) : (
-        <div className="mt-1 text-xs text-muted-foreground">ไม่มีใครใช้อยู่</div>
+        <div className="mt-1 text-xs text-muted-foreground">{t.noOne}</div>
       )}
 
       {/* The queue. On a free court this is what stops staff selling an hour
           that is already sold. */}
       {court.next ? (
         <div className="mt-2 border-t border-black/5 pt-2 text-[11px] text-muted-foreground">
-          คิวถัดไป {court.next.start} · <CustomerName id={court.next.customerId} name={court.next.customerName} fallback="—" />
-          <span className="text-foreground"> (อีก {court.next.minutesUntil} น.)</span>
+          {interp(t.nextQueue, { time: court.next.start })}<CustomerName id={court.next.customerId} name={court.next.customerName} fallback="—" />
+          <span className="text-foreground">{interp(t.inMins, { n: court.next.minutesUntil })}</span>
         </div>
       ) : (
         <div className="mt-2 border-t border-black/5 pt-2 text-[11px] text-muted-foreground">
-          ไม่มีคิวถัดไป
+          {t.noQueue}
         </div>
       )}
     </div>
