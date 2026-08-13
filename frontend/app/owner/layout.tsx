@@ -47,9 +47,11 @@ import {
 import type { User } from "@/lib/types";
 import { getOwnerToken, ownerApi } from "@/lib/api/owner";
 import { CustomerPeekProvider } from "@/components/customer-peek";
+import { useMessages } from "@/lib/i18n/context";
+import { fmt } from "@/lib/i18n/format";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 type NavItem = {
-  label: string;
   href: string;
   icon: LucideIcon;
   count?: string;
@@ -75,78 +77,78 @@ type NavItem = {
  * page still has its own entry, because that is how this back office is meant
  * to be navigated. The headings are the only new thing.
  */
-type NavGroup = { title?: string; items: NavItem[] };
+type NavGroup = { titleKey?: string; items: NavItem[] };
 
 const NAV_GROUPS: NavGroup[] = [
   {
     // No heading: these two are where the day starts, and a label above them
     // would only push them down.
     items: [
-      { label: "ภาพรวม", href: "/owner", icon: LayoutDashboard },
-      { label: "ศูนย์ปฏิบัติการ", href: "/owner/operations", icon: Activity, count: "6" },
+      { href: "/owner", icon: LayoutDashboard },
+      { href: "/owner/operations", icon: Activity, count: "6" },
     ],
   },
   {
-    title: "หน้างานประจำวัน",
+    titleKey: "daily",
     items: [
-      { label: "การจอง", href: "/owner/bookings", icon: CalendarCheck },
-      { label: "รายการจอง", href: "/owner/bookings/list", icon: ListChecks },
+      { href: "/owner/bookings", icon: CalendarCheck },
+      { href: "/owner/bookings/list", icon: ListChecks },
       // Named after what staff do here, not after the category it belongs to.
       // As "การชำระเงิน" it read like month-end admin and got filed with the
       // money pages — while the screen itself is titled "ตรวจสลิป" and is
       // opened all day between a customer paying and being let onto a court.
-      { label: "ตรวจสลิป", href: "/owner/payments", icon: FileCheck2 },
-      { label: "สแกน / เช็คอิน", href: "/owner/checkin", icon: QrCode },
-      { label: "ขายหน้าร้าน", href: "/owner/pos", icon: ShoppingCart, feature: "pos" },
-      { label: "ประวัติการขาย", href: "/owner/pos/sales", icon: ReceiptText, feature: "pos" },
+      { href: "/owner/payments", icon: FileCheck2 },
+      { href: "/owner/checkin", icon: QrCode },
+      { href: "/owner/pos", icon: ShoppingCart, feature: "pos" },
+      { href: "/owner/pos/sales", icon: ReceiptText, feature: "pos" },
     ],
   },
   {
-    title: "ลูกค้า",
+    titleKey: "customers",
     items: [
-      { label: "ลูกค้า", href: "/owner/customers", icon: Users },
-      { label: "เครดิตลูกค้า", href: "/owner/customer-credit", icon: Coins, feature: "wallet" },
-      { label: "สมาชิก", href: "/owner/membership", icon: Crown, feature: "membership" },
-      { label: "คะแนนสะสม", href: "/owner/points", icon: Sparkles, feature: "membership" },
-      { label: "CRM", href: "/owner/crm", icon: HeartHandshake, feature: "crm" },
+      { href: "/owner/customers", icon: Users },
+      { href: "/owner/customer-credit", icon: Coins, feature: "wallet" },
+      { href: "/owner/membership", icon: Crown, feature: "membership" },
+      { href: "/owner/points", icon: Sparkles, feature: "membership" },
+      { href: "/owner/crm", icon: HeartHandshake, feature: "crm" },
     ],
   },
   {
-    title: "การตลาด",
+    titleKey: "marketing",
     items: [
       // Coupons live inside this page as a tab now — they are the rule behind
       // the banner, and two menus meant writing the words on one screen and
       // the condition on another.
-      { label: "โปรโมชั่น", href: "/owner/promotions", icon: Tag },
-      { label: "แพ็กเกจชั่วโมง", href: "/owner/packages", icon: Ticket, feature: "package" },
-      { label: "ยิงโปร LINE", href: "/owner/broadcast", icon: Send, feature: "broadcast" },
-      { label: "ข้อความตอบกลับ LINE", href: "/owner/line-templates", icon: MessageSquareText },
-      { label: "แบนเนอร์/ต้อนรับ", href: "/owner/banner", icon: Megaphone, feature: "banner" },
+      { href: "/owner/promotions", icon: Tag },
+      { href: "/owner/packages", icon: Ticket, feature: "package" },
+      { href: "/owner/broadcast", icon: Send, feature: "broadcast" },
+      { href: "/owner/line-templates", icon: MessageSquareText },
+      { href: "/owner/banner", icon: Megaphone, feature: "banner" },
     ],
   },
   {
-    title: "เงิน",
+    titleKey: "money",
     items: [
-      { label: "คืนเงิน", href: "/owner/refunds", icon: Undo2 },
-      { label: "รายงาน", href: "/owner/reports", icon: BarChart3 },
+      { href: "/owner/refunds", icon: Undo2 },
+      { href: "/owner/reports", icon: BarChart3 },
     ],
   },
   {
     // Set up once, then rarely opened again — so it sits below the daily work.
-    title: "สนาม & สินค้า",
+    titleKey: "venueProducts",
     items: [
-      { label: "สนาม", href: "/owner/branches", icon: Store },
-      { label: "คอร์ท", href: "/owner/courts", icon: LayoutGrid },
-      { label: "สินค้า", href: "/owner/products", icon: Package, feature: "pos" },
-      { label: "อุปกรณ์ให้เช่า", href: "/owner/rentals", icon: Dumbbell, feature: "rental" },
+      { href: "/owner/branches", icon: Store },
+      { href: "/owner/courts", icon: LayoutGrid },
+      { href: "/owner/products", icon: Package, feature: "pos" },
+      { href: "/owner/rentals", icon: Dumbbell, feature: "rental" },
     ],
   },
   {
-    title: "ระบบ",
+    titleKey: "system",
     items: [
-      { label: "พนักงาน", href: "/owner/staff", icon: UserCog },
-      { label: "ค่าบริการระบบ", href: "/owner/billing", icon: CreditCard },
-      { label: "ตั้งค่า", href: "/owner/settings", icon: Settings },
+      { href: "/owner/staff", icon: UserCog },
+      { href: "/owner/billing", icon: CreditCard },
+      { href: "/owner/settings", icon: Settings },
     ],
   },
 ];
@@ -193,6 +195,7 @@ function SidebarContent({
    * While the subscription is still loading nothing is hidden — flashing the
    * full menu and then removing half of it reads as a bug.
    */
+  const t = useMessages("owner");
   const groups = useMemo<NavGroup[]>(() => {
     const features = sub?.features;
     if (!features) return NAV_GROUPS;
@@ -216,12 +219,12 @@ function SidebarContent({
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3" aria-label="เมนูหลัก">
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3" aria-label={t.chrome.mainMenu}>
         {groups.map((group, i) => (
-          <div key={group.title ?? "top"} className={group.title ? "pt-3" : undefined}>
-            {group.title && (
+          <div key={group.titleKey ?? "top"} className={group.titleKey ? "pt-3" : undefined}>
+            {group.titleKey && (
               <h2 className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/70">
-                {group.title}
+                {t.section[group.titleKey as keyof typeof t.section]}
               </h2>
             )}
             <div className="space-y-1">
@@ -240,7 +243,7 @@ function SidebarContent({
                     }`}
                   >
                     <item.icon className="size-5 shrink-0" />
-                    <span className="flex-1">{item.label}</span>
+                    <span className="flex-1">{t.nav[item.href as keyof typeof t.nav]}</span>
                     {item.count != null && (
                       <span
                         className={`min-w-5 rounded-full px-1.5 text-center text-xs font-bold ${
@@ -285,7 +288,7 @@ function SidebarContent({
                           : "bg-emerald-100 text-emerald-700"
                     }`}
                   >
-                    {sub.daysRemaining < 0 ? "หมดอายุแล้ว" : `เหลือ ${sub.daysRemaining} วัน`}
+                    {sub.daysRemaining < 0 ? t.chrome.expired : fmt(t.chrome.daysLeft, { n: sub.daysRemaining })}
                   </span>
                 </div>
               )}
@@ -301,8 +304,8 @@ function SidebarContent({
         >
           <Headphones className="size-5 shrink-0" />
           <span className="leading-tight">
-            <span className="block font-medium text-foreground">ต้องการความช่วยเหลือ?</span>
-            <span className="block text-xs text-muted-foreground">ติดต่อฝ่ายสนับสนุน</span>
+            <span className="block font-medium text-foreground">{t.chrome.needHelp}</span>
+            <span className="block text-xs text-muted-foreground">{t.chrome.contactSupport}</span>
           </span>
         </Link>
       </div>
@@ -350,6 +353,7 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useOwnerToastSport(!isLoginRoute);
+  const tc = useMessages("owner").chrome;
 
   // Guard runs client-side; the login route is exempt to avoid a redirect loop.
   useEffect(() => {
@@ -394,14 +398,14 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
         <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true">
           <button
             type="button"
-            aria-label="ปิดเมนู"
+            aria-label={tc.closeMenu}
             className="absolute inset-0 bg-black/40"
             onClick={() => setMobileOpen(false)}
           />
           <div className="absolute inset-y-0 left-0 flex w-72 max-w-[80%] flex-col bg-white shadow-xl">
             <button
               type="button"
-              aria-label="ปิดเมนู"
+              aria-label={tc.closeMenu}
               onClick={() => setMobileOpen(false)}
               className="absolute right-3 top-3 grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-app"
             >
@@ -418,7 +422,7 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
         <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-black/5 bg-white px-4 py-3">
           <button
             type="button"
-            aria-label="เปิดเมนู"
+            aria-label={tc.openMenu}
             onClick={() => setMobileOpen(true)}
             className="grid size-9 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-app md:hidden"
           >
@@ -426,6 +430,7 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
           </button>
 
           <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+            <LanguageSwitcher className="mr-1" />
             {/* Org switcher (static) */}
             <button
               type="button"
@@ -442,7 +447,7 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
             {/* Chat */}
             <button
               type="button"
-              aria-label="ข้อความ"
+              aria-label={tc.messages}
               className="hidden size-9 place-items-center rounded-lg text-muted-foreground transition hover:bg-app sm:grid"
             >
               <MessageSquare className="size-5" />
@@ -460,7 +465,7 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
               <button
                 type="button"
                 onClick={handleLogout}
-                aria-label="ออกจากระบบ"
+                aria-label={tc.logout}
                 className="ml-1 grid size-7 place-items-center rounded-lg text-muted-foreground transition hover:bg-app hover:text-brand-danger"
               >
                 <LogOut className="size-4" />
@@ -490,6 +495,7 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
 function ExpiryGate({ pathname, children }: { pathname: string; children: React.ReactNode }) {
   const { data, isLoading } = useQuery({ queryKey: ["owner", "billing"], queryFn: ownerApi.getBilling });
 
+  const tc = useMessages("owner").chrome;
   const onBilling = pathname.startsWith("/owner/billing");
   if (isLoading || onBilling || !data?.subscription?.isExpired) return <>{children}</>;
 
@@ -498,17 +504,17 @@ function ExpiryGate({ pathname, children }: { pathname: string; children: React.
       <div className="mx-auto grid size-16 place-items-center rounded-2xl bg-red-50 text-red-600">
         <Lock className="size-8" />
       </div>
-      <h1 className="mt-5 text-xl font-bold">แพ็กเกจหมดอายุ</h1>
+      <h1 className="mt-5 text-xl font-bold">{tc.planExpiredTitle}</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        ระบบจัดการสนามถูกล็อกไว้ชั่วคราว
+        {tc.planExpiredBody1}
         <br />
-        <b className="text-foreground">หน้าจองของลูกค้ายังใช้งานได้ตามปกติ</b>
+        <b className="text-foreground">{tc.planExpiredBody2}</b>
       </p>
       <Link
         href="/owner/billing"
         className="mt-6 inline-flex h-11 items-center rounded-xl bg-brand px-6 text-sm font-semibold text-brand-foreground transition hover:bg-brand/90"
       >
-        ต่ออายุแพ็กเกจ
+        {tc.renewPlan}
       </Link>
     </div>
   );
@@ -517,11 +523,12 @@ function ExpiryGate({ pathname, children }: { pathname: string; children: React.
 // Bell with a live badge of unread platform announcements; links to the dashboard.
 function NotifBell() {
   const { data } = useQuery({ queryKey: ["owner", "announcements"], queryFn: ownerApi.getAnnouncements });
+  const tc = useMessages("owner").chrome;
   const count = data?.length ?? 0;
   return (
     <Link
       href="/owner"
-      aria-label="ประกาศจากระบบ"
+      aria-label={tc.systemAnnounce}
       className="relative grid size-9 place-items-center rounded-lg text-muted-foreground transition hover:bg-app"
     >
       <Bell className="size-5" />

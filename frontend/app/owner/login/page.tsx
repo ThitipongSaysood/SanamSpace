@@ -5,6 +5,8 @@ import { ShieldCheck } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ownerApi, OwnerApiError } from "@/lib/api/owner";
+import { useMessages } from "@/lib/i18n/context";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 export default function OwnerLoginPage() {
   const router = useRouter();
@@ -12,6 +14,7 @@ export default function OwnerLoginPage() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const t = useMessages("owner").login;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -23,17 +26,18 @@ export default function OwnerLoginPage() {
     } catch (err) {
       setError(
         err instanceof OwnerApiError && err.status === 429
-          ? "พยายามเข้าสู่ระบบหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่"
+          ? t.tooMany
           : err instanceof OwnerApiError && (err.status === 401 || err.status === 422)
-            ? "อีเมลหรือรหัสผ่านไม่ถูกต้อง"
-            : "เข้าสู่ระบบไม่สำเร็จ ลองใหม่อีกครั้ง"
+            ? t.badCreds
+            : t.failed
       );
       setBusy(false);
     }
   }
 
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center bg-app px-6 py-12">
+    <main className="relative flex min-h-dvh flex-col items-center justify-center bg-app px-6 py-12">
+      <div className="absolute right-4 top-4"><LanguageSwitcher /></div>
       <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-sm ring-1 ring-black/5">
         <div className="flex flex-col items-center gap-3 text-center">
           <div className="grid size-16 place-items-center rounded-2xl bg-brand text-brand-foreground shadow-sm">
@@ -41,13 +45,13 @@ export default function OwnerLoginPage() {
           </div>
           <div>
             <div className="text-xl font-bold tracking-tight">SanamSpace · Owner</div>
-            <p className="text-sm text-muted-foreground">ระบบจัดการสำหรับเจ้าของสนาม</p>
+            <p className="text-sm text-muted-foreground">{t.subtitle}</p>
           </div>
         </div>
 
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-1.5">
-            <Label htmlFor="owner-email">อีเมล</Label>
+            <Label htmlFor="owner-email">{t.email}</Label>
             <Input
               id="owner-email"
               type="email"
@@ -60,7 +64,7 @@ export default function OwnerLoginPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="owner-password">รหัสผ่าน</Label>
+            <Label htmlFor="owner-password">{t.password}</Label>
             <Input
               id="owner-password"
               type="password"
@@ -80,12 +84,12 @@ export default function OwnerLoginPage() {
             disabled={busy}
             className="h-11 w-full rounded-xl bg-brand text-base font-semibold text-brand-foreground transition hover:bg-brand/90 disabled:opacity-60"
           >
-            {busy ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
+            {busy ? t.submitting : t.submit}
           </button>
         </form>
 
         <p className="mt-5 text-center text-xs text-muted-foreground">
-          เดโม่: owner@everyday.test / password
+          {t.demo}
         </p>
       </div>
     </main>
