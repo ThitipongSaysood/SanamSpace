@@ -3,8 +3,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Minus } from "lucide-react";
 import { superAdminApi } from "@/lib/api/superadmin";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
+import { useMessages } from "@/lib/i18n/context";
 
 export default function AdminFeaturesPage() {
+  const t = useMessages("admin").features;
   const featuresQ = useQuery({ queryKey: ["admin", "features"], queryFn: superAdminApi.getFeatures });
   const qc = useQueryClient();
   const plansQ = useQuery({ queryKey: ["admin", "plans"], queryFn: superAdminApi.getPlans });
@@ -26,13 +28,13 @@ export default function AdminFeaturesPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold">ฟีเจอร์ &amp; โมดูล</h1>
-        <p className="text-sm text-muted-foreground">เปิด/ปิดฟีเจอร์ในแต่ละแพ็กเกจ</p>
+        <h1 className="text-xl font-bold">{t.title}</h1>
+        <p className="text-sm text-muted-foreground">{t.subtitle}</p>
       </div>
 
       {isLoading && <Loading />}
       {featuresQ.isError && <ErrorState onRetry={() => featuresQ.refetch()} />}
-      {features.length === 0 && !isLoading && <EmptyState message="ยังไม่มีฟีเจอร์" />}
+      {features.length === 0 && !isLoading && <EmptyState message={t.empty} />}
 
       {features.length > 0 && (
         <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
@@ -40,7 +42,7 @@ export default function AdminFeaturesPage() {
             <table className="stack-table w-full md:min-w-[560px] text-sm">
               <thead className="bg-app text-xs font-medium text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-3 text-left">ฟีเจอร์</th>
+                  <th className="px-4 py-3 text-left">{t.colFeature}</th>
                   {plans.map((p) => (
                     <th key={p.id} className="px-4 py-3 text-center">
                       {p.name}
@@ -51,7 +53,7 @@ export default function AdminFeaturesPage() {
               <tbody className="divide-y divide-black/5">
                 {features.map((f) => (
                   <tr key={f.id} className="hover:bg-app/40">
-                    <td data-label="ฟีเจอร์" className="px-4 py-3">
+                    <td data-label={t.colFeature} className="px-4 py-3">
                       <div className="font-medium">{f.name}</div>
                       <div className="font-mono text-[11px] text-muted-foreground">{f.code}</div>
                     </td>

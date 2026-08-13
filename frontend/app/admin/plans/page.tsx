@@ -10,6 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
+import { useMessages } from "@/lib/i18n/context";
+import { fmt as interp } from "@/lib/i18n/format";
+import type { Messages } from "@/lib/i18n/messages";
 
 const fmt = new Intl.NumberFormat("th-TH");
 const PLANS_KEY = ["admin", "plans"];
@@ -23,8 +26,8 @@ function planColor(name: string) {
   return "text-foreground";
 }
 
-function limit(v: number | null) {
-  return v == null ? "ไม่จำกัด" : fmt.format(v);
+function limit(v: number | null, t: Messages["admin"]["plans"]) {
+  return v == null ? t.unlimited : fmt.format(v);
 }
 
 function Toggle({ on, onClick, disabled }: { on: boolean; onClick: () => void; disabled?: boolean }) {
@@ -43,6 +46,7 @@ function Toggle({ on, onClick, disabled }: { on: boolean; onClick: () => void; d
 }
 
 export default function AdminPlansPage() {
+  const t = useMessages("admin").plans;
   const qc = useQueryClient();
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: PLANS_KEY, queryFn: superAdminApi.getPlans });
   const [modal, setModal] = useState<Plan | "new" | null>(null);
@@ -59,34 +63,34 @@ export default function AdminPlansPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold">แพ็กเกจ</h1>
-          <p className="text-sm text-muted-foreground">สร้างและจัดการแพ็กเกจการสมัครใช้งาน</p>
+          <h1 className="text-xl font-bold">{t.title}</h1>
+          <p className="text-sm text-muted-foreground">{t.subtitle}</p>
         </div>
         <Button type="button" onClick={() => setModal("new")}>
-          <Plus className="size-4" /> สร้างแพ็กเกจ
+          <Plus className="size-4" /> {t.create}
         </Button>
       </div>
 
       {isLoading && <Loading />}
       {isError && <ErrorState onRetry={() => refetch()} />}
-      {data && data.length === 0 && <EmptyState message="ยังไม่มีแพ็กเกจ" />}
+      {data && data.length === 0 && <EmptyState message={t.empty} />}
 
       {data && data.length > 0 && (
         <div className="space-y-3">
           {data.map((p) => {
             const count = p.featureCodes.length;
-            const featLabel = count > 0 && count === maxFeatures ? "ทุกฟีเจอร์" : `${count} ฟีเจอร์`;
+            const featLabel = count > 0 && count === maxFeatures ? t.allFeatures : interp(t.featuresN, { n: count });
             return (
               <div key={p.id} className="flex items-center gap-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
                 <div className="min-w-0 flex-1">
                   <div className={`text-lg font-bold ${planColor(p.name)}`}>{p.name}</div>
                   <div className="truncate text-sm text-muted-foreground">
-                    สาขา {limit(p.branchLimit)} · คอร์ท {limit(p.courtLimit)} · staff {limit(p.staffLimit)}
+                    {interp(t.limitsLine, { branch: limit(p.branchLimit, t), court: limit(p.courtLimit, t), staff: limit(p.staffLimit, t) })}
                   </div>
                 </div>
                 <div className="hidden text-right sm:block">
-                  <div className="font-bold">{p.price === 0 ? "ติดต่อ" : `฿${fmt.format(p.price)}`}</div>
-                  <div className="text-xs text-muted-foreground">/ {p.interval === "year" ? "ปี" : "เดือน"}</div>
+                  <div className="font-bold">{p.price === 0 ? t.contact : `฿${fmt.format(p.price)}`}</div>
+                  <div className="text-xs text-muted-foreground">/ {p.interval === "year" ? t.perYear : t.perMonth}</div>
                 </div>
                 <span className="hidden rounded-full bg-app px-3 py-1 text-xs font-medium text-muted-foreground md:inline-block">
                   {featLabel}
@@ -94,7 +98,7 @@ export default function AdminPlansPage() {
                 <Toggle on={p.isActive} onClick={() => toggleM.mutate(p)} disabled={toggleM.isPending} />
                 <button
                   type="button"
-                  aria-label="แก้ไข"
+                  aria-label={t.editAria}
                   onClick={() => setModal(p)}
                   className="grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-app hover:text-brand"
                 >
@@ -112,6 +116,7 @@ export default function AdminPlansPage() {
 }
 
 function PlanModal({ plan, onClose }: { plan?: Plan; onClose: () => void }) {
+  const t = useMessages("admin").plans;
   const qc = useQueryClient();
   const featuresQ = useQuery({ queryKey: ["admin", "features"], queryFn: superAdminApi.getFeatures });
   const [form, setForm] = useState({
@@ -159,47 +164,47 @@ function PlanModal({ plan, onClose }: { plan?: Plan; onClose: () => void }) {
 
   return (
     <Modal
-      title={plan ? "แก้ไขแพ็กเกจ" : "สร้างแพ็กเกจใหม่"}
+      title={plan ? t.editTitle : t.createTitle}
       onClose={onClose}
       footer={
         <>
           <Button type="button" variant="outline" onClick={onClose}>
-            ยกเลิก
+            {t.cancel}
           </Button>
           <Button type="button" onClick={() => mutation.mutate()} disabled={!form.name.trim() || mutation.isPending}>
-            {mutation.isPending ? "กำลังบันทึก..." : "บันทึก"}
+            {mutation.isPending ? t.saving : t.save}
           </Button>
         </>
       }
     >
       <div className="space-y-3">
         <div className="space-y-1.5">
-          <Label htmlFor="pm-name">ชื่อแพ็กเกจ</Label>
-          <Input id="pm-name" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="เช่น Pro" />
+          <Label htmlFor="pm-name">{t.nameLabel}</Label>
+          <Input id="pm-name" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder={t.namePlaceholder} />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label htmlFor="pm-price">ราคา (บาท)</Label>
-            <Input id="pm-price" type="number" min={0} value={form.price} onChange={(e) => set("price", e.target.value)} placeholder="เช่น 3900" />
+            <Label htmlFor="pm-price">{t.priceLabel}</Label>
+            <Input id="pm-price" type="number" min={0} value={form.price} onChange={(e) => set("price", e.target.value)} placeholder={t.pricePlaceholder} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="pm-interval">รอบชำระเงิน</Label>
+            <Label htmlFor="pm-interval">{t.intervalLabel}</Label>
             <select
               id="pm-interval"
               value={form.interval}
               onChange={(e) => set("interval", e.target.value)}
               className="h-9 w-full rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
             >
-              <option value="month">รายเดือน</option>
-              <option value="year">รายปี</option>
+              <option value="month">{t.intMonth}</option>
+              <option value="year">{t.intYear}</option>
             </select>
           </div>
         </div>
 
         <div className="space-y-1.5">
-          <Label>ฟีเจอร์ในแพ็กเกจ ({selected.length})</Label>
+          <Label>{interp(t.featuresLabel, { n: selected.length })}</Label>
           <div className="max-h-56 space-y-1 overflow-y-auto rounded-lg border border-input p-2">
-            {featuresQ.isLoading && <div className="p-2 text-sm text-muted-foreground">กำลังโหลด...</div>}
+            {featuresQ.isLoading && <div className="p-2 text-sm text-muted-foreground">{t.loading}</div>}
             {(featuresQ.data ?? []).map((f) => (
               <label key={f.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-app">
                 <input
@@ -213,7 +218,7 @@ function PlanModal({ plan, onClose }: { plan?: Plan; onClose: () => void }) {
               </label>
             ))}
             {!featuresQ.isLoading && (featuresQ.data ?? []).length === 0 && (
-              <div className="p-2 text-sm text-muted-foreground">ยังไม่มีฟีเจอร์</div>
+              <div className="p-2 text-sm text-muted-foreground">{t.noFeatures}</div>
             )}
           </div>
         </div>
