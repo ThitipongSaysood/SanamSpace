@@ -241,6 +241,34 @@ export const ownerApi = {
     return res;
   },
 
+  // Self-serve signup: creates the venue + owner + 30-day trial and signs the
+  // new owner straight in (stores the returned token), same as adminLogin.
+  async register(input: {
+    venueName: string;
+    ownerName: string;
+    email: string;
+    password: string;
+    phone?: string;
+    planCode?: string;
+  }): Promise<{ token: string; user: User }> {
+    const res = await req<{ token: string; user: User }>("/auth/owner/register", {
+      method: "POST",
+      body: {
+        venueName: input.venueName,
+        ownerName: input.ownerName,
+        email: input.email,
+        password: input.password,
+        password_confirmation: input.password,
+        phone: input.phone,
+        planCode: input.planCode,
+      },
+      raw: true,
+    });
+    setOwnerToken(res.token);
+    setStoredUser(res.user);
+    return res;
+  },
+
   logout(): void {
     clearOwnerToken();
     clearStoredUser();

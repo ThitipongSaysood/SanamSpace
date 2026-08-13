@@ -87,6 +87,10 @@ Route::post('/auth/line/login', [AuthController::class, 'lineLogin']);
 // which re-caches a leftover bearer identity on the guard and breaks the
 // multi-actor test flow. See AuthController::adminLogin.
 Route::post('/auth/admin/login', [AuthController::class, 'adminLogin']);
+// Self-serve venue signup (creates org + owner + 30-day trial). Throttled to
+// keep it from becoming a spam org-creation endpoint. Unauthenticated, so the
+// throttle middleware keys by IP without a leftover-guard identity to re-cache.
+Route::post('/auth/owner/register', [AuthController::class, 'ownerRegister'])->middleware('throttle:5,1');
 // Per-venue LINE LIFF id for the frontend (resolved from ?venueId / ?organizationSlug / default org).
 Route::get('/line-config', [AuthController::class, 'lineConfig']);
 // Public per-venue branding for the multi-tenant login page (/v/{slug}).

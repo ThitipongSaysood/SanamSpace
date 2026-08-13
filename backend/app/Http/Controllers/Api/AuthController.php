@@ -8,13 +8,19 @@ use App\Models\Customer;
 use App\Models\LineProfile;
 use App\Models\Organization;
 use App\Models\OrganizationSetting;
+use App\Models\OrganizationUser;
+use App\Models\Plan;
+use App\Models\Role;
 use App\Models\User;
 use App\Services\LineTokenVerifier;
+use App\Services\SubscriptionRenewalService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -174,6 +180,83 @@ class AuthController extends Controller
             'token' => $token,
             'user' => new UserResource($user),
         ]);
+    }
+
+    /**
+     * POST /auth/owner/register — self-serve venue signup.
+     *
+     * Creates the venue, its settings, the owner user (with the password THEY
+     * choose, so unlike an admin-created owner they can actually log in) and a
+     * 30-day free trial on the chosen plan, then returns a token so the new
+     * owner lands straight in the portal. The whole thing is one transaction —
+     * a half-made venue with no owner, or an owner with no venue, is worse than
+     * a clean failure. Rate-limited at the route to keep signups from being a
+     * spam org-creation endpoint.
+     */
+    public function ownerRegister(Request $request, SubscriptionRenewalService $renewals): JsonResponse
+    {
+        $data = $request->validate([
+            'venueName' => ['required', 'string', 'max:255'],
+            'ownerName' => ['required', 'string', 'max:255'],
+            // A fresh signup owns a fresh account — an existing email should log
+            // in, not silently graft a second venue onto someone else's user.
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'phone' => ['nullable', 'string', 'max:50'],
+            'planCode' => ['nullable', 'string', Rule::in(['starter', 'business', 'pro'])],
+        ]);
+
+        // The trial gives the full experience by default so it actually sells;
+        // a plan the visitor picked on the pricing page overrides it.
+        $plan = Plan::where('code', $data['planCode'] ?? 'pro')->firstOrFail();
+
+        $user = DB::transaction(function () use ($data, $plan, $renewals) {
+            $org = Organization::create([
+                'name' => $data['venueName'],
+                'slug' => $this->uniqueOrgSlug($data['venueName']),
+                'status' => 'active',
+            ]);
+            $org->settings()->create(['email' => $data['email'], 'phone' => $data['phone'] ?? null]);
+
+            $user = User::create([
+                'name' => $data['ownerName'],
+                'display_name' => $data['ownerName'],
+                'email' => $data['email'],
+                'password' => Hash::make($data['password']),
+            ]);
+            OrganizationUser::create([
+                'organization_id' => $org->id,
+                'user_id' => $user->id,
+                'role_id' => Role::where('code', 'owner')->value('id'),
+                'display_name' => $data['ownerName'],
+                'status' => 'active',
+                'joined_at' => now(),
+            ]);
+
+            $renewals->startTrial($org, $plan, 30);
+
+            return $user;
+        });
+
+        $token = $user->createToken('admin-token')->plainTextToken;
+
+        return response()->json([
+            'token' => $token,
+            'user' => new UserResource($user),
+        ], 201);
+    }
+
+    /** A slug no existing (or soft-deleted) organisation already holds. */
+    private function uniqueOrgSlug(string $name): string
+    {
+        $base = Str::slug($name) ?: 'venue';
+        $slug = $base;
+        $i = 1;
+        while (Organization::withTrashed()->where('slug', $slug)->exists()) {
+            $slug = $base.'-'.(++$i);
+        }
+
+        return $slug;
     }
 
     /**

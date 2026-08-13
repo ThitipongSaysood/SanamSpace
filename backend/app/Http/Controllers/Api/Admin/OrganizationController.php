@@ -11,7 +11,6 @@ use App\Models\Organization;
 use App\Models\OrganizationUser;
 use App\Models\Plan;
 use App\Models\Role;
-use App\Models\Subscription;
 use App\Models\User;
 use App\Services\SubscriptionRenewalService;
 use App\Support\AdminAudit;
@@ -65,13 +64,10 @@ class OrganizationController extends Controller
         $org->settings()->create(['email' => $data['email'], 'phone' => $data['phone'] ?? null]);
 
         if (! empty($data['planId'])) {
-            Subscription::create([
-                'organization_id' => $org->id,
-                'plan_id' => $data['planId'],
-                'status' => 'active',
-                'started_at' => now(),
-                'ends_at' => now()->addDays(30),
-            ]);
+            // Go through startTrial so the 30 days are recorded as a trial
+            // (trial_start_at/trial_end_at on the org), not just an ends_at that
+            // reads like a paid subscription about to lapse.
+            $this->renewals->startTrial($org, Plan::findOrFail($data['planId']), 30);
         }
 
         // Owner user (reuse if the email already exists) + org membership.

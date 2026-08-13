@@ -341,7 +341,9 @@ function useOwnerToastSport(enabled: boolean) {
 export default function OwnerLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const isLoginRoute = pathname === "/owner/login";
+  // Auth routes render bare (no portal chrome) and skip the token guard — both
+  // the sign-in and the self-serve signup, which is reachable while logged out.
+  const isLoginRoute = pathname === "/owner/login" || pathname === "/owner/signup";
 
   const [ready, setReady] = useState(false);
   const [user, setUser] = useState<User | null>(null);
