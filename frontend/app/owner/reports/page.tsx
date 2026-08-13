@@ -7,6 +7,7 @@ import type { OwnerDashboard } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
 import { Loading, ErrorState } from "@/components/states";
 import { Button } from "@/components/ui/button";
+import { useMessages } from "@/lib/i18n/context";
 
 const fmt = new Intl.NumberFormat("th-TH");
 
@@ -20,6 +21,7 @@ const fmt = new Intl.NumberFormat("th-TH");
  * button and then removing it reads as a bug.
  */
 function ExportButton() {
+  const t = useMessages("owner").reports;
   const [busy, setBusy] = useState(false);
   const { data: sub } = useQuery({ queryKey: ["owner", "subscription"], queryFn: ownerApi.getSubscription });
 
@@ -28,7 +30,7 @@ function ExportButton() {
     try {
       await ownerApi.exportBookingsCsv();
     } catch {
-      toast.error("ดาวน์โหลดไม่สำเร็จ");
+      toast.error(t.exportFailed);
     } finally {
       setBusy(false);
     }
@@ -38,19 +40,20 @@ function ExportButton() {
 
   return (
     <Button type="button" variant="outline" onClick={run} disabled={busy}>
-      <Download className="size-4" /> {busy ? "กำลังส่งออก..." : "ส่งออก CSV"}
+      <Download className="size-4" /> {busy ? t.exporting : t.exportCsv}
     </Button>
   );
 }
 
-const STATUS_META: { key: keyof OwnerDashboard["statusBreakdown"]; label: string; cls: string }[] = [
-  { key: "completed", label: "เช็คอินแล้ว", cls: "bg-slate-400" },
-  { key: "confirmed", label: "ยืนยันแล้ว", cls: "bg-brand" },
-  { key: "pending", label: "รอชำระเงิน", cls: "bg-amber-400" },
-  { key: "cancelled", label: "ยกเลิก", cls: "bg-red-400" },
+const STATUS_META: { key: keyof OwnerDashboard["statusBreakdown"]; cls: string }[] = [
+  { key: "completed", cls: "bg-slate-400" },
+  { key: "confirmed", cls: "bg-brand" },
+  { key: "pending", cls: "bg-amber-400" },
+  { key: "cancelled", cls: "bg-red-400" },
 ];
 
 export default function OwnerReportsPage() {
+  const t = useMessages("owner").reports;
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["owner", "dashboard"],
     queryFn: ownerApi.getDashboard,
@@ -60,7 +63,7 @@ export default function OwnerReportsPage() {
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Reports</h1>
-          <p className="text-sm text-muted-foreground">รายงานและสถิติ</p>
+          <p className="text-sm text-muted-foreground">{t.subtitle}</p>
         </div>
         <ExportButton />
       </header>
@@ -72,6 +75,7 @@ export default function OwnerReportsPage() {
 }
 
 function ReportsBody({ d }: { d: OwnerDashboard }) {
+  const t = useMessages("owner").reports;
   const totalRevenue = d.revenueSeries.reduce((s, p) => s + p.revenue, 0);
   const maxRevDay = Math.max(1, ...d.revenueSeries.map((p) => p.revenue));
   const maxSport = Math.max(1, ...d.sportSales.map((s) => s.revenue));
@@ -81,22 +85,22 @@ function ReportsBody({ d }: { d: OwnerDashboard }) {
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
           <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            <TrendingUp className="size-4 text-brand" /> รายได้รวม (7 วัน)
+            <TrendingUp className="size-4 text-brand" /> {t.revenue7d}
           </div>
           <div className="mt-1 text-2xl font-bold tracking-tight">฿{fmt.format(totalRevenue)}</div>
         </div>
         <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
-          <div className="text-sm text-muted-foreground">การจองทั้งหมด</div>
+          <div className="text-sm text-muted-foreground">{t.totalBookings}</div>
           <div className="mt-1 text-2xl font-bold tracking-tight tabular-nums">{fmt.format(d.statusBreakdown.total)}</div>
         </div>
         <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
-          <div className="text-sm text-muted-foreground">ลูกค้าทั้งหมด</div>
+          <div className="text-sm text-muted-foreground">{t.totalCustomers}</div>
           <div className="mt-1 text-2xl font-bold tracking-tight tabular-nums">{fmt.format(d.totalCustomers)}</div>
         </div>
       </div>
 
       <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
-        <h2 className="mb-3 text-sm font-semibold">รายได้รายวัน</h2>
+        <h2 className="mb-3 text-sm font-semibold">{t.dailyRevenue}</h2>
         <div className="flex items-end gap-2" style={{ height: 140 }}>
           {d.revenueSeries.map((p) => (
             <div key={p.date} className="flex flex-1 flex-col items-center gap-1">
@@ -113,7 +117,7 @@ function ReportsBody({ d }: { d: OwnerDashboard }) {
 
       <div className="grid gap-3 lg:grid-cols-2">
         <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
-          <h2 className="mb-3 text-sm font-semibold">การจองตามสถานะ</h2>
+          <h2 className="mb-3 text-sm font-semibold">{t.byStatus}</h2>
           <div className="space-y-2.5">
             {STATUS_META.map((s) => {
               const v = d.statusBreakdown[s.key];
@@ -121,7 +125,7 @@ function ReportsBody({ d }: { d: OwnerDashboard }) {
               return (
                 <div key={s.key}>
                   <div className="mb-1 flex justify-between text-xs">
-                    <span className="text-muted-foreground">{s.label}</span>
+                    <span className="text-muted-foreground">{(t.status as Record<string, string>)[s.key]}</span>
                     <span className="font-medium tabular-nums">{v} ({pct}%)</span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-black/5">
@@ -134,9 +138,9 @@ function ReportsBody({ d }: { d: OwnerDashboard }) {
         </section>
 
         <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
-          <h2 className="mb-3 text-sm font-semibold">ยอดขายตามประเภทกีฬา</h2>
+          <h2 className="mb-3 text-sm font-semibold">{t.bySport}</h2>
           {d.sportSales.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">ยังไม่มีข้อมูล</p>
+            <p className="py-6 text-center text-sm text-muted-foreground">{t.noData}</p>
           ) : (
             <div className="space-y-2.5">
               {d.sportSales.map((s) => (

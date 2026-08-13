@@ -10,10 +10,13 @@ import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useMessages } from "@/lib/i18n/context";
+import { fmt as interp } from "@/lib/i18n/format";
 
 const fmt = new Intl.NumberFormat("th-TH");
 
 export default function OwnerWalletPage() {
+  const t = useMessages("owner").wallet;
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["owner", "wallets"],
     queryFn: ownerApi.getWallets,
@@ -23,14 +26,14 @@ export default function OwnerWalletPage() {
     <div className="space-y-5">
       <header>
         <h1 className="text-2xl font-bold tracking-tight">Wallet</h1>
-        <p className="text-sm text-muted-foreground">ระบบวอลเล็ต</p>
+        <p className="text-sm text-muted-foreground">{t.subtitle}</p>
       </header>
 
       <TopupRequests />
 
       {isLoading && <Loading />}
       {isError && <ErrorState onRetry={() => refetch()} />}
-      {data && data.length === 0 && <EmptyState message="ยังไม่มีวอลเล็ต" />}
+      {data && data.length === 0 && <EmptyState message={t.empty} />}
 
       {data && data.length > 0 && <WalletList rows={data} />}
     </div>
@@ -39,6 +42,7 @@ export default function OwnerWalletPage() {
 
 // Customer-initiated top-ups awaiting the venue's approval (slip review).
 function TopupRequests() {
+  const tx = useMessages("owner").wallet;
   const qc = useQueryClient();
   const { data } = useQuery({ queryKey: ["owner", "wallet-topups"], queryFn: ownerApi.getWalletTopups });
 
@@ -62,7 +66,7 @@ function TopupRequests() {
   return (
     <section className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
       <div className="flex items-center gap-2">
-        <h2 className="font-semibold">คำขอเติมเงินรออนุมัติ</h2>
+        <h2 className="font-semibold">{tx.topupRequests}</h2>
         <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">{data.length}</span>
       </div>
       <div className="divide-y divide-black/5">
@@ -71,21 +75,21 @@ function TopupRequests() {
             {t.slipUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <a href={t.slipUrl} target="_blank" rel="noreferrer" className="shrink-0">
-                <img src={t.slipUrl} alt="สลิป" className="size-12 rounded-lg object-cover ring-1 ring-black/10" />
+                <img src={t.slipUrl} alt={tx.slipAlt} className="size-12 rounded-lg object-cover ring-1 ring-black/10" />
               </a>
             ) : (
-              <span className="grid size-12 shrink-0 place-items-center rounded-lg bg-app text-xs text-muted-foreground">ไม่มีสลิป</span>
+              <span className="grid size-12 shrink-0 place-items-center rounded-lg bg-app text-xs text-muted-foreground">{tx.noSlip}</span>
             )}
             <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-medium"><CustomerName id={t.customerId} name={t.customerName} fallback="ลูกค้า" /></div>
+              <div className="truncate text-sm font-medium"><CustomerName id={t.customerId} name={t.customerName} fallback={tx.custFallback} /></div>
               <div className="text-xs text-muted-foreground">{t.date} · +฿{fmt.format(t.amount)}</div>
             </div>
             <div className="flex shrink-0 gap-2">
               <Button size="sm" variant="outline" disabled={pending} onClick={() => reject.mutate(t.id)}>
-                ปฏิเสธ
+                {tx.reject}
               </Button>
               <Button size="sm" disabled={pending} onClick={() => approve.mutate(t.id)}>
-                อนุมัติ
+                {tx.approve}
               </Button>
             </div>
           </div>
@@ -97,6 +101,7 @@ function TopupRequests() {
 
 // Inline top-up form shared by the mobile card and desktop table row.
 function WalletTopup({ wallet }: { wallet: OwnerWalletRow }) {
+  const t = useMessages("owner").wallet;
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState("");
@@ -123,7 +128,7 @@ function WalletTopup({ wallet }: { wallet: OwnerWalletRow }) {
   if (!open) {
     return (
       <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
-        เติมเงิน
+        {t.topup}
       </Button>
     );
   }
@@ -137,15 +142,15 @@ function WalletTopup({ wallet }: { wallet: OwnerWalletRow }) {
           min={1}
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          placeholder="จำนวนเงิน"
-          aria-label={`จำนวนเงินที่เติมให้ ${wallet.customerName}`}
+          placeholder={t.amountPlaceholder}
+          aria-label={interp(t.amountAria, { name: wallet.customerName })}
           className="h-7 w-28"
         />
         <Input
           value={label}
           onChange={(e) => setLabel(e.target.value)}
-          placeholder="หมายเหตุ (ไม่บังคับ)"
-          aria-label="หมายเหตุ"
+          placeholder={t.notePlaceholder}
+          aria-label={t.noteAria}
           className="h-7 w-36"
         />
         <Button
@@ -153,23 +158,24 @@ function WalletTopup({ wallet }: { wallet: OwnerWalletRow }) {
           size="sm"
           disabled={mutation.isPending || !amount.trim() || Number(amount) <= 0}
         >
-          {mutation.isPending ? "..." : "บันทึก"}
+          {mutation.isPending ? "..." : t.save}
         </Button>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          aria-label="ปิด"
+          aria-label={t.close}
           className="grid size-7 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-app"
         >
           <X className="size-4" />
         </button>
       </div>
-      {mutation.isError && <p className="text-xs text-brand-danger">เติมเงินไม่สำเร็จ</p>}
+      {mutation.isError && <p className="text-xs text-brand-danger">{t.topupFailed}</p>}
     </form>
   );
 }
 
 function WalletList({ rows }: { rows: OwnerWalletRow[] }) {
+  const t = useMessages("owner").wallet;
   return (
     <>
       {/* Mobile cards */}
@@ -187,7 +193,7 @@ function WalletList({ rows }: { rows: OwnerWalletRow[] }) {
                 <div className="min-w-0">
                   <div className="truncate font-semibold"><CustomerName id={w.customerId} name={w.customerName} /></div>
                   <div className="text-xs text-muted-foreground">
-                    {fmt.format(w.transactionCount)} ธุรกรรม
+                    {interp(t.txCount, { n: fmt.format(w.transactionCount) })}
                   </div>
                 </div>
               </div>
@@ -207,10 +213,10 @@ function WalletList({ rows }: { rows: OwnerWalletRow[] }) {
         <table className="w-full text-sm">
           <thead className="bg-app text-left text-xs font-medium text-muted-foreground">
             <tr>
-              <th className="px-4 py-3">ลูกค้า</th>
-              <th className="px-4 py-3 text-right">ยอดคงเหลือ</th>
-              <th className="px-4 py-3 text-right">จำนวนธุรกรรม</th>
-              <th className="px-4 py-3 text-right">จัดการ</th>
+              <th className="px-4 py-3">{t.colCustomer}</th>
+              <th className="px-4 py-3 text-right">{t.colBalance}</th>
+              <th className="px-4 py-3 text-right">{t.colTxCount}</th>
+              <th className="px-4 py-3 text-right">{t.colActions}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-black/5">

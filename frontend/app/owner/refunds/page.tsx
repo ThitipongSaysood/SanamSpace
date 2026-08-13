@@ -7,21 +7,23 @@ import type { OwnerRefund, RefundStatus } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
 import { CustomerName } from "@/components/customer-peek";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
+import { useMessages } from "@/lib/i18n/context";
+import { fmt as interp } from "@/lib/i18n/format";
 
 const fmt = new Intl.NumberFormat("th-TH");
 
-const STATUS_META: Record<RefundStatus, { label: string; className: string }> = {
-  requested: { label: "รออนุมัติ", className: "bg-amber-100 text-amber-700" },
-  approved: { label: "อนุมัติแล้ว", className: "bg-emerald-100 text-emerald-700" },
-  rejected: { label: "ปฏิเสธแล้ว", className: "bg-rose-100 text-rose-700" },
+const STATUS_CLASS: Record<RefundStatus, string> = {
+  requested: "bg-amber-100 text-amber-700",
+  approved: "bg-emerald-100 text-emerald-700",
+  rejected: "bg-rose-100 text-rose-700",
 };
 
 function StatusPill({ status, method }: { status: RefundStatus; method?: string | null }) {
-  const meta = STATUS_META[status];
-  const suffix = status === "approved" && method ? (method === "wallet" ? " · วอลเล็ต" : " · นอกระบบ") : "";
+  const t = useMessages("owner").refunds;
+  const suffix = status === "approved" && method ? (method === "wallet" ? t.viaWallet : t.viaManual) : "";
   return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${meta.className}`}>
-      {meta.label}
+    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLASS[status]}`}>
+      {t.status[status]}
       {suffix}
     </span>
   );
@@ -29,6 +31,7 @@ function StatusPill({ status, method }: { status: RefundStatus; method?: string 
 
 function RefundCard({ refund }: { refund: OwnerRefund }) {
   const qc = useQueryClient();
+  const t = useMessages("owner").refunds;
   const [note, setNote] = useState("");
 
   function invalidate() {
@@ -56,15 +59,15 @@ function RefundCard({ refund }: { refund: OwnerRefund }) {
     <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="font-semibold"><CustomerName id={refund.customerId} name={refund.customerName} fallback="ลูกค้า" /></div>
+          <div className="font-semibold"><CustomerName id={refund.customerId} name={refund.customerName} fallback={t.custFallback} /></div>
           <div className="mt-0.5 text-sm text-muted-foreground">
-            {refund.bookingCode ?? "—"}
+            {refund.bookingCode ?? t.dash}
           </div>
           {refund.reason && (
-            <div className="mt-1 text-sm text-muted-foreground">เหตุผล: {refund.reason}</div>
+            <div className="mt-1 text-sm text-muted-foreground">{interp(t.reason, { reason: refund.reason })}</div>
           )}
           {!pending && refund.note && (
-            <div className="mt-1 text-sm text-muted-foreground">หมายเหตุ: {refund.note}</div>
+            <div className="mt-1 text-sm text-muted-foreground">{interp(t.note, { note: refund.note })}</div>
           )}
         </div>
         <div className="shrink-0 text-right">
@@ -80,8 +83,8 @@ function RefundCard({ refund }: { refund: OwnerRefund }) {
           <input
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="หมายเหตุ (ไม่บังคับ)"
-            aria-label="หมายเหตุ"
+            placeholder={t.notePlaceholder}
+            aria-label={t.noteAria}
             className="h-9 w-full rounded-xl bg-app px-3 text-sm ring-1 ring-black/10 focus:outline-none focus:ring-2 focus:ring-brand/40"
           />
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -92,7 +95,7 @@ function RefundCard({ refund }: { refund: OwnerRefund }) {
               className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-brand text-sm font-semibold text-brand-foreground transition hover:bg-brand/90 disabled:opacity-60"
             >
               <WalletIcon className="size-4" />
-              {approve.isPending && approve.variables === "wallet" ? "กำลังคืน..." : "คืนเข้าวอลเล็ต"}
+              {approve.isPending && approve.variables === "wallet" ? t.refunding : t.toWallet}
             </button>
             <button
               type="button"
@@ -101,7 +104,7 @@ function RefundCard({ refund }: { refund: OwnerRefund }) {
               className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-emerald-50 text-sm font-semibold text-emerald-700 ring-1 ring-emerald-200 transition hover:bg-emerald-100 disabled:opacity-60"
             >
               <HandCoins className="size-4" />
-              {approve.isPending && approve.variables === "manual" ? "กำลังคืน..." : "คืนนอกระบบ"}
+              {approve.isPending && approve.variables === "manual" ? t.refunding : t.manualRefund}
             </button>
             <button
               type="button"
@@ -110,7 +113,7 @@ function RefundCard({ refund }: { refund: OwnerRefund }) {
               className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-red-50 text-sm font-semibold text-red-600 ring-1 ring-red-200 transition hover:bg-red-100 disabled:opacity-60"
             >
               <X className="size-4" />
-              {reject.isPending ? "กำลังปฏิเสธ..." : "ปฏิเสธ"}
+              {reject.isPending ? t.rejecting : t.reject}
             </button>
           </div>
         </div>
@@ -120,6 +123,7 @@ function RefundCard({ refund }: { refund: OwnerRefund }) {
 }
 
 export default function OwnerRefundsPage() {
+  const t = useMessages("owner").refunds;
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["owner", "refunds"],
     queryFn: ownerApi.getRefunds,
@@ -134,17 +138,17 @@ export default function OwnerRefundsPage() {
           <Undo2 className="size-5" />
         </span>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">คืนเงิน</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
           <p className="text-sm text-muted-foreground">
-            ตรวจคำขอคืนเงินจากลูกค้า — อนุมัติเพื่อคืนเข้าวอลเล็ตหรือคืนนอกระบบ
-            {pendingCount > 0 ? ` · รออนุมัติ ${fmt.format(pendingCount)} รายการ` : ""}
+            {t.subtitle}
+            {pendingCount > 0 ? interp(t.pendingSuffix, { n: fmt.format(pendingCount) }) : ""}
           </p>
         </div>
       </header>
 
       {isLoading && <Loading />}
       {isError && <ErrorState onRetry={() => refetch()} />}
-      {data && data.length === 0 && <EmptyState message="ยังไม่มีคำขอคืนเงิน" />}
+      {data && data.length === 0 && <EmptyState message={t.empty} />}
 
       {data && data.length > 0 && (
         <div className="grid gap-3 md:grid-cols-2">
