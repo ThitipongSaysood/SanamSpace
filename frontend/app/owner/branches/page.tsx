@@ -19,19 +19,12 @@ import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useMessages } from "@/lib/i18n/context";
+import { fmt as interp } from "@/lib/i18n/format";
 
 const BRANCHES_KEY = ["owner", "branches"];
 
-const FACILITIES: { key: string; label: string }[] = [
-  { key: "parking", label: "ที่จอดรถ" },
-  { key: "shower", label: "ห้องอาบน้ำ" },
-  { key: "cafe", label: "คาเฟ่" },
-  { key: "wifi", label: "Wi-Fi" },
-  { key: "aircon", label: "ห้องแอร์" },
-  { key: "locker", label: "ล็อกเกอร์" },
-  { key: "shop", label: "ร้านค้า" },
-  { key: "restroom", label: "ห้องน้ำ" },
-];
+const FACILITY_KEYS = ["parking", "shower", "cafe", "wifi", "aircon", "locker", "shop", "restroom"] as const;
 
 const DAYS = ["จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์", "อาทิตย์"];
 
@@ -43,15 +36,16 @@ export default function OwnerBranchesPage() {
   // null = list · "new" = create · OwnerBranch = edit. The form renders
   // full-width (outside the card grid) so it never gets cramped in a cell.
   const [editing, setEditing] = useState<OwnerBranch | "new" | null>(null);
+  const t = useMessages("owner").branches;
 
   if (editing) {
     return (
       <div className="space-y-5">
         <header>
           <h1 className="text-2xl font-bold tracking-tight">
-            {editing === "new" ? "เพิ่มสนาม" : "แก้ไขสนาม"}
+            {editing === "new" ? t.addTitle : t.editTitle}
           </h1>
-          <p className="text-sm text-muted-foreground">จัดการเนื้อหาสนามที่แสดงให้ลูกค้า</p>
+          <p className="text-sm text-muted-foreground">{t.editSubtitle}</p>
         </header>
         <BranchForm
           branch={editing === "new" ? undefined : editing}
@@ -65,19 +59,19 @@ export default function OwnerBranchesPage() {
     <div className="space-y-5">
       <header className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">สนาม</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
           <p className="text-sm text-muted-foreground">
-            จัดการเนื้อหาสนามที่แสดงให้ลูกค้า — เพิ่ม / แก้ไข / ลบ / เปิด-ปิด
+            {t.subtitle}
           </p>
         </div>
         <Button type="button" onClick={() => setEditing("new")}>
-          <Plus className="size-4" /> เพิ่มสนาม
+          <Plus className="size-4" /> {t.add}
         </Button>
       </header>
 
       {isLoading && <Loading />}
       {isError && <ErrorState onRetry={() => refetch()} />}
-      {data && data.length === 0 && <EmptyState message="ยังไม่มีสนาม" />}
+      {data && data.length === 0 && <EmptyState message={t.empty} />}
 
       {data && data.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -131,6 +125,7 @@ function initialForm(branch?: OwnerBranch): FormState {
 }
 
 function BranchForm({ branch, onClose }: { branch?: OwnerBranch; onClose: () => void }) {
+  const tt = useMessages("owner").branches;
   const qc = useQueryClient();
   const sports = useQuery({ queryKey: ["owner", "sports"], queryFn: ownerApi.getSports });
   const [form, setForm] = useState<FormState>(() => initialForm(branch));
@@ -187,11 +182,11 @@ function BranchForm({ branch, onClose }: { branch?: OwnerBranch; onClose: () => 
       className="space-y-6 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5"
     >
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold">{branch ? "แก้ไขสนาม" : "เพิ่มสนาม"}</h2>
+        <h2 className="text-sm font-semibold">{branch ? tt.editTitle : tt.addTitle}</h2>
         <button
           type="button"
           onClick={onClose}
-          aria-label="ปิด"
+          aria-label={tt.close}
           className="grid size-7 place-items-center rounded-lg text-muted-foreground hover:bg-app"
         >
           <X className="size-4" />
@@ -202,9 +197,9 @@ function BranchForm({ branch, onClose }: { branch?: OwnerBranch; onClose: () => 
       <div className="flex flex-wrap gap-1 border-b border-black/5">
         {(
           [
-            { key: "general", label: "ข้อมูลทั่วไป" },
-            { key: "media", label: "รูปภาพ & แผนผัง" },
-            { key: "hours", label: "เวลาทำการ" },
+            { key: "general", label: tt.tabGeneral },
+            { key: "media", label: tt.tabMedia },
+            { key: "hours", label: tt.tabHours },
           ] as const
         ).map((t) => (
           <button
@@ -227,15 +222,15 @@ function BranchForm({ branch, onClose }: { branch?: OwnerBranch; onClose: () => 
         <div className="space-y-6">
           <section className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="b-name">ชื่อสนาม</Label>
-              <Input id="b-name" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="เช่น Everyday Badminton" />
+              <Label htmlFor="b-name">{tt.nameLabel}</Label>
+              <Input id="b-name" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder={tt.namePlaceholder} />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="b-address">ที่อยู่</Label>
-              <Input id="b-address" value={form.address} onChange={(e) => set("address", e.target.value)} placeholder="123 ถ.สุขุมวิท กรุงเทพฯ" />
+              <Label htmlFor="b-address">{tt.addressLabel}</Label>
+              <Input id="b-address" value={form.address} onChange={(e) => set("address", e.target.value)} placeholder={tt.addressPlaceholder} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="b-phone">เบอร์โทร</Label>
+              <Label htmlFor="b-phone">{tt.phoneLabel}</Label>
               <Input id="b-phone" value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="081-234-5678" />
             </div>
             {/*
@@ -250,7 +245,7 @@ function BranchForm({ branch, onClose }: { branch?: OwnerBranch; onClose: () => 
               * the only hint was the placeholder.
               */}
             <div className="space-y-1.5 md:col-span-2">
-              <Label>กีฬาที่เปิดให้บริการ</Label>
+              <Label>{tt.sportsLabel}</Label>
               <div className="flex flex-wrap gap-2">
                 {(sports.data ?? []).map((sport) => {
                   const on = form.sports.includes(sport.key);
@@ -275,48 +270,48 @@ function BranchForm({ branch, onClose }: { branch?: OwnerBranch; onClose: () => 
                 })}
               </div>
               <p className="text-xs text-muted-foreground">
-                ตัวแรกที่เลือกคือกีฬาหลัก ใช้เป็นไอคอนแจ้งเตือนของแอปลูกค้า
+                {tt.sportsHint}
               </p>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="b-open">เวลาเปิด (ทั่วไป)</Label>
+              <Label htmlFor="b-open">{tt.openLabel}</Label>
               <Input id="b-open" type="time" value={form.openTime} onChange={(e) => set("openTime", e.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="b-close">เวลาปิด (ทั่วไป)</Label>
+              <Label htmlFor="b-close">{tt.closeLabel}</Label>
               <Input id="b-close" type="time" value={form.closeTime} onChange={(e) => set("closeTime", e.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="b-travel">การเดินทาง</Label>
-              <Input id="b-travel" value={form.travelHint} onChange={(e) => set("travelHint", e.target.value)} placeholder="15 นาทีจาก MRT บางรักน้อย" />
+              <Label htmlFor="b-travel">{tt.travelLabel}</Label>
+              <Input id="b-travel" value={form.travelHint} onChange={(e) => set("travelHint", e.target.value)} placeholder={tt.travelPlaceholder} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="b-peak">หมายเหตุช่วงพีค</Label>
-              <Input id="b-peak" value={form.peakNote} onChange={(e) => set("peakNote", e.target.value)} placeholder="พีค 18:00–21:00" />
+              <Label htmlFor="b-peak">{tt.peakLabel}</Label>
+              <Input id="b-peak" value={form.peakNote} onChange={(e) => set("peakNote", e.target.value)} placeholder={tt.peakPlaceholder} />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="b-desc">เกี่ยวกับสนาม</Label>
+              <Label htmlFor="b-desc">{tt.aboutLabel}</Label>
               <textarea
                 id="b-desc"
                 rows={3}
                 value={form.description}
                 onChange={(e) => set("description", e.target.value)}
-                placeholder="รายละเอียดสนาม สิ่งที่น่าสนใจ..."
+                placeholder={tt.aboutPlaceholder}
                 className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               />
             </div>
           </section>
 
           <section className="space-y-2">
-            <Label>สิ่งอำนวยความสะดวก</Label>
+            <Label>{tt.facilitiesLabel}</Label>
             <div className="flex flex-wrap gap-2">
-              {FACILITIES.map((f) => {
-                const on = form.facilities.includes(f.key);
+              {FACILITY_KEYS.map((key) => {
+                const on = form.facilities.includes(key);
                 return (
                   <button
-                    key={f.key}
+                    key={key}
                     type="button"
-                    onClick={() => toggleFacility(f.key)}
+                    onClick={() => toggleFacility(key)}
                     aria-pressed={on}
                     className={`rounded-full px-3 py-1.5 text-sm font-medium ring-1 transition ${
                       on
@@ -324,7 +319,7 @@ function BranchForm({ branch, onClose }: { branch?: OwnerBranch; onClose: () => 
                         : "bg-white text-muted-foreground ring-black/10 hover:bg-app"
                     }`}
                   >
-                    {f.label}
+                    {(tt.facilities as Record<string, string>)[key]}
                   </button>
                 );
               })}
@@ -337,8 +332,8 @@ function BranchForm({ branch, onClose }: { branch?: OwnerBranch; onClose: () => 
       {formTab === "media" && (
         <div className="space-y-6">
           <section className="grid gap-4 sm:grid-cols-2">
-            <ImageField label="รูปปกสนาม" value={form.imageUrl} onChange={(url) => set("imageUrl", url)} />
-            <ImageField label="แผนผังสนาม (floor-plan)" value={form.planImageUrl} onChange={(url) => set("planImageUrl", url)} />
+            <ImageField label={tt.coverLabel} value={form.imageUrl} onChange={(url) => set("imageUrl", url)} />
+            <ImageField label={tt.planLabel} value={form.planImageUrl} onChange={(url) => set("planImageUrl", url)} />
           </section>
           <PhotosField photos={form.photos} onChange={(photos) => set("photos", photos)} />
         </div>
@@ -347,11 +342,11 @@ function BranchForm({ branch, onClose }: { branch?: OwnerBranch; onClose: () => 
       {/* ===== แท็บ: เวลาทำการ ===== */}
       {formTab === "hours" && (
         <section className="space-y-2">
-          <Label>เวลาเปิด-ปิด รายวัน (ไม่บังคับ)</Label>
+          <Label>{tt.hoursLabel}</Label>
           <div className="space-y-1.5">
             {form.weekHours.map((h, i) => (
               <div key={h.day} className="flex items-center gap-2">
-                <span className="w-20 text-sm text-muted-foreground">{h.day}</span>
+                <span className="w-20 text-sm text-muted-foreground">{tt.dayNames[i]}</span>
                 <Input
                   type="time"
                   value={h.open}
@@ -383,14 +378,14 @@ function BranchForm({ branch, onClose }: { branch?: OwnerBranch; onClose: () => 
         </section>
       )}
 
-      {mutation.isError && <p className="text-sm text-brand-danger">บันทึกไม่สำเร็จ ลองอีกครั้ง</p>}
+      {mutation.isError && <p className="text-sm text-brand-danger">{tt.saveFailed}</p>}
 
       <div className="flex items-center gap-2">
         <Button type="submit" disabled={mutation.isPending || !valid}>
-          {mutation.isPending ? "กำลังบันทึก..." : "บันทึก"}
+          {mutation.isPending ? tt.saving : tt.save}
         </Button>
         <Button type="button" variant="outline" onClick={onClose}>
-          ยกเลิก
+          {tt.cancel}
         </Button>
       </div>
     </form>
@@ -407,6 +402,7 @@ function ImageField({
   value: string;
   onChange: (url: string) => void;
 }) {
+  const t = useMessages("owner").branches;
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(false);
 
@@ -438,7 +434,7 @@ function ImageField({
           </div>
         )}
         <label className="cursor-pointer rounded-lg border border-input px-3 py-1.5 text-sm hover:bg-app">
-          {busy ? "กำลังอัปโหลด..." : "อัปโหลด"}
+          {busy ? t.uploading : t.upload}
           <input type="file" accept="image/*" className="hidden" onChange={onFile} disabled={busy} />
         </label>
         {value && (
@@ -447,11 +443,11 @@ function ImageField({
             onClick={() => onChange("")}
             className="text-sm text-muted-foreground hover:text-brand-danger"
           >
-            ลบ
+            {t.remove}
           </button>
         )}
       </div>
-      {err && <p className="text-xs text-brand-danger">อัปโหลดไม่สำเร็จ</p>}
+      {err && <p className="text-xs text-brand-danger">{t.uploadFailed}</p>}
     </div>
   );
 }
@@ -464,6 +460,7 @@ function PhotosField({
   photos: string[];
   onChange: (photos: string[]) => void;
 }) {
+  const t = useMessages("owner").branches;
   const [busy, setBusy] = useState(false);
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -483,7 +480,7 @@ function PhotosField({
 
   return (
     <section className="space-y-2">
-      <Label>รูปภาพสนาม (แกลเลอรี)</Label>
+      <Label>{t.galleryLabel}</Label>
       <div className="flex flex-wrap gap-2">
         {photos.map((url, i) => (
           <div key={`${url}-${i}`} className="relative size-20">
@@ -492,7 +489,7 @@ function PhotosField({
             <button
               type="button"
               onClick={() => onChange(photos.filter((_, j) => j !== i))}
-              aria-label="ลบรูป"
+              aria-label={t.removePhoto}
               className="absolute -right-1.5 -top-1.5 grid size-5 place-items-center rounded-full bg-brand-danger text-white"
             >
               <X className="size-3" />
@@ -516,6 +513,7 @@ function PhotosField({
 }
 
 function BranchCard({ branch, onEdit }: { branch: OwnerBranch; onEdit: () => void }) {
+  const t = useMessages("owner").branches;
   const qc = useQueryClient();
 
   const toggle = useMutation({
@@ -528,7 +526,7 @@ function BranchCard({ branch, onEdit }: { branch: OwnerBranch; onEdit: () => voi
   });
 
   function onDelete() {
-    if (window.confirm(`ลบสนาม "${branch.name}" ?`)) del.mutate();
+    if (window.confirm(interp(t.deleteConfirm, { name: branch.name }))) del.mutate();
   }
 
   const closed = branch.status !== "active";
@@ -549,7 +547,7 @@ function BranchCard({ branch, onEdit }: { branch: OwnerBranch; onEdit: () => voi
             closed ? "bg-black/50 text-white" : "bg-emerald-500 text-white"
           }`}
         >
-          {closed ? "ปิด" : "เปิด"}
+          {closed ? t.statusClosed : t.statusOpen}
         </span>
       </div>
 
@@ -572,19 +570,18 @@ function BranchCard({ branch, onEdit }: { branch: OwnerBranch; onEdit: () => voi
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
               <Clock className="size-3.5 shrink-0" />
               <span>
-                {branch.openTime ?? "—"} - {branch.closeTime ?? "—"}
+                {branch.openTime ?? t.dash} - {branch.closeTime ?? t.dash}
               </span>
             </div>
           )}
           <div className="text-xs text-muted-foreground">
-            {branch.courtCount} คอร์ท · {branch.facilities.length} สิ่งอำนวยความสะดวก ·{" "}
-            {branch.photos.length} รูป
+            {interp(t.statLine, { courts: branch.courtCount, facilities: branch.facilities.length, photos: branch.photos.length })}
           </div>
         </div>
 
         <div className="mt-3 flex items-center gap-2 border-t border-black/5 pt-3">
           <Button type="button" size="sm" variant="outline" onClick={onEdit}>
-            <Pencil className="size-4" /> แก้ไข
+            <Pencil className="size-4" /> {t.edit}
           </Button>
           <Button
             type="button"
@@ -593,13 +590,13 @@ function BranchCard({ branch, onEdit }: { branch: OwnerBranch; onEdit: () => voi
             onClick={() => toggle.mutate()}
             disabled={toggle.isPending}
           >
-            <Power className="size-4" /> {closed ? "เปิด" : "ปิด"}
+            <Power className="size-4" /> {closed ? t.statusOpen : t.statusClosed}
           </Button>
           <button
             type="button"
             onClick={onDelete}
             disabled={del.isPending}
-            aria-label="ลบสนาม"
+            aria-label={t.deleteAria}
             className="ml-auto grid size-8 place-items-center rounded-lg text-muted-foreground transition hover:bg-app hover:text-brand-danger disabled:opacity-50"
           >
             <Trash2 className="size-4" />

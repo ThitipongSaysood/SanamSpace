@@ -10,21 +10,26 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
+import { useMessages, useLocale } from "@/lib/i18n/context";
+import { fmt as interp, intlLocale } from "@/lib/i18n/format";
+import type { Locale } from "@/lib/i18n/config";
 
 // Map free-form staff status strings to a badge style + Thai label.
-const STATUS_META: Record<string, { label: string; cls: string }> = {
-  active: { label: "ใช้งาน", cls: "bg-brand/10 text-brand" },
-  invited: { label: "เชิญแล้ว", cls: "bg-amber-100 text-amber-700" },
-  pending: { label: "รอยืนยัน", cls: "bg-amber-100 text-amber-700" },
-  suspended: { label: "ระงับ", cls: "bg-red-100 text-red-600" },
-  inactive: { label: "ปิดใช้งาน", cls: "bg-slate-100 text-slate-600" },
+const STATUS_CLS: Record<string, string> = {
+  active: "bg-brand/10 text-brand",
+  invited: "bg-amber-100 text-amber-700",
+  pending: "bg-amber-100 text-amber-700",
+  suspended: "bg-red-100 text-red-600",
+  inactive: "bg-slate-100 text-slate-600",
 };
 
 function StaffStatus({ status }: { status: string }) {
-  const m = STATUS_META[status] ?? { label: status, cls: "bg-slate-100 text-slate-600" };
+  const t = useMessages("owner").staff;
+  const cls = STATUS_CLS[status] ?? "bg-slate-100 text-slate-600";
+  const label = (t.status as Record<string, string>)[status] ?? status;
   return (
-    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${m.cls}`}>
-      {m.label}
+    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>
+      {label}
     </span>
   );
 }
@@ -37,13 +42,14 @@ function RolePill({ name }: { name: string }) {
   );
 }
 
-function fmtDate(s: string) {
+function fmtDate(s: string, locale: Locale) {
   if (!s) return "—";
   const d = new Date(s);
-  return Number.isNaN(d.getTime()) ? s : d.toLocaleDateString("th-TH");
+  return Number.isNaN(d.getTime()) ? s : d.toLocaleDateString(intlLocale(locale));
 }
 
 export default function OwnerStaffPage() {
+  const t = useMessages("owner").staff;
   const staff = useQuery({ queryKey: ["owner", "staff"], queryFn: ownerApi.getStaff });
   const roles = useQuery({ queryKey: ["owner", "roles"], queryFn: ownerApi.getRoles });
   const [inviting, setInviting] = useState(false);
@@ -53,11 +59,11 @@ export default function OwnerStaffPage() {
       <header className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Staff</h1>
-          <p className="text-sm text-muted-foreground">จัดการพนักงาน</p>
+          <p className="text-sm text-muted-foreground">{t.subtitle}</p>
         </div>
         {!inviting && (
           <Button type="button" onClick={() => setInviting(true)}>
-            <UserPlus className="size-4" /> เชิญพนักงาน
+            <UserPlus className="size-4" /> {t.invite}
           </Button>
         )}
       </header>
@@ -66,7 +72,7 @@ export default function OwnerStaffPage() {
 
       {staff.isLoading && <Loading />}
       {staff.isError && <ErrorState onRetry={() => staff.refetch()} />}
-      {staff.data && staff.data.length === 0 && <EmptyState message="ยังไม่มีพนักงาน" />}
+      {staff.data && staff.data.length === 0 && <EmptyState message={t.empty} />}
 
       {staff.data && staff.data.length > 0 && (
         <StaffList staff={staff.data} roles={roles.data ?? []} />
@@ -76,14 +82,14 @@ export default function OwnerStaffPage() {
       <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
         <div className="mb-3 flex items-center gap-2">
           <ShieldCheck className="size-4 text-brand" />
-          <h2 className="text-sm font-semibold">บทบาท (Roles)</h2>
+          <h2 className="text-sm font-semibold">{t.rolesTitle}</h2>
         </div>
-        {roles.isLoading && <p className="text-sm text-muted-foreground">กำลังโหลด...</p>}
+        {roles.isLoading && <p className="text-sm text-muted-foreground">{t.loading}</p>}
         {roles.isError && (
-          <p className="text-sm text-brand-danger">โหลดบทบาทไม่สำเร็จ</p>
+          <p className="text-sm text-brand-danger">{t.rolesLoadFailed}</p>
         )}
         {roles.data && roles.data.length === 0 && (
-          <p className="text-sm text-muted-foreground">ยังไม่มีบทบาท</p>
+          <p className="text-sm text-muted-foreground">{t.noRoles}</p>
         )}
         {roles.data && roles.data.length > 0 && (
           <ul className="flex flex-wrap gap-2">
@@ -95,7 +101,7 @@ export default function OwnerStaffPage() {
                 {r.name}
                 {r.isSystemRole && (
                   <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground ring-1 ring-black/10">
-                    ระบบ
+                    {t.systemBadge}
                   </span>
                 )}
               </li>
@@ -108,6 +114,7 @@ export default function OwnerStaffPage() {
 }
 
 function InviteStaffForm({ roles, onClose }: { roles: OwnerRole[]; onClose: () => void }) {
+  const t = useMessages("owner").staff;
   const qc = useQueryClient();
   const [form, setForm] = useState({ email: "", displayName: "", roleId: "" });
 
@@ -122,8 +129,8 @@ function InviteStaffForm({ roles, onClose }: { roles: OwnerRole[]; onClose: () =
   // 422 from a duplicate email gets a friendly Thai message; anything else is generic.
   const errorMessage = mutation.isError
     ? mutation.error instanceof OwnerApiError && mutation.error.status === 422
-      ? "อีเมลนี้เป็นสมาชิกอยู่แล้ว"
-      : "เชิญไม่สำเร็จ ลองอีกครั้ง"
+      ? t.dupEmail
+      : t.inviteFailed
     : null;
 
   function onSubmit(e: React.FormEvent) {
@@ -138,11 +145,11 @@ function InviteStaffForm({ roles, onClose }: { roles: OwnerRole[]; onClose: () =
       className="space-y-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5"
     >
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold">เชิญพนักงาน</h2>
+        <h2 className="text-sm font-semibold">{t.invite}</h2>
         <button
           type="button"
           onClick={onClose}
-          aria-label="ปิด"
+          aria-label={t.close}
           className="grid size-7 place-items-center rounded-lg text-muted-foreground hover:bg-app"
         >
           <X className="size-4" />
@@ -151,7 +158,7 @@ function InviteStaffForm({ roles, onClose }: { roles: OwnerRole[]; onClose: () =
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label htmlFor="staff-email">อีเมล</Label>
+          <Label htmlFor="staff-email">{t.emailLabel}</Label>
           <Input
             id="staff-email"
             type="email"
@@ -162,25 +169,25 @@ function InviteStaffForm({ roles, onClose }: { roles: OwnerRole[]; onClose: () =
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="staff-name">ชื่อที่แสดง</Label>
+          <Label htmlFor="staff-name">{t.nameLabel}</Label>
           <Input
             id="staff-name"
             value={form.displayName}
             onChange={(e) => setForm((f) => ({ ...f, displayName: e.target.value }))}
-            placeholder="ชื่อพนักงาน"
+            placeholder={t.namePlaceholder}
           />
         </div>
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="staff-role">บทบาท</Label>
+        <Label htmlFor="staff-role">{t.roleLabel}</Label>
         <select
           id="staff-role"
           value={form.roleId}
           onChange={(e) => setForm((f) => ({ ...f, roleId: e.target.value }))}
           className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
         >
-          <option value="">— เลือกบทบาท —</option>
+          <option value="">{t.pickRole}</option>
           {roles.map((r) => (
             <option key={r.id} value={r.id}>
               {r.name}
@@ -201,10 +208,10 @@ function InviteStaffForm({ roles, onClose }: { roles: OwnerRole[]; onClose: () =
             !form.roleId
           }
         >
-          {mutation.isPending ? "กำลังเชิญ..." : "เชิญพนักงาน"}
+          {mutation.isPending ? t.inviting : t.invite}
         </Button>
         <Button type="button" variant="outline" onClick={onClose}>
-          ยกเลิก
+          {t.cancel}
         </Button>
       </div>
     </form>
@@ -212,6 +219,8 @@ function InviteStaffForm({ roles, onClose }: { roles: OwnerRole[]; onClose: () =
 }
 
 function StaffList({ staff, roles }: { staff: OwnerStaffMember[]; roles: OwnerRole[] }) {
+  const t = useMessages("owner").staff;
+  const { locale } = useLocale();
   const [editing, setEditing] = useState<OwnerStaffMember | null>(null);
   return (
     <>
@@ -226,7 +235,7 @@ function StaffList({ staff, roles }: { staff: OwnerStaffMember[]; roles: OwnerRo
             <div className="mt-1 text-sm text-muted-foreground">{s.email}</div>
             <div className="mt-2 flex items-center justify-between">
               <RolePill name={s.roleName} />
-              <span className="text-xs text-muted-foreground">{fmtDate(s.joinedAt)}</span>
+              <span className="text-xs text-muted-foreground">{fmtDate(s.joinedAt, locale)}</span>
             </div>
             <div className="mt-3">
               <StaffActions member={s} onEdit={() => setEditing(s)} />
@@ -240,12 +249,12 @@ function StaffList({ staff, roles }: { staff: OwnerStaffMember[]; roles: OwnerRo
         <table className="w-full text-sm">
           <thead className="bg-app text-left text-xs font-medium text-muted-foreground">
             <tr>
-              <th className="px-4 py-3">พนักงาน</th>
-              <th className="px-4 py-3">อีเมล</th>
-              <th className="px-4 py-3">บทบาท</th>
-              <th className="px-4 py-3">สถานะ</th>
-              <th className="px-4 py-3">เข้าร่วมเมื่อ</th>
-              <th className="px-4 py-3 text-right">จัดการ</th>
+              <th className="px-4 py-3">{t.colStaff}</th>
+              <th className="px-4 py-3">{t.colEmail}</th>
+              <th className="px-4 py-3">{t.colRole}</th>
+              <th className="px-4 py-3">{t.colStatus}</th>
+              <th className="px-4 py-3">{t.colJoined}</th>
+              <th className="px-4 py-3 text-right">{t.colActions}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-black/5">
@@ -259,7 +268,7 @@ function StaffList({ staff, roles }: { staff: OwnerStaffMember[]; roles: OwnerRo
                 <td className="px-4 py-3">
                   <StaffStatus status={s.status} />
                 </td>
-                <td className="px-4 py-3 text-muted-foreground">{fmtDate(s.joinedAt)}</td>
+                <td className="px-4 py-3 text-muted-foreground">{fmtDate(s.joinedAt, locale)}</td>
                 <td className="px-4 py-3 text-right">
                   <StaffActions member={s} onEdit={() => setEditing(s)} />
                 </td>
@@ -279,6 +288,7 @@ function StaffList({ staff, roles }: { staff: OwnerStaffMember[]; roles: OwnerRo
  * loses access the moment it lands.
  */
 function StaffActions({ member, onEdit }: { member: OwnerStaffMember; onEdit: () => void }) {
+  const t = useMessages("owner").staff;
   const qc = useQueryClient();
   const remove = useMutation({
     mutationFn: () => ownerApi.removeStaff(member.id),
@@ -293,18 +303,18 @@ function StaffActions({ member, onEdit }: { member: OwnerStaffMember; onEdit: ()
         onClick={onEdit}
         className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-xs font-semibold text-brand ring-1 ring-brand/20 transition hover:bg-brand/10"
       >
-        <Pencil className="size-3.5" /> แก้ไข
+        <Pencil className="size-3.5" /> {t.edit}
       </button>
       <button
         type="button"
-        aria-label={`ลบ ${member.displayName}`}
+        aria-label={interp(t.deleteAria, { name: member.displayName })}
         disabled={remove.isPending}
         onClick={() => {
-          if (window.confirm(`ลบ "${member.displayName}" ออกจากสนาม?`)) remove.mutate();
+          if (window.confirm(interp(t.deleteConfirm, { name: member.displayName }))) remove.mutate();
         }}
         className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-xs font-semibold text-brand-danger ring-1 ring-black/10 transition hover:bg-red-50 disabled:opacity-40"
       >
-        <Trash2 className="size-3.5" /> {remove.isPending ? "กำลังลบ..." : "ลบ"}
+        <Trash2 className="size-3.5" /> {remove.isPending ? t.deleting : t.delete}
       </button>
     </div>
   );
@@ -326,6 +336,7 @@ function EditStaffForm({
   roles: OwnerRole[];
   onClose: () => void;
 }) {
+  const t = useMessages("owner").staff;
   const qc = useQueryClient();
   const [form, setForm] = useState({
     displayName: member.displayName ?? "",
@@ -349,22 +360,22 @@ function EditStaffForm({
 
   return (
     <Modal
-      title={`แก้ไข ${member.displayName}`}
+      title={interp(t.editTitle, { name: member.displayName })}
       onClose={onClose}
       footer={
         <>
           <Button type="button" variant="outline" onClick={onClose}>
-            ยกเลิก
+            {t.cancel}
           </Button>
           <Button type="button" onClick={() => save.mutate()} disabled={save.isPending}>
-            {save.isPending ? "กำลังบันทึก..." : "บันทึก"}
+            {save.isPending ? t.saving : t.save}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
         <div className="space-y-1.5">
-          <Label htmlFor="edit-name">ชื่อที่แสดง</Label>
+          <Label htmlFor="edit-name">{t.nameLabel}</Label>
           <Input
             id="edit-name"
             value={form.displayName}
@@ -372,7 +383,7 @@ function EditStaffForm({
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="edit-role">บทบาท</Label>
+          <Label htmlFor="edit-role">{t.roleLabel}</Label>
           <select
             id="edit-role"
             value={form.roleId}
@@ -387,19 +398,19 @@ function EditStaffForm({
           </select>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="edit-status">สถานะ</Label>
+          <Label htmlFor="edit-status">{t.statusLabel}</Label>
           <select
             id="edit-status"
             value={form.status}
             onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
             className="h-10 w-full rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring"
           >
-            <option value="active">ใช้งาน</option>
-            <option value="suspended">ระงับ</option>
+            <option value="active">{t.status.active}</option>
+            <option value="suspended">{t.status.suspended}</option>
           </select>
         </div>
         <p className="text-xs text-muted-foreground">
-          หมายเหตุ: เปลี่ยนบทบาท/สถานะของตัวเองไม่ได้ และต้องเหลือเจ้าของอย่างน้อย 1 คน
+          {t.editNote}
         </p>
       </div>
     </Modal>

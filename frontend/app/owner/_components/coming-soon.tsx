@@ -1,3 +1,5 @@
+"use client";
+import { useMessages } from "@/lib/i18n/context";
 import type { LucideIcon } from "lucide-react";
 
 /** Polished placeholder for owner sections whose backend isn't built yet. */
@@ -12,6 +14,7 @@ export function ComingSoon({
   description: string;
   Icon: LucideIcon;
 }) {
+  const t = useMessages("common");
   return (
     <div className="space-y-5">
       <header>
@@ -22,7 +25,7 @@ export function ComingSoon({
         <span className="grid size-16 place-items-center rounded-2xl bg-brand/10 text-brand">
           <Icon className="size-8" />
         </span>
-        <div className="text-lg font-semibold">เร็วๆ นี้</div>
+        <div className="text-lg font-semibold">{t.comingSoon}</div>
         <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">{description}</p>
       </div>
     </div>
