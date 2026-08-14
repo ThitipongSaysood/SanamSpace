@@ -165,13 +165,22 @@ class OwnerMutationsApiTest extends TestCase
         ]);
     }
 
-    public function test_wallet_topup_rejects_non_positive_amount(): void
+    public function test_wallet_topup_rejects_out_of_range_amount(): void
     {
         $wallet = Wallet::firstOrFail();
+        $token = $this->ownerToken();
 
-        $this->withToken($this->ownerToken())
+        // Zero/negative is refused…
+        $this->withToken($token)
             ->postJson("/api/v1/owner/wallets/{$wallet->id}/topup", ['amount' => 0])
             ->assertStatus(422);
+
+        // …and so is an over-cap amount, so a fat-finger can't credit millions.
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)
+            ->postJson("/api/v1/owner/wallets/{$wallet->id}/topup", ['amount' => 2000000])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('amount');
     }
 
     public function test_mutations_require_staff(): void

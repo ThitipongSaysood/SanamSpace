@@ -48,6 +48,29 @@ class PlanFeatureTest extends TestCase
         }
     }
 
+    /**
+     * POS selling, package-purchase review and returning rental gear are the
+     * paid POS/package/rental features — a regression guard for the gates added
+     * after /sales, /package-purchases and rental-return sat reachable on a
+     * plan that never bought them. The feature gate runs before the controller,
+     * so the missing ids on the write routes never matter.
+     */
+    public function test_pos_package_and_rental_return_are_feature_gated(): void
+    {
+        $this->onPlan('starter');
+        $token = $this->login();
+
+        foreach (['/api/v1/owner/sales', '/api/v1/owner/sales/summary', '/api/v1/owner/package-purchases'] as $url) {
+            $this->as($token)->getJson($url)
+                ->assertStatus(402)
+                ->assertJsonPath('code', 'feature_not_in_plan');
+        }
+
+        $this->as($token)->postJson('/api/v1/owner/bookings/x/rentals/y/return')
+            ->assertStatus(402)
+            ->assertJsonPath('code', 'feature_not_in_plan');
+    }
+
     public function test_a_business_venue_reaches_the_business_features(): void
     {
         $this->onPlan('business');

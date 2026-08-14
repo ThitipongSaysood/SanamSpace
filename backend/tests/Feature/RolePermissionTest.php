@@ -169,6 +169,40 @@ class RolePermissionTest extends TestCase
             ->assertJsonPath('code', 'permission_denied');
     }
 
+    /**
+     * The money-moving owner routes must each demand their permission.
+     *
+     * A regression guard: wallet top-ups and package-purchase approvals once
+     * sat under only owner.org (or a bare feature gate), so any staffer who
+     * could open the portal could settle money. Stripping the role to nothing
+     * proves the route itself is gated — not that the seed happened to omit the
+     * permission. The permission check runs before the feature gate and before
+     * the controller, so the non-existent ids never matter.
+     */
+    public function test_money_moving_routes_are_permission_gated(): void
+    {
+        $cashier = $this->staffToken('cashier');
+        $role = Role::where('code', 'cashier')->firstOrFail();
+
+        $this->as($this->adminToken())->putJson("/api/v1/admin/roles/{$role->id}/permissions", [
+            'permissionIds' => [],
+        ])->assertOk();
+
+        $routes = [
+            '/api/v1/owner/wallets/x/topup',             // wallet.manage
+            '/api/v1/owner/wallet-topups/x/approve',     // wallet.manage
+            '/api/v1/owner/wallet-topups/x/reject',      // wallet.manage
+            '/api/v1/owner/package-purchases/x/approve', // payment.verify
+            '/api/v1/owner/package-purchases/x/reject',  // payment.verify
+        ];
+
+        foreach ($routes as $url) {
+            $this->as($cashier)->postJson($url)
+                ->assertForbidden()
+                ->assertJsonPath('code', 'permission_denied');
+        }
+    }
+
     /** Roles that bypass the check must not offer an editable list. */
     public function test_owner_and_super_admin_roles_cannot_be_edited(): void
     {
