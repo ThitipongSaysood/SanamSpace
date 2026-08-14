@@ -3,7 +3,7 @@ import { use, useEffect, useState } from "react";
 import { useVenueRouter as useRouter } from "@/lib/tenant/venue-nav";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  CalendarDays, CheckCircle2, Ticket, ChevronRight, QrCode, Landmark, Clock, Check, Hourglass, Package as PackageIcon, Wallet as WalletIcon,
+  CheckCircle2, ChevronRight, QrCode, Landmark, Clock, Check, Hourglass, Package as PackageIcon, Wallet as WalletIcon,
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { api } from "@/lib/api/client";
@@ -16,16 +16,85 @@ import { PromptPayQR } from "@/components/promptpay-qr";
 import { AppHeader } from "@/components/app-header";
 import { Loading, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
-import type { Payment, PaymentInstructions } from "@/lib/types";
+import type { Booking, Payment, PaymentInstructions } from "@/lib/types";
 
 type MethodId = "promptpay" | "transfer" | "package" | "credit";
 type Method = { id: MethodId; label: string; Icon: ComponentType<{ className?: string }>; iconCls: string };
+type PaymentMessages = ReturnType<typeof useMessages<"app">>["payment"];
 
 /** Hours between "HH:MM" strings. */
 function hoursBetween(start: string, end: string): number {
   const [sh, sm] = start.split(":").map(Number);
   const [eh, em] = end.split(":").map(Number);
   return (eh * 60 + em - (sh * 60 + sm)) / 60;
+}
+
+/**
+ * The booking laid out as label/value rows — what the customer is paying for,
+ * shown both before they pay and on the confirmation screen so the details are
+ * never a page away. `paid` adds the settled amount as its own accented row.
+ */
+function BookingSummary({ booking, t, paid = false }: { booking: Booking; t: PaymentMessages; paid?: boolean }) {
+  const hrs = hoursBetween(booking.start, booking.end);
+  const rows: { label: string; value: string; sub?: string; brand?: boolean; mono?: boolean }[] = [
+    { label: t.rowCourt, value: booking.courtName },
+    { label: t.rowDate, value: booking.date },
+    { label: t.rowTime, value: `${booking.start}–${booking.end}`, sub: fmt(t.hours, { h: hrs }) },
+    ...(paid ? [{ label: t.rowPaid, value: `฿${booking.amount}`, brand: true }] : []),
+    { label: t.rowRef, value: booking.code, mono: true },
+  ];
+  return (
+    <div className="w-full space-y-3">
+      <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
+        {rows.map((r, i) => (
+          <div
+            key={r.label}
+            className={`flex items-center justify-between gap-4 px-4 py-3 text-sm ${i > 0 ? "border-t border-black/5" : ""}`}
+          >
+            <span className="shrink-0 text-muted-foreground">{r.label}</span>
+            <span className={`text-right font-semibold ${r.brand ? "text-brand" : ""} ${r.mono ? "font-mono tracking-wide" : ""}`}>
+              {r.value}
+              {r.sub && <span className="ml-1.5 font-normal text-muted-foreground">· {r.sub}</span>}
+            </span>
+          </div>
+        ))}
+      </div>
+      <p className="text-center text-sm text-muted-foreground">📍 {booking.venueName}</p>
+    </div>
+  );
+}
+
+const TONES = {
+  brand: { circle: "bg-brand text-white shadow-lg shadow-brand/30", halo: "bg-brand/10" },
+  amber: { circle: "bg-amber-100 text-amber-600", halo: "bg-amber-50" },
+  slate: { circle: "bg-slate-100 text-slate-400", halo: "bg-slate-50" },
+} as const;
+
+/** The centred checkmark-style result screen shared by the terminal states. */
+function Confirmation({
+  tone, Icon, title, subtitle, children,
+}: {
+  tone: keyof typeof TONES;
+  Icon: ComponentType<{ className?: string; strokeWidth?: number }>;
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+}) {
+  const c = TONES[tone];
+  return (
+    <main className="flex min-h-dvh flex-col items-center justify-center gap-6 px-6 py-10 text-center">
+      <div className={`grid place-items-center rounded-full p-4 ${c.halo}`}>
+        <div className={`grid size-24 place-items-center rounded-full ${c.circle}`}>
+          <Icon className="size-12" strokeWidth={tone === "brand" ? 3 : 2} />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <h1 className="text-2xl font-bold">{title}</h1>
+        {subtitle && <p className="mx-auto max-w-xs whitespace-pre-line text-sm text-muted-foreground">{subtitle}</p>}
+      </div>
+      {children}
+    </main>
+  );
 }
 
 export default function PaymentPage({ params }: { params: Promise<{ bookingId: string }> }) {
@@ -158,45 +227,46 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
   // which record an approved payment server-side and so survive a reload).
   if (paymentStatus === "approved" || redeemed) {
     return (
-      <main className="flex min-h-dvh flex-col items-center justify-center px-6 text-center">
-        <div className="grid size-24 place-items-center rounded-full bg-brand text-white shadow-lg shadow-brand/30">
-          <Check className="size-12" strokeWidth={3} />
+      <Confirmation tone="brand" Icon={Check} title={t.approvedTitle} subtitle={t.approvedSub}>
+        <div className="w-full max-w-sm space-y-6">
+          <BookingSummary booking={booking} t={t} paid />
+          <div className="space-y-2">
+            <Button className="h-12 w-full rounded-xl bg-brand text-base font-semibold hover:bg-brand/90" onClick={() => router.push(`/booking/${bookingId}`)}>
+              {t.viewDetail}
+            </Button>
+            <button
+              type="button"
+              onClick={() => router.push("/home")}
+              className="h-11 w-full rounded-xl text-base font-semibold text-brand transition hover:bg-brand/5"
+            >
+              {t.backHome}
+            </button>
+          </div>
         </div>
-        <h1 className="mt-6 text-2xl font-bold">{t.approvedTitle}</h1>
-        <p className="mt-4 text-sm text-muted-foreground">{t.bookingNo}</p>
-        <p className="font-mono text-lg font-bold tracking-wider">{booking.code}</p>
-        <div className="mt-8 w-full max-w-xs space-y-3">
-          <Button className="h-12 w-full rounded-xl bg-brand text-base font-semibold hover:bg-brand/90" onClick={() => router.push(`/booking/${bookingId}`)}>
-            {t.viewDetail}
-          </Button>
-          <Button variant="outline" className="h-12 w-full rounded-xl border-black/10 text-base font-semibold" onClick={() => router.push("/home")}>
-            {t.backHome}
-          </Button>
-        </div>
-      </main>
+      </Confirmation>
     );
   }
 
   // Slip submitted → waiting for the venue to verify
   if (paymentStatus === "pending_review") {
     return (
-      <main className="flex min-h-dvh flex-col items-center justify-center px-6 text-center">
-        <div className="grid size-24 place-items-center rounded-full bg-amber-100 text-amber-600">
-          <Hourglass className="size-12" />
+      <Confirmation tone="amber" Icon={Hourglass} title={t.sentTitle} subtitle={t.sentSub}>
+        <div className="w-full max-w-sm space-y-6">
+          <BookingSummary booking={booking} t={t} />
+          <div className="space-y-2">
+            <Button className="h-12 w-full rounded-xl bg-brand text-base font-semibold hover:bg-brand/90" onClick={() => router.push(`/booking/${bookingId}`)}>
+              {t.viewDetail}
+            </Button>
+            <button
+              type="button"
+              onClick={() => router.push("/home")}
+              className="h-11 w-full rounded-xl text-base font-semibold text-brand transition hover:bg-brand/5"
+            >
+              {t.backHome}
+            </button>
+          </div>
         </div>
-        <h1 className="mt-6 text-2xl font-bold">{t.sentTitle}</h1>
-        <p className="mt-3 whitespace-pre-line text-sm text-muted-foreground">{t.sentSub}</p>
-        <p className="mt-4 text-sm text-muted-foreground">{t.bookingNo}</p>
-        <p className="font-mono text-lg font-bold tracking-wider">{booking.code}</p>
-        <div className="mt-8 w-full max-w-xs space-y-3">
-          <Button className="h-12 w-full rounded-xl bg-brand text-base font-semibold hover:bg-brand/90" onClick={() => router.push(`/booking/${bookingId}`)}>
-            {t.viewDetail}
-          </Button>
-          <Button variant="outline" className="h-12 w-full rounded-xl border-black/10 text-base font-semibold" onClick={() => router.push("/home")}>
-            {t.backHome}
-          </Button>
-        </div>
-      </main>
+      </Confirmation>
     );
   }
 
@@ -206,23 +276,20 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
   const holdExpired = !!booking.expiresAt && paySecondsLeft <= 0;
   if (holdExpired) {
     return (
-      <main className="flex min-h-dvh flex-col items-center justify-center px-6 text-center">
-        <div className="grid size-24 place-items-center rounded-full bg-slate-100 text-slate-400">
-          <Clock className="size-12" />
-        </div>
-        <h1 className="mt-6 text-2xl font-bold">{t.expiredTitle}</h1>
-        <p className="mt-3 whitespace-pre-line text-sm text-muted-foreground">
-          {t.expiredSub}
-        </p>
-        <div className="mt-8 w-full max-w-xs space-y-3">
+      <Confirmation tone="slate" Icon={Clock} title={t.expiredTitle} subtitle={t.expiredSub}>
+        <div className="w-full max-w-sm space-y-2">
           <Button className="h-12 w-full rounded-xl bg-brand text-base font-semibold hover:bg-brand/90" onClick={() => router.push(`/booking/new?venueId=${booking.venueId}`)}>
             {t.bookAgain}
           </Button>
-          <Button variant="outline" className="h-12 w-full rounded-xl border-black/10 text-base font-semibold" onClick={() => router.push("/home")}>
+          <button
+            type="button"
+            onClick={() => router.push("/home")}
+            className="h-11 w-full rounded-xl text-base font-semibold text-brand transition hover:bg-brand/5"
+          >
             {t.backHome}
-          </Button>
+          </button>
         </div>
-      </main>
+      </Confirmation>
     );
   }
 
@@ -251,23 +318,11 @@ export default function PaymentPage({ params }: { params: Promise<{ bookingId: s
 
         {!payment && (
           <>
-            <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
-              <div className="flex items-center gap-3">
-                <div className="grid size-12 shrink-0 place-items-center rounded-xl bg-brand/10 text-brand">
-                  <Ticket className="size-6" />
-                </div>
-                <div className="min-w-0">
-                  <div className="truncate font-semibold">{booking.venueName} · {booking.courtName}</div>
-                  <div className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground">
-                    <CalendarDays className="size-3.5" />
-                    {booking.date} {booking.start}–{booking.end}
-                  </div>
-                </div>
-              </div>
-              <div className="mt-4 flex items-baseline justify-between border-t border-black/5 pt-3">
-                <span className="text-sm text-muted-foreground">{t.payAmount}</span>
-                <span className="text-3xl font-bold text-brand">฿{booking.amount}</span>
-              </div>
+            <BookingSummary booking={booking} t={t} />
+
+            <div className="rounded-2xl bg-white p-5 text-center shadow-sm ring-1 ring-black/5">
+              <p className="text-sm text-muted-foreground">{t.payAmount}</p>
+              <p className="mt-1 text-4xl font-bold text-brand">฿{booking.amount}</p>
             </div>
 
             <h2 className="px-1 font-semibold">{t.chooseMethod}</h2>
