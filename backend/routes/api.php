@@ -385,14 +385,19 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // --- Wallets (read list + topup) ---
         Route::get('/wallets', [OwnerWalletController::class, 'index'])->middleware('feature:wallet');
-        Route::post('/wallets/{id}/topup', [OwnerWalletController::class, 'topup'])->middleware('feature:wallet');
+        // Granting/approving wallet value is wallet.manage, like the customer-credit
+        // grants above — handing over money is not something every staff role does.
+        Route::post('/wallets/{id}/topup', [OwnerWalletController::class, 'topup'])->middleware('permission:wallet.manage')->middleware('feature:wallet');
         Route::get('/wallet-topups', [OwnerWalletController::class, 'topupRequests'])->middleware('feature:wallet');
-        Route::post('/wallet-topups/{id}/approve', [OwnerWalletController::class, 'approveTopup'])->middleware('feature:wallet');
-        Route::post('/wallet-topups/{id}/reject', [OwnerWalletController::class, 'rejectTopup'])->middleware('feature:wallet');
+        Route::post('/wallet-topups/{id}/approve', [OwnerWalletController::class, 'approveTopup'])->middleware('permission:wallet.manage')->middleware('feature:wallet');
+        Route::post('/wallet-topups/{id}/reject', [OwnerWalletController::class, 'rejectTopup'])->middleware('permission:wallet.manage')->middleware('feature:wallet');
 
-        Route::get('/package-purchases', [OwnerPackagePurchaseController::class, 'index']);
-        Route::post('/package-purchases/{id}/approve', [OwnerPackagePurchaseController::class, 'approve']);
-        Route::post('/package-purchases/{id}/reject', [OwnerPackagePurchaseController::class, 'reject']);
+        // Approving a package purchase verifies the customer's slip and settles
+        // money — same trust as verifying a booking payment, so payment.verify,
+        // and gated on the package feature that sells them.
+        Route::get('/package-purchases', [OwnerPackagePurchaseController::class, 'index'])->middleware('feature:package');
+        Route::post('/package-purchases/{id}/approve', [OwnerPackagePurchaseController::class, 'approve'])->middleware('permission:payment.verify')->middleware('feature:package');
+        Route::post('/package-purchases/{id}/reject', [OwnerPackagePurchaseController::class, 'reject'])->middleware('permission:payment.verify')->middleware('feature:package');
 
         // --- CRM (overview + segments + timeline + broadcasts) ---
         Route::get('/crm/overview', [OwnerCrmController::class, 'overview'])->middleware('permission:crm.view')->middleware('feature:crm');
