@@ -5,6 +5,7 @@ export const th = {
     comingSoon: "เร็วๆ นี้",
     login: "เข้าสู่ระบบ",
     tryFree: "ทดลองใช้ฟรี",
+    tryFreeViaLine: "ทดลองใช้ฟรี 1 เดือน",
     menu: "เมนู",
     nav: {
       features: "ฟีเจอร์",
@@ -62,6 +63,10 @@ export const th = {
       closeMenu: "ปิดเมนู",
       openMenu: "เปิดเมนู",
       messages: "ข้อความ",
+      notifTitle: "การแจ้งเตือน",
+      notifEmpty: "ยังไม่มีประกาศ",
+      newSlipTitle: "สลิปใหม่รอตรวจสอบ",
+      newSlipBody: "มีการชำระเงินรอตรวจสอบ {n} รายการ",
       logout: "ออกจากระบบ",
       planExpiredTitle: "แพ็กเกจหมดอายุ",
       planExpiredBody1: "ระบบจัดการสนามถูกล็อกไว้ชั่วคราว",
@@ -470,6 +475,7 @@ export const th = {
       submit: "ส่งเรื่อง",
       empty: "ยังไม่เคยแจ้งเรื่องไว้",
       platformTeam: "ทีมงาน SanamSpace",
+      unread: "ใหม่",
       replyPlaceholder: "ตอบกลับ",
       sendReply: "ส่งข้อความ",
     },
@@ -2223,19 +2229,38 @@ export const th = {
       recommend: "แนะนำ",
       ctaTry: "ทดลองใช้ฟรี 30 วัน",
       note: "ทุกแพ็กเกจรองรับทุกกีฬา · ทดลองฟรี 30 วัน ไม่ต้องใช้บัตรเครดิต · ไม่มีสัญญาผูกมัด ยกเลิกได้ทุกเมื่อ",
-      plans: {
-        starter: {
-          limits: ["1 สาขา · 10 คอร์ท", "พนักงาน 5 คน · 1,000 การจอง/เดือน"],
-          feature: "จองสนาม · มัดจำ · เช็คอิน QR · ตรวจสลิปเอง · ลูกค้า · คืนเงิน · รายงาน",
-        },
-        business: {
-          limits: ["3 สาขา · 30 คอร์ท", "พนักงาน 15 คน · 5,000 การจอง/เดือน"],
-          feature: "+ ขายหน้าร้าน · เช่าอุปกรณ์ · เครดิตลูกค้า · แพ็กเกจชั่วโมง · สมาชิก+แต้ม · คูปอง · แบนเนอร์ · ตรวจสลิปอัตโนมัติ",
-        },
-        pro: {
-          limits: ["ไม่จำกัดสาขา/คอร์ท", "ไม่จำกัดพนักงานและการจอง"],
-          feature: "+ CRM (เซกเมนต์ · RFM) · ยิงโปร LINE · รายงานขั้นสูง + ส่งออก",
-        },
+      // Core features are on every plan (ไม่ได้ถูก gate ในระบบ) — โชว์ทุกการ์ด
+      core: [
+        "ตารางจองแบบเรียลไทม์",
+        "รับมัดจำออนไลน์",
+        "เช็คอินด้วย QR",
+        "ตรวจสลิปเอง",
+        "จัดการข้อมูลลูกค้า",
+        "คืนเงินในระบบ",
+        "แดชบอร์ดยอด-รายได้",
+      ],
+      // Formats the numeric limits that come back from /plans.
+      limits: {
+        branchesCourts: "{branches} สาขา · {courts} คอร์ท",
+        staffBookings: "พนักงาน {staff} คน · {bookings} การจอง/เดือน",
+        unlimitedBranchesCourts: "ไม่จำกัดสาขา/คอร์ท",
+        unlimitedStaffBookings: "ไม่จำกัดพนักงานและการจอง",
+      },
+      // Display label per feature code. The API decides WHICH codes a plan has
+      // (admin Feature Matrix); this only names them. Codes are the 11 gated
+      // features in PlanCatalogue — keep in sync if a new gated feature is added.
+      featureLabels: {
+        pos: "ขายหน้าร้าน (POS)",
+        rental: "เช่าอุปกรณ์",
+        wallet: "เครดิตลูกค้า",
+        package: "แพ็กเกจชั่วโมง",
+        membership: "สมาชิก + แต้มสะสม",
+        coupon: "คูปองส่วนลด",
+        banner: "แบนเนอร์โปรโมชัน",
+        slip_auto_verify: "ตรวจสลิปอัตโนมัติ",
+        crm: "CRM (เซกเมนต์ · RFM)",
+        broadcast: "ยิงโปรโมชันผ่าน LINE",
+        advanced_reports: "รายงานขั้นสูง + ส่งออกไฟล์",
       },
     },
     faq: {
@@ -2332,7 +2357,16 @@ export const th = {
       methodPackage: "ใช้แพ็กเกจ (เหลือ {h} ชม.)",
       methodCredit: "ใช้เครดิต (มี ฿{n})",
       approvedTitle: "ยืนยันการชำระเงินแล้ว!",
+      approvedSub: "ดูรายละเอียดการจองของคุณได้จากปุ่มด้านล่าง",
       bookingNo: "หมายเลขการจอง",
+      bookingDetails: "รายละเอียดการจอง",
+      rowVenue: "สนาม",
+      rowCourt: "คอร์ท",
+      rowDate: "วันที่",
+      rowTime: "เวลา",
+      rowPaid: "ชำระแล้ว",
+      rowRef: "อ้างอิง",
+      hours: "{h} ชม.",
       viewDetail: "ดูรายละเอียดการจอง",
       backHome: "กลับหน้าหลัก",
       sentTitle: "ส่งสลิปแล้ว",

@@ -7,6 +7,7 @@ export const en: typeof th = {
     comingSoon: "Coming soon",
     login: "Log in",
     tryFree: "Start free",
+    tryFreeViaLine: "1-month free trial",
     menu: "Menu",
     nav: {
       features: "Features",
@@ -64,6 +65,10 @@ export const en: typeof th = {
       closeMenu: "Close menu",
       openMenu: "Open menu",
       messages: "Messages",
+      notifTitle: "Notifications",
+      notifEmpty: "No announcements yet",
+      newSlipTitle: "New slip to verify",
+      newSlipBody: "{n} payment(s) awaiting your review",
       logout: "Log out",
       planExpiredTitle: "Plan expired",
       planExpiredBody1: "The venue management system is temporarily locked",
@@ -472,6 +477,7 @@ export const en: typeof th = {
       submit: "Submit",
       empty: "No tickets yet",
       platformTeam: "SanamSpace team",
+      unread: "New",
       replyPlaceholder: "Reply",
       sendReply: "Send message",
     },
@@ -2225,19 +2231,38 @@ export const en: typeof th = {
       recommend: "Recommended",
       ctaTry: "Start 30-day free trial",
       note: "Every plan supports every sport · 30-day free trial, no credit card · No contract, cancel anytime",
-      plans: {
-        starter: {
-          limits: ["1 branch · 10 courts", "5 staff · 1,000 bookings/month"],
-          feature: "Booking · deposits · QR check-in · manual slip review · customers · refunds · reports",
-        },
-        business: {
-          limits: ["3 branches · 30 courts", "15 staff · 5,000 bookings/month"],
-          feature: "+ POS · rentals · customer credit · hour packages · members+points · coupons · banners · auto slip verification",
-        },
-        pro: {
-          limits: ["Unlimited branches/courts", "Unlimited staff and bookings"],
-          feature: "+ CRM (segments · RFM) · LINE broadcast · advanced reports + export",
-        },
+      // Core features are on every plan (not gated in the system) — shown on every card.
+      core: [
+        "Real-time booking schedule",
+        "Online deposits",
+        "QR check-in",
+        "Manual slip review",
+        "Customer management",
+        "In-app refunds",
+        "Revenue dashboard",
+      ],
+      // Formats the numeric limits that come back from /plans.
+      limits: {
+        branchesCourts: "{branches} branches · {courts} courts",
+        staffBookings: "{staff} staff · {bookings} bookings/month",
+        unlimitedBranchesCourts: "Unlimited branches/courts",
+        unlimitedStaffBookings: "Unlimited staff and bookings",
+      },
+      // Display label per feature code. The API decides WHICH codes a plan has
+      // (admin Feature Matrix); this only names them. Codes are the 11 gated
+      // features in PlanCatalogue — keep in sync if a new gated feature is added.
+      featureLabels: {
+        pos: "Point of sale (POS)",
+        rental: "Equipment rentals",
+        wallet: "Customer credit",
+        package: "Hour packages",
+        membership: "Members + points",
+        coupon: "Discount coupons",
+        banner: "Promo banners",
+        slip_auto_verify: "Auto slip verification",
+        crm: "CRM (segments · RFM)",
+        broadcast: "LINE promo broadcast",
+        advanced_reports: "Advanced reports + export",
       },
     },
     faq: {
@@ -2334,7 +2359,16 @@ export const en: typeof th = {
       methodPackage: "Use package ({h} hrs left)",
       methodCredit: "Use credit (฿{n} available)",
       approvedTitle: "Payment confirmed!",
+      approvedSub: "View your booking details using the button below",
       bookingNo: "Booking number",
+      bookingDetails: "Booking details",
+      rowVenue: "Venue",
+      rowCourt: "Court",
+      rowDate: "Date",
+      rowTime: "Time",
+      rowPaid: "Paid",
+      rowRef: "Reference",
+      hours: "{h} hr",
       viewDetail: "View booking details",
       backHome: "Back to home",
       sentTitle: "Slip sent",
