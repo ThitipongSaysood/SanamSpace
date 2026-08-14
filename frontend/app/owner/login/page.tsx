@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ShieldCheck } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ownerApi, OwnerApiError } from "@/lib/api/owner";
@@ -40,9 +40,7 @@ export default function OwnerLoginPage() {
       <div className="absolute right-4 top-4"><LanguageSwitcher /></div>
       <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-sm ring-1 ring-black/5">
         <div className="flex flex-col items-center gap-3 text-center">
-          <div className="grid size-16 place-items-center rounded-2xl bg-brand text-brand-foreground shadow-sm">
-            <ShieldCheck className="size-8" />
-          </div>
+          <Image src="/brand/sanamspace-login-light.png" alt="SanamSpace" width={128} height={128} className="size-28" priority />
           <div>
             <div className="text-xl font-bold tracking-tight">SanamSpace · Owner</div>
             <p className="text-sm text-muted-foreground">{t.subtitle}</p>

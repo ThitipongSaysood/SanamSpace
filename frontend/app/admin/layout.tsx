@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowLeftRight,
@@ -95,10 +96,8 @@ function SidebarContent({
   return (
     <div className="flex h-full flex-col">
       {/* Brand */}
-      <div className="flex items-center gap-2.5 px-5 py-5">
-        <div className="grid size-9 place-items-center rounded-xl bg-brand text-brand-foreground">
-          <Building2 className="size-5" />
-        </div>
+      <div className="flex items-center gap-3 px-5 py-5">
+        <Image src="/brand/sanamspace-mark.png" alt="SanamSpace" width={36} height={36} className="size-9" priority />
         <div className="text-sm font-bold leading-tight">
           SanamSpace
           <span className="block text-xs font-medium text-muted-foreground">{t.brandSub}</span>

@@ -1,8 +1,8 @@
 "use client";
 import { Suspense, useState } from "react";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ownerApi, OwnerApiError } from "@/lib/api/owner";
@@ -49,9 +49,7 @@ function SignupInner() {
     <main className="flex min-h-dvh flex-col items-center justify-center bg-app px-6 py-12">
       <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-sm ring-1 ring-black/5">
         <div className="flex flex-col items-center gap-3 text-center">
-          <div className="grid size-16 place-items-center rounded-2xl bg-brand text-brand-foreground shadow-sm">
-            <Sparkles className="size-8" />
-          </div>
+          <Image src="/brand/sanamspace-login-light.png" alt="SanamSpace" width={128} height={128} className="size-28" priority />
           <div>
             <div className="text-xl font-bold tracking-tight">{t.title}</div>
             <p className="text-sm text-muted-foreground">
