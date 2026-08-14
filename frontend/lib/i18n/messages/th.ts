@@ -2555,12 +2555,8 @@ export const th = {
     },
     profileInfo: {
       title: "ข้อมูลส่วนตัว",
-      errName: "กรุณากรอกชื่อ",
-      errEmail: "รูปแบบอีเมลไม่ถูกต้อง",
-      fullName: "ชื่อ-นามสกุล",
       memberId: "รหัสสมาชิก",
       memberTier: "ระดับสมาชิก",
-      email: "อีเมล",
       phone: "เบอร์โทร",
       memberPrefix: "Member",
       cantEdit: "รหัสสมาชิกและระดับสมาชิกแก้ไขไม่ได้",

@@ -13,39 +13,26 @@ export default function ProfileInfoPage() {
   const { data: membership } = useMembership();
   const t = useMessages("app").profileInfo;
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ displayName: "", email: "", phone: "" });
-  const [error, setError] = useState<string | null>(null);
+  const [phone, setPhone] = useState("");
   if (!user) return null;
 
   const initial = user.displayName.replace(/^คุณ/, "").trim().charAt(0) || user.displayName.charAt(0);
 
   function startEdit() {
-    setForm({ displayName: user!.displayName, email: user!.email ?? "", phone: user!.phone ?? "" });
-    setError(null);
+    setPhone(user!.phone ?? "");
     setEditing(true);
   }
   function save() {
-    if (!form.displayName.trim()) {
-      setError(t.errName);
-      return;
-    }
-    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-      setError(t.errEmail);
-      return;
-    }
-    updateUser({
-      displayName: form.displayName.trim(),
-      email: form.email.trim(),
-      phone: form.phone.trim(),
-    });
+    // LINE-only sign-in: the name comes from LINE and email is never collected,
+    // so the phone — how the venue reaches the customer about a booking — is the
+    // one thing they set here.
+    updateUser({ phone: phone.trim() });
     setEditing(false);
   }
 
   const viewRows = [
-    { label: t.fullName, value: user.displayName },
     { label: t.memberId, value: membership?.memberId ?? "ED-0001234" },
     { label: t.memberTier, value: membership ? `${t.memberPrefix} ${membership.tier}` : "—" },
-    { label: t.email, value: user.email || "—" },
     { label: t.phone, value: user.phone || "—" },
   ];
 
@@ -64,37 +51,16 @@ export default function ProfileInfoPage() {
         {editing ? (
           <div className="space-y-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
             <div className="space-y-1.5">
-              <Label htmlFor="name">{t.fullName}</Label>
-              <Input
-                id="name"
-                value={form.displayName}
-                onChange={(e) => setForm({ ...form, displayName: e.target.value })}
-                placeholder={t.fullName}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="email">{t.email}</Label>
-              <Input
-                id="email"
-                type="email"
-                inputMode="email"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                placeholder="you@email.com"
-              />
-            </div>
-            <div className="space-y-1.5">
               <Label htmlFor="phone">{t.phone}</Label>
               <Input
                 id="phone"
                 type="tel"
                 inputMode="tel"
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
                 placeholder="08x-xxx-xxxx"
               />
             </div>
-            {error && <p className="text-sm text-brand-danger">{error}</p>}
             <div className="rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
               {t.cantEdit}
             </div>

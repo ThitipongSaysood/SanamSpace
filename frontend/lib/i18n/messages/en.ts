@@ -2557,12 +2557,8 @@ export const en: typeof th = {
     },
     profileInfo: {
       title: "Personal info",
-      errName: "Please enter your name",
-      errEmail: "Invalid email format",
-      fullName: "Full name",
       memberId: "Member ID",
       memberTier: "Tier",
-      email: "Email",
       phone: "Phone",
       memberPrefix: "Member",
       cantEdit: "Member ID and tier can't be edited",
