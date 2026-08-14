@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\MembershipController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PackageController;
 use App\Http\Controllers\Api\PersonalDataController;
+use App\Http\Controllers\Api\PlanController;
 use App\Http\Controllers\Api\PromotionController;
 use App\Http\Controllers\Api\RentalController;
 use App\Http\Controllers\Api\ReviewController;
@@ -112,6 +113,11 @@ Route::get('/promotions', [PromotionController::class, 'index']);
 // What a customer can rent for the slot they are about to book. Availability
 // only means something for a specific window, so date+start+end are required.
 Route::get('/rentals', [RentalController::class, 'index']);
+
+// Public pricing catalogue for the marketing site. Active plans + the feature
+// codes each one currently enables, so the landing cards follow the admin
+// Feature Matrix without a code change.
+Route::get('/plans', [PlanController::class, 'index']);
 
 // --- Protected ---
 Route::middleware('auth:sanctum')->group(function () {
