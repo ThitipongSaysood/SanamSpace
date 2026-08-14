@@ -2396,6 +2396,18 @@ export const en: typeof th = {
       sendSlip: "Send slip",
       sending: "Sending...",
     },
+    unsubscribe: {
+      working: "Working...",
+      doneTitle: "You've unsubscribed",
+      doneBody: "You won't receive promotional messages from this venue anymore.\nYou can change this anytime.",
+      resubTitle: "You're subscribed again",
+      resubBody: "You'll receive news and promotions from this venue again.",
+      resubBtn: "Resubscribe",
+      resubmitting: "Working...",
+      backHome: "Back to home",
+      errorTitle: "Something went wrong",
+      retry: "Try again",
+    },
     error: { generic: "Something went wrong. Please try again.", retry: "Try again" },
     notif: {
       title: "Notifications",

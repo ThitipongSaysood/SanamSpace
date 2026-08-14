@@ -158,6 +158,27 @@ class BroadcastDeliveryTest extends TestCase
         );
     }
 
+    /** Every LINE broadcast carries the one-tap unsubscribe link (PDPA). */
+    public function test_line_broadcast_appends_the_unsubscribe_link(): void
+    {
+        config(['services.line.customer_app_url' => 'https://app.test']);
+        OrganizationSetting::query()
+            ->updateOrCreate(['organization_id' => $this->org()->id], ['line_messaging_token' => 'test-token']);
+        $this->customer('มีไลน์', withLine: true);
+        Http::fake(['*' => Http::response([], 200)]);
+
+        $token = $this->ownerToken();
+        $id = $this->draft($token, 'line');
+        $this->withToken($token)->postJson("/api/v1/owner/broadcasts/{$id}/send")->assertOk();
+
+        Http::assertSent(function ($request) {
+            $messages = $request->data()['messages'] ?? [];
+            $text = collect($messages)->firstWhere('type', 'text')['text'] ?? '';
+
+            return str_contains($text, 'https://app.test/v/') && str_contains($text, '/unsubscribe');
+        });
+    }
+
     /** When LINE refuses, that is a failure and has to look like one. */
     public function test_a_provider_error_is_recorded_as_failed(): void
     {

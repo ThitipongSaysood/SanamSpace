@@ -212,6 +212,9 @@ export const httpApi: Api = {
   getConsent: () => req<MarketingConsent>("/me/consent"),
   setConsent: (granted: boolean) =>
     req<MarketingConsent>("/me/consent", { method: "POST", body: { granted } }),
+  // One-tap opt-out (the broadcast unsubscribe link) + opting back in.
+  unsubscribe: () => req<MarketingConsent>("/me/unsubscribe", { method: "POST" }),
+  resubscribe: () => req<MarketingConsent>("/me/resubscribe", { method: "POST" }),
 
   // --- PDPA data-subject rights. Neither takes an id: only ever yourself. ---
   /**

@@ -224,6 +224,22 @@ export const mockApi = {
     };
     return { ...mockConsent };
   },
+  // One-tap opt-out (the broadcast unsubscribe link) — idempotent, keeps the
+  // first opt-out time. Resubscribe opts back in.
+  async unsubscribe(): Promise<MarketingConsent> {
+    await delay();
+    mockConsent = {
+      ...mockConsent,
+      unsubscribedAt: mockConsent.unsubscribedAt ?? new Date().toISOString(),
+      marketingAllowed: false,
+    };
+    return { ...mockConsent };
+  },
+  async resubscribe(): Promise<MarketingConsent> {
+    await delay();
+    mockConsent = { consent: true, consentAt: new Date().toISOString(), unsubscribedAt: null, marketingAllowed: true };
+    return { ...mockConsent };
+  },
   // PDPA rights in mock mode: shaped like the real thing so the screen can be
   // built and tested, but nothing is erased — there is no real record to erase.
   async exportMyData(): Promise<string> {

@@ -8,6 +8,7 @@ use App\Models\Broadcast;
 use App\Models\BroadcastRecipient;
 use App\Models\Customer;
 use App\Models\CustomerSegment;
+use App\Models\Organization;
 use App\Models\OrganizationSetting;
 use App\Services\LineMessagingService;
 use App\Services\NotificationService;
@@ -159,7 +160,8 @@ class BroadcastController extends Controller
 
         if ($broadcast->channel === 'line') {
             $settings = OrganizationSetting::query()->where('organization_id', $orgId)->first();
-            $delivery = $this->line->pushText($settings, $recipients, $broadcast->message, $broadcast->image_url);
+            $message = $this->withUnsubscribeFooter($broadcast->message, $orgId);
+            $delivery = $this->line->pushText($settings, $recipients, $message, $broadcast->image_url);
         } elseif ($broadcast->channel === 'app') {
             // "แสดงในแอป" — drop a promo into each targeted customer's bell. Every
             // targeted customer is reachable in-app (no LINE profile needed).
@@ -298,6 +300,28 @@ class BroadcastController extends Controller
      *
      * @return Collection<int,Customer>
      */
+    /**
+     * Append the one-tap unsubscribe link every marketing broadcast should
+     * carry (PDPA + basic courtesy). The link lands on the customer app's
+     * /unsubscribe, which opts the tapper out via POST /me/unsubscribe. Silent
+     * no-op when the customer app URL isn't configured (dev) — the message
+     * still sends; only in-app "app" broadcasts skip it (the app has its own
+     * consent toggle in settings).
+     */
+    private function withUnsubscribeFooter(string $message, string $orgId): string
+    {
+        $base = config('services.line.customer_app_url');
+        $slug = Organization::query()->whereKey($orgId)->value('slug');
+
+        if (! $base || ! $slug) {
+            return $message;
+        }
+
+        $url = rtrim((string) $base, '/')."/v/{$slug}/unsubscribe";
+
+        return $message."\n\n— — —\nยกเลิกรับข่าวสาร: {$url}";
+    }
+
     private function resolveAudience(string $orgId, string $audience, ?int $days, ?string $segmentId): Collection
     {
         if ($audience === 'segment') {
