@@ -1,6 +1,36 @@
 # Active Task
 
-_Last updated: 2026-08-14 (~15:10) · Last agent: Claude (Opus 4.8)_
+_Last updated: 2026-08-14 (~16:40) · Last agent: Claude (Opus 4.8)_
+
+## ✅ Done 2026-08-14 (~16:40) — LINE-only login/profile, broadcast unsubscribe, LINE onboarding doc
+
+**Current Task:** Tighten the customer app around LINE-only sign-in, wire the live PDPA unsubscribe
+endpoints into broadcasts, and document per-venue LINE onboarding.
+
+**Status:** ✅ Complete. **4 commits `8850c39`→`46ed47c`, PUSHED to `main`.** Working tree clean.
+Backend **696/696**, frontend **44/44**, tsc + eslint clean.
+
+**What's Done:**
+- **`feat(pdpa)`** — every LINE broadcast appends a "ยกเลิกรับข่าวสาร" link → new customer page
+  `/v/{slug}/unsubscribe` (opts out on arrival, resubscribe button). `api.unsubscribe/resubscribe` on the
+  customer client + bilingual copy; footer in `BroadcastController::withUnsubscribeFooter()`;
+  `BroadcastDeliveryTest` asserts the pushed payload carries it.
+- **`feat(app)`** — profile info page trimmed to LINE-only (dropped email + duplicate name rows; edit = phone
+  only). Login page is LINE-only (removed disabled phone/email buttons + dead signup link).
+- **`docs(line)`** — `docs/line-onboarding.md`: per-venue LINE setup checklist + troubleshooting.
+
+**Blockers:** None. Pushed, suite green.
+
+**Next Steps:**
+- Advice given (no code change): customer data is isolated per venue — Customer keyed
+  `(organization_id, line_user_id)`; each venue configures its own LINE Login+LIFF+Messaging channels.
+  **Onboarding rule: the venue's Login channel + Messaging OA must share ONE LINE Provider** (userId is
+  provider-scoped), else broadcasts silently don't deliver. See `docs/line-onboarding.md`.
+- Optional: polish the owner settings UI for the 4 LINE fields (endpoint already exists).
+- Unsubscribe logged-OUT deep-link redirects to venue login (LIFF re-auth) — seamless one-tap for
+  logged-out would need the login redirect to preserve the return path (small follow-up).
+- Still open: P3 launch/ops (baseline throttle, CI, Sentry, monitoring, backup verify), Playwright E2E.
+- Full detail: `.agents/sessions/2026-08-14-1640-line-only-login-profile-unsubscribe-and-onboarding.md`.
 
 ## ✅ Done 2026-08-14 (~15:10) — LINE-first landing, payment UI, owner notifications + security hardening (P0→P1→P2)
 
