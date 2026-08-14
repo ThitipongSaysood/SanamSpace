@@ -7,33 +7,38 @@ import {
   ScanLine, BellRing, QrCode, LineChart, CheckCircle2, ChevronDown, Menu, X,
   CalendarX2, FileWarning, UserX, FolderX, Receipt,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { useMessages } from "@/lib/i18n/context";
+import { fmt as interp } from "@/lib/i18n/format";
+import { fetchPublicPlans, type PublicPlan } from "@/lib/api/public-plans";
 import { LanguageSwitcher } from "@/components/language-switcher";
 
 /**
  * Where "start using it" actually leads.
  *
- * The free trial is real — the admin screens start one for a venue, and the
- * portal locks itself when it runs out. What was not real was STARTING it
- * yourself: there is no self-serve signup, and the old call to action sent a
- * brand-new customer to a login form they had no account for. So the offer
- * stays and the link goes to the channel that can actually open a venue.
- * `LOGIN` remains for venues that already have an account.
+ * There is no self-serve signup: a venue is opened by the team, who set the
+ * brand, plan and trial up front. So every marketing call to action — the
+ * navbar button, the hero, the pricing cards, the closing CTA — points a new
+ * lead at LINE, the one channel that can actually open a venue for them.
+ * `LOGIN` remains (footer) for venues that already have an account.
  */
 const LOGIN = "/owner/login";
-const LINE = "#line"; // TODO: ใส่ลิงก์ LINE OA จริง (ปุ่ม "คุยกับทีมงาน" เท่านั้น)
-const SIGNUP = "/owner/signup"; // self-serve: สมัคร → สร้างร้าน + ทดลอง 30 วัน
+// Single source for the LINE OA link — fill in once and every CTA follows.
+const LINE = "https://lin.ee/na2rcQu"; // SanamSpace LINE Official Account
 
 function CTAButtons({ className = "" }: { className?: string }) {
   const m = useMessages("landing");
+  const c = useMessages("common");
   return (
     <div className={`flex flex-wrap gap-3 ${className}`}>
-      <Link
-        href={SIGNUP}
+      <a
+        href={LINE}
+        target="_blank"
+        rel="noopener noreferrer"
         className="inline-flex h-12 items-center justify-center rounded-xl bg-brand px-6 text-base font-semibold text-white shadow-sm transition hover:bg-brand/90"
       >
-        {m.hero.ctaTry}
-      </Link>
+        {c.tryFreeViaLine}
+      </a>
       <a
         href="#pricing"
         className="inline-flex h-12 items-center justify-center rounded-xl border border-black/10 bg-white px-6 text-base font-semibold text-foreground transition hover:bg-app"
@@ -60,9 +65,15 @@ export default function LandingPage() {
       {/* 01 Navbar */}
       <header className="sticky top-0 z-40 border-b border-black/5 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
-          <Link href="/landing" className="flex items-center gap-2 font-bold">
-            <span className="grid size-8 place-items-center rounded-lg bg-brand text-white">S</span>
-            SanamSpace
+          <Link href="/landing" className="flex items-center" aria-label="SanamSpace">
+            <Image
+              src="/brand/sanamspace-logo.png"
+              alt="SanamSpace"
+              width={880}
+              height={365}
+              priority
+              className="h-12 w-auto"
+            />
           </Link>
           <nav className="ml-6 hidden items-center gap-6 text-sm font-medium text-muted-foreground md:flex">
             {NAV.map(([label, href]) => (
@@ -71,12 +82,14 @@ export default function LandingPage() {
           </nav>
           <div className="ml-auto hidden items-center gap-2 md:flex">
             <LanguageSwitcher className="mr-1" />
-            <Link href={LOGIN} className="rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-app">
-              {c.login}
-            </Link>
-            <Link href={SIGNUP} className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand/90">
-              {c.tryFree}
-            </Link>
+            <a
+              href={LINE}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand/90"
+            >
+              {c.tryFreeViaLine}
+            </a>
           </div>
           <div className="ml-auto flex items-center gap-2 md:hidden">
             <LanguageSwitcher />
@@ -98,9 +111,15 @@ export default function LandingPage() {
                   {label}
                 </a>
               ))}
-              <Link href={SIGNUP} className="mt-1 rounded-lg bg-brand px-3 py-2.5 text-center font-semibold text-white">
-                {c.tryFree}
-              </Link>
+              <a
+                href={LINE}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setMenuOpen(false)}
+                className="mt-1 rounded-lg bg-brand px-3 py-2.5 text-center font-semibold text-white"
+              >
+                {c.tryFreeViaLine}
+              </a>
             </nav>
           </div>
         )}
@@ -255,11 +274,13 @@ export default function LandingPage() {
         <h2 className="text-2xl font-bold md:text-3xl">{m.finalCta.heading}</h2>
         <p className="mt-3 text-muted-foreground">{m.finalCta.subtitle}</p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
-          <Link href={SIGNUP} className="inline-flex h-12 items-center rounded-xl bg-brand px-6 font-semibold text-white hover:bg-brand/90">
-            {m.finalCta.ctaTry}
-          </Link>
-          <a href={LINE} className="inline-flex h-12 items-center rounded-xl border border-black/10 px-6 font-semibold hover:bg-app">
-            {m.finalCta.ctaLine}
+          <a
+            href={LINE}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-12 items-center rounded-xl bg-brand px-6 font-semibold text-white hover:bg-brand/90"
+          >
+            {c.tryFreeViaLine}
           </a>
         </div>
       </section>
@@ -269,10 +290,13 @@ export default function LandingPage() {
         <div className="mx-auto max-w-6xl px-4 py-10">
           <div className="flex flex-col gap-6 md:flex-row md:justify-between">
             <div>
-              <div className="flex items-center gap-2 font-bold">
-                <span className="grid size-8 place-items-center rounded-lg bg-brand text-white">S</span>
-                SanamSpace
-              </div>
+              <Image
+                src="/brand/sanamspace-logo.png"
+                alt="SanamSpace"
+                width={880}
+                height={365}
+                className="h-12 w-auto"
+              />
               <p className="mt-2 max-w-xs text-sm text-muted-foreground">
                 {m.footer.tagline}
               </p>
@@ -310,9 +334,14 @@ export default function LandingPage() {
 
       {/* Sticky mobile CTA bar (spec §4) */}
       <div className="sticky bottom-0 z-40 border-t border-black/5 bg-white/95 p-3 backdrop-blur md:hidden">
-        <Link href={SIGNUP} className="flex h-12 items-center justify-center rounded-xl bg-brand font-semibold text-white">
-          {m.sticky}
-        </Link>
+        <a
+          href={LINE}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex h-12 items-center justify-center rounded-xl bg-brand font-semibold text-white"
+        >
+          {c.tryFreeViaLine}
+        </a>
       </div>
     </div>
   );
@@ -528,29 +557,89 @@ function SportsSection() {
 /**
  * The packages, as the system actually sells them.
  *
- * Every number here has a counterpart the software enforces: the prices are the
- * ones `plans.price` puts on an invoice, and the limits are the ones the
- * `limit:` middleware refuses past. This page previously advertised ฿2,290 and
- * ฿4,490 against a database charging ฿1,990 and ฿3,990, offered an Enterprise
- * plan that was retired, and promised "คอร์ท/การจอง ไม่จำกัด" on packages
- * capped at 10 courts.
+ * This page used to hardcode prices, limits, and the feature list, and drift
+ * from the database was inevitable — it once advertised ฿2,290/฿4,490 against a
+ * DB charging ฿1,990/฿3,990, an Enterprise plan that was retired, and "ไม่จำกัด"
+ * on packages capped at 10 courts. So the numbers and ticks now come LIVE from
+ * GET /plans, which reads `plans.price`/limits and the plan_features pivot the
+ * admin Feature Matrix edits. Toggle a feature for a plan in the admin screen and
+ * this card follows — no code change, nothing to keep in sync by hand.
  *
- * **If a plan changes in the admin screens, change it here too.** A price on a
- * marketing page that a customer's first invoice contradicts is worse than no
- * page at all.
+ * Only presentation stays in code (display name, "แนะนำ" highlight, yearly-vs-
+ * monthly maths, and the core bullets every plan shares). FALLBACK_PLANS mirrors
+ * the seed so the page still renders correct defaults if /plans is briefly down.
  */
-// Prices/highlight only; plan display name is the (untranslated) brand name,
-// and limits/feature come from landing.pricing.plans[code].
-const PLAN_META: { code: "starter" | "business" | "pro"; name: string; monthly: number; highlight?: boolean }[] = [
-  { code: "starter", name: "Starter", monthly: 990 },
-  { code: "business", name: "Business", monthly: 1990, highlight: true },
-  { code: "pro", name: "Pro", monthly: 3990 },
+// Presentation only: display name, highlight, and column order. Price, limits,
+// and which feature ticks show all come LIVE from GET /plans (the admin Feature
+// Matrix), so toggling a feature there updates these cards with no code change.
+type PlanCode = "starter" | "business" | "pro";
+const PLAN_META: { code: PlanCode; name: string; highlight?: boolean }[] = [
+  { code: "starter", name: "Starter" },
+  { code: "business", name: "Business", highlight: true },
+  { code: "pro", name: "Pro" },
 ];
+
+// Display order for the gated feature ticks (mirrors PlanCatalogue). The API
+// says WHICH codes a plan has; this fixes the order they appear in.
+const FEATURE_ORDER = [
+  "pos", "rental", "wallet", "package", "membership", "coupon", "banner",
+  "slip_auto_verify", "crm", "broadcast", "advanced_reports",
+] as const;
+
+// Fallback shown if /plans can't be reached — mirrors the seed defaults so the
+// marketing page never renders empty or wrong when the API is briefly down.
+const FALLBACK_PLANS: Record<PlanCode, Pick<PublicPlan, "price" | "limits" | "featureCodes">> = {
+  starter: {
+    price: 990,
+    limits: { branchLimit: 1, courtLimit: 10, staffLimit: 5, monthlyBookingLimit: 1000, storageGb: null },
+    featureCodes: [],
+  },
+  business: {
+    price: 1990,
+    limits: { branchLimit: 3, courtLimit: 30, staffLimit: 15, monthlyBookingLimit: 5000, storageGb: null },
+    featureCodes: ["pos", "rental", "wallet", "package", "membership", "coupon", "banner", "slip_auto_verify"],
+  },
+  pro: {
+    price: 3990,
+    limits: { branchLimit: null, courtLimit: null, staffLimit: null, monthlyBookingLimit: null, storageGb: null },
+    featureCodes: ["pos", "rental", "wallet", "package", "membership", "coupon", "banner", "slip_auto_verify", "crm", "broadcast", "advanced_reports"],
+  },
+};
 
 function PricingSection() {
   const m = useMessages("landing");
+  const c = useMessages("common");
   const [yearly, setYearly] = useState(false);
   const fmt = new Intl.NumberFormat("th-TH");
+
+  // Live plans from the admin Feature Matrix. Falls back to the seed defaults so
+  // the page is never empty; refetched on mount, cached briefly.
+  const { data: livePlans } = useQuery({
+    queryKey: ["public", "plans"],
+    queryFn: fetchPublicPlans,
+    staleTime: 60_000,
+    retry: 1,
+  });
+
+  // The two limit lines (branches/courts, staff/bookings) formatted from the
+  // plan's numeric caps. A null cap on both sides of a line = "unlimited".
+  const limitLines = (limits: PublicPlan["limits"]): string[] => {
+    const l1 =
+      limits.branchLimit == null && limits.courtLimit == null
+        ? m.pricing.limits.unlimitedBranchesCourts
+        : interp(m.pricing.limits.branchesCourts, {
+            branches: fmt.format(limits.branchLimit ?? 0),
+            courts: fmt.format(limits.courtLimit ?? 0),
+          });
+    const l2 =
+      limits.staffLimit == null && limits.monthlyBookingLimit == null
+        ? m.pricing.limits.unlimitedStaffBookings
+        : interp(m.pricing.limits.staffBookings, {
+            staff: fmt.format(limits.staffLimit ?? 0),
+            bookings: fmt.format(limits.monthlyBookingLimit ?? 0),
+          });
+    return [l1, l2];
+  };
 
   return (
     <section id="pricing" className="mx-auto max-w-6xl px-4 py-14">
@@ -577,13 +666,27 @@ function PricingSection() {
           than stretching each card across a third of a desk monitor. */}
       <div className="mx-auto mt-8 grid max-w-4xl gap-4 md:grid-cols-2 lg:grid-cols-3">
         {PLAN_META.map((p) => {
+          // Live plan (admin Feature Matrix) with the seed default as a safety net.
+          const live = livePlans?.find((pl) => pl.code === p.code);
+          const monthly = live?.price ?? FALLBACK_PLANS[p.code].price;
+          const limits = live?.limits ?? FALLBACK_PLANS[p.code].limits;
+          const codes = live?.featureCodes ?? FALLBACK_PLANS[p.code].featureCodes;
+
           // Paying yearly costs ten months and covers twelve, so the saving is
           // two months. Shown as the actual yearly figure rather than a
           // discounted monthly one: a venue signing a year wants to know what
           // leaves its account, not a rate it has to multiply out itself.
-          const yearlyPrice = p.monthly * 10;
-          const saving = p.monthly * 2;
-          const plan = m.pricing.plans[p.code];
+          const yearlyPrice = monthly * 10;
+          const saving = monthly * 2;
+
+          // Core bullets show on every plan; the gated ones are exactly what the
+          // API enabled for this plan, in catalogue order. No cumulative flatMap —
+          // the DB already assigns each plan its full set (Pro's row includes the
+          // business codes), so a feature turned off for one plan drops here too.
+          const gated = FEATURE_ORDER.filter((c) => codes.includes(c)).map(
+            (c) => m.pricing.featureLabels[c],
+          );
+          const features = [...m.pricing.core, ...gated];
           return (
             <div
               key={p.code}
@@ -604,32 +707,38 @@ function PricingSection() {
                       {m.pricing.save} ฿{fmt.format(saving)}
                     </div>
                     <div className="mt-1 text-xs text-muted-foreground">
-                      {m.pricing.vsMonthly} ฿{fmt.format(p.monthly * 12)}
+                      {m.pricing.vsMonthly} ฿{fmt.format(monthly * 12)}
                     </div>
                   </div>
                 ) : (
                   <div>
-                    <span className="text-3xl font-bold">฿{fmt.format(p.monthly)}</span>
+                    <span className="text-3xl font-bold">฿{fmt.format(monthly)}</span>
                     <span className="text-sm text-muted-foreground"> {m.pricing.perMonth}</span>
                   </div>
                 )}
               </div>
               <div className="mt-3 space-y-1.5 text-sm text-muted-foreground">
-                {plan.limits.map((l) => (
+                {limitLines(limits).map((l) => (
                   <div key={l} className="flex items-start gap-2">
                     <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-brand" /> {l}
                   </div>
                 ))}
-                <div className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 size-4 shrink-0 text-brand" /> {plan.feature}</div>
+                {features.map((f) => (
+                  <div key={f} className="flex items-start gap-2">
+                    <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-brand" /> {f}
+                  </div>
+                ))}
               </div>
-              <Link
-                href={`${SIGNUP}?plan=${p.code}`}
+              <a
+                href={LINE}
+                target="_blank"
+                rel="noopener noreferrer"
                 className={`mt-5 inline-flex h-11 items-center justify-center rounded-xl text-sm font-semibold transition ${
                   p.highlight ? "bg-brand text-white hover:bg-brand/90" : "border border-black/10 hover:bg-app"
                 }`}
               >
-                {m.pricing.ctaTry}
-              </Link>
+                {c.tryFreeViaLine}
+              </a>
             </div>
           );
         })}
