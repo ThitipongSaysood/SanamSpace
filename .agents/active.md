@@ -1,6 +1,40 @@
 # Active Task
 
-_Last updated: 2026-08-13 (~15:55) · Last agent: Claude (Opus 4.8)_
+_Last updated: 2026-08-14 (~15:10) · Last agent: Claude (Opus 4.8)_
+
+## ✅ Done 2026-08-14 (~15:10) — LINE-first landing, payment UI, owner notifications + security hardening (P0→P1→P2)
+
+**Current Task:** Iterative customer/brand UI (logo, live pricing, payment redesign, LINE CTAs, owner
+header notifications) followed by a hardening pass the user chose after an API audit: P0 (commit pending
+security fixes) → P1 (auth/rate-limit/validation sweep + fix) → P2 (regression tests).
+
+**Status:** ✅ Complete. **11 commits `c475655`→`7ee81f0`, PUSHED to `main`.** 41 files, +1058 / −232.
+Working tree clean. Backend **695/695**, frontend **44/44**, tsc + eslint clean.
+
+**What's Done:**
+- **UI/feature (6 commits):** SanamSpace logo across portals + favicon/PWA (customer white-label
+  `BrandLogo` left alone); public `GET /plans` → landing pricing cards driven live by the admin Feature
+  Matrix; redesigned customer payment page (reusable booking-summary card + shared confirmation screen);
+  all landing CTAs → LINE OA `https://lin.ee/na2rcQu` ("ทดลองใช้ฟรี 1 เดือน", self-serve signup removed);
+  owner header notifications made real (announcements bell dropdown, per-ticket support-chat unread,
+  new-slip poll badge + toast — client-side read-state in `lib/last-seen.ts`); i18n keys for all.
+- **Security P0→P1→P2 (5 commits):** gated wallet/package money endpoints (`wallet.manage` /
+  `payment.verify` + `feature:package`); logout now revokes the Sanctum token server-side in all 3
+  clients; rate-limits on line/login (in-controller by IP) + credit/topup/reviews/coupons/slips;
+  `feature:pos` on `/sales`, `feature:rental` on rental-return; `max:` caps on wallet topup + reward;
+  regression tests locking every gate + rate-limit + cap + logout-revoke. Tenant-isolation sweep found
+  **no IDOR**.
+
+**Blockers:** None. (Not pushed → now pushed. Suite green.)
+
+**Next Steps:**
+- **P3 launch/ops** (recommended): baseline `throttle` on the whole API group (`bootstrap/app.php`), CI on
+  push, error tracking (Sentry), monitoring, verify prod backup/restore, N+1/index performance pass.
+- **Cross-portal E2E** (book→verify→checkin) needs Playwright — not set up (backend covers the flow).
+- Gotcha logged: **never route-`throttle` a login endpoint** — the middleware resolves `$request->user()`
+  and re-caches a leftover guard identity, breaking multi-actor tests; rate-limit login in the controller
+  by IP (see the session file + `AuthController::lineLogin`).
+- Full detail: `.agents/sessions/2026-08-14-1510-line-cta-payment-ui-and-security-hardening.md`.
 
 ## ✅ Done 2026-08-13 (~15:55) — whole system bilingual (TH/EN): owner + admin portals
 
