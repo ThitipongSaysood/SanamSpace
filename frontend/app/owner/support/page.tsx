@@ -2,8 +2,9 @@
 import { toast } from "@/lib/toast";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { LifeBuoy, Send } from "lucide-react";
+import { Send } from "lucide-react";
 import { ownerApi } from "@/lib/api/owner";
+import { useSeenMap, supportTicketHasUnread, LAST_SEEN_KEYS } from "@/lib/last-seen";
 import { Loading, ErrorState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import type { OwnerSupportTicket } from "@/lib/types";
@@ -45,6 +46,11 @@ export default function OwnerSupportPage() {
   const [priority, setPriority] = useState("medium");
   const [openId, setOpenId] = useState<string | null>(null);
 
+  // Per-ticket read state: which threads still hold an unread platform reply.
+  // Opening a ticket marks that one read — not the whole page — so with many
+  // threads the owner can still tell which ones are new.
+  const [seen, markSeenTicket] = useSeenMap(LAST_SEEN_KEYS.support);
+
   function refresh() {
     qc.invalidateQueries({ queryKey: ["owner", "support-tickets"] });
   }
@@ -64,9 +70,7 @@ export default function OwnerSupportPage() {
   return (
     <div className="space-y-5">
       <header>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <LifeBuoy className="size-6 text-brand" /> {t.title}
-        </h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
         <p className="text-sm text-muted-foreground">{t.subtitle}</p>
       </header>
 
@@ -123,7 +127,12 @@ export default function OwnerSupportPage() {
           key={ticket.id}
           ticket={ticket}
           open={openId === ticket.id}
-          onToggle={() => setOpenId(openId === ticket.id ? null : ticket.id)}
+          unread={supportTicketHasUnread(ticket, seen)}
+          onToggle={() => {
+            const willOpen = openId !== ticket.id;
+            setOpenId(willOpen ? ticket.id : null);
+            if (willOpen) markSeenTicket(ticket.id); // reading it clears its dot
+          }}
           onReplied={refresh}
         />
       ))}
@@ -134,11 +143,13 @@ export default function OwnerSupportPage() {
 function Thread({
   ticket,
   open,
+  unread,
   onToggle,
   onReplied,
 }: {
   ticket: OwnerSupportTicket;
   open: boolean;
+  unread: boolean;
   onToggle: () => void;
   onReplied: () => void;
 }) {
@@ -160,13 +171,21 @@ function Thread({
   return (
     <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
       <button type="button" onClick={onToggle} className="flex w-full items-start justify-between gap-3 text-left">
-        <div>
-          <div className="font-semibold">{ticket.subject}</div>
-          <div className="text-xs text-muted-foreground">
-            {ticket.ticketNo} · {when(ticket.createdAt, locale)}
+        <div className="flex min-w-0 items-start gap-2">
+          {unread && <span aria-hidden className="mt-1.5 size-2 shrink-0 rounded-full bg-red-500" />}
+          <div className="min-w-0">
+            <div className="font-semibold">{ticket.subject}</div>
+            <div className="text-xs text-muted-foreground">
+              {ticket.ticketNo} · {when(ticket.createdAt, locale)}
+            </div>
           </div>
         </div>
-        <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${statusCls}`}>{statusLabel}</span>
+        <div className="flex shrink-0 items-center gap-2">
+          {unread && (
+            <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-600">{t.unread}</span>
+          )}
+          <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusCls}`}>{statusLabel}</span>
+        </div>
       </button>
 
       {open && (

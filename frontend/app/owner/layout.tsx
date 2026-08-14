@@ -1,9 +1,10 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { setToastSport } from "@/lib/toast";
+import { setToastSport, toast } from "@/lib/toast";
 import {
   Activity,
   BarChart3,
@@ -47,8 +48,9 @@ import {
 import type { User } from "@/lib/types";
 import { getOwnerToken, ownerApi } from "@/lib/api/owner";
 import { CustomerPeekProvider } from "@/components/customer-peek";
-import { useMessages } from "@/lib/i18n/context";
-import { fmt } from "@/lib/i18n/format";
+import { useMessages, useLocale } from "@/lib/i18n/context";
+import { fmt, intlLocale } from "@/lib/i18n/format";
+import { useLastSeen, useSeenMap, supportTicketHasUnread, LAST_SEEN_KEYS } from "@/lib/last-seen";
 import { LanguageSwitcher } from "@/components/language-switcher";
 
 type NavItem = {
@@ -209,9 +211,7 @@ function SidebarContent({
     <div className="flex h-full flex-col">
       {/* Brand */}
       <div className="flex items-center gap-2.5 px-5 py-5">
-        <div className="grid size-9 place-items-center rounded-xl bg-brand text-brand-foreground">
-          <LayoutGrid className="size-5" />
-        </div>
+        <Image src="/brand/sanamspace-mark.png" alt="SanamSpace" width={36} height={36} className="size-9" priority />
         <div className="leading-tight">
           <div className="text-sm font-bold">SanamSpace</div>
           <div className="text-xs font-medium text-muted-foreground">Owner Portal</div>
@@ -253,6 +253,7 @@ function SidebarContent({
                         {item.count}
                       </span>
                     )}
+                    {item.href === "/owner/payments" && <PendingSlipsBadge active={active} />}
                   </Link>
                 );
               })}
@@ -353,6 +354,7 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useOwnerToastSport(!isLoginRoute);
+  useSlipAlert(!isLoginRoute);
   const tc = useMessages("owner").chrome;
 
   // Guard runs client-side; the login route is exempt to avoid a redirect loop.
@@ -444,14 +446,8 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
             {/* Bell — badge shows real platform-announcement count */}
             <NotifBell />
 
-            {/* Chat */}
-            <button
-              type="button"
-              aria-label={tc.messages}
-              className="hidden size-9 place-items-center rounded-lg text-muted-foreground transition hover:bg-app sm:grid"
-            >
-              <MessageSquare className="size-5" />
-            </button>
+            {/* Chat — opens the platform help desk, badge = replies awaiting the owner */}
+            <SupportChatButton />
 
             {/* User chip */}
             <div className="flex items-center gap-2 rounded-xl py-1 pl-1 pr-2 sm:ring-1 sm:ring-black/5">
@@ -520,21 +516,156 @@ function ExpiryGate({ pathname, children }: { pathname: string; children: React.
   );
 }
 
-// Bell with a live badge of unread platform announcements; links to the dashboard.
+// Slips the customer has sent but the venue has not verified yet. Polled so a
+// payment that lands while the owner is working surfaces on its own — the whole
+// booking sits blocked until someone opens payments and approves it.
+function usePendingSlips(enabled = true) {
+  return useQuery({
+    queryKey: ["owner", "payments", "pending_review"],
+    queryFn: () => ownerApi.getPayments("pending_review"),
+    refetchInterval: 30_000,
+    enabled,
+  });
+}
+
+// Red count on the Payments nav item. Red, not brand, because it is a work
+// queue that needs clearing — not a neutral tally.
+function PendingSlipsBadge({ active }: { active: boolean }) {
+  const { data } = usePendingSlips();
+  const count = data?.length ?? 0;
+  if (count === 0) return null;
+  return (
+    <span
+      className={`min-w-5 rounded-full px-1.5 text-center text-xs font-bold ${
+        active ? "bg-white/25 text-white" : "bg-red-100 text-red-600"
+      }`}
+    >
+      {count}
+    </span>
+  );
+}
+
+// Pops a toast the moment the pending-slip count goes UP — a new customer
+// payment to check. Runs once at the layout root (not per sidebar), and never
+// fires on the first load: only a genuine increase after the owner is looking.
+function useSlipAlert(enabled: boolean) {
+  const { data } = usePendingSlips(enabled);
+  const tc = useMessages("owner").chrome;
+  const prev = useRef<number | null>(null);
+  const count = data?.length ?? 0;
+  useEffect(() => {
+    if (data === undefined) return; // not loaded yet
+    if (prev.current !== null && count > prev.current) {
+      toast.info(fmt(tc.newSlipBody, { n: count }), { title: tc.newSlipTitle, id: "owner-new-slip" });
+    }
+    prev.current = count;
+  }, [count, data, tc]);
+}
+
+// Bell that opens a dropdown of platform announcements. The badge counts only
+// announcements published since the panel was last opened (localStorage), so it
+// clears on open instead of forever showing the total.
 function NotifBell() {
   const { data } = useQuery({ queryKey: ["owner", "announcements"], queryFn: ownerApi.getAnnouncements });
   const tc = useMessages("owner").chrome;
-  const count = data?.length ?? 0;
+  const { locale } = useLocale();
+  const [open, setOpen] = useState(false);
+  const [seen, markSeen] = useLastSeen(LAST_SEEN_KEYS.announcements);
+
+  const items = useMemo(
+    () =>
+      [...(data ?? [])].sort(
+        (a, b) => new Date(b.publishedAt ?? 0).getTime() - new Date(a.publishedAt ?? 0).getTime(),
+      ),
+    [data],
+  );
+  const unread = items.filter((a) => a.publishedAt && new Date(a.publishedAt).getTime() > seen).length;
+
+  function toggle() {
+    setOpen((o) => {
+      if (!o) markSeen(); // opening = "I've seen these", so the badge clears
+      return !o;
+    });
+  }
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        aria-label={tc.systemAnnounce}
+        aria-expanded={open}
+        onClick={toggle}
+        className="relative grid size-9 place-items-center rounded-lg text-muted-foreground transition hover:bg-app"
+      >
+        <Bell className="size-5" />
+        {unread > 0 && (
+          <span className="absolute right-1 top-1 grid size-4 place-items-center rounded-full bg-red-500 text-[9px] font-bold text-white">
+            {unread}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <>
+          {/* click-away */}
+          <button
+            type="button"
+            aria-label={tc.closeMenu}
+            tabIndex={-1}
+            className="fixed inset-0 z-40 cursor-default"
+            onClick={() => setOpen(false)}
+          />
+          <div className="absolute right-0 z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-black/10">
+            <div className="border-b border-black/5 px-4 py-3 text-sm font-semibold">{tc.notifTitle}</div>
+            {items.length === 0 ? (
+              <p className="px-4 py-10 text-center text-sm text-muted-foreground">{tc.notifEmpty}</p>
+            ) : (
+              <ul className="max-h-96 divide-y divide-black/5 overflow-y-auto">
+                {items.map((a) => (
+                  <li key={a.id} className="px-4 py-3">
+                    <div className="text-sm font-medium">{a.title}</div>
+                    {a.body && <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{a.body}</p>}
+                    {a.publishedAt && (
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        {new Date(a.publishedAt).toLocaleDateString(intlLocale(locale), {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// Chat icon that opens the platform help desk. Badge = tickets still open whose
+// latest reply came from the platform after the owner last visited support.
+function SupportChatButton() {
+  const { data } = useQuery({ queryKey: ["owner", "support-tickets"], queryFn: ownerApi.getSupportTickets });
+  const tc = useMessages("owner").chrome;
+  const [seen] = useSeenMap(LAST_SEEN_KEYS.support);
+
+  // One per ticket that carries an unread platform reply — the same signal the
+  // support page paints a dot on, so header and list always agree.
+  const waiting = (data ?? []).filter((t) => supportTicketHasUnread(t, seen)).length;
+
   return (
     <Link
-      href="/owner"
-      aria-label={tc.systemAnnounce}
-      className="relative grid size-9 place-items-center rounded-lg text-muted-foreground transition hover:bg-app"
+      href="/owner/support"
+      aria-label={tc.messages}
+      className="relative hidden size-9 place-items-center rounded-lg text-muted-foreground transition hover:bg-app sm:grid"
     >
-      <Bell className="size-5" />
-      {count > 0 && (
+      <MessageSquare className="size-5" />
+      {waiting > 0 && (
         <span className="absolute right-1 top-1 grid size-4 place-items-center rounded-full bg-red-500 text-[9px] font-bold text-white">
-          {count}
+          {waiting}
         </span>
       )}
     </Link>
