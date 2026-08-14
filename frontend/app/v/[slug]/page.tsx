@@ -1,7 +1,7 @@
 "use client";
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Feather, MessageCircle, Phone, Mail } from "lucide-react";
+import { Feather, MessageCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useTenant } from "@/lib/tenant/tenant-context";
 import { setActiveVenueSlug, venueHref } from "@/lib/tenant/active-venue";
@@ -97,29 +97,16 @@ export default function VenueLoginPage({ params }: { params: Promise<{ slug: str
 
       <div className="mt-10 w-full max-w-xs">
         <h1 className="mb-5 text-lg font-semibold">เข้าสู่ระบบ</h1>
-        <div className="space-y-3">
-          <Button
-            disabled={busy || resuming}
-            className="h-12 w-full gap-2 rounded-xl bg-brand text-base font-semibold text-brand-foreground hover:bg-brand/90"
-            onClick={handleLogin}
-          >
-            <MessageCircle className="size-5" />
-            {busy || resuming ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบด้วย LINE"}
-          </Button>
-          {error && <p className="text-sm text-brand-danger">{error}</p>}
-          <Button variant="outline" disabled className="h-12 w-full gap-2 rounded-xl border-border text-base font-medium">
-            <Phone className="size-5" />
-            เข้าสู่ระบบด้วยเบอร์โทร
-          </Button>
-          <Button variant="outline" disabled className="h-12 w-full gap-2 rounded-xl border-border text-base font-medium">
-            <Mail className="size-5" />
-            เข้าสู่ระบบด้วยอีเมล
-          </Button>
-        </div>
-
-        <p className="mt-5 text-sm text-muted-foreground">
-          ยังไม่มีบัญชี? <span className="font-semibold text-brand">สมัครสมาชิก</span>
-        </p>
+        <Button
+          disabled={busy || resuming}
+          className="h-12 w-full gap-2 rounded-xl bg-brand text-base font-semibold text-brand-foreground hover:bg-brand/90"
+          onClick={handleLogin}
+        >
+          <MessageCircle className="size-5" />
+          {busy || resuming ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบด้วย LINE"}
+        </Button>
+        {error && <p className="mt-3 text-sm text-brand-danger">{error}</p>}
+        <p className="mt-4 text-sm text-muted-foreground">เข้าสู่ระบบด้วยบัญชี LINE ได้เลย ไม่ต้องสมัคร</p>
         {!org.liffId && (
           <p className="mt-6 text-xs text-muted-foreground">
             * เดโม่: จำลองการเข้าสู่ระบบ (สนามนี้ยังไม่ได้ตั้งค่า LINE)
