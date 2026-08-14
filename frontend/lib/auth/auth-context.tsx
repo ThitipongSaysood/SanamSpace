@@ -183,6 +183,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser({ ...authed, ...loadOverrides() });
   }
   function logout() {
+    // Revoke the token server-side before dropping it locally (req reads the
+    // token synchronously, so it's still attached). Local sign-out proceeds
+    // regardless of the network result.
+    void api.logout().catch(() => {});
     clearToken();
     setUser(null);
   }

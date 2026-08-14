@@ -227,6 +227,8 @@ export const httpApi: Api = {
   deleteMyAccount: (confirmName: string) =>
     req<{ message: string }>("/me", { method: "DELETE", body: { confirmName } }),
   updateProfile: (patch) => req<User>("/auth/me", { method: "PUT", body: patch }),
+  // Revoke the current access token server-side. Fire-and-forget from the caller.
+  logout: () => req<void>("/auth/logout", { method: "POST" }),
   async me(): Promise<User | null> {
     try {
       return await req<User>("/auth/me");

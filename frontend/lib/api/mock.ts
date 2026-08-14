@@ -235,6 +235,8 @@ export const mockApi = {
     return { message: "โหมดสาธิต — ไม่มีการลบข้อมูลจริง" };
   },
   async updateProfile(patch: Partial<User>): Promise<User> { await delay(); return { ...MOCK_USER, ...patch }; },
+  // No token in mock mode, so nothing to revoke — the local sign-out is enough.
+  async logout(): Promise<void> { await delay(); },
   // Session restore: in mock mode lineLogin never stores a token, so the
   // rehydrate path doesn't call this — returns the demo user if it ever does.
   async me(): Promise<User | null> { await delay(); return { ...MOCK_USER }; },

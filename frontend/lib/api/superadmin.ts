@@ -134,6 +134,9 @@ export const superAdminApi = {
   },
 
   logout(): void {
+    // Revoke server-side first (req reads the token synchronously), then clear
+    // local state no matter what the network does.
+    void req<{ message?: string }>("/auth/logout", { method: "POST", raw: true }).catch(() => {});
     clearAdminToken();
     clearStoredUser();
   },
