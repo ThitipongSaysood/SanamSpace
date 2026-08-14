@@ -247,9 +247,12 @@ class OwnerApiTest extends TestCase
     {
         $ownerToken = $this->ownerToken();
         $courtId = $this->everydayCourtId();
+        // A future date, not a hardcoded one — a past date would 404 on the
+        // booking (unbookable) before the block is ever evaluated.
+        $date = now()->addDay()->toDateString();
 
         $this->withToken($ownerToken)->postJson('/api/v1/owner/court-blocks', [
-            'courtId' => $courtId, 'date' => '2026-08-01', 'reason' => 'ปรับปรุงพื้น',
+            'courtId' => $courtId, 'date' => $date, 'reason' => 'ปรับปรุงพื้น',
         ])->assertCreated();
 
         $this->app['auth']->forgetGuards();
@@ -260,7 +263,7 @@ class OwnerApiTest extends TestCase
         $this->app['auth']->forgetGuards();
         $this->withToken($this->customerToken('Ublocktest', 'Blocked'))->postJson('/api/v1/bookings', [
             'venueId' => 'everyday-badminton', 'courtId' => $courtId,
-            'date' => '2026-08-01', 'start' => '18:00', 'end' => '19:00',
+            'date' => $date, 'start' => '18:00', 'end' => '19:00',
         ])->assertStatus(422)->assertJsonValidationErrors('start');
     }
 

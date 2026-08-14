@@ -50,7 +50,7 @@ class WalletController extends Controller
         $orgId = $request->attributes->get('currentOrganizationId');
 
         $validated = $request->validate([
-            'amount' => ['required', 'numeric', 'gt:0'],
+            'amount' => ['required', 'numeric', 'gt:0', 'max:1000000'],
             'label' => ['nullable', 'string', 'max:255'],
         ]);
 

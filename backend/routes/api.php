@@ -81,6 +81,10 @@ use Illuminate\Support\Facades\Route;
 // All routes here are mounted under the /api/v1 prefix (bootstrap/app.php).
 
 // --- Public auth ---
+// Rate-limited by IP INSIDE the controller, not via route `throttle`: the
+// throttle middleware resolves $request->user() to key the limiter, which
+// re-caches a leftover bearer identity on the guard and breaks the multi-actor
+// flow — the same reason adminLogin limits in the controller. See lineLogin.
 Route::post('/auth/line/login', [AuthController::class, 'lineLogin']);
 // Rate limiting for admin login lives inside the controller (keyed by
 // email+IP, counting only FAILED attempts) rather than route `throttle`
@@ -149,16 +153,17 @@ Route::middleware('auth:sanctum')->group(function () {
     // also sell hour packages, which meant a customer had two balances in two
     // units and staff had to know which one a question was about.
     Route::get('/credit', [WalletController::class, 'show']);
-    Route::post('/credit/topup', [WalletController::class, 'topup']);
-    Route::post('/credit/topup/{id}/slip', [WalletController::class, 'topupSlip']);
-    Route::post('/reviews', [ReviewController::class, 'store']);
-    // What a code is worth, before committing to the booking.
-    Route::post('/coupons/preview', [CouponController::class, 'preview']);
+    Route::post('/credit/topup', [WalletController::class, 'topup'])->middleware('throttle:20,1');
+    Route::post('/credit/topup/{id}/slip', [WalletController::class, 'topupSlip'])->middleware('throttle:30,1');
+    Route::post('/reviews', [ReviewController::class, 'store'])->middleware('throttle:20,1');
+    // What a code is worth, before committing to the booking. Throttled: an
+    // unthrottled preview is a coupon-code enumeration oracle.
+    Route::post('/coupons/preview', [CouponController::class, 'preview'])->middleware('throttle:30,1');
 
     // --- Packages: browse already public; purchase + redeem here ---
     Route::get('/my-packages', [PackageController::class, 'myPackages']);
     Route::post('/packages/{id}/purchase', [PackageController::class, 'purchase']);
-    Route::post('/packages/purchases/{id}/slip', [PackageController::class, 'purchaseSlip']);
+    Route::post('/packages/purchases/{id}/slip', [PackageController::class, 'purchaseSlip'])->middleware('throttle:30,1');
     Route::post('/bookings/{id}/pay-with-package', [BookingController::class, 'payWithPackage']);
     // Spending credit. Settled on the spot — the venue already has the money,
     // so there is no slip and nothing to review.
@@ -181,7 +186,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/payments', [PaymentController::class, 'store']);
     Route::get('/payments/{id}', [PaymentController::class, 'show']);
     Route::get('/payments/{id}/instructions', [PaymentController::class, 'instructions']);
-    Route::post('/payments/{id}/upload-slip', [PaymentController::class, 'uploadSlip']);
+    Route::post('/payments/{id}/upload-slip', [PaymentController::class, 'uploadSlip'])->middleware('throttle:30,1');
     // No customer-side verify/reject. Approving your own slip is not a payment,
     // and these once sat here unscoped: any signed-in customer could confirm
     // their booking without transferring a baht, or reject a stranger's slip by
@@ -198,7 +203,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/billing/invoices/{id}/instructions', [OwnerBillingController::class, 'instructions']);
         Route::get('/billing/invoices/{id}/document', [OwnerBillingController::class, 'document']);
         Route::get('/billing/invoices/{id}/document.pdf', [OwnerBillingController::class, 'documentPdf']);
-        Route::post('/billing/invoices/{id}/slip', [OwnerBillingController::class, 'uploadSlip']);
+        Route::post('/billing/invoices/{id}/slip', [OwnerBillingController::class, 'uploadSlip'])->middleware('throttle:30,1');
 
         // Today's floor: the timeline and the things that need doing. Its own
         // endpoint rather than the dashboard aggregate — this screen refreshes
@@ -244,7 +249,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // Taking gear back is counter work, so it rides with check-in rather
         // than with rental.manage, which is for changing what the venue owns.
         Route::get('/rentals/outstanding', [OwnerRentalReturnController::class, 'outstanding'])->middleware('permission:booking.view')->middleware('feature:rental');
-        Route::post('/bookings/{bookingId}/rentals/{rentalId}/return', [OwnerRentalReturnController::class, 'store'])->middleware('permission:booking.checkin');
+        Route::post('/bookings/{bookingId}/rentals/{rentalId}/return', [OwnerRentalReturnController::class, 'store'])->middleware('permission:booking.checkin')->middleware('feature:rental');
 
         // --- POS: the counter's till and the things it sells ---
         Route::get('/products', [OwnerProductController::class, 'index'])->middleware('permission:pos.sell')->middleware('feature:pos');
@@ -254,12 +259,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/products/{id}', [OwnerProductController::class, 'destroy'])->middleware('permission:product.manage')->middleware('feature:pos');
 
         // `summary` before `{id}` so the word is not read as an id.
-        Route::get('/sales/summary', [OwnerSaleController::class, 'summary'])->middleware('permission:pos.sell');
-        Route::get('/sales', [OwnerSaleController::class, 'index'])->middleware('permission:pos.sell');
-        Route::post('/sales', [OwnerSaleController::class, 'store'])->middleware('permission:pos.sell');
-        Route::get('/sales/{id}', [OwnerSaleController::class, 'show'])->middleware('permission:pos.sell');
-        Route::get('/sales/{id}/promptpay', [OwnerSaleController::class, 'promptpay'])->middleware('permission:pos.sell');
-        Route::post('/sales/{id}/void', [OwnerSaleController::class, 'void'])->middleware('permission:pos.void');
+        // feature:pos to match the products routes above — selling is the POS
+        // feature, so a plan without it shouldn't reach the till either.
+        Route::get('/sales/summary', [OwnerSaleController::class, 'summary'])->middleware('permission:pos.sell')->middleware('feature:pos');
+        Route::get('/sales', [OwnerSaleController::class, 'index'])->middleware('permission:pos.sell')->middleware('feature:pos');
+        Route::post('/sales', [OwnerSaleController::class, 'store'])->middleware('permission:pos.sell')->middleware('feature:pos');
+        Route::get('/sales/{id}', [OwnerSaleController::class, 'show'])->middleware('permission:pos.sell')->middleware('feature:pos');
+        Route::get('/sales/{id}/promptpay', [OwnerSaleController::class, 'promptpay'])->middleware('permission:pos.sell')->middleware('feature:pos');
+        Route::post('/sales/{id}/void', [OwnerSaleController::class, 'void'])->middleware('permission:pos.void')->middleware('feature:pos');
 
         // --- Image upload (venue cover / gallery / floor-plan) ---
         Route::post('/uploads', [OwnerUploadController::class, 'store'])->middleware('limit.storage:file');

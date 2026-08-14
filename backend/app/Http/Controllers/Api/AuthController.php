@@ -50,6 +50,24 @@ class AuthController extends Controller
             'organizationSlug' => ['nullable', 'string'],
         ]);
 
+        // Rate-limit by IP: unauthenticated, and every call upserts a customer
+        // and mints a token, so an unthrottled endpoint is a mass account/token
+        // mint (and, in real mode, amplifies calls to the LINE verify API). Kept
+        // in the controller rather than route `throttle` middleware, which would
+        // resolve $request->user() to key the limiter and re-cache a leftover
+        // bearer identity on the guard — see the route comment.
+        $throttleKey = 'line-login|'.$request->ip();
+
+        if (RateLimiter::tooManyAttempts($throttleKey, 20)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
+
+            throw ValidationException::withMessages([
+                'lineUserId' => "พยายามมากเกินไป กรุณาลองใหม่ในอีก {$seconds} วินาที",
+            ])->status(429);
+        }
+
+        RateLimiter::hit($throttleKey, 60);
+
         // Resolve the org FIRST so verification can use its per-venue LINE channel.
         $organization = $this->resolveOrganization($data['organizationSlug'] ?? null);
 

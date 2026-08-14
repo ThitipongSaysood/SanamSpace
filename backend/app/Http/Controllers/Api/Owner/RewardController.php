@@ -215,8 +215,8 @@ class RewardController extends Controller
                 'string',
                 Rule::exists('products', 'id')->where('organization_id', $orgId),
             ],
-            'creditAmount' => [$type === 'credit' && $creating ? 'required' : 'nullable', 'numeric', 'min:1'],
-            'hours' => [$type === 'hours' && $creating ? 'required' : 'nullable', 'numeric', 'min:0.5'],
+            'creditAmount' => [$type === 'credit' && $creating ? 'required' : 'nullable', 'numeric', 'min:1', 'max:1000000'],
+            'hours' => [$type === 'hours' && $creating ? 'required' : 'nullable', 'numeric', 'min:0.5', 'max:10000'],
             'isActive' => ['sometimes', 'boolean'],
         ]);
     }
