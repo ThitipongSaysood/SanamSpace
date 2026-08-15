@@ -11,7 +11,7 @@ still look like ours instead of the venue's, and which parts of the owner portal
 5. Review, fix and install a third-party `web-security-scan` skill; then split it into its own repo.
 
 ## What changed
-**8 commits `1e13169`→`a54c714`, pushed to `main`.** 43 files, +2208 / −257.
+**10 commits `1e13169`→`28e018e`, pushed to `main`.**
 
 - **`feat(app)` 1e13169 — the venue's own login page.** Migration adds `login_cover_url` +
   `login_tagline`; `GET /orgs/{slug}/public` carries them as `coverUrl`/`tagline`, `PUT /owner/settings`
@@ -37,6 +37,12 @@ still look like ours instead of the venue's, and which parts of the owner portal
 - **`chore(tools)` e47ddcc + 89a3e73 — the security skill**, reviewed, fixed, then moved out to its own
   repo (see below).
 - **`feat(app)` a54c714 — the first-entry loader** wears the venue's name and colour instead of ours.
+- **`fix(app)` 28e018e — a booking shows the court that was booked.** `BookingResource` carries
+  `courtSport` + `courtImageUrl` (both nullable — a booking outlives its court). Carrying the sport was
+  only half of it: `sportMeta` was built from what BRANCHES advertise, and court sport is edited on a
+  different screen, so a tennis court at a venue whose branch still said badminton had no catalogue entry
+  and drew the neutral 🏟️. The public endpoint reads branches **and** courts now, branch order first so
+  "primary sport" keeps its meaning.
 
 ## Decisions worth keeping
 - **Venue-wide figures stay venue-wide.** `totalCustomers`, `newCustomersToday`, `walletBalance` do not
@@ -79,7 +85,7 @@ frontend npm high×4 with fixes available; backend npm critical×2 high×2, all 
 one "secret" that is a test fixture. `npm audit fix` on both stacks is the only real action.
 
 ## Verification
-Backend **732/732** (3,362 assertions) · frontend unit **65/65** · e2e **44/44** · tsc + eslint clean.
+Backend **738/738** (3,379 assertions) · frontend unit **65/65** · e2e **45/45** · tsc + eslint clean.
 Every UI change was checked in a real browser at 390px/1440px, not just typechecked.
 
 ## State at end
@@ -89,7 +95,5 @@ Green and pushed. Working tree clean apart from generated scan reports, which `.
 - `npm audit fix` in `frontend/` and `backend/` — the only actionable finding from the scan.
 - Make `ThitipongSaysood/claude-skills` public if it is meant to be shared; the skill now lives in two
   places (`~/.claude/skills/` and that repo) and will drift unless one becomes a symlink.
-- The booking detail screen still hard-codes `sport="badminton"` for the court it is about; fixing it
-  needs the booking payload to carry the court's sport and photo.
 - Still open from before: P3 launch/ops (Sentry, monitoring, backup verify); `.codex/agents/*.toml` name
   routes that no longer exist; `docs/pricing.md` disagrees with the `plans` table.

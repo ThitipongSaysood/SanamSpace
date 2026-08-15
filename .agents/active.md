@@ -1,6 +1,6 @@
 # Active Task
 
-_Last updated: 2026-08-15 (~17:40) · Last agent: Claude (Opus 5)_
+_Last updated: 2026-08-15 (~18:05) · Last agent: Claude (Opus 5)_
 
 ## ✅ Done 2026-08-15 (~17:40) — white-label customer surfaces, per-branch owner scope, security skill
 
@@ -8,8 +8,8 @@ _Last updated: 2026-08-15 (~17:40) · Last agent: Claude (Opus 5)_
 product still look like OURS instead of the venue's, and which parts of the owner portal still assume a
 venue has one branch.
 
-**Status:** ✅ Complete. **8 commits `1e13169`→`a54c714`, PUSHED to `main`.** 43 files, +2208 / −257.
-Backend **732/732** (3,362 assertions) · frontend unit **65/65** · e2e **44/44** · tsc + eslint clean.
+**Status:** ✅ Complete. **10 commits `1e13169`→`28e018e`, PUSHED to `main`.**
+Backend **738/738** (3,379 assertions) · frontend unit **65/65** · e2e **45/45** · tsc + eslint clean.
 
 **What's Done:**
 - **`feat(app)` 1e13169** — the venue's own login page: `login_cover_url` + `login_tagline`, a
@@ -24,6 +24,10 @@ Backend **732/732** (3,362 assertions) · frontend unit **65/65** · e2e **44/44
 - **`chore(tools)` e47ddcc + 89a3e73** — reviewed/fixed the `web-security-scan` skill (8 bugs), then
   moved it out to `github.com/ThitipongSaysood/claude-skills`.
 - **`feat(app)` a54c714** — the first-entry loader wears the venue's name and colour, not the platform's.
+- **`fix(app)` 28e018e** — a booking shows the court that was booked. `BookingResource` carries
+  `courtSport` + `courtImageUrl`, and `GET /orgs/{slug}/public` builds its sport list from branches AND
+  courts: carrying the right key to a `sportMeta` that had never heard of it only moved the wrong picture
+  from 🏸 to the neutral 🏟️.
 
 **Rules established this session (do not undo):**
 - **"ตรวจไม่ได้ ≠ ผ่าน"** — a check with no evidence reports *unknown*, never *pass*. Half the skill's
@@ -39,8 +43,6 @@ Backend **732/732** (3,362 assertions) · frontend unit **65/65** · e2e **44/44
 - `npm audit fix` in `frontend/` and `backend/` — the only actionable finding the scan produced.
 - `ThitipongSaysood/claude-skills` is **private**; make it public if it is meant to be shared. The skill
   now lives in two places and will drift unless one becomes a symlink.
-- Booking detail still hard-codes `sport="badminton"`; needs the booking payload to carry the court's
-  sport + photo.
 - Not branch-scoped yet: ศูนย์ปฏิบัติการ, ตรวจสลิป, ลูกค้า, POS, เช็คอิน.
 - Still open: P3 launch/ops (Sentry, monitoring, backup verify); `.codex/agents/*.toml` name routes that
   no longer exist; `docs/pricing.md` disagrees with the `plans` table.
