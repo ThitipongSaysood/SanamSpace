@@ -2,7 +2,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useVenueRouter as useRouter } from "@/lib/tenant/venue-nav";
-import { Check, CheckCircle2, Circle, Minus, Package, Plus, Ticket, X } from "lucide-react";
+import { Check, CheckCircle2, Minus, Package, Plus, Ticket, X } from "lucide-react";
 import type { CouponPreview } from "@/lib/types";
 import { api } from "@/lib/api/client";
 import { useCourts, useSchedule, useCreateBooking, useRentals } from "@/lib/api/queries";
@@ -195,7 +195,11 @@ function NewBookingInner() {
         {picksBranch && (
           <section>
             <SectionTitle n={1}>{t.stepBranch}</SectionTitle>
-            <div className="space-y-2.5">
+            {/* Two across, not three: a branch is named after a place
+                ("Everyday Badminton · รัตนาธิเบศร์") and a third of a phone
+                cannot hold that without cutting it in the middle of the word
+                that says WHICH branch it is. */}
+            <div className="grid grid-cols-2 gap-2.5">
               {branches.map((b) => {
                 const active = activeBranch === b.id;
                 const count = (courts ?? []).filter((c) => c.branchId === b.id).length;
@@ -210,15 +214,17 @@ function NewBookingInner() {
                       setCourtId(undefined);
                       setSelected([]);
                     }}
-                    className={`flex w-full items-center justify-between gap-3 rounded-2xl p-3.5 text-left shadow-sm ring-1 transition ${
-                      active ? "bg-brand/10 ring-brand" : "bg-white ring-black/5 hover:ring-brand/30"
+                    className={`relative rounded-xl border p-3 text-left shadow-sm transition ${
+                      active
+                        ? "border-brand bg-brand text-white"
+                        : "border-black/10 bg-white text-foreground hover:border-brand/40"
                     }`}
                   >
-                    <span className="min-w-0">
-                      <span className="block truncate font-semibold">{b.name || t.branchFallback}</span>
-                      <span className="mt-0.5 block text-sm text-muted-foreground">{fmt(t.courtsN, { n: count })}</span>
+                    {active && <Check className="absolute right-2 top-2 size-4" />}
+                    <span className="block pr-5 text-sm font-bold leading-snug">{b.name || t.branchFallback}</span>
+                    <span className={`mt-0.5 block text-xs ${active ? "text-white/75" : "text-muted-foreground"}`}>
+                      {fmt(t.courtsN, { n: count })}
                     </span>
-                    {active && <Check className="size-5 shrink-0 text-brand" />}
                   </button>
                 );
               })}
@@ -234,7 +240,11 @@ function NewBookingInner() {
               {t.pickBranchFirst}
             </p>
           ) : (
-          <div className="space-y-2.5">
+          <>
+          {/* Three across, the same tile as the hour picker below. Six courts
+              were six full-width rows to scroll past on the way to the hours,
+              which is the step that actually decides the booking. */}
+          <div className="grid grid-cols-3 gap-2.5">
             {visibleCourts.map((c) => {
               const active = courtId === c.id;
               return (
@@ -246,32 +256,38 @@ function NewBookingInner() {
                     setSelected([]);
                     scrollTo(dateRef);
                   }}
-                  className={`flex w-full items-center gap-3 rounded-2xl p-2.5 text-left shadow-sm ring-1 transition ${
-                    active ? "bg-brand/10 ring-brand" : "bg-white ring-black/5 hover:ring-brand/30"
+                  className={`relative overflow-hidden rounded-xl border text-center shadow-sm transition ${
+                    active
+                      ? "border-brand bg-brand text-white"
+                      : "border-black/10 bg-white text-foreground hover:border-brand/40"
                   }`}
                 >
-                  <SportMedia sport={c.sport} className="size-16 shrink-0 rounded-xl" />
-                  <div className="min-w-0 flex-1">
-                    <div className="font-semibold">{c.name}</div>
-                    <div className="mt-0.5 text-sm font-medium text-brand">
-                      ฿{c.pricePerHour}
-                      <span className="text-xs font-normal text-muted-foreground">{t.perHour}</span>
-                    </div>
-                    {c.spec && (
-                      <div className="mt-0.5 truncate text-xs text-muted-foreground">
-                        {c.spec.floor} · {t.heightPrefix} {c.spec.height} · {c.spec.standard}
-                      </div>
-                    )}
-                  </div>
-                  {active ? (
-                    <CheckCircle2 className="size-6 shrink-0 text-brand" />
-                  ) : (
-                    <Circle className="size-6 shrink-0 text-black/15" />
+                  {/* The sport mark is 48px of emoji by default, which is most
+                      of a tile this size. Scaled down here rather than adding a
+                      size prop nothing else would use. */}
+                  <SportMedia sport={c.sport} className="h-14 w-full [&_span]:text-3xl" />
+                  {active && (
+                    <CheckCircle2 className="absolute right-1.5 top-1.5 size-5 rounded-full bg-white text-brand" />
                   )}
+                  <span className="block px-1 pt-1.5 text-sm font-bold leading-tight">{c.name}</span>
+                  <span className={`block px-1 pb-2 text-xs font-semibold tabular-nums ${active ? "text-white/85" : "text-brand"}`}>
+                    ฿{c.pricePerHour}
+                    <span className={`font-normal ${active ? "text-white/70" : "text-muted-foreground"}`}>{t.perHour}</span>
+                  </span>
                 </button>
               );
             })}
           </div>
+          {/* The chosen court's own details. They used to sit on every row,
+              which is where a venue whose courts are identical spent six lines
+              saying the same thing — and where a venue whose courts DIFFER had
+              them truncated. One line, for the one court being booked. */}
+          {court?.spec && (
+            <p className="mt-2.5 text-xs text-muted-foreground">
+              {court.name} · {court.spec.floor} · {t.heightPrefix} {court.spec.height} · {court.spec.standard}
+            </p>
+          )}
+          </>
           )}
         </section>
 
