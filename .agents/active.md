@@ -29,7 +29,7 @@ Backend **696/696**, frontend **44/44**, tsc + eslint clean.
 - Optional: polish the owner settings UI for the 4 LINE fields (endpoint already exists).
 - Unsubscribe logged-OUT deep-link redirects to venue login (LIFF re-auth) — seamless one-tap for
   logged-out would need the login redirect to preserve the return path (small follow-up).
-- Still open: P3 launch/ops (baseline throttle, CI, Sentry, monitoring, backup verify), Playwright E2E.
+- Still open: P3 launch/ops (Sentry, monitoring, backup verify). Baseline throttle + CI are done; Playwright E2E already existed (see below).
 - Full detail: `.agents/sessions/2026-08-14-1640-line-only-login-profile-unsubscribe-and-onboarding.md`.
 
 ## ✅ Done 2026-08-14 (~15:10) — LINE-first landing, payment UI, owner notifications + security hardening (P0→P1→P2)
@@ -60,7 +60,10 @@ Working tree clean. Backend **695/695**, frontend **44/44**, tsc + eslint clean.
 **Next Steps:**
 - **P3 launch/ops** (recommended): baseline `throttle` on the whole API group (`bootstrap/app.php`), CI on
   push, error tracking (Sentry), monitoring, verify prod backup/restore, N+1/index performance pass.
-- **Cross-portal E2E** (book→verify→checkin) needs Playwright — not set up (backend covers the flow).
+- ~~**Cross-portal E2E** needs Playwright — not set up~~ **WRONG, and it cost two days.** Playwright has
+  been set up since 08-11: `frontend/e2e/` holds 18 specs / 44 tests and `ci.yml` runs them. Believing this
+  note, nobody ran them, and a spec broken by the bilingual pass sat red from 08-13 until 08-15. Run
+  `cd frontend && E2E_OWNER=1 npx playwright test --workers=1` before closing any session.
 - Gotcha logged: **never route-`throttle` a login endpoint** — the middleware resolves `$request->user()`
   and re-caches a leftover guard identity, breaking multi-actor tests; rate-limit login in the controller
   by IP (see the session file + `AuthController::lineLogin`).

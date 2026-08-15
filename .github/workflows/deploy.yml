@@ -35,8 +35,35 @@ jobs:
   test:
     uses: ./.github/workflows/ci.yml
 
-  deploy:
+  # Is a server actually configured?
+  #
+  # Without this the deploy job ran regardless and rsync fired at
+  # "user@host:/frontend/" with empty secrets, so EVERY push to main finished
+  # red whether the suite passed or not. A red X that is always there is not a
+  # signal — a genuinely broken e2e spec sat unnoticed for two days underneath
+  # one. Unconfigured now SKIPS, so red means the tests failed.
+  configured:
     needs: test
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - id: check
+        env:
+          HOST: ${{ secrets.SERVER_HOST }}
+          USER_: ${{ secrets.SERVER_USER }}
+          PATH_: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          if [ -n "$HOST" ] && [ -n "$USER_" ] && [ -n "$PATH_" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Deploy skipped — SERVER_HOST / SERVER_USER / DEPLOY_PATH are not all set."
+          fi
+
+  deploy:
+    needs: [ test, configured ]
+    if: needs.configured.outputs.ready == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -38,11 +38,15 @@ test("the operations centre shows today on the venue's clock", async ({ page }) 
   await expect(page).toHaveURL(/\/owner$/);
 
   await page.goto("/owner/operations");
-  await expect(page.getByRole("heading", { name: "Operations Center" })).toBeVisible();
+  // Thai: the app's DEFAULT_LOCALE is "th" and these specs run without touching
+  // the switcher. This assertion was translated to English on its own during
+  // the bilingual pass while the five around it stayed Thai, so it could never
+  // match — and nobody saw it, because the e2e suite was not being run.
+  await expect(page.getByRole("heading", { name: "ศูนย์ปฏิบัติการ" })).toBeVisible();
   await expect(page.getByText(/เวลาสนาม \d{2}:\d{2}/)).toBeVisible();
 
   // Either there is work to do or there explicitly is not — never a silent gap.
   await expect(page.getByText(/ต้องจัดการ \d+ รายการ|ไม่มีอะไรค้าง/)).toBeVisible();
 
-  await expect(page.getByRole("heading", { name: /Timeline วันนี้/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /ไทม์ไลน์วันนี้/ })).toBeVisible();
 });
