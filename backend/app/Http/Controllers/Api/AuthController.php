@@ -51,23 +51,39 @@ class AuthController extends Controller
             'organizationSlug' => ['nullable', 'string'],
         ]);
 
-        // Rate-limit by IP: unauthenticated, and every call upserts a customer
-        // and mints a token, so an unthrottled endpoint is a mass account/token
-        // mint (and, in real mode, amplifies calls to the LINE verify API). Kept
-        // in the controller rather than route `throttle` middleware, which would
-        // resolve $request->user() to key the limiter and re-cache a leftover
-        // bearer identity on the guard — see the route comment.
-        $throttleKey = 'line-login|'.$request->ip();
+        // Rate-limited on two keys, because one number cannot serve both jobs.
+        //
+        // The endpoint is unauthenticated and every call upserts a customer and
+        // mints a token, so an unthrottled version is a mass account mint (and,
+        // in real mode, an amplifier for the LINE verify API). But a venue's
+        // customers all arrive through ONE address — thirty people on the
+        // hall's wifi are one IP — so a tight per-IP limit does not stop an
+        // attacker with a phone, it stops a Saturday. At 20/min the e2e suite
+        // failed intermittently on exactly this, which is the same shape as a
+        // class turning up together and the last few being unable to log in.
+        //
+        // So: the identity gets the tight limit (one LINE account signing in
+        // ten times a minute is not a person), and the address gets a loose one
+        // that only a script can reach.
+        //
+        // Kept in the controller rather than route `throttle` middleware, which
+        // would resolve $request->user() to key the limiter and re-cache a
+        // leftover bearer identity on the guard — see the route comment.
+        $identityKey = 'line-login|user|'.sha1((string) ($data['lineUserId'] ?? $request->ip()));
+        $addressKey = 'line-login|ip|'.$request->ip();
 
-        if (RateLimiter::tooManyAttempts($throttleKey, 20)) {
-            $seconds = RateLimiter::availableIn($throttleKey);
+        foreach ([[$identityKey, 10], [$addressKey, 120]] as [$key, $max]) {
+            if (RateLimiter::tooManyAttempts($key, $max)) {
+                $seconds = RateLimiter::availableIn($key);
 
-            throw ValidationException::withMessages([
-                'lineUserId' => "พยายามมากเกินไป กรุณาลองใหม่ในอีก {$seconds} วินาที",
-            ])->status(429);
+                throw ValidationException::withMessages([
+                    'lineUserId' => "พยายามมากเกินไป กรุณาลองใหม่ในอีก {$seconds} วินาที",
+                ])->status(429);
+            }
         }
 
-        RateLimiter::hit($throttleKey, 60);
+        RateLimiter::hit($identityKey, 60);
+        RateLimiter::hit($addressKey, 60);
 
         // Resolve the org FIRST so verification can use its per-venue LINE channel.
         $organization = $this->resolveOrganization($data['organizationSlug'] ?? null);
