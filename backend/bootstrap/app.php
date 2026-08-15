@@ -38,6 +38,18 @@ return Application::configure(basePath: dirname(__DIR__))
             'limit.storage' => EnsureStorageLimit::class,
             'super.admin' => EnsureSuperAdmin::class,
         ]);
+
+        // A baseline ceiling on the whole API.
+        //
+        // Individual endpoints that deserve a tighter limit already carry one
+        // (login by IP in the controller, register/reset/topup/reviews on the
+        // route). Everything ELSE had none at all: a single client could hammer
+        // any read endpoint as fast as the network allowed, and the venue whose
+        // database it was reading would be the one to notice.
+        //
+        // The ceiling is deliberately generous — see the limiter in
+        // AppServiceProvider for why, and for what it is keyed by.
+        $middleware->api(prepend: ['throttle:api']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
