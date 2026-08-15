@@ -60,6 +60,10 @@ export const mockApi = {
       slug, name: "Everyday Badminton", logoText: "EVERYDAY BADMINTON", logoUrl: null, liffId: null,
       theme: { primary: "#16A34A", secondary: "#16A34A", accent: "#F59E0B", warning: "#F59E0B", danger: "#EF4444" },
       fontFamily: null, welcomeBanners: [], lineOaUrl: null, phone: null,
+      // No cover and no tagline: the demo venue deliberately shows what a venue
+      // that has set neither gets — its sport's court, and a line built from
+      // its own name.
+      coverUrl: null, tagline: null, sport: "badminton",
     };
   },
   async getVenues(): Promise<Venue[]> { await delay(); return venuesFx; },

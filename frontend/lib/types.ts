@@ -485,6 +485,10 @@ export type OrgPublic = {
   name: string;
   logoText: string;
   logoUrl: string | null;
+  /** The venue's own photo behind its login screen. Null → draw its sport's court. */
+  coverUrl?: string | null;
+  /** The venue's own line under "เข้าสู่ระบบ". Null → built from its name. */
+  tagline?: string | null;
   liffId: string | null;
   theme: { primary: string; secondary: string; accent: string; warning: string; danger: string };
   /** The venue's chosen font, applied to the customer app when set. */
@@ -817,6 +821,15 @@ export type OwnerSettings = {
   orgSlug: string;
   logoText: string;
   logoUrl?: string | null;
+  /**
+   * The venue's own login screen (/v/{orgSlug}).
+   *
+   * Both optional, and both meaningfully empty: no cover means the app draws
+   * the court of the sport this venue rents, and no tagline means it writes a
+   * line from the venue's own name. Neither falls back to platform copy.
+   */
+  loginCoverUrl?: string | null;
+  loginTagline?: string | null;
   phone: string;
   email: string;
   address: string;

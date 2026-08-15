@@ -40,6 +40,10 @@ class SettingController extends Controller
             'orgName' => ['sometimes', 'string', 'max:255'],
             'logoText' => ['sometimes', 'nullable', 'string', 'max:255'],
             'logoUrl' => ['sometimes', 'nullable', 'string', 'max:2000'],
+            // The login screen this venue's customers land on. The tagline is
+            // capped where the design stops holding it — two lines on a phone.
+            'loginCoverUrl' => ['sometimes', 'nullable', 'string', 'max:2000'],
+            'loginTagline' => ['sometimes', 'nullable', 'string', 'max:160'],
             'phone' => ['sometimes', 'nullable', 'string', 'max:50'],
             'email' => ['sometimes', 'nullable', 'email', 'max:255'],
             'address' => ['sometimes', 'nullable', 'string'],
@@ -104,6 +108,8 @@ class SettingController extends Controller
         $columnMap = [
             'logoText' => 'logo',
             'logoUrl' => 'logo_url',
+            'loginCoverUrl' => 'login_cover_url',
+            'loginTagline' => 'login_tagline',
             'phone' => 'phone',
             'email' => 'email',
             'address' => 'address',

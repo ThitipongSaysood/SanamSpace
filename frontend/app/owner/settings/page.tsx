@@ -14,6 +14,8 @@ import {
   History,
   Home,
   Link2,
+  LogIn,
+  MessageCircle,
   Package,
   Palette,
   Store,
@@ -22,7 +24,9 @@ import {
 } from "lucide-react";
 import type { OwnerSettings } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
+import { api } from "@/lib/api/client";
 import { Loading, ErrorState } from "@/components/states";
+import { CourtBackdrop } from "@/components/court-backdrop";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +37,10 @@ import { fmt as interp } from "@/lib/i18n/format";
 const TABS = [
   { key: "info", icon: Store },
   { key: "storefront", icon: Palette },
+  // The sign-in page gets its own tab rather than a section inside หน้าลูกค้า:
+  // it is the one screen a customer sees before they are a customer, and it is
+  // the only place a venue can put its own photo and its own words.
+  { key: "login", icon: LogIn },
   { key: "payment", icon: Wallet },
   { key: "integrations", icon: Link2 },
 ] as const;
@@ -99,6 +107,7 @@ export default function OwnerSettingsPage() {
       {isError && <ErrorState onRetry={() => refetch()} />}
       {data && tab === "info" && <InfoTab settings={data} />}
       {data && tab === "storefront" && <StorefrontTab settings={data} />}
+      {data && tab === "login" && <LoginPageTab settings={data} />}
       {data && tab === "integrations" && <IntegrationsTab settings={data} />}
       {data && tab === "payment" && <PaymentTab settings={data} />}
     </div>
@@ -544,6 +553,195 @@ function StorefrontTab({ settings }: { settings: OwnerSettings }) {
 
       <SaveRow mutation={mutation} className="lg:col-span-3" />
     </form>
+  );
+}
+
+/**
+ * The venue's own front door: /v/{slug}.
+ *
+ * Two things it can set here, and both are allowed to stay empty — the empty
+ * state is a real design, not a gap. No photo draws the court of the sport this
+ * venue rents; no tagline writes a line from its name. What it must never do is
+ * fall back to platform copy, which is what every venue shared before.
+ */
+function LoginPageTab({ settings }: { settings: OwnerSettings }) {
+  const t = useMessages("owner").settings;
+  const m = t.login;
+  const { form, set, mutation } = useOwnerSettingsForm(settings);
+  const cover = useImageUpload((url) => set("loginCoverUrl", url));
+
+  const tagline = form.loginTagline ?? "";
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        mutation.mutate();
+      }}
+      className="grid gap-6 lg:grid-cols-3"
+    >
+      <div className="space-y-6 lg:col-span-2">
+        <section className="space-y-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+          <div>
+            <h2 className="text-sm font-semibold">{m.title}</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">{m.desc}</p>
+          </div>
+          {/* The address itself, because an owner cannot preview their own
+              front door without knowing where it is. */}
+          <div className="space-y-1">
+            <Label>{m.linkLabel}</Label>
+            <a
+              href={`/v/${form.orgSlug}`}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1 text-sm font-medium text-brand hover:underline"
+            >
+              /v/{form.orgSlug}
+              <ChevronRight className="size-4" />
+            </a>
+          </div>
+        </section>
+
+        <section className="space-y-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+          <div>
+            <h2 className="text-sm font-semibold">{m.coverTitle}</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">{m.coverHint}</p>
+          </div>
+          {form.loginCoverUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={form.loginCoverUrl}
+              alt={m.coverAlt}
+              className="h-36 w-full rounded-xl object-cover ring-1 ring-black/10"
+            />
+          )}
+          <div className="flex items-center gap-3">
+            <label className="cursor-pointer rounded-lg border border-input px-3 py-1.5 text-sm hover:bg-app">
+              {cover.busy ? t.uploading : t.changeImage}
+              <input type="file" accept="image/*" className="hidden" onChange={cover.onFile} disabled={cover.busy} />
+            </label>
+            {form.loginCoverUrl && (
+              <button
+                type="button"
+                onClick={() => set("loginCoverUrl", null)}
+                className="text-xs text-muted-foreground hover:text-brand-danger"
+              >
+                {m.coverRemove}
+              </button>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">{m.coverSizeHint}</p>
+          {cover.failed && <p className="text-xs text-brand-danger">{t.uploadFailed}</p>}
+        </section>
+
+        <section className="space-y-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+          <h2 className="text-sm font-semibold">{m.taglineTitle}</h2>
+          <div className="space-y-1.5">
+            <Label htmlFor="login-tagline">{m.taglineLabel}</Label>
+            <textarea
+              id="login-tagline"
+              rows={3}
+              value={tagline}
+              onChange={(e) => set("loginTagline", e.target.value)}
+              placeholder={m.taglinePlaceholder}
+              maxLength={160}
+              className="w-full rounded-xl border border-input bg-white p-3 text-sm outline-none focus-visible:border-ring"
+            />
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs text-muted-foreground">{m.taglineHint}</p>
+              <p className="shrink-0 text-xs text-muted-foreground">{interp(m.taglineCount, { n: tagline.length })}</p>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div className="lg:col-span-1">
+        <section className="space-y-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 lg:sticky lg:top-4">
+          <LoginPreview form={form} />
+        </section>
+      </div>
+
+      <SaveRow mutation={mutation} className="lg:col-span-3" />
+    </form>
+  );
+}
+
+/**
+ * The sign-in screen as a customer will actually get it.
+ *
+ * The court is the real component the customer app draws, not a picture of it,
+ * so an owner deciding whether to upload a photo is comparing against the thing
+ * they would be replacing.
+ */
+function LoginPreview({ form }: { form: OwnerSettings }) {
+  const t = useMessages("owner").settings;
+  const m = t.login;
+  const a = useMessages("app").login;
+
+  // Read from the same public endpoint the customer app reads, rather than
+  // working the sport out from the branch list here. The two would drift the
+  // first time either rule changed, and a preview that disagrees with the page
+  // it previews is worse than no preview.
+  const { data: pub } = useQuery({
+    queryKey: ["org-public", form.orgSlug],
+    queryFn: () => api.getOrgPublic(form.orgSlug),
+    enabled: !!form.orgSlug,
+  });
+
+  const primary = form.primaryColor || "#16A34A";
+  // Same order the login page uses: the venue's logo, else its sport, else its
+  // own initials — never another venue's sport.
+  const emoji = pub?.sportMeta?.find((s) => s.key === pub?.sport)?.emoji ?? null;
+  const initials = (form.logoText || form.orgName || "?").trim().slice(0, 2).toUpperCase();
+  const tagline = form.loginTagline?.trim() || interp(a.taglineDefault, { name: form.orgName || t.venueNamePh });
+
+  return (
+    <div className="space-y-2">
+      <Label>{m.previewLabel}</Label>
+      <div className="relative flex h-[420px] flex-col items-center justify-center overflow-hidden rounded-2xl bg-[oklch(0.985_0.002_155)] px-6 text-center ring-1 ring-black/10">
+        {form.loginCoverUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={form.loginCoverUrl}
+            alt=""
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-[58%] w-full object-cover"
+            style={{
+              maskImage: "linear-gradient(to bottom, transparent, black 45%)",
+              WebkitMaskImage: "linear-gradient(to bottom, transparent, black 45%)",
+            }}
+          />
+        ) : (
+          <CourtBackdrop sport={pub?.sport} color={primary} className="h-[46%]" />
+        )}
+
+        <div className="relative flex flex-col items-center">
+          {form.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={form.logoUrl} alt="" className="size-16 rounded-2xl object-contain" />
+          ) : (
+            <span
+              className="grid size-16 place-items-center rounded-2xl text-2xl font-bold text-white"
+              style={{ background: primary }}
+            >
+              {emoji ?? initials}
+            </span>
+          )}
+          <div className="mt-2 text-base font-bold">{form.logoText || form.orgName || t.venueNamePh}</div>
+
+          <div className="mt-6 w-full max-w-[190px]">
+            <div className="text-sm font-semibold">{m.previewHeading}</div>
+            <p className="mt-1 whitespace-pre-line text-[11px] leading-relaxed text-muted-foreground">{tagline}</p>
+            <div
+              className="mt-4 flex h-9 items-center justify-center gap-1.5 rounded-lg text-xs font-semibold text-white"
+              style={{ background: primary }}
+            >
+              <MessageCircle className="size-3.5" /> {m.previewLine}
+            </div>
+            <p className="mt-2 text-[10px] text-muted-foreground">{m.previewNoSignup}</p>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -37,6 +37,13 @@ class OrganizationPublicController extends Controller
             'name' => $org->name,
             'logoText' => $s?->logo ?: mb_strtoupper($org->name),
             'logoUrl' => $s?->logo_url,
+            // The login screen's own two pieces. Null is the normal answer for
+            // a venue that has not set them: the app draws the court of the
+            // sport below instead of a photo, and writes its own line from the
+            // venue's name. Sending an empty string here instead of null would
+            // silence that fallback and leave the screen blank.
+            'coverUrl' => $s?->login_cover_url ?: null,
+            'tagline' => $s?->login_tagline ?: null,
             'liffId' => $s?->line_liff_id,
             // Everything the venue can edit in its own settings, so the
             // customer app reflects the change without a code deploy. Secondary

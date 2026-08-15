@@ -35,6 +35,12 @@ class OwnerSettingResource extends JsonResource
             'billingAddress' => $this->billing_address,
             'billingBranch' => $this->billing_branch,
             'logoUrl' => $this->logo_url,
+            // The venue's own login screen (/v/{slug}): its photo behind the
+            // sign-in card, and the line of copy under the heading. Both empty
+            // is a supported state — the app falls back to the court of the
+            // sport this venue rents and to a sentence built from its name.
+            'loginCoverUrl' => $this->login_cover_url,
+            'loginTagline' => $this->login_tagline,
             'phone' => $this->phone,
             'email' => $this->email,
             'address' => $this->address,
