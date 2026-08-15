@@ -114,6 +114,26 @@ class PaymentController extends Controller
 
         $payment = $this->findOwned($request, $id);
 
+        // A slip is only accepted while one is actually wanted.
+        //
+        // There was no check at all, and the two ways to arrive here again are
+        // ordinary: a second tab left open from before the first slip was sent,
+        // and the browser's Back button. Sending another slip on a payment that
+        // is already waiting doubles the venue's review work and makes a
+        // mistaken second transfer look routine — and on one the venue has
+        // ALREADY APPROVED it dragged a settled payment back to
+        // `pending_review`, undoing the venue's own decision.
+        //
+        // `rejected` is deliberately still open: the venue asking for a better
+        // photo is exactly when a customer needs to send one.
+        if (! in_array($payment->status, ['awaiting_slip', 'rejected'], true)) {
+            throw ValidationException::withMessages([
+                'slip' => $payment->status === 'approved'
+                    ? 'การชำระเงินนี้ได้รับการยืนยันแล้ว ไม่ต้องส่งสลิปอีก'
+                    : 'ส่งสลิปไปแล้ว กำลังรอร้านตรวจสอบ',
+            ]);
+        }
+
         $file = $request->file('slip');
         $sha256 = hash_file('sha256', $file->getRealPath());
         $path = $file->store('slips/'.$payment->organization_id, 'public');

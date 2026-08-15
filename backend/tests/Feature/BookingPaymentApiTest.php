@@ -460,4 +460,82 @@ class BookingPaymentApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(0, 'data');
     }
+    /**
+     * A second slip on a payment that already has one is refused.
+     *
+     * Two ordinary ways to get here: a tab left open from before the first slip
+     * was sent, and the browser's Back button. There was no check at all, so a
+     * customer could send another — doubling the venue's review work, making a
+     * mistaken second transfer look routine, and worst of all dragging a
+     * payment the venue had ALREADY APPROVED back to `pending_review`, undoing
+     * the venue's own decision.
+     */
+    public function test_a_slip_is_refused_once_one_is_already_waiting(): void
+    {
+        $token = $this->customerToken();
+        $paymentId = $this->paymentAwaitingSlip($token);
+
+        $this->withToken($token)->postJson("/api/v1/payments/{$paymentId}/upload-slip", [
+            'slip' => UploadedFile::fake()->image('slip.png', 600, 800),
+        ])->assertOk()->assertJsonPath('data.status', 'pending_review');
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->postJson("/api/v1/payments/{$paymentId}/upload-slip", [
+            'slip' => UploadedFile::fake()->image('again.png', 600, 800),
+        ])->assertStatus(422)->assertJsonValidationErrors('slip');
+
+        // One slip on the record, not two.
+        $this->assertSame(1, \App\Models\PaymentSlip::where('payment_id', $paymentId)->count());
+    }
+
+    public function test_a_slip_cannot_reopen_a_payment_the_venue_approved(): void
+    {
+        $token = $this->customerToken();
+        $paymentId = $this->paymentAwaitingSlip($token);
+
+        \App\Models\Payment::whereKey($paymentId)->update(['status' => 'approved']);
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->postJson("/api/v1/payments/{$paymentId}/upload-slip", [
+            'slip' => UploadedFile::fake()->image('slip.png', 600, 800),
+        ])->assertStatus(422);
+
+        $this->assertSame('approved', \App\Models\Payment::findOrFail($paymentId)->status);
+    }
+
+    /** The venue asking for a clearer photo is exactly when one is needed. */
+    public function test_a_slip_is_accepted_again_after_the_venue_rejected_it(): void
+    {
+        $token = $this->customerToken();
+        $paymentId = $this->paymentAwaitingSlip($token);
+
+        \App\Models\Payment::whereKey($paymentId)->update(['status' => 'rejected']);
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->postJson("/api/v1/payments/{$paymentId}/upload-slip", [
+            'slip' => UploadedFile::fake()->image('clearer.png', 600, 800),
+        ])->assertOk()->assertJsonPath('data.status', 'pending_review');
+    }
+
+    /** A booking of this customer's with a payment waiting for its slip. */
+    private function paymentAwaitingSlip(string $token): string
+    {
+        $courtId = $this->everydayCourtId();
+        $this->app['auth']->forgetGuards();
+
+        $bookingId = $this->withToken($token)->postJson('/api/v1/bookings', [
+            'venueId' => 'everyday-badminton',
+            'courtId' => $courtId,
+            'date' => '2026-11-18',
+            'start' => '09:00',
+            'end' => '10:00',
+        ])->assertCreated()->json('data.id');
+
+        $this->app['auth']->forgetGuards();
+
+        return $this->withToken($token)->postJson('/api/v1/payments', [
+            'bookingId' => $bookingId,
+            'method' => 'transfer',
+        ])->assertCreated()->json('data.id');
+    }
 }
