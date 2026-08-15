@@ -10,6 +10,10 @@ frontend/.next/
 # macOS Finder droppings
 .DS_Store
 
-# Generated scan output — regenerate with tools/web-security-scan
+# Security scan output. The skill itself lives in its own repo (~/claude-skills)
+# so it can be shared; only its findings ever land here, and findings are
+# regenerable output that should not be committed.
+/Security_Report_*.html
 /Security_Report_*.xlsx
 /scan-*.json
+/*.skill
