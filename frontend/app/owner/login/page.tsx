@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -62,7 +63,15 @@ export default function OwnerLoginPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="owner-password">{t.password}</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="owner-password">{t.password}</Label>
+              {/* There was no way back into an owner account at all — not for
+                  someone who forgot, and not for a venue the platform created,
+                  whose password was random and sent nowhere. */}
+              <Link href="/owner/forgot-password" className="text-xs font-medium text-brand hover:underline">
+                {t.forgot}
+              </Link>
+            </div>
             <Input
               id="owner-password"
               type="password"

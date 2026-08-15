@@ -167,6 +167,42 @@ class OrganizationController extends Controller
     }
 
     /**
+     * POST /admin/organizations/{id}/owner/reset-link
+     *
+     * Send this venue's owner a link to set their own password.
+     *
+     * The gap this closes: `store()` creates the owner with `Str::random(24)`
+     * and sends it nowhere, so a venue onboarded from this screen could not be
+     * opened by the person it was created for. The admin had no action to fix
+     * it and the owner had no way to ask.
+     *
+     * The same broker the public "ลืมรหัสผ่าน" uses — one mechanism, two doors
+     * — so the admin never learns or handles the password themselves.
+     */
+    public function sendOwnerResetLink(string $id): JsonResponse
+    {
+        $org = $this->find($id);
+
+        $membership = $org->organizationUsers()
+            ->with(['user', 'role'])
+            ->get()
+            ->first(fn ($m) => $m->role?->code === 'owner') ?? $org->organizationUsers()->with('user')->first();
+
+        $email = $membership?->user?->email;
+
+        if (! $email) {
+            throw ValidationException::withMessages([
+                'owner' => 'สนามนี้ยังไม่มีเจ้าของที่มีอีเมล',
+            ]);
+        }
+
+        \Illuminate\Support\Facades\Password::sendResetLink(['email' => $email]);
+        AdminAudit::record('ส่งลิงก์ตั้งรหัสผ่านให้เจ้าของสนาม', "{$org->name} · {$email}", $org->id);
+
+        return response()->json(['message' => "ส่งลิงก์ตั้งรหัสผ่านไปที่ {$email} แล้ว", 'email' => $email]);
+    }
+
+    /**
      * PUT /admin/organizations/{id}/branches/{branchId}/sports
      *
      * Which sports a branch rents, set from the platform side.

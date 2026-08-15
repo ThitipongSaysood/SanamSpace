@@ -96,6 +96,12 @@ Route::post('/auth/admin/login', [AuthController::class, 'adminLogin']);
 // keep it from becoming a spam org-creation endpoint. Unauthenticated, so the
 // throttle middleware keys by IP without a leftover-guard identity to re-cache.
 Route::post('/auth/owner/register', [AuthController::class, 'ownerRegister'])->middleware('throttle:5,1');
+// Getting back INTO an owner account. There was no way at all: a venue the
+// admin created was handed a random password that was never sent, and no reset
+// existed. Route-throttled rather than in-controller because neither of these
+// resolves a guard — the login gotcha does not apply.
+Route::post('/auth/owner/forgot-password', [AuthController::class, 'forgotOwnerPassword'])->middleware('throttle:5,1');
+Route::post('/auth/owner/reset-password', [AuthController::class, 'resetOwnerPassword'])->middleware('throttle:5,1');
 // Per-venue LINE LIFF id for the frontend (resolved from ?venueId / ?organizationSlug / default org).
 Route::get('/line-config', [AuthController::class, 'lineConfig']);
 // Public per-venue branding for the multi-tenant login page (/v/{slug}).
@@ -448,6 +454,8 @@ Route::middleware('auth:sanctum')->group(function () {
         // Which sports a branch rents — the venue's own portal edits this too,
         // but a platform admin setting a customer up needs to reach it.
         Route::put('/organizations/{id}/branches/{branchId}/sports', [AdminOrganizationController::class, 'updateBranchSports']);
+        // The venue was created here; this is how its owner gets in.
+        Route::post('/organizations/{id}/owner/reset-link', [AdminOrganizationController::class, 'sendOwnerResetLink']);
         Route::delete('/organizations/{id}', [AdminOrganizationController::class, 'destroy']);
 
         Route::get('/subscriptions', [AdminSubscriptionController::class, 'index']);

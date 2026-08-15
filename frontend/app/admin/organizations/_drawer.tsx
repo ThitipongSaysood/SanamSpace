@@ -64,6 +64,35 @@ function Bar({ label, used, limit }: { label: string; used: number; limit: numbe
  * rewrite the others — and a venue whose branches differ is the normal case,
  * not the exception.
  */
+/**
+ * Send this venue's owner a link to set their own password.
+ *
+ * `createOrg` gives a new owner `Str::random(24)` and sends it nowhere, so a
+ * venue onboarded from this screen could not be opened by the person it was
+ * created for — and there was no action here to fix it and no "forgot
+ * password" for them to use. Same broker as the public one: the admin never
+ * sees or handles the password.
+ */
+function OwnerResetLink({ orgId }: { orgId: string }) {
+  const t = useMessages("admin").orgDrawer;
+  const send = useMutation({
+    mutationFn: () => superAdminApi.sendOwnerResetLink(orgId),
+    onSuccess: (r) => toast.success(r.message),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <button
+      type="button"
+      disabled={send.isPending}
+      onClick={() => send.mutate()}
+      className="shrink-0 rounded-lg px-2 py-0.5 text-xs font-medium text-brand ring-1 ring-brand/30 transition hover:bg-brand/10 disabled:opacity-50"
+    >
+      {send.isPending ? t.sendingResetLink : t.sendResetLink}
+    </button>
+  );
+}
+
 function SportsSection({ org }: { org: AdminOrganizationDetail }) {
   const t = useMessages("admin").orgDrawer;
   const qc = useQueryClient();
@@ -645,7 +674,12 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
                 <section className="divide-y divide-black/5">
                   <Row label={td.rowName}>{data.name}</Row>
                   <Row label={td.rowOwner}>{data.owner?.name ?? td.dash}</Row>
-                  <Row label={td.rowEmail}>{data.owner?.email ?? data.settings?.email ?? td.dash}</Row>
+                  <Row label={td.rowEmail}>
+                    <span className="flex items-center justify-end gap-2">
+                      {data.owner?.email ?? data.settings?.email ?? td.dash}
+                      {data.owner?.email && <OwnerResetLink orgId={data.id} />}
+                    </span>
+                  </Row>
                   <Row label={td.rowPhone}>{data.settings?.phone ?? td.dash}</Row>
                   <Row label={td.rowAddress}>{data.settings?.address ?? td.dash}</Row>
                   <Row label={td.rowSignupDate}>{fmtDate(data.createdAt, locale)}</Row>

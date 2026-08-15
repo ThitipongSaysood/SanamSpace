@@ -347,7 +347,13 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   // Auth routes render bare (no portal chrome) and skip the token guard — both
   // the sign-in and the self-serve signup, which is reachable while logged out.
-  const isLoginRoute = pathname === "/owner/login" || pathname === "/owner/signup";
+  // Every /owner route is guarded except the ones a person uses BEFORE they
+  // have a session. Getting back in is one of those: the password-reset pages
+  // are reached from an email by someone who by definition cannot log in, and
+  // guarding them bounced the link straight back to the login form it exists
+  // to get past.
+  const PUBLIC_ROUTES = ["/owner/login", "/owner/signup", "/owner/forgot-password", "/owner/reset-password"];
+  const isLoginRoute = PUBLIC_ROUTES.includes(pathname ?? "");
 
   const [ready, setReady] = useState(false);
   const [user, setUser] = useState<User | null>(null);

@@ -55,6 +55,13 @@ return [
     'url' => env('APP_URL', 'http://localhost'),
 
     /*
+    | Where the browser-facing app lives. Same origin as the API in production
+    | (Next serves the site, /api/v1 is proxied), so this defaults to APP_URL —
+    | it only needs setting where the two are split, i.e. every dev machine.
+    */
+    'frontend_url' => env('FRONTEND_URL', env('APP_URL', 'http://localhost')),
+
+    /*
     |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------

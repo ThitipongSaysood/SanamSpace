@@ -241,6 +241,23 @@ export const ownerApi = {
     return res;
   },
 
+  /**
+   * Ask for a link to set a new password.
+   *
+   * Deliberately says the same thing whether or not the address is on file —
+   * the server does too. Telling a stranger which emails have accounts is
+   * telling them which ones are worth attacking.
+   */
+  forgotPassword: (email: string) =>
+    req<{ message: string }>("/auth/owner/forgot-password", { method: "POST", body: { email }, raw: true }),
+
+  resetPassword: (body: { token: string; email: string; password: string }) =>
+    req<{ message: string }>("/auth/owner/reset-password", {
+      method: "POST",
+      body: { ...body, password_confirmation: body.password },
+      raw: true,
+    }),
+
   // Self-serve signup: creates the venue + owner + 30-day trial and signs the
   // new owner straight in (stores the returned token), same as adminLogin.
   async register(input: {

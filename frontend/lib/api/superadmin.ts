@@ -220,6 +220,20 @@ export const superAdminApi = {
       body: { sports },
     }),
 
+  /**
+   * Email this venue's owner a link to set their own password.
+   *
+   * `createOrg` gives the owner a random password and sends it nowhere, so a
+   * venue onboarded from this screen could not be opened by the person it was
+   * created for. Same broker as the public "forgot password" — the admin never
+   * sees or handles the password.
+   */
+  sendOwnerResetLink: (id: string) =>
+    req<{ message: string; email: string }>(`/admin/organizations/${id}/owner/reset-link`, {
+      method: "POST",
+      raw: true,
+    }),
+
   deleteOrg: (id: string) => req<void>(`/admin/organizations/${id}`, { method: "DELETE" }),
 
   impersonateOrg: (id: string) =>

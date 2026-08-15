@@ -18,6 +18,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -211,6 +212,61 @@ class AuthController extends Controller
      * a clean failure. Rate-limited at the route to keep signups from being a
      * spam org-creation endpoint.
      */
+    /**
+     * POST /auth/owner/forgot-password — email a link to set a new password.
+     *
+     * There was no way back into an owner account at all. A venue the platform
+     * created from the admin screen got `Str::random(24)` as its password,
+     * which was never sent anywhere, and there was no reset, no invite and no
+     * "forgot password" — so an admin could onboard a customer who then could
+     * not log in, and nothing on any screen said why.
+     *
+     * The answer is always the same whether or not the address is on file:
+     * telling a stranger which emails have accounts is telling them which to
+     * attack.
+     */
+    public function forgotOwnerPassword(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'email' => ['required', 'email', 'max:255'],
+        ]);
+
+        Password::sendResetLink(['email' => $data['email']]);
+
+        return response()->json([
+            'message' => 'ถ้าอีเมลนี้มีบัญชีอยู่ ระบบได้ส่งลิงก์ตั้งรหัสผ่านใหม่ไปให้แล้ว',
+        ]);
+    }
+
+    /**
+     * POST /auth/owner/reset-password — spend the link and set the password.
+     *
+     * Every existing session is revoked on success: a reset is what someone
+     * does when they believe the account is not only theirs, and leaving the
+     * old tokens alive would keep whoever else has one signed in.
+     */
+    public function resetOwnerPassword(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'token' => ['required', 'string'],
+            'email' => ['required', 'email'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $status = Password::reset($data, function (User $user, string $password) {
+            $user->forceFill(['password' => Hash::make($password)])->save();
+            $user->tokens()->delete();
+        });
+
+        if ($status !== Password::PASSWORD_RESET) {
+            throw ValidationException::withMessages([
+                'token' => 'ลิงก์นี้หมดอายุหรือถูกใช้ไปแล้ว — ขอลิงก์ใหม่อีกครั้ง',
+            ]);
+        }
+
+        return response()->json(['message' => 'ตั้งรหัสผ่านใหม่เรียบร้อย เข้าสู่ระบบได้เลย']);
+    }
+
     public function ownerRegister(Request $request, SubscriptionRenewalService $renewals): JsonResponse
     {
         $data = $request->validate([
