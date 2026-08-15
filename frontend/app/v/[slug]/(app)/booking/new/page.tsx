@@ -7,7 +7,7 @@ import type { CouponPreview } from "@/lib/types";
 import { api } from "@/lib/api/client";
 import { useCourts, useSchedule, useCreateBooking, useRentals } from "@/lib/api/queries";
 import { AppHeader } from "@/components/app-header";
-import { SportMedia } from "@/components/media";
+import { VenueMedia } from "@/components/venue-media";
 import { CourtSlotGrid, CourtSlotLegend } from "@/components/court-slot-grid";
 import { canSelect, calcPrice, totalHours } from "@/lib/booking/slots";
 import type { Slot } from "@/lib/types";
@@ -262,10 +262,18 @@ function NewBookingInner() {
                       : "border-black/10 bg-white text-foreground hover:border-brand/40"
                   }`}
                 >
-                  {/* The sport mark is 48px of emoji by default, which is most
-                      of a tile this size. Scaled down here rather than adding a
-                      size prop nothing else would use. */}
-                  <SportMedia sport={c.sport} className="h-14 w-full [&_span]:text-3xl" />
+                  {/* The court's own photo when the venue has uploaded one.
+                      This drew the sport mark unconditionally, so a venue that
+                      photographed all six of its courts saw the same gradient
+                      six times. The fallback mark is 48px of emoji by default,
+                      which is most of a tile this size — scaled down here
+                      rather than adding a size prop nothing else would use. */}
+                  <VenueMedia
+                    src={c.imageUrl}
+                    sport={c.sport}
+                    alt={c.name}
+                    className="h-14 w-full [&_span]:text-3xl"
+                  />
                   {active && (
                     <CheckCircle2 className="absolute right-1.5 top-1.5 size-5 rounded-full bg-white text-brand" />
                   )}

@@ -13,11 +13,14 @@ export function VenueMedia({
   sport,
   alt,
   className = "",
+  showLabel = false,
 }: {
   src?: string | null;
   sport: string;
   alt?: string;
   className?: string;
+  /** Names the sport on the placeholder. Meaningless over a real photo. */
+  showLabel?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
   const ui = useMessages("app").ui;
@@ -33,5 +36,5 @@ export function VenueMedia({
     );
   }
 
-  return <SportMedia sport={sport} className={className} />;
+  return <SportMedia sport={sport} className={className} showLabel={showLabel} />;
 }

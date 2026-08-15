@@ -15,7 +15,7 @@ import {
 import { useCourts } from "@/lib/api/queries";
 import { AppHeader } from "@/components/app-header";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
-import { SportMedia } from "@/components/media";
+import { VenueMedia } from "@/components/venue-media";
 import { useMessages } from "@/lib/i18n/context";
 import { fmt } from "@/lib/i18n/format";
 import { Button } from "@/components/ui/button";
@@ -71,7 +71,7 @@ export default function VenueCourtsPage({ params }: { params: Promise<{ venueId:
         </div>
 
         <div className="mt-3 overflow-hidden rounded-2xl shadow-sm ring-1 ring-black/5">
-          <SportMedia sport={court.sport} className="h-44 w-full" showLabel />
+          <VenueMedia src={court.imageUrl} sport={court.sport} alt={court.name} className="h-44 w-full" showLabel />
         </div>
 
         {court.spec ? (
