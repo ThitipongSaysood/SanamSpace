@@ -48,6 +48,7 @@ import {
 import type { User } from "@/lib/types";
 import { getOwnerToken, ownerApi } from "@/lib/api/owner";
 import { CustomerPeekProvider } from "@/components/customer-peek";
+import { BranchScopeProvider, useBranchScope } from "@/components/branch-scope";
 import { useMessages, useLocale } from "@/lib/i18n/context";
 import { fmt, intlLocale } from "@/lib/i18n/format";
 import { useLastSeen, useSeenMap, supportTicketHasUnread, LAST_SEEN_KEYS } from "@/lib/last-seen";
@@ -395,6 +396,7 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
   const initial = displayName.trim().charAt(0).toUpperCase() || "O";
 
   return (
+    <BranchScopeProvider>
     <div className="min-h-dvh bg-app text-foreground md:grid md:grid-cols-[256px_1fr]">
       {/* Desktop sidebar */}
       <aside className="hidden border-r border-black/5 bg-white md:flex md:flex-col">
@@ -439,15 +441,7 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
 
           <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
             <LanguageSwitcher className="mr-1" />
-            {/* Org switcher (static) */}
-            <button
-              type="button"
-              className="hidden items-center gap-2 rounded-xl px-2.5 py-1.5 text-sm font-medium ring-1 ring-black/10 transition hover:bg-app lg:inline-flex"
-            >
-              <Building2 className="size-4 text-muted-foreground" />
-              <span>Everyday Badminton</span>
-              <ChevronDown className="size-4 text-muted-foreground" />
-            </button>
+            <BranchSwitcher />
 
             {/* Bell — badge shows real platform-announcement count */}
             <NotifBell />
@@ -483,6 +477,41 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
         </main>
       </div>
     </div>
+    </BranchScopeProvider>
+  );
+}
+
+/**
+ * ทุกสาขา, or one of them.
+ *
+ * This spot used to hold a button reading "Everyday Badminton" that was not
+ * wired to anything — the same venue name for every account, and nothing
+ * happened when it was pressed. A venue with a single branch now gets nothing
+ * here at all, which is the honest answer: there is nowhere to switch to.
+ */
+function BranchSwitcher() {
+  const t = useMessages("owner").chrome;
+  const { branchId, setBranchId, branches, multiBranch } = useBranchScope();
+
+  if (!multiBranch) return null;
+
+  return (
+    <label className="hidden items-center gap-2 rounded-xl px-2.5 py-1.5 text-sm font-medium ring-1 ring-black/10 transition focus-within:ring-brand hover:bg-app lg:inline-flex">
+      <Building2 className="size-4 shrink-0 text-muted-foreground" />
+      <span className="sr-only">{t.branchScope}</span>
+      <select
+        value={branchId ?? ""}
+        onChange={(e) => setBranchId(e.target.value || null)}
+        className="max-w-44 truncate bg-transparent pr-1 text-sm font-medium outline-none"
+      >
+        <option value="">{t.allBranches}</option>
+        {branches.map((b) => (
+          <option key={b.id} value={b.id}>
+            {b.name}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 

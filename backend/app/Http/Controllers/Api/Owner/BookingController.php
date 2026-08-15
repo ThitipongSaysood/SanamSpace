@@ -28,14 +28,25 @@ class BookingController extends Controller
     public function __construct(private RentalService $rentals) {}
 
     /**
-     * GET /owner/bookings?status=&date= — all org bookings (newest first).
+     * GET /owner/bookings?status=&date=&branchId= — org bookings (newest first).
+     *
+     * `branchId` is the venue's own branch filter: absent means ทุกสาขา, which
+     * is what a single-branch venue and the combined view both send. Resolved
+     * through the org's branches so an id from another venue is a 404 rather
+     * than an empty list that reads like a quiet day.
      */
     public function index(Request $request): AnonymousResourceCollection
     {
         $orgId = $request->attributes->get('currentOrganizationId');
+        $branchId = $request->string('branchId')->toString() ?: null;
+
+        if ($branchId) {
+            \App\Models\Branch::query()->forOrganization($orgId)->where('id', $branchId)->firstOrFail();
+        }
 
         $bookings = Booking::query()
             ->forOrganization($orgId)
+            ->forBranch($branchId)
             // latestPayment: "pending_payment" covers both a booking nobody has
             // paid for and one whose slip is sitting in ตรวจสลิป waiting on the
             // venue. The list read as "รอชำระเงิน" for both, so staff could not

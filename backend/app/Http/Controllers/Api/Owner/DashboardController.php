@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Owner;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Models\Branch;
 use App\Models\Court;
 use App\Models\Customer;
 use App\Models\Payment;
@@ -43,6 +44,16 @@ class DashboardController extends Controller
     {
         $orgId = $request->attributes->get('currentOrganizationId');
 
+        // Which branch the owner is looking at, or null for ทุกสาขา — the
+        // default, and the only thing a single-branch venue ever sees.
+        //
+        // Resolved through the org's own branches, so a branch id belonging to
+        // another venue is a 404 rather than a set of someone else's numbers.
+        $branchId = $request->string('branchId')->toString() ?: null;
+        $branch = $branchId
+            ? Branch::query()->forOrganization($orgId)->where('id', $branchId)->firstOrFail()
+            : null;
+
         // The venue's clock, not the server's. Bookings hold wall-clock times,
         // so a UTC "today" reports yesterday's numbers until 07:00 in Bangkok.
         $now = VenueClock::now($orgId);
@@ -51,23 +62,30 @@ class DashboardController extends Controller
         // --- Existing top-line stats ---
         $todayBookings = Booking::query()
             ->forOrganization($orgId)
+            ->forBranch($branchId)
             ->where('date', $today)
             ->count();
 
         $todayRevenue = (float) Booking::query()
             ->forOrganization($orgId)
+            ->forBranch($branchId)
             ->where('date', $today)
             ->whereIn('status', self::REVENUE_STATUSES)
             ->sum('amount');
 
         $confirmedToday = Booking::query()
             ->forOrganization($orgId)
+            ->forBranch($branchId)
             ->where('date', $today)
             ->where('status', 'confirmed')
             ->count();
 
+        // A slip has no branch of its own — it belongs to the booking it pays
+        // for, which is why this reaches through the relation rather than
+        // filtering a column payments does not have.
         $pendingSlips = Payment::query()
             ->forOrganization($orgId)
+            ->when($branchId, fn ($q) => $q->whereHas('booking', fn ($b) => $b->where('branch_id', $branchId)))
             ->where('status', 'pending_review')
             ->count();
 
@@ -77,6 +95,7 @@ class DashboardController extends Controller
 
         $courtCount = Court::query()
             ->forOrganization($orgId)
+            ->forBranch($branchId)
             ->count();
 
         // --- New: customers created today in this org ---
@@ -90,6 +109,7 @@ class DashboardController extends Controller
         // Counts non-cancelled bookings (any active reservation occupies a slot).
         $bookedHoursToday = Booking::query()
             ->forOrganization($orgId)
+            ->forBranch($branchId)
             ->where('date', $today)
             ->where('status', '!=', 'cancelled')
             ->get(['start', 'end'])
@@ -106,25 +126,26 @@ class DashboardController extends Controller
             ->sum('balance');
 
         // --- New: revenue for the last 7 days (confirmed|completed), zero-filled ---
-        $revenueSeries = $this->revenueSeries($orgId, $now);
+        $revenueSeries = $this->revenueSeries($orgId, $branchId, $now);
 
         // --- New: booking status breakdown for the org ---
-        $statusBreakdown = $this->statusBreakdown($orgId);
+        $statusBreakdown = $this->statusBreakdown($orgId, $branchId);
 
         // --- New: sales grouped by the court's sport ---
-        $sportSales = $this->sportSales($orgId);
+        $sportSales = $this->sportSales($orgId, $branchId);
 
         // --- New: booking channels (real, grouped by bookings.channel) ---
-        $bookingChannels = $this->bookingChannels($orgId);
+        $bookingChannels = $this->bookingChannels($orgId, $branchId);
 
         // --- New: action items for the "things to do" panel ---
         $cancelledToday = Booking::query()
             ->forOrganization($orgId)
+            ->forBranch($branchId)
             ->where('date', $today)
             ->where('status', 'cancelled')
             ->count();
 
-        $nearTime = $this->nearTimeCount($orgId, $now);
+        $nearTime = $this->nearTimeCount($orgId, $branchId, $now);
 
         $actionItems = [
             'pendingSlips' => $pendingSlips,
@@ -134,12 +155,12 @@ class DashboardController extends Controller
         ];
 
         // --- New: latest 6 bookings ---
-        $recentBookings = $this->recentBookings($orgId);
+        $recentBookings = $this->recentBookings($orgId, $branchId);
 
         // --- Real day-over-day deltas (% vs yesterday) ---
         $yesterday = $now->copy()->subDay()->toDateString();
-        $yBookings = Booking::query()->forOrganization($orgId)->where('date', $yesterday)->count();
-        $yRevenue = (float) Booking::query()->forOrganization($orgId)->where('date', $yesterday)
+        $yBookings = Booking::query()->forOrganization($orgId)->forBranch($branchId)->where('date', $yesterday)->count();
+        $yRevenue = (float) Booking::query()->forOrganization($orgId)->forBranch($branchId)->where('date', $yesterday)
             ->whereIn('status', self::REVENUE_STATUSES)->sum('amount');
         $yNewCustomers = Customer::query()->forOrganization($orgId)->whereDate('created_at', $yesterday)->count();
         $deltas = [
@@ -149,6 +170,15 @@ class DashboardController extends Controller
         ];
 
         return response()->json([
+            // Which scope these numbers are for. `totalCustomers`,
+            // `newCustomersToday` and `walletBalance` are venue-wide whatever
+            // is selected — a customer and their credit belong to the venue,
+            // not to the branch they last played at — and the dashboard says so
+            // rather than letting a branch view imply they are the branch's.
+            'scope' => [
+                'branchId' => $branchId,
+                'branchName' => $branch?->name,
+            ],
             // existing
             'todayBookings' => $todayBookings,
             'todayRevenue' => $todayRevenue,
@@ -204,12 +234,13 @@ class DashboardController extends Controller
      *
      * @return list<array{date: string, revenue: float}>
      */
-    private function revenueSeries(?string $orgId, Carbon $now): array
+    private function revenueSeries(?string $orgId, ?string $branchId, Carbon $now): array
     {
         $start = $now->copy()->subDays(6)->toDateString();
 
         $byDate = Booking::query()
             ->forOrganization($orgId)
+            ->forBranch($branchId)
             ->whereIn('status', self::REVENUE_STATUSES)
             ->whereBetween('date', [$start, $now->toDateString()])
             ->selectRaw('date, SUM(amount) as revenue')
@@ -234,10 +265,11 @@ class DashboardController extends Controller
      *
      * @return array{total: int, confirmed: int, pending: int, cancelled: int, completed: int}
      */
-    private function statusBreakdown(?string $orgId): array
+    private function statusBreakdown(?string $orgId, ?string $branchId): array
     {
         $counts = Booking::query()
             ->forOrganization($orgId)
+            ->forBranch($branchId)
             ->selectRaw('status, COUNT(*) as aggregate')
             ->groupBy('status')
             ->pluck('aggregate', 'status');
@@ -258,10 +290,11 @@ class DashboardController extends Controller
      *
      * @return list<array{sport: string, revenue: float, count: int}>
      */
-    private function sportSales(?string $orgId): array
+    private function sportSales(?string $orgId, ?string $branchId): array
     {
         return Booking::query()
             ->forOrganization($orgId)
+            ->forBranch($branchId)
             ->join('courts', 'bookings.court_id', '=', 'courts.id')
             ->whereIn('bookings.status', self::REVENUE_STATUSES)
             ->groupBy('courts.sport')
@@ -280,12 +313,13 @@ class DashboardController extends Controller
      * Count of confirmed bookings today whose start time is within the next
      * 2 hours of now. Used by the "starting soon" action item.
      */
-    private function nearTimeCount(?string $orgId, Carbon $now): int
+    private function nearTimeCount(?string $orgId, ?string $branchId, Carbon $now): int
     {
         $windowEnd = $now->copy()->addHours(2);
 
         return Booking::query()
             ->forOrganization($orgId)
+            ->forBranch($branchId)
             ->where('date', $now->toDateString())
             ->where('status', 'confirmed')
             ->get(['start'])
@@ -306,10 +340,11 @@ class DashboardController extends Controller
      *
      * @return list<array{id: string, code: string, customerName: ?string, courtName: ?string, date: string, start: string, end: string, amount: float, status: string}>
      */
-    private function recentBookings(?string $orgId): array
+    private function recentBookings(?string $orgId, ?string $branchId): array
     {
         return Booking::query()
             ->forOrganization($orgId)
+            ->forBranch($branchId)
             ->with(['court', 'customer'])
             ->orderByDesc('created_at')
             ->limit(6)
@@ -330,10 +365,11 @@ class DashboardController extends Controller
     }
 
     /** Real booking counts grouped by channel, with Thai labels (excludes cancelled). */
-    private function bookingChannels(string $orgId): array
+    private function bookingChannels(string $orgId, ?string $branchId): array
     {
         return Booking::query()
             ->forOrganization($orgId)
+            ->forBranch($branchId)
             ->where('status', '!=', 'cancelled')
             ->selectRaw('channel, COUNT(*) as c')
             ->groupBy('channel')

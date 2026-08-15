@@ -1,6 +1,93 @@
 # Active Task
 
-_Last updated: 2026-08-14 (~16:40) · Last agent: Claude (Opus 4.8)_
+_Last updated: 2026-08-15 (~13:10) · Last agent: Claude (Opus 5)_
+
+## ✅ Done 2026-08-15 (~13:10) — the venue's own login page (white-label /v/{slug})
+
+**Current Task:** Make the customer login page belong to the venue that rents the system, to a design
+reference the user supplied (five venues, five looks: logo, colour, a court photo behind the card).
+
+**Status:** ✅ Complete, **not committed**. Backend **725/725** (3,340 assertions), frontend unit
+**60/60**, e2e **44/44** (2.9m), tsc + eslint clean.
+
+**What's Done:**
+- **Migration** `add_login_page_branding_to_organization_settings` — `login_cover_url`, `login_tagline`.
+  Both nullable, and null is a designed state, not a gap (see below).
+- **`GET /orgs/{slug}/public`** now carries `coverUrl` + `tagline`; `PUT /owner/settings` accepts
+  `loginCoverUrl` + `loginTagline` (tagline capped at 160 — two lines on a phone).
+- **`components/court-backdrop.tsx`** — the court of the venue's OWN sport, drawn in its own colour,
+  behind the login card when it has uploaded no photo. Every sport is a list of lines in court space;
+  one `project()` puts that plane in perspective for all of them. Catalogue aliases (`soccer`,
+  `pingpong`) and shared courts (pickleball→tennis, takraw→volleyball, futsal→football) fold in.
+  Line art, not stock photography: a photo of someone else's hall is a claim about a place the customer
+  is about to walk into, and it would be the same photo for every venue on the platform.
+- **`/v/{slug}` rebuilt** — venue logo (or its sport's emoji, or its initials — never a hard-coded
+  shuttlecock), its tagline or one written from its name, its colour on the LINE button, its court or
+  its photo behind. Also moved onto `useMessages("app").login`; the whole page was hard-coded Thai and
+  had been missed by the 08-13 bilingual pass.
+- **Owner back office** — new "หน้าเข้าสู่ระบบ" tab in `/owner/settings`: the customer link, cover
+  upload, tagline, and a live preview that reads the same public endpoint the customer app reads
+  (rather than re-deriving the sport from branches, which would drift).
+- **Tests** — `LoginPageBrandingTest` (6, incl. the owner→signed-out round trip and that clearing
+  restores null), `court-backdrop.test.tsx` (8), `login-page.test.tsx` (8).
+
+**Design note:** null cover / null tagline is the normal state and must stay null through the whole
+path — the app reads it as "draw this venue's sport" and "write a line from this venue's name". An
+empty string silences both fallbacks and leaves the screen blank, which is why the public endpoint
+does `?: null`.
+
+**Deliberately not built:** the reference sheet shows phone login, email login and สมัครสมาชิก. None
+exist in the backend — customer auth is LINE-only, and those buttons were removed on purpose on 08-14
+(see the entry below). Re-adding them as live buttons is a real auth feature, not a UI change.
+
+**Blockers:** None.
+
+### Also done in the same session — the admin venue drawer became a page
+
+The 380px drawer on `/admin/organizations` was docked beside the table as a flex sibling, so it squeezed
+the table until it lost its last two columns AND had to hold five tabs, per-branch sports editing and
+four LINE credential fields in that width. User's call: a full page.
+
+- `_drawer.tsx` → `_detail.tsx`, `OrgDrawer` → `OrgDetail({ id })`; new route
+  `app/admin/organizations/[id]/page.tsx`. The i18n namespace moved `admin.orgDrawer` → `admin.orgDetail`
+  and five keys that the redesign left unused were deleted (`title`, `close`, `drawerAria`,
+  `actionsTitle`, `viewHistory`).
+- Row click and the eye button now navigate — so a venue has a URL an admin can send to a colleague.
+- Layout: identity + Impersonate/ระงับ/ลบ in a header; overview in CSS **columns** (not a grid — the three
+  cards are very different heights and a grid left a hole under the short one); LINE tab as form-left /
+  what-to-paste-right.
+- Every tab then went full width on the user's follow-up: subscription's four forms became cards in the
+  same column flow (with "แก้วันหมดอายุด้วยมือ" deliberately left OUT of the flow — a card around one
+  underlined link made the least-used control look like a main one), usage became one card per limit
+  side by side. History stays a single column: log lines in time order read in a zigzag otherwise.
+- `customer-link.spec.ts` now asserts the URL after opening a venue, and its name no longer says "drawer".
+
+### Also done in the same session — per-branch vs combined for multi-branch venues
+
+The owner portal was organization-scoped from end to end, and the header carried a button reading
+"Everyday Badminton" that was **wired to nothing** — same text for every account, no handler.
+
+- **Backend:** new `BelongsToBranch` trait (`forBranch(?string)` — null is ทุกสาขา and leaves the query
+  alone, so the combined view stays the query it always was) on `Booking` and `Court`.
+  `GET /owner/dashboard` and `GET /owner/bookings` take `branchId`, resolved through the org's own
+  branches so another venue's id is a **404, not an empty list that reads like a quiet day**. Slips have
+  no branch of their own — they reach through `booking`. The dashboard returns `scope: {branchId, branchName}`.
+- **Venue-wide on purpose:** `totalCustomers`, `newCustomersToday`, `walletBalance` stay org-wide — a
+  customer and their credit belong to the venue, not the branch they last played at — and the stat cards
+  append "· ทั้งสนาม" when a branch is selected rather than letting a branch view imply otherwise.
+- **Frontend:** `components/branch-scope.tsx` (context + localStorage, drops a stored branch that no
+  longer exists), a real switcher in the header that **only appears when the venue has >1 branch**, and
+  scope wired into ภาพรวม (incl. its live court board), การจอง (bookings + courts + opening hours),
+  รายการจอง and รายงาน. Each screen prints which scope it is showing, so a screenshot of a branch
+  dashboard cannot be mistaken for the whole venue.
+- **Tests:** `OwnerBranchScopeTest` (7: per-branch, combined = the sum, court count follows, list
+  filtered, foreign/unknown branch 404), `branch-scope.test.tsx` (5), and an e2e walking the whole path
+  — switcher → stored scope → request → numbers on the page.
+- **Not scoped yet** (nobody asked, and each needs its own thought): ศูนย์ปฏิบัติการ, ตรวจสลิป, ลูกค้า,
+  POS, เช็คอิน. The switcher is global, so these currently ignore it.
+
+**Next Steps:** unchanged from below — P3 launch/ops (Sentry, monitoring, backup verify); `.codex/agents/*.toml`
+still name routes that no longer exist; `docs/pricing.md` still disagrees with the `plans` table.
 
 ## ✅ Done 2026-08-14 (~16:40) — LINE-only login/profile, broadcast unsubscribe, LINE onboarding doc
 

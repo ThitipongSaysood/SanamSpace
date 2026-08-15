@@ -58,6 +58,11 @@ export const en: typeof th = {
     },
     chrome: {
       mainMenu: "Main menu",
+      branchScope: "Branch in view",
+      allBranches: "All branches",
+      branchAll: "All branches",
+      branchOnly: "{name} only",
+      venueWide: "Whole venue",
       expired: "Expired",
       daysLeft: "{n} days left",
       needHelp: "Need help?",

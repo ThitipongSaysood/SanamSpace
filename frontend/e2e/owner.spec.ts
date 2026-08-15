@@ -50,3 +50,44 @@ test("the operations centre shows today on the venue's clock", async ({ page }) 
 
   await expect(page.getByRole("heading", { name: /ไทม์ไลน์วันนี้/ })).toBeVisible();
 });
+
+/**
+ * A venue with more than one branch, looked at one branch at a time.
+ *
+ * The portal was organization-scoped from end to end, and the header carried a
+ * button reading "Everyday Badminton" that was wired to nothing. What is
+ * asserted here is the whole path in one go — header switcher → stored scope →
+ * request → the numbers on the page — because each half is useless alone: a
+ * switcher that changes no figures, or a filtered endpoint nobody can reach.
+ */
+test("an owner with two branches can look at one of them, then at both", async ({ page }) => {
+  test.skip(!process.env.E2E_OWNER, "requires backend + NEXT_PUBLIC_API_URL (run with E2E_OWNER=1)");
+  await page.goto("/owner/login");
+  await page.locator('input[type="email"]').fill("owner@everyday.test");
+  await page.locator('input[type="password"]').fill("password");
+  await page.getByRole("button", { name: "เข้าสู่ระบบ" }).click();
+  await expect(page).toHaveURL(/\/owner$/);
+
+  const scope = page.locator("header select").last();
+  await expect(scope).toBeVisible();
+
+  const board = page.locator("section", { hasText: "สถานะสด" }).first();
+  await expect(board.getByText(/กำลังเล่น \d+ \/ \d+ คอร์ท/)).toBeVisible();
+  const combined = await board.getByText(/กำลังเล่น \d+ \/ (\d+) คอร์ท/).innerText();
+
+  // The second branch of the seeded venue.
+  await scope.selectOption({ index: 2 });
+  await expect(page.getByText(/เฉพาะสาขา/)).toBeVisible();
+
+  // Fewer courts than the whole venue — the board follows the scope rather than
+  // listing every branch under a heading naming one.
+  await expect(board.getByText(/กำลังเล่น \d+ \/ \d+ คอร์ท/)).not.toHaveText(combined);
+
+  // The scope is the venue's, not the page's: it survives navigating away.
+  await page.goto("/owner/bookings");
+  await expect(page.getByText(/เฉพาะสาขา/)).toBeVisible();
+
+  // ...and back to every branch.
+  await page.locator("header select").last().selectOption({ index: 0 });
+  await expect(page.getByText("· ทุกสาขา")).toBeVisible();
+});

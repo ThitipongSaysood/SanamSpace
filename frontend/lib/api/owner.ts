@@ -304,7 +304,14 @@ export const ownerApi = {
     }
   },
 
-  getDashboard: () => req<OwnerDashboard>("/owner/dashboard", { raw: true }),
+  /**
+   * @param branchId One branch, or undefined/null for ทุกสาขา — the default,
+   *                 and the only thing a single-branch venue ever asks for.
+   */
+  getDashboard: (branchId?: string | null) =>
+    req<OwnerDashboard>(`/owner/dashboard${branchId ? `?branchId=${encodeURIComponent(branchId)}` : ""}`, {
+      raw: true,
+    }),
 
   getSubscription: () => req<OwnerSubscription | null>("/owner/subscription"),
 
@@ -334,10 +341,11 @@ export const ownerApi = {
    * One page of bookings. The unpaged getBookings() still returns the newest
    * page; this is what a screen uses to reach older rows.
    */
-  getBookingsPage: async (page: number, params?: { status?: string; date?: string }) => {
+  getBookingsPage: async (page: number, params?: { status?: string; date?: string; branchId?: string | null }) => {
     const qs = new URLSearchParams();
     if (params?.status) qs.set("status", params.status);
     if (params?.date) qs.set("date", params.date);
+    if (params?.branchId) qs.set("branchId", params.branchId);
     qs.set("page", String(page));
     return toPage<OwnerBooking>(await req(`/owner/bookings?${qs}`, { raw: true }));
   },
@@ -350,10 +358,19 @@ export const ownerApi = {
       await req(`/owner/payments?page=${page}${status ? `&status=${status}` : ""}`, { raw: true }),
     ),
 
-  getBookings: (params?: { status?: string; date?: string; from?: string; to?: string; perPage?: number }) => {
+  getBookings: (params?: {
+    status?: string;
+    date?: string;
+    from?: string;
+    to?: string;
+    perPage?: number;
+    branchId?: string | null;
+  }) => {
     const qs = new URLSearchParams();
     if (params?.status) qs.set("status", params.status);
     if (params?.date) qs.set("date", params.date);
+    // Absent means every branch, which is what the combined view sends.
+    if (params?.branchId) qs.set("branchId", params.branchId);
     // A date window keeps the calendar's request proportional to what it shows.
     if (params?.from) qs.set("from", params.from);
     if (params?.to) qs.set("to", params.to);

@@ -37,6 +37,7 @@ import { ownerApi } from "@/lib/api/owner";
 import { StatusBadge } from "@/components/status-badge";
 import { CustomerLink } from "@/components/customer-link";
 import { CustomerName } from "@/components/customer-peek";
+import { useBranchScope } from "@/components/branch-scope";
 import { Loading, ErrorState } from "@/components/states";
 import { useMessages } from "@/lib/i18n/context";
 import { fmt as interp } from "@/lib/i18n/format";
@@ -163,18 +164,34 @@ function CardShell({
 // ---- Dashboard ------------------------------------------------------------
 
 export default function OwnerDashboardPage() {
+  // The branch the header switcher is on. In the key as well as the request:
+  // two scopes are two different sets of numbers, and sharing a cache entry
+  // would show one branch's figures under another branch's name.
+  const { branchId, branch, multiBranch } = useBranchScope();
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["owner", "dashboard"],
-    queryFn: ownerApi.getDashboard,
+    queryKey: ["owner", "dashboard", branchId ?? "all"],
+    queryFn: () => ownerApi.getDashboard(branchId),
+    placeholderData: (prev) => prev,
   });
 
   const t = useMessages("owner").dashboard;
+  const tc = useMessages("owner").chrome;
 
   return (
     <div className="space-y-5">
       <header>
         <h1 className="text-2xl font-bold tracking-tight">{t.title} 👋</h1>
-        <p className="text-sm text-muted-foreground">{t.subtitle}</p>
+        <p className="text-sm text-muted-foreground">
+          {t.subtitle}
+          {/* Which branch these numbers are for, said on the page rather than
+              only in the switcher up in the corner — a screenshot of a branch
+              dashboard should not be mistakable for the whole venue. */}
+          {multiBranch && (
+            <span className="ml-1 font-medium text-foreground">
+              · {branch ? interp(tc.branchOnly, { name: branch.name }) : tc.branchAll}
+            </span>
+          )}
+        </p>
       </header>
 
       <PlatformAnnouncements />
@@ -215,6 +232,11 @@ function PlatformAnnouncements() {
 
 function DashboardBody({ d }: { d: OwnerDashboard }) {
   const t = useMessages("owner").dashboard;
+  // Two of the five figures are the venue's, not the branch's, and say so when
+  // a branch is selected. Read from the payload rather than from the switcher,
+  // so the label always describes the numbers actually on screen.
+  const tc = useMessages("owner").chrome;
+  const venueWide = d.scope?.branchId ? ` · ${tc.venueWide}` : "";
   const sportLabel = useSportLabel();
   const channelName = (c: string) => (c === "line" ? "LINE" : t.channel[CHANNEL_KEY[c]] ?? c);
   const series = d.revenueSeries ?? [];
@@ -241,7 +263,7 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
       delta: d.deltas?.todayBookings,
     },
     {
-      label: t.stat.newCustomers,
+      label: t.stat.newCustomers + venueWide,
       value: interp(t.unitPeople, { n: fmt.format(d.newCustomersToday) }),
       icon: Users,
       tint: "bg-violet-100 text-violet-600",
@@ -258,7 +280,7 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
       stroke: "#F59E0B",
     },
     {
-      label: t.stat.wallet,
+      label: t.stat.wallet + venueWide,
       value: `฿${fmt.format(d.walletBalance)}`,
       icon: Wallet,
       tint: "bg-emerald-100 text-emerald-600",
@@ -641,6 +663,11 @@ function DashboardBody({ d }: { d: OwnerDashboard }) {
  * server runs on UTC and the venue does not.
  */
 function CourtBoardPanel() {
+  // Filtered here rather than asked for: the board already arrives grouped by
+  // branch, so the scope is a filter over what is in hand. Left unfiltered it
+  // would contradict the rest of the page — the same dashboard would say
+  // "เฉพาะสาขา รัตนาธิเบศร์" at the top and list the other branch's courts.
+  const { branchId } = useBranchScope();
   const { data, isLoading } = useQuery({
     queryKey: ["owner", "courts", "live"],
     queryFn: ownerApi.getCourtBoard,
@@ -652,9 +679,11 @@ function CourtBoardPanel() {
   const t = useMessages("owner").dashboard;
 
   if (isLoading) return <Loading rows={2} />;
-  if (!data || data.branches.length === 0) return null;
 
-  const courts = data.branches.flatMap((b) => b.courts);
+  const branches = (data?.branches ?? []).filter((b) => !branchId || b.id === branchId);
+  if (!data || branches.length === 0) return null;
+
+  const courts = branches.flatMap((b) => b.courts);
   const playing = courts.filter((c) => c.status === "playing").length;
 
   return (
@@ -672,10 +701,10 @@ function CourtBoardPanel() {
       </div>
 
       <div className="space-y-4">
-        {data.branches.map((branch) => (
+        {branches.map((branch) => (
           <div key={branch.id}>
             {/* Only worth naming when there is more than one place to be. */}
-            {data.branches.length > 1 && (
+            {branches.length > 1 && (
               <h3 className="mb-2 text-xs font-semibold text-muted-foreground">{branch.name ?? "—"}</h3>
             )}
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

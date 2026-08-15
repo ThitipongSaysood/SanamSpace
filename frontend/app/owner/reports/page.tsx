@@ -8,6 +8,7 @@ import { ownerApi } from "@/lib/api/owner";
 import { Loading, ErrorState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { useMessages } from "@/lib/i18n/context";
+import { useBranchScope } from "@/components/branch-scope";
 
 const fmt = new Intl.NumberFormat("th-TH");
 
@@ -54,9 +55,14 @@ const STATUS_META: { key: keyof OwnerDashboard["statusBreakdown"]; cls: string }
 
 export default function OwnerReportsPage() {
   const t = useMessages("owner").reports;
+  // Same payload as the dashboard, so the same scope: a report titled with the
+  // venue's name while the dashboard beside it shows one branch would be two
+  // answers to the same question.
+  const { branchId } = useBranchScope();
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["owner", "dashboard"],
-    queryFn: ownerApi.getDashboard,
+    queryKey: ["owner", "dashboard", branchId ?? "all"],
+    queryFn: () => ownerApi.getDashboard(branchId),
+    placeholderData: (prev) => prev,
   });
   return (
     <div className="space-y-5">

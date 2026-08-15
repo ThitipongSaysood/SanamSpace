@@ -14,6 +14,7 @@ import { ImageLightbox } from "@/components/image-lightbox";
 import { RowActions, rowAction } from "@/components/ui/row-action";
 import { BookingDialog, type Dialog } from "../booking-dialog";
 import { useMessages } from "@/lib/i18n/context";
+import { useBranchScope } from "@/components/branch-scope";
 import { fmt as interp } from "@/lib/i18n/format";
 
 const BOOKINGS_KEY = ["owner", "bookings"];
@@ -83,6 +84,7 @@ function defaultRange(): { from: string; to: string } {
 export default function OwnerBookingListPage() {
   const qc = useQueryClient();
   const tt = useMessages("owner").bookingsList;
+  const tc = useMessages("owner").chrome;
   const [range, setRange] = useState(defaultRange);
   const [tab, setTab] = useState<string>("all");
   const [q, setQ] = useState("");
@@ -91,9 +93,11 @@ export default function OwnerBookingListPage() {
 
   // The date window is the server's job — the venue's whole history is not
   // something to pull down and filter in the browser.
+  // Same scope the calendar and the dashboard are on, from the header switcher.
+  const { branchId, branch, multiBranch } = useBranchScope();
   const bookingsQ = useQuery({
-    queryKey: [...BOOKINGS_KEY, "list", range.from, range.to],
-    queryFn: () => ownerApi.getBookings({ from: range.from, to: range.to, perPage: 500 }),
+    queryKey: [...BOOKINGS_KEY, "list", range.from, range.to, branchId ?? "all"],
+    queryFn: () => ownerApi.getBookings({ from: range.from, to: range.to, perPage: 500, branchId }),
     placeholderData: (prev) => prev,
   });
   const courtsQ = useQuery({ queryKey: ["owner", "courts"], queryFn: ownerApi.getCourts });
@@ -164,7 +168,14 @@ export default function OwnerBookingListPage() {
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{tt.title}</h1>
-          <p className="text-sm text-muted-foreground">{tt.subtitle}</p>
+          <p className="text-sm text-muted-foreground">
+            {tt.subtitle}
+            {multiBranch && (
+              <span className="ml-1 font-medium text-foreground">
+                · {branch ? interp(tc.branchOnly, { name: branch.name }) : tc.branchAll}
+              </span>
+            )}
+          </p>
         </div>
         <Button
           type="button"

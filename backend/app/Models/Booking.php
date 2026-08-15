@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToBranch;
 use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -12,7 +13,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Booking extends Model
 {
-    use HasUuids, SoftDeletes, BelongsToOrganization;
+    use HasUuids, SoftDeletes, BelongsToOrganization, BelongsToBranch;
 
     protected $guarded = [];
 

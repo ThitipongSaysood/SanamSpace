@@ -8,6 +8,7 @@ import { ownerApi } from "@/lib/api/owner";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
 import { BookingDialog, type Dialog } from "./booking-dialog";
 import { useMessages } from "@/lib/i18n/context";
+import { useBranchScope } from "@/components/branch-scope";
 import { useLocale } from "@/lib/i18n/context";
 import { fmt as interp, intlLocale } from "@/lib/i18n/format";
 import { Button } from "@/components/ui/button";
@@ -133,10 +134,14 @@ export default function OwnerBookingsPage() {
   // Only the window on screen. Fetching every booking the venue ever took, to
   // draw one day, was both the slowest request in the portal and the one that
   // would break first as a venue's history grew.
+  // The branch the header switcher is on. In the key as well as the request:
+  // one branch's calendar and the combined one are different sets of bookings.
+  const { branchId, branch, multiBranch } = useBranchScope();
+
   const range = useMemo(() => visibleRange(view, anchor), [view, anchor]);
   const bookingsQ = useQuery({
-    queryKey: [...BOOKINGS_KEY, range.from, range.to],
-    queryFn: () => ownerApi.getBookings({ from: range.from, to: range.to, perPage: 200 }),
+    queryKey: [...BOOKINGS_KEY, range.from, range.to, branchId ?? "all"],
+    queryFn: () => ownerApi.getBookings({ from: range.from, to: range.to, perPage: 200, branchId }),
     // Paging back and forth through a calendar should feel instant.
     placeholderData: (prev) => prev,
   });
@@ -146,10 +151,21 @@ export default function OwnerBookingsPage() {
   const branchesQ = useQuery({ queryKey: ["owner", "branches"], queryFn: ownerApi.getBranches });
 
   const bookings = bookingsQ.data ?? [];
-  const courts = courtsQ.data ?? [];
-  const branches = useMemo(() => branchesQ.data ?? [], [branchesQ.data]);
+  // The grid's columns follow the scope too — a branch view that still drew
+  // every branch's courts would be a calendar of empty columns.
+  const courts = useMemo(
+    () => (courtsQ.data ?? []).filter((c) => !branchId || c.branchId === branchId),
+    [courtsQ.data, branchId],
+  );
+  // Opening hours come from the branches actually on screen, so a branch view
+  // draws that branch's window rather than the widest window in the venue.
+  const branches = useMemo(
+    () => (branchesQ.data ?? []).filter((b) => !branchId || b.id === branchId),
+    [branchesQ.data, branchId],
+  );
 
   const bk = useMessages("owner").bookings;
+  const tc = useMessages("owner").chrome;
   const { locale } = useLocale();
   const tag = intlLocale(locale);
   const byDate = useMemo(() => {
@@ -208,7 +224,16 @@ export default function OwnerBookingsPage() {
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{bk.title}</h1>
-          <p className="text-sm text-muted-foreground">{bk.subtitle}</p>
+          <p className="text-sm text-muted-foreground">
+            {bk.subtitle}
+            {/* Which branch's courts are on the grid. Without it a quiet branch
+                and a quiet venue look exactly the same. */}
+            {multiBranch && (
+              <span className="ml-1 font-medium text-foreground">
+                · {branch ? interp(tc.branchOnly, { name: branch.name }) : tc.branchAll}
+              </span>
+            )}
+          </p>
         </div>
         <Button
           type="button"

@@ -56,6 +56,12 @@ export const th = {
     },
     chrome: {
       mainMenu: "เมนูหลัก",
+      // ตัวสลับสาขาบนแถบบน — โผล่เฉพาะสนามที่มีมากกว่าหนึ่งสาขา
+      branchScope: "สาขาที่กำลังดู",
+      allBranches: "ทุกสาขา",
+      branchAll: "ทุกสาขา",
+      branchOnly: "เฉพาะสาขา {name}",
+      venueWide: "ทั้งสนาม",
       expired: "หมดอายุแล้ว",
       daysLeft: "เหลือ {n} วัน",
       needHelp: "ต้องการความช่วยเหลือ?",

@@ -714,6 +714,15 @@ export type OwnerRecentBooking = {
 };
 
 export type OwnerDashboard = {
+  /**
+   * Which branch these numbers are for — null is ทุกสาขา.
+   *
+   * `totalCustomers`, `newCustomersToday` and `walletBalance` stay venue-wide
+   * whatever is selected: a customer and their credit belong to the venue, not
+   * to the branch they last played at. The screen labels those so a branch view
+   * never implies they are the branch's own.
+   */
+  scope?: { branchId: string | null; branchName: string | null };
   todayBookings: number;
   todayRevenue: number;
   pendingSlips: number;
