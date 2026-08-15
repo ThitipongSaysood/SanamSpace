@@ -46,6 +46,22 @@ npm run dev
 
 
 
+skill
+/web-security-scan
+
+เติมท้ายเป็นบริบทได้ เช่น /web-security-scan ตรวจ example.com โหมด B
+
+
+รันสคริปต์เองโดยไม่ผ่าน Claude ก็ได้:
+
+
+bash ~/.claude/skills/web-security-scan/scripts/scan.sh example.com --yes
+python3 ~/.claude/skills/web-security-scan/scripts/build_report.py \
+        scan-example.com-*.json --out Report.html
+
+
+        
+
  Customer App — ขาดอะไร
 ปุ่มมีแต่ยังไม่ทำงาน (quick win):
 
