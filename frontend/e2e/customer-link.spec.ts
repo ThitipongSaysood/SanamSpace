@@ -32,7 +32,7 @@ test("owner sees their venue's customer link and can copy it", async ({ page, co
   await expect(page.getByRole("button", { name: "เข้าสู่ระบบด้วย LINE" })).toBeVisible();
 });
 
-test("admin can copy a venue's customer link from the org drawer", async ({ page }) => {
+test("admin can copy a venue's customer link from the venue's page", async ({ page }) => {
   test.skip(!process.env.E2E_OWNER, "requires backend (E2E_OWNER=1)");
 
   await page.goto("/admin/login");
@@ -47,6 +47,10 @@ test("admin can copy a venue's customer link from the org drawer", async ({ page
   await page.goto("/admin/organizations");
   await page.getByPlaceholder("ค้นหาสนาม, เจ้าของ, อีเมล...").fill("everyday");
   await page.locator("tbody tr").first().click();
+
+  // A venue is a page of its own now, not a drawer docked beside the table —
+  // so opening one is a navigation, and the URL is shareable.
+  await expect(page).toHaveURL(/\/admin\/organizations\/everyday-badminton$/);
 
   await expect(page.getByRole("heading", { name: "ลิงก์สำหรับลูกค้า" })).toBeVisible();
   await expect(page.locator("#customer-link-url")).toHaveText(/\/v\/everyday-badminton$/);

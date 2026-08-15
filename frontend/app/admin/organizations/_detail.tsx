@@ -2,7 +2,9 @@
 import { toast } from "@/lib/toast";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Clock, ExternalLink, History, MessageCircle, Power, RefreshCw, Trash2, UserCog, X } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Clock, ExternalLink, MessageCircle, Power, RefreshCw, Trash2, UserCog, X } from "lucide-react";
 import { superAdminApi } from "@/lib/api/superadmin";
 import { setOwnerToken } from "@/lib/api/owner";
 import type { AdminOrganizationDetail } from "@/lib/types";
@@ -74,7 +76,7 @@ function Bar({ label, used, limit }: { label: string; used: number; limit: numbe
  * sees or handles the password.
  */
 function OwnerResetLink({ orgId }: { orgId: string }) {
-  const t = useMessages("admin").orgDrawer;
+  const t = useMessages("admin").orgDetail;
   const send = useMutation({
     mutationFn: () => superAdminApi.sendOwnerResetLink(orgId),
     onSuccess: (r) => toast.success(r.message),
@@ -94,7 +96,7 @@ function OwnerResetLink({ orgId }: { orgId: string }) {
 }
 
 function SportsSection({ org }: { org: AdminOrganizationDetail }) {
-  const t = useMessages("admin").orgDrawer;
+  const t = useMessages("admin").orgDetail;
   const qc = useQueryClient();
   const catalogue = useQuery({ queryKey: ["admin", "sports"], queryFn: superAdminApi.getSports });
 
@@ -115,7 +117,7 @@ function SportsSection({ org }: { org: AdminOrganizationDetail }) {
   const active = (catalogue.data ?? []).filter((s) => s.isActive);
 
   return (
-    <section className="rounded-xl bg-app/60 p-4">
+    <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
       <h3 className="text-sm font-semibold">{t.sportsTitle}</h3>
       <p className="mt-0.5 text-xs text-muted-foreground">
         {t.sportsHint}
@@ -211,7 +213,7 @@ const TRIAL_DAYS = [7, 14, 30] as const;
  * the billing page, come back and approve it.
  */
 function SubscriptionTab({ org, onDone }: { org: AdminOrganizationDetail; onDone: () => void }) {
-  const t = useMessages("admin").orgDrawer;
+  const t = useMessages("admin").orgDetail;
   const { locale } = useLocale();
   const sub = org.subscription;
   const plans = useQuery({ queryKey: ["admin", "plans"], queryFn: superAdminApi.getPlans });
@@ -282,10 +284,15 @@ function SubscriptionTab({ org, onDone }: { org: AdminOrganizationDetail; onDone
   const total = perMonth != null ? perMonth * months : null;
   const days = sub?.daysRemaining;
 
+  // Every block below is a card, flowed the same way the overview tab flows —
+  // four short forms stacked in one narrow column left most of a 1440px screen
+  // empty and pushed "แก้วันหมดอายุด้วยมือ" below the fold.
+  const card = "space-y-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5";
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* Where this venue stands, in one line. */}
-      <section className="rounded-xl bg-app/60 p-4">
+      <section className={card}>
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
           <span className="text-lg font-semibold">{sub?.planName ?? t.noPlan}</span>
           {org.trial.onTrial && (
@@ -318,8 +325,9 @@ function SubscriptionTab({ org, onDone }: { org: AdminOrganizationDetail; onDone
         </p>
       )}
 
+      <div className="columns-1 gap-4 lg:columns-2 2xl:columns-3 [&>section]:mb-4 [&>section]:break-inside-avoid">
       {/* --- Renew --- */}
-      <section className="space-y-3">
+      <section className={card}>
         <h3 className="text-sm font-semibold">{t.renewTitle}</h3>
         <div className="flex flex-wrap gap-2">
           {RENEW_MONTHS.map((m) => (
@@ -366,7 +374,7 @@ function SubscriptionTab({ org, onDone }: { org: AdminOrganizationDetail; onDone
       </section>
 
       {/* --- Change plan --- */}
-      <section className="space-y-2 border-t border-black/5 pt-4">
+      <section className={card}>
         <h3 className="text-sm font-semibold">{t.changePlanTitle}</h3>
         <p className="text-xs text-muted-foreground">{t.changePlanHint}</p>
         <div className="flex flex-wrap gap-2">
@@ -389,7 +397,7 @@ function SubscriptionTab({ org, onDone }: { org: AdminOrganizationDetail; onDone
       </section>
 
       {/* --- Trial --- */}
-      <section className="space-y-2 border-t border-black/5 pt-4">
+      <section className={card}>
         <h3 className="text-sm font-semibold">{t.trialTitle}</h3>
         <p className="text-xs text-muted-foreground">
           {t.trialHint}
@@ -424,8 +432,13 @@ function SubscriptionTab({ org, onDone }: { org: AdminOrganizationDetail; onDone
         </div>
       </section>
 
-      {/* --- The escape hatch, deliberately last and deliberately plain. --- */}
-      <section className="border-t border-black/5 pt-4">
+      </div>
+
+      {/* --- The escape hatch, deliberately last and deliberately plain. Left
+              out of the card flow on purpose: giving it a card of its own put a
+              white panel around one underlined link and made the least-used
+              control on the tab look like one of the main three. --- */}
+      <section className={showExpiry ? `max-w-md ${card}` : ""}>
         {showExpiry ? (
           <div className="space-y-2">
             <h3 className="text-sm font-semibold">{t.manualExpiryTitle}</h3>
@@ -483,7 +496,7 @@ function SubscriptionTab({ org, onDone }: { org: AdminOrganizationDetail; onDone
  * moving it between packages, extending it for free, logging in as its owner.
  */
 function HistoryTab({ slug }: { slug: string }) {
-  const t = useMessages("admin").orgDrawer;
+  const t = useMessages("admin").orgDetail;
   const { locale } = useLocale();
   const logs = useQuery({
     queryKey: ["admin", "audit-logs", slug],
@@ -520,9 +533,19 @@ function HistoryTab({ slug }: { slug: string }) {
   );
 }
 
-export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) {
-  const td = useMessages("admin").orgDrawer;
+/**
+ * One venue, on a page of its own.
+ *
+ * This was a 380px drawer docked beside the table. Five tabs, per-branch sports
+ * editing and four LINE credential fields all had to fit that width, and the
+ * table lost its last two columns to make room for it — so the screen was worse
+ * at both of the things it did. Same content, same tabs; what changed is that
+ * it now has the width to lay them out side by side.
+ */
+export function OrgDetail({ id }: { id: string }) {
+  const td = useMessages("admin").orgDetail;
   const { locale } = useLocale();
+  const router = useRouter();
   const qc = useQueryClient();
   const [tab, setTab] = useState<(typeof TAB_KEYS)[number]>("info");
   const [showPlans, setShowPlans] = useState(false);
@@ -561,7 +584,9 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
     mutationFn: () => superAdminApi.deleteOrg(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "organizations"] });
-      onClose();
+      // The venue this page is about no longer exists — staying here would show
+      // a 404 the admin did not ask for.
+      router.push("/admin/organizations");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -616,45 +641,59 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
 
   return (
     <>
-    <aside
-      role="dialog"
-      aria-label={td.drawerAria}
-      className="flex w-full shrink-0 flex-col overflow-y-auto rounded-2xl bg-white shadow-sm ring-1 ring-black/5 xl:sticky xl:top-4 xl:max-h-[calc(100dvh-7rem)] xl:w-[380px]"
-    >
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-black/5 bg-white px-5 py-4">
-          <h2 className="font-bold">{td.title}</h2>
-          <button type="button" onClick={onClose} aria-label={td.close} className="grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-app">
-            <X className="size-5" />
-          </button>
-        </div>
+      <div className="space-y-5">
+        <Link
+          href="/admin/organizations"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
+        >
+          <ArrowLeft className="size-4" /> {td.backToList}
+        </Link>
 
-        {isLoading && (
-          <div className="p-5">
-            <Loading rows={3} />
-          </div>
-        )}
-        {isError && (
-          <div className="p-5">
-            <ErrorState onRetry={() => refetch()} />
-          </div>
-        )}
+        {isLoading && <Loading rows={3} />}
+        {isError && <ErrorState onRetry={() => refetch()} />}
 
         {data && (
-          <div className="flex-1 space-y-5 p-5">
-            <div className="flex items-center gap-3">
-              <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-brand/10 text-sm font-bold text-brand">
+          <>
+            {/* Identity and the four things an admin does TO a venue, together
+                at the top. They used to be a 2×2 grid of buttons at the bottom
+                of the overview tab, below everything else on the screen. */}
+            <header className="flex flex-wrap items-center gap-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+              <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-brand/10 text-base font-bold text-brand">
                 {data.name.trim().slice(0, 2).toUpperCase()}
               </span>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="truncate font-semibold">{data.name}</span>
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${active ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="truncate text-xl font-bold tracking-tight">{data.name}</h1>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${active ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
                     {active ? td.statusActive : suspended ? td.statusSuspended : data.subscriptionStatus ?? td.dash}
                   </span>
                 </div>
                 <div className="text-sm text-muted-foreground">{sub?.planName ? interp(td.planSuffix, { plan: sub.planName }) : td.dash}</div>
               </div>
-            </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button type="button" onClick={() => setConfirmImp(true)} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-black/10 transition hover:bg-app">
+                  <UserCog className="size-4" /> Impersonate
+                </button>
+                <button
+                  type="button"
+                  onClick={() => statusM.mutate()}
+                  disabled={statusM.isPending}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-black/10 transition hover:bg-app ${suspended ? "text-emerald-600" : "text-amber-700"}`}
+                >
+                  {suspended ? <Power className="size-4" /> : <Clock className="size-4" />}
+                  {suspended ? td.activate : td.suspend}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => window.confirm(interp(td.deleteConfirm, { name: data.name })) && delM.mutate()}
+                  disabled={delM.isPending}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-600 transition hover:bg-rose-100 disabled:opacity-50"
+                >
+                  <Trash2 className="size-4" /> {delM.isPending ? td.deleting : td.deleteOrg}
+                </button>
+              </div>
+            </header>
 
             <div className="flex gap-1 overflow-x-auto border-b border-black/5 text-sm">
               {TAB_KEYS.map((key) => (
@@ -662,7 +701,7 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
                   key={key}
                   type="button"
                   onClick={() => setTab(key)}
-                  className={`-mb-px shrink-0 border-b-2 px-2.5 py-2 font-medium transition ${tab === key ? "border-brand text-brand" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                  className={`-mb-px shrink-0 border-b-2 px-3 py-2 font-medium transition ${tab === key ? "border-brand text-brand" : "border-transparent text-muted-foreground hover:text-foreground"}`}
                 >
                   {td.tabs[key]}
                 </button>
@@ -670,8 +709,14 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
             </div>
 
             {tab === "info" ? (
-              <>
-                <section className="divide-y divide-black/5">
+              // Columns rather than a grid: the three cards are very different
+              // heights, and a grid leaves a hole under the short one. Flowing
+              // them fills the page, and `break-inside-avoid` keeps each card
+              // whole — a subject split across two columns is worse than a gap.
+              <div className="columns-1 gap-4 lg:columns-2 2xl:columns-3 [&>section]:mb-4 [&>section]:break-inside-avoid">
+                <section className="space-y-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+                  <h2 className="text-sm font-semibold">{td.tabs.info}</h2>
+                  <div className="divide-y divide-black/5">
                   <Row label={td.rowName}>{data.name}</Row>
                   <Row label={td.rowOwner}>{data.owner?.name ?? td.dash}</Row>
                   <Row label={td.rowEmail}>
@@ -693,17 +738,14 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
                       td.dash
                     )}
                   </Row>
+                  </div>
+
+                  <CustomerLink slug={data.id} hint={td.customerLinkHint} className="ring-black/10" />
                 </section>
 
                 <SportsSection org={data} />
 
-                <CustomerLink
-                  slug={data.id}
-                  hint={td.customerLinkHint}
-                  className="ring-black/10"
-                />
-
-                <section className="rounded-xl bg-app/60 p-4">
+                <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
                   <h3 className="mb-1 text-sm font-semibold">{td.currentPlanTitle}</h3>
                   <div className="divide-y divide-black/5">
                     <Row label={td.rowPlan}>{sub?.planName ?? td.dash}</Row>
@@ -744,62 +786,28 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
                       </div>
                     </div>
                   ) : (
-                    <button type="button" onClick={() => setTab("subscription")} className="mt-3 w-full rounded-lg border border-brand py-2 text-sm font-semibold text-brand hover:bg-brand/10">
-                      {td.manageSubscription}
-                    </button>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      <button type="button" onClick={() => setTab("subscription")} className="rounded-lg border border-brand py-2 text-sm font-semibold text-brand transition hover:bg-brand/10">
+                        {td.manageSubscription}
+                      </button>
+                      <button type="button" onClick={() => setShowPlans(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium ring-1 ring-black/10 transition hover:bg-app">
+                        <RefreshCw className="size-4" /> {td.changePlan}
+                      </button>
+                    </div>
                   )}
                 </section>
-
-                <section className="space-y-2">
-                  <h3 className="text-sm font-semibold">{td.actionsTitle}</h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button type="button" onClick={() => setConfirmImp(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-black/10 hover:bg-app">
-                      <UserCog className="size-4" /> Impersonate
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => statusM.mutate()}
-                      disabled={statusM.isPending}
-                      className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-black/10 hover:bg-app ${suspended ? "text-emerald-600" : "text-amber-700"}`}
-                    >
-                      {suspended ? <Power className="size-4" /> : <Clock className="size-4" />}
-                      {suspended ? td.activate : td.suspend}
-                    </button>
-                    <button type="button" onClick={() => setShowPlans(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-black/10 hover:bg-app">
-                      <RefreshCw className="size-4" /> {td.changePlan}
-                    </button>
-                    <button type="button" onClick={() => setTab("history")} className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-black/10 hover:bg-app">
-                      <History className="size-4" /> {td.viewHistory}
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => window.confirm(interp(td.deleteConfirm, { name: data.name })) && delM.mutate()}
-                    disabled={delM.isPending}
-                    className="mt-1 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-rose-50 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-100 disabled:opacity-50"
-                  >
-                    <Trash2 className="size-4" /> {delM.isPending ? td.deleting : td.deleteOrg}
-                  </button>
-                </section>
-              </>
+              </div>
             ) : tab === "line" ? (
-              <section className="space-y-4">
+              // The form on the left, what to paste where on the right — the
+              // note used to sit above the fields and push them off the screen.
+              <div className="grid items-start gap-4 lg:grid-cols-2">
+              <section className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
                 <div>
                   <h3 className="flex items-center gap-1.5 text-sm font-semibold">
                     <MessageCircle className="size-4 text-brand" /> {td.lineTitle}
                   </h3>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {td.lineHint}
-                  </p>
-                </div>
-
-                <div className="rounded-lg border border-dashed border-border bg-muted/40 p-3 text-xs">
-                  <p className="font-medium text-foreground">{td.loginUrlLabel}</p>
-                  <code className="mt-1 block break-all rounded bg-white px-2 py-1 text-[11px] text-brand">
-                    {data.id && origin ? customerLinkFor(data.id, origin) : " "}
-                  </code>
-                  <p className="mt-1.5 text-muted-foreground">
-                    {td.liffEndpointNotePre}<b>{td.liffEndpointBold}</b>{td.liffEndpointNotePost}
                   </p>
                 </div>
 
@@ -861,25 +869,51 @@ export function OrgDrawer({ id, onClose }: { id: string; onClose: () => void }) 
                   />
                 </label>
 
-                <Button type="button" className="w-full" onClick={() => lineM.mutate()} disabled={lineM.isPending}>
+                <Button type="button" onClick={() => lineM.mutate()} disabled={lineM.isPending}>
                   {lineM.isPending ? td.saving : td.saveLine}
                 </Button>
               </section>
+
+              <section className="rounded-2xl bg-white p-5 text-sm shadow-sm ring-1 ring-black/5">
+                <p className="font-medium text-foreground">{td.loginUrlLabel}</p>
+                <code className="mt-1 block break-all rounded-lg bg-app px-3 py-2 text-xs text-brand">
+                  {data.id && origin ? customerLinkFor(data.id, origin) : " "}
+                </code>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {td.liffEndpointNotePre}<b>{td.liffEndpointBold}</b>{td.liffEndpointNotePost}
+                </p>
+              </section>
+              </div>
             ) : tab === "usage" ? (
-              <section className="space-y-4">
+              // One card per limit, side by side. Three bars stacked in a
+              // narrow column left the rest of the screen doing nothing.
+              <section className="space-y-3">
                 <h3 className="text-sm font-semibold">{td.usageTitle}</h3>
-                <Bar label={td.barBranches} used={data.counts.branches} limit={data.plan?.branchLimit ?? null} />
-                <Bar label={td.barCourts} used={data.counts.courts} limit={data.plan?.courtLimit ?? null} />
-                <Bar label={td.barCustomers} used={data.counts.customers} limit={null} />
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+                    <Bar label={td.barBranches} used={data.counts.branches} limit={data.plan?.branchLimit ?? null} />
+                  </div>
+                  <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+                    <Bar label={td.barCourts} used={data.counts.courts} limit={data.plan?.courtLimit ?? null} />
+                  </div>
+                  <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+                    <Bar label={td.barCustomers} used={data.counts.customers} limit={null} />
+                  </div>
+                </div>
               </section>
             ) : tab === "subscription" ? (
               <SubscriptionTab org={data} onDone={invalidate} />
             ) : (
-              <HistoryTab slug={data.id} />
+              // The one tab that stays a single column: these are log lines in
+              // time order, and two columns of them would have to be read in a
+              // zigzag.
+              <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+                <HistoryTab slug={data.id} />
+              </div>
             )}
-          </div>
+          </>
         )}
-    </aside>
+      </div>
     {confirmImp && data && (
       <Modal
         title={td.impersonateTitle}

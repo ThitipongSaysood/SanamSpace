@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
-import { OrgDrawer } from "./_drawer";
+import { useRouter } from "next/navigation";
 import { useMessages, useLocale } from "@/lib/i18n/context";
 import { fmt as interp, intlLocale } from "@/lib/i18n/format";
 import type { Messages } from "@/lib/i18n/messages";
@@ -91,7 +91,7 @@ export default function AdminOrganizationsPage() {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("all");
   const [plan, setPlan] = useState("all");
-  const [openId, setOpenId] = useState<string | null>(null);
+  const router = useRouter();
   const [adding, setAdding] = useState(false);
 
   const all = data ?? [];
@@ -141,8 +141,6 @@ export default function AdminOrganizationsPage() {
         <p className="text-sm text-muted-foreground">{t.subtitle}</p>
       </div>
 
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
-        <div className="min-w-0 flex-1 space-y-5">
       {/* KPI */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi icon={Building2} label={t.kpiTotal} value={fmt.format(kpi.total)} hint={t.kpiTotalHint} tone="bg-brand/10 text-brand" />
@@ -210,7 +208,7 @@ export default function AdminOrganizationsPage() {
                 {rows.map((o) => {
                   const st = statusInfo(o, t);
                   return (
-                    <tr key={o.id} className="cursor-pointer hover:bg-app/60" onClick={() => setOpenId(o.id)}>
+                    <tr key={o.id} className="cursor-pointer hover:bg-app/60" onClick={() => router.push(`/admin/organizations/${o.id}`)}>
                       <td data-label={t.colVenue} className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-brand/10 text-xs font-bold text-brand">
@@ -260,7 +258,7 @@ export default function AdminOrganizationsPage() {
                             aria-label={t.viewDetails}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setOpenId(o.id);
+                              router.push(`/admin/organizations/${o.id}`);
                             }}
                             className="grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-app hover:text-brand"
                           >
@@ -277,9 +275,6 @@ export default function AdminOrganizationsPage() {
         </div>
       )}
 
-        </div>
-        {openId && <OrgDrawer id={openId} onClose={() => setOpenId(null)} />}
-      </div>
 
       {adding && <AddOrgModal onClose={() => setAdding(false)} />}
     </div>
