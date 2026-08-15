@@ -9,7 +9,7 @@ import { useBooking, useRefunds } from "@/lib/api/queries";
 import { useMessages, useLocale } from "@/lib/i18n/context";
 import { fmt, intlLocale } from "@/lib/i18n/format";
 import { StatusBadge } from "@/components/status-badge";
-import { SportMedia } from "@/components/media";
+import { VenueMedia } from "@/components/venue-media";
 import { AppHeader } from "@/components/app-header";
 import { Loading, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
@@ -255,7 +255,16 @@ export default function BookingDetailPage({ params }: { params: Promise<{ bookin
         <StatusBadge status={booking.status} paymentStatus={booking.paymentStatus} />
 
         <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
-          <SportMedia sport="badminton" className="h-40 w-full" />
+          {/* The court that was actually booked. This was `sport="badminton"`
+              for everyone — a tennis club's customer finished booking a tennis
+              court and was shown a shuttlecock. Falls back to the venue's
+              primary sport when the booking predates the field. */}
+          <VenueMedia
+            src={booking.courtImageUrl}
+            sport={booking.courtSport ?? tenant.sport ?? ""}
+            alt={booking.courtName}
+            className="h-40 w-full"
+          />
           <div className="p-4">
             <div className="text-xs font-semibold uppercase tracking-wide text-brand">{booking.venueName}</div>
             <h1 className="mt-0.5 text-lg font-bold">{booking.courtName}</h1>

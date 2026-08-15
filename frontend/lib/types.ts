@@ -133,6 +133,15 @@ export type Booking = {
   venueName: string;
   courtId: string;
   courtName: string;
+  /**
+   * What the booked court is, and what it looks like.
+   *
+   * The detail screen drew a hard-coded shuttlecock before these existed, so a
+   * tennis court's confirmation showed badminton. Both nullable: a booking
+   * outlives the court it was made on.
+   */
+  courtSport?: string | null;
+  courtImageUrl?: string | null;
   date: string;          // "2026-06-20"
   start: string;
   end: string;

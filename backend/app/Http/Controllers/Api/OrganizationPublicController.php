@@ -22,15 +22,31 @@ class OrganizationPublicController extends Controller
         $s = $org->settings;
 
         // The distinct sports this venue actually rents, so the app can theme to
-        // them (toast icon, the first-entry loader) instead of guessing.
-        $sports = \App\Models\Branch::query()
+        // them (toast icon, the first-entry loader, a booking's picture)
+        // instead of guessing.
+        //
+        // Branches AND courts. A branch's `sports` is what the venue advertises;
+        // a court's `sport` is what is actually on that court, and the two are
+        // edited on different screens, so they drift. Reading branches alone
+        // meant a tennis court at a venue whose branch still said "badminton"
+        // resolved to no catalogue entry at all — the booking screen showed a
+        // neutral 🏟️ for a court whose sport the venue knows perfectly well.
+        $branchSports = \App\Models\Branch::query()
             ->where('organization_id', $org->id)
             ->whereNotNull('sports')
             ->orderBy('created_at')
             ->get()
-            ->flatMap(fn ($b) => (array) $b->sports)
-            ->unique()
-            ->values();
+            ->flatMap(fn ($b) => (array) $b->sports);
+
+        $courtSports = \App\Models\Court::query()
+            ->where('organization_id', $org->id)
+            ->whereNotNull('sport')
+            ->orderBy('created_at')
+            ->pluck('sport');
+
+        // Branch order first: the venue's own ordering decides which sport is
+        // "primary", and that is what the toast icon and the loader read.
+        $sports = $branchSports->concat($courtSports)->unique()->values();
 
         return response()->json([
             'slug' => $org->slug,

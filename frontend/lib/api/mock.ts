@@ -81,6 +81,9 @@ export const mockApi = {
     const hours = (toMin(input.end) - toMin(input.start)) / 60;
     const booking: Booking = {
       id, code, venueId: venue.id, venueName: venue.name, courtId: court.id, courtName: court.name,
+      // The court's own identity travels with the booking, so the detail
+      // screen shows the court that was booked rather than a default.
+      courtSport: court.sport, courtImageUrl: court.imageUrl ?? null,
       date: input.date, start: input.start, end: input.end, amount: hours * court.pricePerHour,
       status: "pending_payment", createdAt: new Date(2026, 5, 13).toISOString(),
     };

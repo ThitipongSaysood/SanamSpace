@@ -7,7 +7,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
  * Maps a Booking to the frontend `Booking` shape (lib/types.ts):
- * { id, code, venueId, venueName, courtId, courtName, date, start, end, amount, status, createdAt }
+ * { id, code, venueId, venueName, courtId, courtName, courtSport, courtImageUrl,
+ *   date, start, end, amount, status, createdAt }
  *
  * venueId is the organization slug (matching the Venue id used elsewhere).
  *
@@ -25,6 +26,13 @@ class BookingResource extends JsonResource
             'venueName' => $this->branch?->name ?? $this->branch?->organization?->name,
             'courtId' => (string) $this->court_id,
             'courtName' => $this->court?->name,
+            // What the court IS and what it looks like. The booking screen had
+            // neither, so it drew a hard-coded shuttlecock for every booking —
+            // a tennis club's customer finished booking a tennis court and was
+            // shown badminton. Nullable both: an old booking whose court has
+            // since been deleted still has to render.
+            'courtSport' => $this->court?->sport,
+            'courtImageUrl' => $this->court?->image_url,
             'date' => $this->date,
             'start' => $this->start,
             'end' => $this->end,
