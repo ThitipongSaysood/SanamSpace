@@ -1,5 +1,7 @@
 "use client";
 import { useMessages } from "@/lib/i18n/context";
+import { useTenant } from "@/lib/tenant/tenant-context";
+import { tintedDark } from "@/lib/theme";
 import { useEffect, useState } from "react";
 import type { SportMeta } from "@/lib/types";
 
@@ -56,6 +58,19 @@ export function SportLoader({ sports }: { sports?: SportMeta[] }) {
   const [rot, setRot] = useState(0);
   const t = useMessages("app").loader;
 
+  // The venue this app belongs to. This screen is the first thing its customers
+  // see, and every colour on it — and the name — used to be the platform's:
+  // a fixed navy, our green, and our wordmark, on a product the venue rents and
+  // hands to its own customers under its own name.
+  const { tenant } = useTenant();
+  const primary = tenant.theme?.primary || "#10b981";
+  const brand = (tenant.logoText || tenant.name || "SanamSpace").trim();
+  // Two-tone when the name has more than one word, which is what made the
+  // original wordmark read as a mark rather than a label. One word stays white
+  // and lets the glow carry the colour.
+  const [head, ...rest] = brand.split(/\s+/);
+  const tail = rest.join(" ");
+
   useEffect(() => {
     // A single-sport venue just bounces its own ball; multi-sport venues morph
     // through their own list only (~0.8s per bounce, with a small tumble).
@@ -75,7 +90,11 @@ export function SportLoader({ sports }: { sports?: SportMeta[] }) {
     <div
       className="relative mx-auto flex min-h-dvh w-full max-w-md flex-col items-center justify-center overflow-hidden"
       style={{
-        background: "#0B1121",
+        // backgroundColor, not the `background` shorthand: this value now
+        // CHANGES between renders (platform default → the venue's colour once
+        // its branding arrives), and re-applying the shorthand on a rerender
+        // clears the grid set by backgroundImage below it.
+        backgroundColor: tintedDark(primary),
         backgroundImage:
           "linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)",
         backgroundSize: "40px 40px",
@@ -99,16 +118,26 @@ export function SportLoader({ sports }: { sports?: SportMeta[] }) {
       </div>
 
       <div className="text-center">
-        <h1 className="mb-2 text-4xl font-bold tracking-wider text-white">
-          Sanam<span style={{ color: "#10b981", textShadow: "0 0 20px rgba(16,185,129,0.4)" }}>Space</span>
+        {/* Sized to fit a venue's name, not ours. "SanamSpace" is one short
+            word; "Everyday Badminton · รัตนาธิเบศร์" is not, and at the old
+            fixed text-4xl it ran off both edges of the phone. */}
+        <h1 className="mx-auto mb-2 max-w-[19ch] text-balance px-6 text-3xl font-bold leading-tight tracking-wide text-white">
+          {tail ? (
+            <>
+              {head}{" "}
+              <span style={{ color: primary, textShadow: `0 0 20px ${primary}66` }}>{tail}</span>
+            </>
+          ) : (
+            <span style={{ textShadow: `0 0 22px ${primary}80` }}>{head}</span>
+          )}
         </h1>
         {/* Fixed height whether or not the sport is named yet — the chip
             appearing must not shift the wordmark above it. */}
         <div className="flex h-8 items-center justify-center">
-          <p className="flex items-center gap-2 text-lg font-light tracking-wide text-slate-400">
+          <p className="flex items-center gap-2 text-lg font-light tracking-wide text-white/60">
             {t.prep}
             {sport && (
-              <span className="rounded-full bg-slate-800 px-3 py-1 text-sm font-medium" style={{ color: sport.color }}>
+              <span className="rounded-full bg-white/10 px-3 py-1 text-sm font-medium" style={{ color: sport.color }}>
                 {sport.name}
               </span>
             )}
@@ -119,7 +148,7 @@ export function SportLoader({ sports }: { sports?: SportMeta[] }) {
             <span
               key={d}
               className="size-1.5 animate-bounce rounded-full"
-              style={{ background: "#10b981", animationDelay: `${d}s` }}
+              style={{ background: primary, animationDelay: `${d}s` }}
             />
           ))}
         </div>

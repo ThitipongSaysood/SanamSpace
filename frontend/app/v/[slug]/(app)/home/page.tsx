@@ -364,7 +364,7 @@ export default function HomePage() {
             <h2 className="mb-2 font-semibold">{t.pickBranch}</h2>
             <div className="space-y-3">
               {venues.map((v) => (
-                <VenueCard key={v.id} venue={v} />
+                <VenueCard key={v.branchId} venue={v} />
               ))}
             </div>
           </section>

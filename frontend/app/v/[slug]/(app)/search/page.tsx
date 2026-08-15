@@ -136,7 +136,7 @@ function SearchInner() {
                 ) : (
                   <div className="space-y-3">
                     {results.map((v) => (
-                      <VenueCard key={v.id} venue={v} />
+                      <VenueCard key={v.branchId} venue={v} />
                     ))}
                   </div>
                 )}
