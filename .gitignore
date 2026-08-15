@@ -9,3 +9,7 @@ frontend/.next/
 
 # macOS Finder droppings
 .DS_Store
+
+# Generated scan output — regenerate with tools/web-security-scan
+/Security_Report_*.xlsx
+/scan-*.json
