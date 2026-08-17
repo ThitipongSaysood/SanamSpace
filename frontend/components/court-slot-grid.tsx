@@ -49,6 +49,12 @@ export function CourtSlotGrid({
                     : "border border-black/10 bg-white text-foreground shadow-sm hover:border-brand/40"
             }`}
           >
+            {onSale && pricePerHour != null && (
+              // The flash-sale marker: how much off, right on the slot.
+              <span className="absolute -right-1.5 -top-1.5 rounded-full bg-amber-500 px-1.5 py-px text-[9px] font-extrabold leading-tight text-white shadow-sm ring-1 ring-white">
+                -{Math.round((1 - s.salePrice! / pricePerHour) * 100)}%
+              </span>
+            )}
             <span className={`block text-sm font-bold tabular-nums ${disabled ? "line-through" : ""}`}>
               {s.start}
             </span>
