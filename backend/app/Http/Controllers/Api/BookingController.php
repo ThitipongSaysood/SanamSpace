@@ -190,6 +190,8 @@ class BookingController extends Controller
                     // The booking itself is the window — no client input to
                     // trust, and no way for this path to forget to check.
                     new BookingWindow($booking->date, $booking->start, $booking->end),
+                    // The court carries the flash sale's scope + hourly price.
+                    $court,
                 );
 
                 $payable = round((float) $booking->amount - $discount['amount'], 2);
@@ -198,6 +200,7 @@ class BookingController extends Controller
                     'discount_amount' => $discount['amount'],
                     'discount_label' => $discount['label'],
                     'coupon_id' => $discount['coupon']?->id,
+                    'flash_sale_id' => $discount['flashSale']?->id,
                     'amount' => $payable,
                     'deposit_amount' => $this->deposits->depositFor($settings, $payable),
                 ]);

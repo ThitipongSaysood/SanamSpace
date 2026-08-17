@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Coupon;
 use App\Models\CouponRedemption;
+use App\Models\Court;
 use App\Models\Customer;
 use App\Models\OrganizationSetting;
 use App\Support\BookingWindow;
@@ -21,8 +22,18 @@ use Illuminate\Validation\ValidationException;
  */
 class DiscountService
 {
+    public function __construct(private FlashSaleService $flash) {}
+
     /**
-     * @return array{amount: float, label: ?string, coupon: ?Coupon}
+     * The single best discount for this booking — never two stacked.
+     *
+     * Three kinds compete: a flash sale and a member rate apply themselves; a
+     * typed coupon is an explicit request. The largest wins, so a member with a
+     * code is never worse off, and a flash-sale hour is honoured even when the
+     * customer forgot they had a code. `flashSale`/`coupon` name the winner for
+     * the booking's snapshot.
+     *
+     * @return array{amount: float, label: ?string, coupon: ?Coupon, flashSale: ?FlashSale}
      */
     public function resolve(
         string $orgId,
@@ -31,17 +42,26 @@ class DiscountService
         ?string $code,
         ?OrganizationSetting $settings = null,
         ?BookingWindow $window = null,
+        ?Court $court = null,
     ): array {
-        $none = ['amount' => 0.0, 'label' => null, 'coupon' => null];
+        $none = ['amount' => 0.0, 'label' => null, 'coupon' => null, 'flashSale' => null];
 
         if ($amount <= 0) {
             return $none;
         }
 
         $member = $this->memberDiscount($amount, $customer, $settings);
+        $flash = ($court && $window)
+            ? $this->flash->forBooking($orgId, $court, $window)
+            : ['amount' => 0.0, 'label' => null, 'flashSale' => null];
+
+        // The better of the two that apply themselves, before any typed code.
+        $auto = $flash['amount'] > $member['amount']
+            ? ['amount' => $flash['amount'], 'label' => $flash['label'], 'coupon' => null, 'flashSale' => $flash['flashSale']]
+            : ['amount' => $member['amount'], 'label' => $member['label'], 'coupon' => null, 'flashSale' => null];
 
         if (blank($code)) {
-            return $member;
+            return $auto;
         }
 
         // A typed code is an explicit request, so a bad one is an error rather
@@ -49,15 +69,16 @@ class DiscountService
         $coupon = $this->findUsable($orgId, $code, $amount, $customer, $window);
         $couponAmount = $this->cap($coupon, $amount);
 
-        if ($couponAmount >= $member['amount']) {
+        if ($couponAmount >= $auto['amount']) {
             return [
                 'amount' => $couponAmount,
                 'label' => "คูปอง {$coupon->code}",
                 'coupon' => $coupon,
+                'flashSale' => null,
             ];
         }
 
-        return $member;
+        return $auto;
     }
 
     /** The venue's standing rate for this customer's tier, if any. */
