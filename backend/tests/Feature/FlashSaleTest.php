@@ -89,7 +89,7 @@ class FlashSaleTest extends TestCase
 
         $this->assertEqualsWithDelta($court['price'] * 0.2, (float) $data['discountAmount'], 0.01);
         $this->assertEqualsWithDelta($court['price'] * 0.8, (float) $data['amount'], 0.01);
-        $this->assertStringStartsWith('⚡', $data['discountLabel']);
+        $this->assertSame('ลดช่วงบ่าย', $data['discountLabel']);
         $this->assertNotNull(Booking::find($data['id'])->flash_sale_id);
     }
 
@@ -148,7 +148,7 @@ class FlashSaleTest extends TestCase
             ->assertCreated()->json('data');
 
         $this->assertEqualsWithDelta($court['price'] * 0.2, (float) $data['discountAmount'], 0.01);
-        $this->assertStringStartsWith('⚡', $data['discountLabel']);
+        $this->assertSame('ลดช่วงบ่าย', $data['discountLabel']);
         $this->assertNotNull(Booking::find($data['id'])->flash_sale_id);
     }
 
@@ -181,7 +181,7 @@ class FlashSaleTest extends TestCase
 
         $onSale = $this->book($this->customerToken('Ur1'), $court['id'], '14:00', '15:00')->json('data');
         $v = $vars->forBooking(Booking::find($onSale['id']));
-        $this->assertStringStartsWith('⚡', $v['discountLabel']);
+        $this->assertSame('ลดช่วงบ่าย', $v['discountLabel']);
         $this->assertStringContainsString('-', $v['discountValue']);
 
         // A full-price booking leaves the discount vars blank, so the receipt's

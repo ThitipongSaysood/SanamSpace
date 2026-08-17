@@ -84,7 +84,7 @@ class FlashSaleService
         $courtAmount = round($hourPrice * $this->hoursBetween($window->start, $window->end), 2);
         $amount = round(min($totalOff, $courtAmount), 2);
 
-        return ['amount' => $amount, 'label' => '⚡ '.$winner->name, 'flashSale' => $winner];
+        return ['amount' => $amount, 'label' => $winner->name, 'flashSale' => $winner];
     }
 
     /**

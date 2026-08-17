@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BadgePercent, Tag, Zap } from "lucide-react";
+import { BadgePercent, Tag, Timer } from "lucide-react";
 import { ownerApi } from "@/lib/api/owner";
 import { PromotionsPanel } from "./_promotions-panel";
 import { CouponsPanel } from "./_coupons-panel";
@@ -15,7 +15,7 @@ const TABS = [
   // hand it to plans that never paid for it.
   { key: "coupons", icon: BadgePercent, feature: "coupon" },
   // Flash sales ride the same discount feature as coupons.
-  { key: "flash", icon: Zap, feature: "coupon" },
+  { key: "flash", icon: Timer, feature: "coupon" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];

@@ -1160,7 +1160,7 @@ export const en: typeof th = {
       enableCoupon: "Enable this coupon",
     },
     flashSales: {
-      intro: "Auto court discounts on set hours — customers see ⚡ on the booking grid and get the lower price instantly.",
+      intro: "Auto court discounts on set hours — customers see the lower price on the booking grid instantly.",
       add: "Add flash sale",
       none: "No flash sales yet",
       colName: "Name",

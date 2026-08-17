@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Zap } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import type { OwnerFlashSale } from "@/lib/types";
 import { ownerApi } from "@/lib/api/owner";
 import { Loading, ErrorState, EmptyState } from "@/components/states";
@@ -32,8 +32,8 @@ function scopeLabel(s: OwnerFlashSale, t: Messages["owner"]["flashSales"]): stri
 
 /**
  * Flash sales — the price the venue drops on chosen hours, applied for the
- * customer without a code. The rule half lives here; the customer meets it as a
- * ⚡ on the booking grid.
+ * customer without a code. The rule half lives here; the customer meets it as
+ * the sale price on the booking grid.
  */
 export function FlashSalesPanel() {
   const t = useMessages("owner").flashSales;
@@ -80,9 +80,7 @@ export function FlashSalesPanel() {
                 {sales.map((s) => (
                   <tr key={s.id} className="hover:bg-app/60">
                     <td data-label={t.colName} className="px-4 py-3">
-                      <div className="inline-flex items-center gap-1.5 font-semibold">
-                        <Zap className="size-4 text-amber-500" /> {s.name}
-                      </div>
+                      <div className="font-semibold">{s.name}</div>
                     </td>
                     <td data-label={t.colDiscount} className="px-4 py-3 font-medium text-amber-600">{worth(s)}</td>
                     <td data-label={t.colWhen} className="px-4 py-3 text-xs text-muted-foreground">

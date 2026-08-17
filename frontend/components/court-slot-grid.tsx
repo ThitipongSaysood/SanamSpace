@@ -49,11 +49,6 @@ export function CourtSlotGrid({
                     : "border border-black/10 bg-white text-foreground shadow-sm hover:border-brand/40"
             }`}
           >
-            {onSale && (
-              <span aria-hidden className="absolute right-1 top-1 text-[10px] leading-none">
-                ⚡
-              </span>
-            )}
             <span className={`block text-sm font-bold tabular-nums ${disabled ? "line-through" : ""}`}>
               {s.start}
             </span>
@@ -104,10 +99,7 @@ export function CourtSlotLegend() {
         <span className="size-3 rounded bg-slate-200" /> {t.taken}
       </span>
       <span className="inline-flex items-center gap-1.5">
-        <span className="grid size-3 place-items-center rounded bg-amber-100 text-[8px] leading-none ring-1 ring-amber-300">
-          ⚡
-        </span>{" "}
-        {t.onSale}
+        <span className="size-3 rounded bg-amber-200 ring-1 ring-amber-300" /> {t.onSale}
       </span>
     </div>
   );
