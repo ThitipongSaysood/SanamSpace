@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { VenueLink } from "@/lib/tenant/venue-nav";
+import { useTenant } from "@/lib/tenant/tenant-context";
 import { AppHeader } from "@/components/app-header";
 import { usePromotions } from "@/lib/api/queries";
 import { useMessages } from "@/lib/i18n/context";
@@ -19,6 +20,10 @@ const TABS = [
 export default function PromotionsPage() {
   const { data: promotions, isLoading, isError, refetch } = usePromotions();
   const t = useMessages("app").promotions;
+  const { tenant } = useTenant();
+  // The venue's OWN sport on a plain announcement — never a hard-coded
+  // shuttlecock on a futsal court's promo. Neutral 🏟️ when the sport is unknown.
+  const sportEmoji = tenant.sportMeta.find((s) => s.key === tenant.sport)?.emoji ?? "🏟️";
   const [tab, setTab] = useState(0);
   const activeTag = TABS[tab].tag;
   const filtered = promotions?.filter((p) => activeTag === null || p.tag === activeTag) ?? [];
@@ -66,7 +71,7 @@ export default function PromotionsPage() {
                       <ChevronRight aria-hidden className="size-5 shrink-0 text-white/80" />
                     ) : (
                       <span aria-hidden className="shrink-0 text-2xl">
-                        🏸
+                        {sportEmoji}
                       </span>
                     )}
                   </>
