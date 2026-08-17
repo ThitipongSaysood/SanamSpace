@@ -15,7 +15,10 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->uuid('organization_id');
             $table->uuid('customer_id');
-            $table->uuid('author_id')->nullable(); // the staff user who wrote it
+            // A staff `users.id`, which is a bigint (`$table->id()`) — NOT a uuid
+            // like the customer/org keys. Declaring it uuid stored fine on SQLite
+            // (typeless) but the FK is rejected on MySQL as an incompatible type.
+            $table->unsignedBigInteger('author_id')->nullable(); // the staff user who wrote it
             $table->text('body');
             $table->timestamps();
 
@@ -33,8 +36,9 @@ return new class extends Migration
             $table->uuid('customer_id');
             $table->string('title');
             $table->date('due_at')->nullable();
-            $table->uuid('assigned_to')->nullable();  // staff user responsible
-            $table->uuid('created_by')->nullable();
+            // Both are staff `users.id` (bigint), not uuids — see customer_notes.
+            $table->unsignedBigInteger('assigned_to')->nullable();  // staff user responsible
+            $table->unsignedBigInteger('created_by')->nullable();
             $table->string('status', 20)->default('open'); // open | done
             $table->timestamp('completed_at')->nullable();
             $table->timestamps();
