@@ -63,6 +63,10 @@ export type Slot = {
   start: string;         // "18:00"
   end: string;           // "19:00"
   status: "available" | "booked" | "closed";
+  /** A flash sale covers this hour. */
+  onSale?: boolean;
+  /** The court's hourly price after the flash sale, when onSale. */
+  salePrice?: number | null;
 };
 
 export type CourtSchedule = { courtId: string; date: string; slots: Slot[] };

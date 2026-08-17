@@ -15,7 +15,13 @@ export function totalHours(slots: Slot[]): number {
 }
 
 export function calcPrice(slots: Slot[], pricePerHour: number): number {
-  return totalHours(slots) * pricePerHour;
+  // Per slot, so a flash-sale hour is charged its sale price — the total then
+  // matches what the grid showed and what the backend will charge.
+  return slots.reduce((sum, s) => {
+    const hours = (toMin(s.end) - toMin(s.start)) / 60;
+    const rate = s.onSale && s.salePrice != null ? s.salePrice : pricePerHour;
+    return sum + hours * rate;
+  }, 0);
 }
 
 export function canSelect(slot: Slot, current: Slot[]): boolean {

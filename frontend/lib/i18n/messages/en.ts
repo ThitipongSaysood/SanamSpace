@@ -2794,6 +2794,7 @@ export const en: typeof th = {
       incAria: "Increase {name}",
       hoursUnit: "hrs",
       couponLine: "Coupon {code}",
+      flashSaleLine: "Flash sale discount",
       amountToTransfer: "Amount to transfer",
       booking: "Booking...",
       proceed: "Proceed to payment",
@@ -2812,6 +2813,7 @@ export const en: typeof th = {
       free: "Free",
       selected: "Selected",
       taken: "Taken",
+      onSale: "On sale",
     },
     ticket: {
       alt: "Check-in QR, code {code}",

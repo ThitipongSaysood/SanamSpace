@@ -152,6 +152,27 @@ class FlashSaleTest extends TestCase
         $this->assertNotNull(Booking::find($data['id'])->flash_sale_id);
     }
 
+    public function test_the_schedule_marks_the_on_sale_hours_with_their_price(): void
+    {
+        $this->afternoonSale(); // 20% off, 13:00–16:00
+        $court = $this->court();
+
+        $slots = collect(
+            $this->getJson(
+                "/api/v1/courts/{$court['id']}/schedules?date=2026-11-18",
+                ['X-Venue-Slug' => 'everyday-badminton'],
+            )->json('data.slots')
+        );
+
+        $inSale = $slots->firstWhere('start', '14:00');
+        $this->assertTrue($inSale['onSale']);
+        $this->assertEqualsWithDelta($court['price'] * 0.8, (float) $inSale['salePrice'], 0.01);
+
+        $outOfSale = $slots->firstWhere('start', '18:00');
+        $this->assertFalse($outOfSale['onSale']);
+        $this->assertNull($outOfSale['salePrice']);
+    }
+
     public function test_an_inactive_sale_does_nothing(): void
     {
         $this->afternoonSale(['is_active' => false]);

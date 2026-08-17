@@ -2794,6 +2794,7 @@ export const th = {
       incAria: "เพิ่ม {name}",
       hoursUnit: "ชม.",
       couponLine: "คูปอง {code}",
+      flashSaleLine: "ส่วนลด flash sale",
       amountToTransfer: "ยอดที่ต้องโอน",
       booking: "กำลังจอง...",
       proceed: "ดำเนินการชำระเงิน",
@@ -2812,6 +2813,7 @@ export const th = {
       free: "ว่าง",
       selected: "เลือกแล้ว",
       taken: "ไม่ว่าง",
+      onSale: "ลดราคา",
     },
     ticket: {
       alt: "QR สำหรับเช็คอิน รหัส {code}",

@@ -16,19 +16,32 @@ class CourtScheduleService
     private const START_HOUR = 10;
     private const END_HOUR = 22;
 
+    public function __construct(private FlashSaleService $flash) {}
+
     /**
-     * @return array{courtId: string, date: string, slots: array<int, array{start: string, end: string, status: string}>}
+     * @return array{courtId: string, date: string, slots: array<int, array{start: string, end: string, status: string, onSale: bool, salePrice: ?float}>}
      */
     public function generate(Court $court, string $date): array
     {
         $bookedHours = $this->bookedHours($court, $date);
+        // The sales that could touch this court+date, resolved once.
+        $sales = $this->flash->activeForDate($court->organization_id, $date);
+        $hourPrice = (float) $court->price_per_hour;
 
         $slots = [];
         for ($hour = self::START_HOUR; $hour < self::END_HOUR; $hour++) {
+            $start = sprintf('%02d:00', $hour);
+            $end = sprintf('%02d:00', $hour + 1);
+            $sale = $this->flash->saleForHour($sales, $court, $start, $end);
+
             $slots[] = [
-                'start' => sprintf('%02d:00', $hour),
-                'end' => sprintf('%02d:00', $hour + 1),
+                'start' => $start,
+                'end' => $end,
                 'status' => isset($bookedHours[$hour]) ? 'booked' : 'available',
+                // What the customer sees on the grid: this hour is on sale, and
+                // what it costs after the cut.
+                'onSale' => $sale !== null,
+                'salePrice' => $sale ? $this->flash->hourPriceUnder($sale, $hourPrice) : null,
             ];
         }
 

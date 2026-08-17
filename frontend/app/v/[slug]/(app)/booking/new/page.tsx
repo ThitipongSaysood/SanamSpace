@@ -128,7 +128,11 @@ function NewBookingInner() {
     else if (canSelect(s, selected)) setSelected([...selected, s]);
   };
 
-  const price = court ? calcPrice(selected, court.pricePerHour) : 0;
+  // Full court price, and the price after any flash sale on the picked hours —
+  // the gap between them is the flash discount.
+  const fullCourtPrice = court ? totalHours(selected) * court.pricePerHour : 0;
+  const courtPrice = court ? calcPrice(selected, court.pricePerHour) : 0;
+  const flashDiscount = Math.max(0, fullCourtPrice - courtPrice);
   const sorted = [...selected].sort((a, b) => a.start.localeCompare(b.start));
   const hours = totalHours(selected);
   const ready = !!court && selected.length > 0;
@@ -156,8 +160,13 @@ function NewBookingInner() {
     .filter((l) => l.qty > 0);
 
   const rentalTotal = rentalLines.reduce((sum, l) => sum + (l.item.priceForBooking ?? l.item.price) * l.qty, 0);
-  const subtotal = price + rentalTotal;
-  const grandTotal = Math.max(0, subtotal - (coupon?.discount ?? 0));
+  const fullSubtotal = fullCourtPrice + rentalTotal;
+  const couponDiscount = coupon?.discount ?? 0;
+  // Best-wins, matching the backend: a flash sale and a coupon never stack —
+  // the larger applies, so the total shown is the total charged.
+  const flashWins = flashDiscount > 0 && flashDiscount >= couponDiscount;
+  const couponWins = couponDiscount > flashDiscount;
+  const grandTotal = Math.max(0, fullSubtotal - Math.max(flashDiscount, couponDiscount));
 
   // Cleared whenever the price it was checked against changes: a code worth
   // ฿100 on a two-hour booking is not the same code on a one-hour one.
@@ -428,7 +437,7 @@ function NewBookingInner() {
             </SectionTitle>
             <CouponField
               courtId={court!.id}
-              amount={subtotal}
+              amount={fullSubtotal}
               date={date}
               start={sorted[0].start}
               end={sorted[sorted.length - 1].end}
@@ -454,7 +463,7 @@ function NewBookingInner() {
               <span className="min-w-0 truncate text-muted-foreground">
                 {court!.name} · {sorted[0].start}–{sorted[sorted.length - 1].end} ({hours} {t.hoursUnit})
               </span>
-              <span className="shrink-0 tabular-nums">฿{price}</span>
+              <span className="shrink-0 tabular-nums">฿{fullCourtPrice}</span>
             </div>
 
             {rentalLines.map((l) => (
@@ -468,7 +477,14 @@ function NewBookingInner() {
               </div>
             ))}
 
-            {coupon && (
+            {/* Only the winning discount is shown — the total is what's charged. */}
+            {flashWins && (
+              <div className="flex items-center justify-between gap-2 text-amber-600">
+                <span className="min-w-0 truncate">⚡ {t.flashSaleLine}</span>
+                <span className="shrink-0 tabular-nums">−฿{flashDiscount}</span>
+              </div>
+            )}
+            {coupon && couponWins && (
               <div className="flex items-center justify-between gap-2 text-emerald-700">
                 <span className="min-w-0 truncate">{fmt(t.couponLine, { code: coupon.code })}</span>
                 <span className="shrink-0 tabular-nums">−฿{coupon.discount}</span>

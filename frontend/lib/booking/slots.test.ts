@@ -15,6 +15,11 @@ describe("booking slots", () => {
   it("computes price = hours * pricePerHour", () => {
     expect(calcPrice([slot("18:00", "19:00"), slot("19:00", "20:00")], 200)).toBe(400);
   });
+  it("charges a flash-sale hour its sale price, full price for the rest", () => {
+    const onSale: Slot = { start: "14:00", end: "15:00", status: "available", onSale: true, salePrice: 160 };
+    // 160 (on sale) + 200 (full) = 360, not 400.
+    expect(calcPrice([onSale, slot("15:00", "16:00")], 200)).toBe(360);
+  });
   it("rejects selecting a booked slot", () => {
     expect(canSelect(slot("12:00", "13:00", "booked"), [])).toBe(false);
   });

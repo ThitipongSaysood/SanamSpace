@@ -52,31 +52,39 @@ class FlashSaleService
         }
 
         $hourPrice = (float) $court->price_per_hour;
-        $courtAmount = round($hourPrice * $this->hoursBetween($window->start, $window->end), 2);
-        $hours = $this->hourSlots($window->start, $window->end);
 
-        $best = $none;
-        foreach ($sales as $sale) {
-            $covered = array_filter($hours, fn ($h) => $this->coversHour($sale, $h[0], $h[1]));
-            if (empty($covered)) {
+        // Best sale PER HOUR — the same rule the schedule grid paints, so what
+        // the customer saw on each slot is exactly what is charged. Two sales
+        // (a morning one, an afternoon one) each discount their own hours.
+        $totalOff = 0.0;
+        $offBySale = [];
+        foreach ($this->hourSlots($window->start, $window->end) as [$hs, $he]) {
+            $sale = $this->saleForHour($sales, $court, $hs, $he);
+            if (! $sale) {
                 continue;
             }
-
-            $raw = $sale->discount_type === 'fixed'
-                ? (float) $sale->discount_value * count($covered)          // ฿X off each covered hour
-                : $hourPrice * ((float) $sale->discount_value / 100) * count($covered);
-
-            if ($sale->max_discount !== null) {
-                $raw = min($raw, (float) $sale->max_discount);
-            }
-
-            $amount = round(min($raw, $courtAmount), 2);
-            if ($amount > $best['amount']) {
-                $best = ['amount' => $amount, 'label' => '⚡ '.$sale->name, 'flashSale' => $sale];
-            }
+            $off = round($hourPrice - $this->hourPriceUnder($sale, $hourPrice), 2);
+            $totalOff += $off;
+            $offBySale[$sale->id] = ($offBySale[$sale->id] ?? 0) + $off;
         }
 
-        return $best;
+        if ($totalOff <= 0) {
+            return $none;
+        }
+
+        // The snapshot names one winner: the sale that took off the most.
+        arsort($offBySale);
+        $winner = $sales->firstWhere('id', array_key_first($offBySale));
+
+        // max_discount is a per-booking ceiling (like a coupon's), applied to
+        // the winning sale's total. Never more than the court itself.
+        if ($winner->max_discount !== null) {
+            $totalOff = min($totalOff, (float) $winner->max_discount);
+        }
+        $courtAmount = round($hourPrice * $this->hoursBetween($window->start, $window->end), 2);
+        $amount = round(min($totalOff, $courtAmount), 2);
+
+        return ['amount' => $amount, 'label' => '⚡ '.$winner->name, 'flashSale' => $winner];
     }
 
     /**
@@ -125,7 +133,7 @@ class FlashSaleService
     {
         $days = $sale->valid_days;
 
-        return blank($days) || in_array($iso, array_map('intval', $days), true);
+        return blank($days) || in_array($iso, array_map('intval', (array) $days), true);
     }
 
     /** Whole hour [start,end) sits inside the sale's daily window. */
