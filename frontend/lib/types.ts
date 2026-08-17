@@ -489,6 +489,28 @@ export type OwnerCoupon = {
   isActive: boolean;
 };
 
+/** A flash sale: an auto court discount on chosen hours, scoped to branches/courts. */
+export type OwnerFlashSale = {
+  id: string;
+  name: string;
+  discountType: "percent" | "fixed";
+  discountValue: number;
+  maxDiscount: number | null;
+  /** The daily window, on the venue's clock. Both required for a flash sale. */
+  validFromTime: string | null;
+  validToTime: string | null;
+  /** ISO weekdays 1=Mon…7=Sun. Null/empty = every day. */
+  validDays: number[] | null;
+  /** Optional campaign range (the sale itself starts/ends on a date). */
+  startsAt: string | null;
+  endsAt: string | null;
+  conditionLabel: string | null;
+  isActive: boolean;
+  /** Empty both = the whole venue. */
+  branchIds: string[];
+  courtIds: string[];
+};
+
 // Public per-venue LINE config for the customer frontend (GET /line-config).
 export type LineConfig = { liffId: string | null };
 

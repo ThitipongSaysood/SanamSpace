@@ -41,6 +41,7 @@ use App\Http\Controllers\Api\Owner\ScanController as OwnerScanController;
 use App\Http\Controllers\Api\Owner\CourtBlockController as OwnerCourtBlockController;
 use App\Http\Controllers\Api\Owner\ReportController as OwnerReportController;
 use App\Http\Controllers\Api\Owner\CouponController as OwnerCouponController;
+use App\Http\Controllers\Api\Owner\FlashSaleController as OwnerFlashSaleController;
 use App\Http\Controllers\Api\Owner\CourtBoardController as OwnerCourtBoardController;
 use App\Http\Controllers\Api\Owner\OperationsController as OwnerOperationsController;
 use App\Http\Controllers\Api\Owner\CourtController as OwnerCourtController;
@@ -364,6 +365,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/coupons', [OwnerCouponController::class, 'store'])->middleware('permission:promotion.manage')->middleware('feature:coupon');
         Route::put('/coupons/{id}', [OwnerCouponController::class, 'update'])->middleware('permission:promotion.manage')->middleware('feature:coupon');
         Route::delete('/coupons/{id}', [OwnerCouponController::class, 'destroy'])->middleware('permission:promotion.manage')->middleware('feature:coupon');
+        // Flash sales — auto court discounts on chosen hours; same gate as coupons.
+        Route::get('/flash-sales', [OwnerFlashSaleController::class, 'index'])->middleware('permission:promotion.manage')->middleware('feature:coupon');
+        Route::post('/flash-sales', [OwnerFlashSaleController::class, 'store'])->middleware('permission:promotion.manage')->middleware('feature:coupon');
+        Route::put('/flash-sales/{id}', [OwnerFlashSaleController::class, 'update'])->middleware('permission:promotion.manage')->middleware('feature:coupon');
+        Route::delete('/flash-sales/{id}', [OwnerFlashSaleController::class, 'destroy'])->middleware('permission:promotion.manage')->middleware('feature:coupon');
         Route::get('/promotions', [OwnerPromotionController::class, 'index']);
         Route::post('/promotions', [OwnerPromotionController::class, 'store'])->middleware('permission:promotion.manage');
         Route::put('/promotions/{id}', [OwnerPromotionController::class, 'update'])->middleware('permission:promotion.manage');

@@ -11,6 +11,7 @@ import type {
   OwnerBroadcastAudience,
   OwnerBroadcastChannel,
   OwnerCoupon,
+  OwnerFlashSale,
   OwnerCourt,
   OwnerCrmOverview,
   OwnerCustomer,
@@ -603,6 +604,13 @@ export const ownerApi = {
   updateCoupon: (id: string, body: Partial<OwnerCoupon>) =>
     req<OwnerCoupon>(`/owner/coupons/${id}`, { method: "PUT", body }),
   deleteCoupon: (id: string) => req<void>(`/owner/coupons/${id}`, { method: "DELETE" }),
+
+  getFlashSales: () => req<OwnerFlashSale[]>("/owner/flash-sales"),
+  createFlashSale: (body: Partial<OwnerFlashSale>) =>
+    req<OwnerFlashSale>("/owner/flash-sales", { method: "POST", body }),
+  updateFlashSale: (id: string, body: Partial<OwnerFlashSale>) =>
+    req<OwnerFlashSale>(`/owner/flash-sales/${id}`, { method: "PUT", body }),
+  deleteFlashSale: (id: string) => req<void>(`/owner/flash-sales/${id}`, { method: "DELETE" }),
 
   /** Take the rest of a deposit booking at the desk. Defaults to the balance. */
   settleBooking: (id: string, body?: { amount?: number; method?: "cash" | "promptpay" | "transfer" }) =>

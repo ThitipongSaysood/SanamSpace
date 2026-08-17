@@ -1,10 +1,11 @@
 "use client";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BadgePercent, Tag } from "lucide-react";
+import { BadgePercent, Tag, Zap } from "lucide-react";
 import { ownerApi } from "@/lib/api/owner";
 import { PromotionsPanel } from "./_promotions-panel";
 import { CouponsPanel } from "./_coupons-panel";
+import { FlashSalesPanel } from "./_flash-sales-panel";
 import { useMessages } from "@/lib/i18n/context";
 
 const TABS = [
@@ -13,6 +14,8 @@ const TABS = [
   // entry carrying `feature: "coupon"`, and folding it in here must not quietly
   // hand it to plans that never paid for it.
   { key: "coupons", icon: BadgePercent, feature: "coupon" },
+  // Flash sales ride the same discount feature as coupons.
+  { key: "flash", icon: Zap, feature: "coupon" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -56,13 +59,20 @@ export default function OwnerPromotionsPage() {
                   : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
-              <t.icon className="size-4" /> {t.key === "promotions" ? tp.tabPromotions : tp.tabCoupons}
+              <t.icon className="size-4" />{" "}
+              {t.key === "promotions" ? tp.tabPromotions : t.key === "coupons" ? tp.tabCoupons : tp.tabFlash}
             </button>
           ))}
         </div>
       )}
 
-      {active === "promotions" ? <PromotionsPanel /> : <CouponsPanel />}
+      {active === "promotions" ? (
+        <PromotionsPanel />
+      ) : active === "coupons" ? (
+        <CouponsPanel />
+      ) : (
+        <FlashSalesPanel />
+      )}
     </div>
   );
 }
