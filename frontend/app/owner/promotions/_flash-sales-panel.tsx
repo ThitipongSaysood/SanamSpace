@@ -159,6 +159,7 @@ function FlashSaleEditor({
     validFromTime: sale?.validFromTime ?? "13:00",
     validToTime: sale?.validToTime ?? "16:00",
     validDays: sale?.validDays ?? null,
+    startsAt: sale?.startsAt ?? null,
     endsAt: sale?.endsAt ?? null,
     isActive: sale?.isActive ?? true,
     branchIds: sale?.branchIds ?? [],
@@ -229,7 +230,7 @@ function FlashSaleEditor({
         </div>
 
         {form.discountType === "percent" && (
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="f-max">{t.maxLabel}</Label>
             <Input
               id="f-max"
@@ -242,14 +243,32 @@ function FlashSaleEditor({
           </div>
         )}
 
-        <div className="space-y-1.5">
-          <Label htmlFor="f-ends">{t.endsLabel}</Label>
-          <Input
-            id="f-ends"
-            type="date"
-            value={form.endsAt ?? ""}
-            onChange={(e) => set("endsAt", e.target.value || null)}
-          />
+        {/* The campaign range, grouped like the time/scope cards below it. */}
+        <div className="space-y-2 rounded-xl bg-app/60 p-3 sm:col-span-2">
+          <div>
+            <Label>{t.campaignLabel}</Label>
+            <p className="mt-0.5 text-xs text-muted-foreground">{t.campaignHint}</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="f-starts">{t.startsLabel}</Label>
+              <Input
+                id="f-starts"
+                type="date"
+                value={form.startsAt ?? ""}
+                onChange={(e) => set("startsAt", e.target.value || null)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="f-ends">{t.endsLabel}</Label>
+              <Input
+                id="f-ends"
+                type="date"
+                value={form.endsAt ?? ""}
+                onChange={(e) => set("endsAt", e.target.value || null)}
+              />
+            </div>
+          </div>
         </div>
 
         {/* The hours the sale runs — the whole point, so required. */}
