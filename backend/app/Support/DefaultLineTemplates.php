@@ -87,6 +87,8 @@ class DefaultLineTemplates
             ['type' => 'infoRow', 'label' => 'สาขา', 'value' => '{{branchName}}'],
             ['type' => 'divider'],
             ['type' => 'infoRow', 'label' => 'วิธีชำระ', 'value' => '{{paymentMethod}}'],
+            // Only shows when a discount applied — the renderer drops a blank row.
+            ['type' => 'infoRow', 'label' => '{{discountLabel}}', 'value' => '{{discountValue}}', 'color' => '#D97706'],
             ['type' => 'infoRow', 'label' => 'ยอดรวม', 'value' => '{{amount}} บาท', 'color' => $accent],
             ['type' => 'divider'],
             ['type' => 'text', 'text' => 'ยืนยันการจองเรียบร้อยแล้ว ขอบคุณที่ใช้บริการ 🎾', 'size' => 'sm', 'align' => 'center', 'color' => '#8A8A8A'],

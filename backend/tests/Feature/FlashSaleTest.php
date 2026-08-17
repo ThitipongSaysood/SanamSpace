@@ -173,6 +173,26 @@ class FlashSaleTest extends TestCase
         $this->assertNull($outOfSale['salePrice']);
     }
 
+    public function test_the_line_receipt_carries_the_discount_only_when_there_is_one(): void
+    {
+        $this->afternoonSale();
+        $court = $this->court();
+        $vars = app(\App\Support\BookingLineVars::class);
+
+        $onSale = $this->book($this->customerToken('Ur1'), $court['id'], '14:00', '15:00')->json('data');
+        $v = $vars->forBooking(Booking::find($onSale['id']));
+        $this->assertStringStartsWith('⚡', $v['discountLabel']);
+        $this->assertStringContainsString('-', $v['discountValue']);
+
+        // A full-price booking leaves the discount vars blank, so the receipt's
+        // discount row drops itself.
+        $this->app['auth']->forgetGuards();
+        $full = $this->book($this->customerToken('Ur2'), $court['id'], '18:00', '19:00')->json('data');
+        $v2 = $vars->forBooking(Booking::find($full['id']));
+        $this->assertSame('', $v2['discountLabel']);
+        $this->assertSame('', $v2['discountValue']);
+    }
+
     public function test_an_inactive_sale_does_nothing(): void
     {
         $this->afternoonSale(['is_active' => false]);

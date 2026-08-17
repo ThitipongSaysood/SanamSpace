@@ -43,6 +43,10 @@ class BookingLineVars
             'date' => $this->thaiDate($booking->date),
             'time' => trim((string) $booking->start.'-'.(string) $booking->end, '-'),
             'duration' => $this->duration($booking->start, $booking->end),
+            // Blank when nothing came off — the receipt's discount row then drops
+            // itself (the renderer removes a fully-blank infoRow).
+            'discountLabel' => (string) ((float) $booking->discount_amount > 0 ? ($booking->discount_label ?? 'ส่วนลด') : ''),
+            'discountValue' => (float) $booking->discount_amount > 0 ? '-'.$this->money((float) $booking->discount_amount).' บาท' : '',
             'amount' => $this->money((float) $booking->amount),
             'paymentMethod' => $method ? (self::METHOD_LABEL[$method] ?? $method) : '',
             'creditUsed' => $paidByCredit ? $this->money($paidAmount) : '',

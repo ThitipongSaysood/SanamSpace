@@ -117,16 +117,26 @@ class LineFlexRenderer
     }
 
     /** @param array<string,mixed> $b @param array<string,string|int|float|null> $vars */
-    private function infoRow(array $b, array $vars): array
+    private function infoRow(array $b, array $vars): ?array
     {
+        $label = $this->sub($b['label'] ?? '', $vars);
+        $value = $this->sub($b['value'] ?? '', $vars);
+
+        // A row whose label AND value both resolve blank is noise — drop it, so
+        // a conditional line (e.g. a discount only some bookings have) can sit
+        // in the default template and simply vanish when its vars are empty.
+        if ($label === '' && $value === '') {
+            return null;
+        }
+
         $color = (! empty($b['color']) && $this->isHex($b['color'])) ? $b['color'] : '#111111';
 
         return [
             'type' => 'box',
             'layout' => 'horizontal',
             'contents' => [
-                ['type' => 'text', 'text' => $this->sub($b['label'] ?? '', $vars) ?: ' ', 'size' => 'sm', 'color' => '#8A8A8A', 'flex' => 0, 'wrap' => true],
-                ['type' => 'text', 'text' => $this->sub($b['value'] ?? '', $vars) ?: ' ', 'size' => 'sm', 'color' => $color, 'align' => 'end', 'weight' => 'bold', 'wrap' => true],
+                ['type' => 'text', 'text' => $label ?: ' ', 'size' => 'sm', 'color' => '#8A8A8A', 'flex' => 0, 'wrap' => true],
+                ['type' => 'text', 'text' => $value ?: ' ', 'size' => 'sm', 'color' => $color, 'align' => 'end', 'weight' => 'bold', 'wrap' => true],
             ],
         ];
     }
