@@ -10,7 +10,7 @@
 - **Git remote**: https://github.com/ThitipongSaysood/SanamSpace.git
 - **Branch**: main
 - **Bootstrapped**: 2026-06-12
-- **Last agent**: Claude (Opus 4.8) — 2026-08-14
+- **Last agent**: Claude (Opus 4.8) — 2026-08-17
 
 ## Rules for AI assistants
 
@@ -93,6 +93,17 @@ This is how `reviews.sort_order` was caught: declared `unsignedInteger`, written
 stored -1 happily and all tests passed; MySQL raises `SQLSTATE[22003] 1264`, so **every customer
 review would have 500'd in production**. Watch for unsigned columns receiving computed negatives,
 GETs that answer 201 because the model was created during the request, and column-length truncation.
+
+**A staff FK must match `users.id`, which is a bigint (`$table->id()`) — not a uuid.** Org/customer
+keys are uuid, so a `users`-referencing column copy-pasted as `uuid` stores fine on SQLite (typeless)
+but MySQL rejects the FK as an incompatible type and `migrate:fresh` dies there — the whole app then
+can't migrate on MySQL. Declare it `unsignedBigInteger` (see `pos_tables.sold_by`, roles `user_id`).
+This is exactly how `customer_notes.author_id` was caught (2026-08-17).
+
+**After adding a migration, run `php artisan migrate` on the dev SQLite DB** (non-destructive — it only
+adds the new tables; it does NOT sign anyone out like `migrate:fresh`). Tests use RefreshDatabase, so a
+new table can exist in tests yet be missing from the running dev DB — the screen then 500s with
+"เกิดข้อผิดพลาด" / "no such table".
 
 ### Auth: a token that exists is not a token that works
 The portal layouts only check that a token is *present*. A token that is present but dead — expired,

@@ -1,6 +1,38 @@
 # Active Task
 
-_Last updated: 2026-08-15 (~18:05) · Last agent: Claude (Opus 5)_
+_Last updated: 2026-08-17 (~18:30) · Last agent: Claude (Opus 4.8)_
+
+## ✅ Done 2026-08-17 (~18:30) — Flash Sale (whole feature) + a MySQL FK bug fix
+
+**Current Task:** Build Flash Sale end-to-end — a venue schedules a time-windowed court discount that applies
+itself; the customer sees it on the booking grid and pays the lower amount; it shows on the LINE receipt +
+booking detail.
+
+**Status:** ✅ Complete (6b deferred by choice). **9 commits `59aa9b3`→`ca0d9da`, PUSHED to `main`.**
+Backend **749/749**, frontend **66/66**, tsc/eslint clean. Full `migrate:fresh` + 64 tests green on **MySQL**.
+
+**What's Done:**
+- **White-label** `fix(app)` — customer promotions page + BrandLogo show the venue's own sport, not a fixed 🏸.
+- **Flash Sale** (`FlashSale`+`FlashSaleScope` models/migration, `FlashSaleService` per-hour best-wins into
+  `DiscountService`, `bookings.flash_sale_id` snapshot): schedule marks each hour `onSale`+`salePrice`; grid
+  shows a **"-20%" pill** + struck price; booking total is best-wins (flash/coupon never stack); owner CRUD +
+  "Flash Sale" tab/panel (percent/fixed, window, weekday, campaign dates, branch/court scope); LINE receipt
+  discount line (drops itself at full price); booking detail shows it via the shared snapshot (no new code).
+  The ⚡ glyph was removed everywhere per request (amber + "-20%" carry the signal).
+- **`fix(db)`** — pre-existing MySQL blocker: `customer_notes`/`customer_tasks` staff FKs were `uuid` but
+  reference `users.id` (bigint). Fixed → the whole app can migrate on MySQL again.
+
+**Blockers:** None.
+
+**Next Steps:**
+- **Phase 6b (owner LINE alert on new slip) deferred** — owners have no LINE id (email login); needs a LINE
+  webhook to capture their userId/group first. Separate feature. In-app slip alert covers it meanwhile.
+- **Gotchas logged:** (1) a staff FK must be `bigint` not `uuid` (users.id is bigint) — SQLite hides the
+  mismatch, MySQL rejects it. (2) run `php artisan migrate` on the dev SQLite DB after adding a migration
+  (tests use RefreshDatabase, so the dev DB lags and pages 500 with "no such table").
+- Still open: `npm audit fix`; branch-scope the rest (operations/slip-review/customers/POS/checkin); P3 ops
+  (Sentry/monitoring/backup verify); `.codex/agents/*.toml` stale routes; `docs/pricing.md` vs `plans`.
+- Full detail: `.agents/sessions/2026-08-17-1830-flash-sale-and-mysql-fk-fix.md`.
 
 ## ✅ Done 2026-08-15 (~17:40) — white-label customer surfaces, per-branch owner scope, security skill
 
